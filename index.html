@@ -71,7 +71,7 @@ input, textarea, select { font: inherit; color: inherit; }
   --disc-photo-freestyle: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135529_588ca873-6981-47c1-9714-77a9c038161f.png');
   --disc-photo-backstroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135538_f4fc383d-d889-4812-80cb-adb065ed9d72.png');
   --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
-  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161739_8b8d9be5-3862-440d-b41c-3b26da3dfb34.png');
+  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_171031_b11e81b1-a255-4ada-817e-c991e150623a.png');
   --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
   --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
   --community-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141435_a1fd3c33-2b99-4de9-8da5-848a94a5061c.png');
@@ -579,6 +579,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .post-time { color: var(--muted-2); font-size: 0.8rem; }
 .post-body { color: var(--fg); font-size: 0.96rem; }
 .post-tag { margin-top: var(--space-2); }
+.post-new { border-color: var(--green); box-shadow: 0 0 0 3px rgba(31,163,90,0.22); transition: transform var(--dur) var(--ease), border-color 900ms var(--ease), box-shadow 1400ms var(--ease); }
 
 .post-image { margin-top: var(--space-3); border-radius: var(--radius-sm); height: 220px; background-size: cover; background-position: center; overflow: hidden; }
 
@@ -591,6 +592,46 @@ section { position: relative; scroll-margin-top: 96px; }
 .post-video-attach .post-video-thumb .icon { width: 18px; height: 18px; color: #fff; }
 .post-video-attach .post-video-title { font-weight: 600; font-size: 0.92rem; }
 .post-video-attach .post-video-sub { color: var(--muted-2); font-size: 0.78rem; }
+
+/* ============================= SWIMMER DASHBOARD / PROFILE ============================= */
+.profile-lookup { max-width: 720px; margin: 0 auto var(--space-6); }
+.profile-lookup-row { display: flex; align-items: flex-end; gap: var(--space-3); }
+.profile-lookup-row .profile-field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.profile-lookup-row .profile-field input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75em 0.9em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
+.profile-lookup-row .profile-field input:focus { border-color: var(--aqua); }
+.profile-hint { margin-top: var(--space-3); font-size: 0.85rem; color: var(--muted-2); }
+.chip-link { background: none; border: none; color: var(--aqua); font: inherit; cursor: pointer; padding: 0 4px; text-decoration: underline; text-underline-offset: 3px; }
+.chip-link:hover { color: var(--green-bright); }
+
+.profile-header-card { display: flex; align-items: center; gap: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-5); }
+.avatar-lg { width: 62px; height: 62px; font-size: 1.4rem; }
+.profile-header-card h3 { font-size: 1.4rem; text-transform: uppercase; margin-bottom: 4px; }
+.profile-meta { display: flex; align-items: center; gap: var(--space-3); color: var(--muted-2); font-size: 0.86rem; }
+
+#profileStatsGrid { margin-bottom: var(--space-6); }
+.profile-stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin-bottom: 6px; }
+.profile-stat-value { font-family: var(--font-display); font-size: 1.7rem; }
+
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-6); }
+.profile-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); }
+.muted-note { color: var(--muted-2); font-size: 0.84rem; margin-bottom: var(--space-4); }
+@media (max-width: 780px) { .profile-grid { grid-template-columns: 1fr; } .profile-lookup-row { flex-direction: column; align-items: stretch; } }
+
+.energy-chart-svg { width: 100%; height: auto; overflow: visible; }
+.energy-chart-svg .chart-grid { stroke: var(--border); stroke-width: 1; }
+.energy-chart-svg .chart-line { fill: none; stroke: var(--aqua); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.energy-chart-svg .chart-dot { fill: var(--bg); stroke: var(--aqua); stroke-width: 2; }
+.energy-chart-svg .chart-axis-label { fill: var(--muted-2); font-size: 9px; font-family: var(--font-body); }
+.profile-latest-row { display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.profile-latest-stat { flex: 1; text-align: center; }
+.profile-latest-stat strong { display: block; font-family: var(--font-display); font-size: 1.3rem; }
+.profile-latest-stat span { font-size: 0.76rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.profile-log-list-wrap h3 { margin-bottom: var(--space-3); }
+.profile-log-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.profile-log-row { display: grid; grid-template-columns: 110px 1fr 1fr 1fr; gap: var(--space-3); align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); font-size: 0.88rem; }
+.profile-log-row span:first-child { color: var(--muted-2); font-size: 0.8rem; }
+@media (max-width: 600px) { .profile-log-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } }
 
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
@@ -606,6 +647,8 @@ section { position: relative; scroll-margin-top: 96px; }
 .price-features li { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.94rem; }
 .price-features li .icon { color: var(--green-bright); width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
 .price-note { text-align: center; color: var(--muted-2); font-size: 0.85rem; margin-top: var(--space-5); }
+.price-locked { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.82rem; color: var(--muted-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); }
+.price-locked .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: var(--muted-2); }
 @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; } }
 
 /* ============================= FAQ ============================= */
@@ -728,6 +771,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <li><button type="button" data-tab="gear">Gear</button></li>
       <li><button type="button" data-tab="academy">Academy</button></li>
       <li><button type="button" data-tab="community">Community</button></li>
+      <li><button type="button" data-tab="profile">Profile</button></li>
       <li><button type="button" data-tab="pricing">Pricing</button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
@@ -1079,12 +1123,78 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       </div>
     </div>
 
+    <!-- ---------- PROFILE (SWIMMER DASHBOARD) ---------- -->
+    <div class="tab-panel" id="panel-profile">
+      <div class="section-head center">
+        <p class="eyebrow" style="justify-content:center">Your Training</p>
+        <h2>Swimmer Dashboard</h2>
+        <p>Look up a profile and log today's recovery metrics — your energy trend updates live.</p>
+      </div>
+
+      <div class="profile-lookup card" data-reveal>
+        <div class="profile-lookup-row">
+          <div class="profile-field" style="flex:1">
+            <label for="profileUsername">Username</label>
+            <input type="text" id="profileUsername" placeholder="e.g. alex, layla, omar — or type your own">
+          </div>
+          <button type="button" class="btn btn-primary" id="profileLoadBtn"><svg class="icon"><use href="#i-user"/></svg> Load Profile</button>
+        </div>
+        <p class="profile-hint">Try a demo: <button type="button" class="chip-link" data-demo-user="alex">alex</button><button type="button" class="chip-link" data-demo-user="layla">layla</button><button type="button" class="chip-link" data-demo-user="omar">omar</button> — or enter any new username to start your own profile.</p>
+      </div>
+
+      <div id="profileEmpty" class="result-empty" data-reveal>
+        <svg class="icon"><use href="#i-user"/></svg>
+        <p>Enter a username above and hit <strong>Load Profile</strong> to see personalized stats.</p>
+      </div>
+
+      <div id="profileView" style="display:none">
+        <div class="profile-header-card" data-reveal>
+          <span class="avatar avatar-lg" id="profileAvatar">—</span>
+          <div>
+            <h3 id="profileDisplayName">—</h3>
+            <div class="profile-meta"><span class="tag tag-green" id="profileLevel">—</span><span id="profileSince" class="profile-since"></span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-4" id="profileStatsGrid" data-reveal></div>
+
+        <div class="profile-grid">
+          <div class="card" data-reveal="left">
+            <h3 style="margin-bottom:4px">Log Today's Metrics</h3>
+            <p class="muted-note">Stored privately in this browser — used to personalize your pacing and recovery guidance.</p>
+            <div class="config-group">
+              <div class="config-label">Energy Level <span id="energyValue" style="color:var(--aqua)">6</span>/10</div>
+              <input type="range" id="energySlider" min="1" max="10" value="6" aria-label="Energy level 1 to 10">
+            </div>
+            <div class="profile-row-2">
+              <div class="profile-field"><label for="sleepHours">Sleep (hrs)</label><input type="number" id="sleepHours" min="0" max="14" step="0.5" placeholder="e.g. 7.5"></div>
+              <div class="profile-field"><label for="restingHr">Resting HR</label><input type="number" id="restingHr" min="30" max="120" placeholder="e.g. 58"></div>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" id="logMetricsBtn" style="margin-top:8px">
+              <svg class="icon"><use href="#i-heart-pulse"/></svg> Log Today's Metrics
+            </button>
+          </div>
+
+          <div class="card" data-reveal="right">
+            <h3>Energy Trend</h3>
+            <div id="energyChart"></div>
+            <div class="profile-latest-row" id="profileLatestRow"></div>
+          </div>
+        </div>
+
+        <div class="profile-log-list-wrap" data-reveal>
+          <h3>Recent Log Entries</h3>
+          <div id="profileLogList" class="profile-log-list"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ---------- PRICING ---------- -->
     <div class="tab-panel" id="panel-pricing">
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center">Membership</p>
         <h2>Simple Pricing, Serious Results</h2>
-        <p>Billed in AED. Cancel anytime. Secure sign-up and account management powered by MemberSpace.</p>
+        <p>Billed in AED. Cancel anytime. Secure sign-up and account management, fully hosted on Swimfit.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card" data-reveal>
@@ -1092,24 +1202,24 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           <div class="price-amount"><span class="num">49</span><span class="cur">AED</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
-            <li><svg class="icon"><use href="#i-check"/></svg> Full Beginner &amp; Competitive tracks</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Unlimited workout generator</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Stroke technique academy</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Dryland &amp; gym programming</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Community access</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Basic Swim Workouts (Beginner &amp; Competitive)</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Gym Focus dryland tracks</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Community feed access</li>
           </ul>
+          <p class="price-locked"><svg class="icon"><use href="#i-lock"/></svg> Technique Academy, video review and analytics require Elite</p>
           <a href="https://YOUR-SUBDOMAIN.memberspace.com/checkout?plan=PRO_PLAN_ID" class="btn btn-ghost btn-block">Join Pro</a>
         </div>
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
           <span class="price-tier">Elite</span>
-          <div class="price-amount"><span class="num">79</span><span class="cur">AED</span></div>
+          <div class="price-amount"><span class="num">99</span><span class="cur">AED</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
-            <li><svg class="icon"><use href="#i-check"/></svg> Everything in Pro</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Everything unlocked, full stop</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Elite high-performance tracks</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full Technique Academy library</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Personal video stroke reviews</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Advanced race-pace metrics</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Advanced race-pace analytics</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
           </ul>
           <a href="https://YOUR-SUBDOMAIN.memberspace.com/checkout?plan=ELITE_PLAN_ID" class="btn btn-primary btn-block">Join Elite</a>
@@ -1149,7 +1259,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         </details>
         <details class="faq-item">
           <summary>How does AED billing work?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">All plans are priced and billed directly in UAE Dirhams (AED) through our secure MemberSpace checkout — no currency conversion surprises.</div>
+          <div class="faq-body">All plans are priced and billed directly in UAE Dirhams (AED) through our secure checkout — no currency conversion surprises.</div>
         </details>
       </div>
     </div>
@@ -1183,6 +1293,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         <h4>Membership</h4>
         <ul>
           <li><button type="button" data-tab="pricing">Pricing</button></li>
+          <li><button type="button" data-tab="profile">Swimmer Dashboard</button></li>
           <li><a href="https://YOUR-SUBDOMAIN.memberspace.com/account" data-ms-member="logged-in">My Account</a></li>
           <li><a href="https://YOUR-SUBDOMAIN.memberspace.com/login" data-ms-member="logged-out">Sign In</a></li>
         </ul>
@@ -1199,7 +1310,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026 Swimfit. All rights reserved.</span>
-      <span><a href="mailto:SWIMFIT.ae@gmail.com" style="color:var(--aqua)">SWIMFIT.ae@gmail.com</a> &middot; Account &amp; billing powered by MemberSpace.</span>
+      <span><a href="mailto:SWIMFIT.ae@gmail.com" style="color:var(--aqua)">SWIMFIT.ae@gmail.com</a> &middot; Secure account &amp; billing management.</span>
     </div>
   </div>
 </footer>
@@ -1957,10 +2068,183 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var name = document.getElementById('cName').value.trim();
     var body = document.getElementById('cBody').value.trim();
     if (!name || !body) return;
-    comments.unshift({ type: 'text', name: name, body: body, time: 'Just now' });
+    var newPost = { type: 'text', name: name, body: body, time: 'Just now' };
+    comments.unshift(newPost);
     saveComments(comments);
-    renderComments();
+
+    var list = document.getElementById('commentList');
+    list.insertAdjacentHTML('afterbegin', renderPost(newPost));
+    var el = list.firstElementChild;
+    el.classList.add('post-new');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { el.classList.add('is-visible'); });
+    });
+    setTimeout(function () { el.classList.remove('post-new'); }, 2200);
+
+    var counters = document.querySelectorAll('.community-stats strong[data-count]');
+    var postsStat = counters[2];
+    if (postsStat) { postsStat.dataset.count = String(parseInt(postsStat.dataset.count, 10) + 1); postsStat.textContent = postsStat.dataset.count; }
+
     this.reset();
+    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  });
+
+  /* ============================= SWIMMER DASHBOARD ============================= */
+  var PROFILE_STORAGE_PREFIX = 'swimfit_profile_v1_';
+  var currentProfileUser = null;
+  var DEMO_PROFILES = {
+    alex: {
+      name: 'Alex Carter', level: 'Competitive', since: 'Member since Feb 2025',
+      pb50: '0:27.8', pb100: '1:02.4', weeklyVolume: '18km',
+      history: [
+        { date: '2026-07-08', energy: 7, sleep: 7.5, hr: 56 },
+        { date: '2026-07-10', energy: 6, sleep: 6.5, hr: 58 },
+        { date: '2026-07-12', energy: 8, sleep: 8, hr: 54 },
+        { date: '2026-07-14', energy: 5, sleep: 6, hr: 61 },
+        { date: '2026-07-16', energy: 7, sleep: 7, hr: 57 }
+      ]
+    },
+    layla: {
+      name: 'Layla Mansour', level: 'Elite', since: 'Member since Sep 2024',
+      pb50: '0:26.1', pb100: '0:58.9', weeklyVolume: '32km',
+      history: [
+        { date: '2026-07-07', energy: 8, sleep: 8, hr: 50 },
+        { date: '2026-07-10', energy: 6, sleep: 6, hr: 55 },
+        { date: '2026-07-13', energy: 9, sleep: 8.5, hr: 48 },
+        { date: '2026-07-16', energy: 7, sleep: 7, hr: 52 }
+      ]
+    },
+    omar: {
+      name: 'Omar Suleiman', level: 'Beginner', since: 'Member since Jun 2026',
+      pb50: '0:34.2', pb100: '1:18.0', weeklyVolume: '8km',
+      history: [
+        { date: '2026-07-11', energy: 5, sleep: 6, hr: 68 },
+        { date: '2026-07-14', energy: 6, sleep: 7, hr: 65 },
+        { date: '2026-07-17', energy: 6, sleep: 6.5, hr: 66 }
+      ]
+    }
+  };
+
+  function capitalizeUsername(u) { return u.charAt(0).toUpperCase() + u.slice(1); }
+
+  function loadProfile(username) {
+    try {
+      var raw = localStorage.getItem(PROFILE_STORAGE_PREFIX + username);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    var seed = DEMO_PROFILES[username];
+    if (seed) return JSON.parse(JSON.stringify(seed));
+    return { name: capitalizeUsername(username), level: 'Beginner', since: 'New member', pb50: '—', pb100: '—', weeklyVolume: '—', history: [] };
+  }
+  function saveProfile(username, profile) {
+    try { localStorage.setItem(PROFILE_STORAGE_PREFIX + username, JSON.stringify(profile)); } catch (e) {}
+  }
+
+  function renderProfileStats(p) {
+    var stats = [
+      { label: '50m Freestyle PB', value: p.pb50 },
+      { label: '100m Freestyle PB', value: p.pb100 },
+      { label: 'Weekly Volume', value: p.weeklyVolume },
+      { label: 'Training Level', value: p.level }
+    ];
+    return stats.map(function (s) {
+      return '<div class="card" data-reveal><div class="profile-stat-label">' + escapeHtml(s.label) + '</div><div class="profile-stat-value">' + escapeHtml(String(s.value)) + '</div></div>';
+    }).join('');
+  }
+
+  function buildEnergyChartSVG(history) {
+    if (!history.length) {
+      return '<p class="muted-note" style="margin:0">No entries logged yet — log today\'s metrics below to start your trend.</p>';
+    }
+    var w = 460, h = 160, padL = 22, padR = 12, padT = 14, padB = 22;
+    var plotW = w - padL - padR, plotH = h - padT - padB;
+    var n = history.length;
+    var points = history.map(function (entry, i) {
+      var x = n === 1 ? padL + plotW / 2 : padL + (plotW * i) / (n - 1);
+      var y = padT + plotH - (plotH * (entry.energy - 1)) / 9;
+      return { x: x, y: y, entry: entry };
+    });
+    var linePath = points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+    var gridLines = [1, 5, 10].map(function (v) {
+      var y = padT + plotH - (plotH * (v - 1)) / 9;
+      return '<line class="chart-grid" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '"/><text class="chart-axis-label" x="2" y="' + (y + 3).toFixed(1) + '">' + v + '</text>';
+    }).join('');
+    var dots = points.map(function (p) {
+      return '<circle class="chart-dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4"><title>' + escapeHtml(p.entry.date) + ': Energy ' + p.entry.energy + '/10</title></circle>';
+    }).join('');
+    var labelStep = Math.max(1, Math.ceil(n / 6));
+    var xLabels = points.filter(function (_, i) { return i % labelStep === 0 || i === n - 1; }).map(function (p) {
+      return '<text class="chart-axis-label" x="' + p.x.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle">' + escapeHtml(p.entry.date.slice(5)) + '</text>';
+    }).join('');
+    return '<svg class="energy-chart-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Energy level trend over time">' +
+      gridLines + '<path class="chart-line" d="' + linePath + '"/>' + dots + xLabels + '</svg>';
+  }
+
+  function renderLatestRow(history) {
+    if (!history.length) return '';
+    var latest = history[history.length - 1];
+    return '<div class="profile-latest-stat"><strong>' + (latest.sleep != null ? latest.sleep + 'h' : '—') + '</strong><span>Last Sleep</span></div>' +
+      '<div class="profile-latest-stat"><strong>' + (latest.hr != null ? latest.hr : '—') + '</strong><span>Resting HR</span></div>' +
+      '<div class="profile-latest-stat"><strong>' + latest.energy + '/10</strong><span>Last Energy</span></div>';
+  }
+
+  function renderLogList(history) {
+    if (!history.length) return '<p class="muted-note">No entries yet — log your first check-in above.</p>';
+    return history.slice().reverse().slice(0, 6).map(function (e) {
+      return '<div class="profile-log-row"><span>' + escapeHtml(e.date) + '</span><span>Energy ' + e.energy + '/10</span><span>Sleep ' + (e.sleep != null ? e.sleep + 'h' : '—') + '</span><span>Resting HR ' + (e.hr != null ? e.hr : '—') + '</span></div>';
+    }).join('');
+  }
+
+  function renderProfileView(username) {
+    var p = loadProfile(username);
+    currentProfileUser = username;
+    document.getElementById('profileEmpty').style.display = 'none';
+    var view = document.getElementById('profileView');
+    view.style.display = 'block';
+    document.getElementById('profileAvatar').textContent = initials(p.name);
+    document.getElementById('profileDisplayName').textContent = p.name;
+    document.getElementById('profileLevel').textContent = p.level;
+    document.getElementById('profileSince').textContent = p.since;
+    document.getElementById('profileStatsGrid').innerHTML = renderProfileStats(p);
+    document.getElementById('energyChart').innerHTML = buildEnergyChartSVG(p.history);
+    document.getElementById('profileLatestRow').innerHTML = renderLatestRow(p.history);
+    document.getElementById('profileLogList').innerHTML = renderLogList(p.history);
+
+    var toReveal = view.querySelectorAll('[data-reveal]');
+    if (io) toReveal.forEach(function (el) { io.observe(el); });
+    else toReveal.forEach(function (el) { el.classList.add('is-visible'); });
+  }
+
+  document.getElementById('profileLoadBtn').addEventListener('click', function () {
+    var input = document.getElementById('profileUsername').value.trim().toLowerCase().replace(/\s+/g, '');
+    if (!input) return;
+    renderProfileView(input);
+  });
+  document.getElementById('profileUsername').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('profileLoadBtn').click(); }
+  });
+  document.querySelectorAll('[data-demo-user]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('profileUsername').value = btn.dataset.demoUser;
+      renderProfileView(btn.dataset.demoUser);
+    });
+  });
+  var energySlider = document.getElementById('energySlider');
+  energySlider.addEventListener('input', function () { document.getElementById('energyValue').textContent = energySlider.value; });
+
+  document.getElementById('logMetricsBtn').addEventListener('click', function () {
+    if (!currentProfileUser) return;
+    var p = loadProfile(currentProfileUser);
+    var today = new Date().toISOString().slice(0, 10);
+    var energy = parseInt(energySlider.value, 10);
+    var sleepRaw = parseFloat(document.getElementById('sleepHours').value);
+    var hrRaw = parseInt(document.getElementById('restingHr').value, 10);
+    p.history = p.history.filter(function (e) { return e.date !== today; });
+    p.history.push({ date: today, energy: energy, sleep: isNaN(sleepRaw) ? null : sleepRaw, hr: isNaN(hrRaw) ? null : hrRaw });
+    saveProfile(currentProfileUser, p);
+    renderProfileView(currentProfileUser);
+    document.getElementById('sleepHours').value = '';
+    document.getElementById('restingHr').value = '';
   });
 
   /* ============================= REVEAL ON SCROLL ============================= */
@@ -2002,7 +2286,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   MemberSpace setup:
   1. Replace every "YOUR-SUBDOMAIN" above with your MemberSpace account subdomain.
   2. Replace PRO_PLAN_ID / ELITE_PLAN_ID / ULTRA_PLAN_ID with the plan IDs from your MemberSpace dashboard
-     (Settings -> Plans), matching PRO (49 AED/mo), ELITE (79 AED/mo) and ULTRA (499 AED/yr).
+     (Settings -> Plans), matching PRO (49 AED/mo), ELITE (99 AED/mo) and ULTRA (499 AED/yr).
   3. Paste your MemberSpace embed script (from MemberSpace > Installation) just before </body> —
      it will automatically show/hide any element with a data-ms-member="logged-in" / "logged-out"
      attribute and intercept the login/checkout links above.
