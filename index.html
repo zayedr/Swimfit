@@ -73,6 +73,8 @@ input, textarea, select { font: inherit; color: inherit; }
   --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
   --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135540_d5ca6f54-722b-4921-8b6c-0b5a4e10ffc4.png');
   --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
+  --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
+  --community-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141435_a1fd3c33-2b99-4de9-8da5-848a94a5061c.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -237,7 +239,26 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-wave-2 { opacity: 0.06; animation: waveDrift 30s linear infinite reverse; }
 @keyframes waveDrift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
+/* Water-ripple rings — a droplet-style pulse to reinforce the "in the water" feel */
+.hero-ripples { position: absolute; z-index: -1; pointer-events: none; }
+.hero-ripples.r1 { top: 16%; left: 84%; }
+.hero-ripples.r2 { top: 78%; left: 90%; }
+.hero-ripple { position: absolute; inset: 0; width: 90px; height: 90px; margin: -45px; border-radius: 50%; border: 1px solid var(--aqua); opacity: 0; animation: rippleOut 6s ease-out infinite; }
+.hero-ripple:nth-child(2) { animation-delay: 2s; }
+.hero-ripple:nth-child(3) { animation-delay: 4s; }
+@keyframes rippleOut {
+  0%   { transform: scale(0.4); opacity: 0; }
+  15%  { opacity: 0.35; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
 .hero-content { max-width: 780px; }
+/* Staggered load-in cascade for the hero copy (child 1 is the eyebrow, which has
+   no data-reveal, so the four revealed elements land on nth-child 2-5). */
+.hero-content > [data-reveal]:nth-child(2) { transition-delay: 60ms; }
+.hero-content > [data-reveal]:nth-child(3) { transition-delay: 200ms; }
+.hero-content > [data-reveal]:nth-child(4) { transition-delay: 340ms; }
+.hero-content > [data-reveal]:nth-child(5) { transition-delay: 480ms; }
 .hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-4); }
 .hero-content h1 .accent {
   background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
@@ -299,6 +320,14 @@ section { position: relative; scroll-margin-top: 96px; }
 .discipline-card h3 { font-size: 1.3rem; text-transform: uppercase; margin-bottom: var(--space-1); }
 .discipline-card p { color: var(--muted); font-size: 0.94rem; }
 
+/* Reusable photo banner for tab headers (Gym, Community) */
+.tab-banner {
+  height: 190px; border-radius: var(--radius-lg); margin-bottom: var(--space-6);
+  background-image: linear-gradient(100deg, rgba(7,11,10,0.88) 10%, rgba(7,11,10,0.35) 60%, rgba(7,19,17,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-size: cover; background-position: center;
+  border: 1px solid var(--border);
+}
+
 /* ============================= PILL TABS (level / focus / goal selectors) ============================= */
 .pill-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); background: var(--bg-alt); padding: 6px; border-radius: 999px; }
 .pill-tab { padding: 0.55em 1.1em; border-radius: 999px; font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.85rem; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
@@ -334,6 +363,12 @@ section { position: relative; scroll-margin-top: 96px; }
   width: 22px; height: 22px; border-radius: 50%; background: var(--aqua); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--aqua);
 }
 .slider-value { font-family: var(--font-display); font-size: 1.4rem; min-width: 84px; text-align: right; color: var(--green-bright); }
+
+.profile-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
+.profile-field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.profile-field input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65em 0.8em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
+.profile-field input:focus { border-color: var(--aqua); }
+@media (max-width: 480px) { .profile-row { grid-template-columns: 1fr; } }
 
 .equipment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
 .equip-check {
@@ -401,15 +436,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
 
 /* ============================= GEAR ============================= */
-.gear-card { text-align: center; }
-.gear-card .icon-tile { margin-inline: auto; width: 64px; height: 64px; }
-.gear-card .icon-tile .icon { width: 32px; height: 32px; }
-.gear-card h3 { font-size: 1.1rem; text-transform: uppercase; margin: var(--space-2) 0; }
+.gear-card { text-align: center; padding: 0; overflow: hidden; }
+.gear-photo { height: 120px; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; justify-content: center; }
+.gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,11,10,0.05), rgba(16,26,25,0.96)); }
+.gear-photo .icon-tile { position: relative; z-index: 1; transform: translateY(45%); margin: 0; width: 64px; height: 64px; }
+.gear-photo .icon-tile .icon { width: 32px; height: 32px; }
+.gear-body { padding: var(--space-6) var(--space-4) var(--space-5); }
+.gear-card h3 { font-size: 1.1rem; text-transform: uppercase; margin: 0 0 var(--space-2); }
 .gear-card p { color: var(--muted); font-size: 0.88rem; }
 
 /* ============================= VIDEO ============================= */
 .video-card { padding: 0; overflow: hidden; }
-.video-thumb { position: relative; aspect-ratio: 16/10; background: linear-gradient(135deg, var(--green-deep), var(--maroon-deep)); display: flex; align-items: center; justify-content: center; }
+.video-thumb { position: relative; aspect-ratio: 16/10; background-color: var(--green-deep); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; }
 .video-thumb .play-btn { width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; transition: transform var(--dur) var(--ease), background var(--dur) var(--ease); }
 .video-card:hover .play-btn { transform: scale(1.1); background: var(--green); color: var(--on-green); }
 .video-thumb .play-btn .icon { width: 20px; height: 20px; margin-left: 3px; }
@@ -551,6 +589,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 12h4l1.5-4L11 17l2-9 1.5 4H22"/></symbol>
 <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></symbol>
 <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
 <symbol id="i-quote" viewBox="0 0 24 24"><path d="M7 8c-2.2 0-4 2-4 5s1.8 4.6 3.6 4c1-.4.9-1.8 0-2.6-1-.2-1.8-1.2-1-3 .5-1 1.6-2 3-2"/><path d="M17 8c-2.2 0-4 2-4 5s1.8 4.6 3.6 4c1-.4.9-1.8 0-2.6-1-.2-1.8-1.2-1-3 .5-1 1.6-2 3-2"/></symbol>
 <symbol id="i-insta" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></symbol>
 <symbol id="i-yt" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></symbol>
@@ -621,6 +660,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     <svg viewBox="0 0 1440 120" preserveAspectRatio="none" class="hero-wave hero-wave-1"><path d="M0,60 C240,10 480,110 720,60 C960,10 1200,110 1440,60 L1440,120 L0,120 Z" fill="var(--aqua)"/></svg>
     <svg viewBox="0 0 1440 120" preserveAspectRatio="none" class="hero-wave hero-wave-2"><path d="M0,70 C240,120 480,20 720,70 C960,120 1200,20 1440,70 L1440,120 L0,120 Z" fill="var(--green)"/></svg>
   </div>
+
+  <div class="hero-ripples r1" aria-hidden="true"><div class="hero-ripple"></div><div class="hero-ripple"></div><div class="hero-ripple"></div></div>
+  <div class="hero-ripples r2" aria-hidden="true"><div class="hero-ripple"></div><div class="hero-ripple"></div><div class="hero-ripple"></div></div>
 
   <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
 
@@ -694,6 +736,24 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <div class="generator">
         <div class="config-card" data-reveal="left">
           <div class="config-group">
+            <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
+            <div class="profile-row">
+              <div class="profile-field">
+                <label for="swimmerAge">Age</label>
+                <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
+              </div>
+              <div class="profile-field">
+                <label for="pb50">50m Freestyle PB</label>
+                <input type="text" id="pb50" placeholder="0:28" inputmode="numeric">
+              </div>
+              <div class="profile-field">
+                <label for="pb100">100m Freestyle PB</label>
+                <input type="text" id="pb100" placeholder="1:05" inputmode="numeric">
+              </div>
+            </div>
+          </div>
+
+          <div class="config-group">
             <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline</div>
             <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline"></div>
           </div>
@@ -752,6 +812,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     <!-- ---------- GYM (focus selector) ---------- -->
     <div class="tab-panel" id="panel-gym">
+      <div class="tab-banner" style="--photo: var(--gym-photo)" data-reveal></div>
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> Dryland &amp; Strength</p>
         <h2>What Are You Training Today?</h2>
@@ -788,6 +849,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     <!-- ---------- COMMUNITY ---------- -->
     <div class="tab-panel" id="panel-community">
+      <div class="tab-banner" style="--photo: var(--community-photo)" data-reveal></div>
       <div class="section-head">
         <p class="eyebrow">Swim Squad</p>
         <h2>Community &amp; Feedback</h2>
@@ -1016,16 +1078,16 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   /* ============================= DATA: GEAR ============================= */
   var GEAR = [
-    { key: 'fins', icon: 'i-fin', name: 'Fins', desc: 'Builds ankle flexibility, kick power and body position.' },
-    { key: 'kickboard', icon: 'i-board', name: 'Kickboard', desc: 'Isolates the kick for pure leg-drive strength work.' },
-    { key: 'buoy', icon: 'i-buoy', name: 'Pull Buoy', desc: 'Removes the kick to focus on pull and upper-body pace.' },
-    { key: 'paddles', icon: 'i-paddle', name: 'Hand Paddles', desc: 'Adds resistance to sharpen catch and pull strength.' },
-    { key: 'snorkel', icon: 'i-snorkel', name: 'Snorkel', desc: 'Removes breathing so you can lock in on head position and technique.' }
+    { key: 'fins', icon: 'i-fin', name: 'Fins', desc: 'Builds ankle flexibility, kick power and body position.', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141436_78b5d2ee-83de-4bc5-956b-cc4b78eec4b0.png' },
+    { key: 'kickboard', icon: 'i-board', name: 'Kickboard', desc: 'Isolates the kick for pure leg-drive strength work.', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141438_535f91a4-ddae-4189-b1df-6e05ab5ec952.png' },
+    { key: 'buoy', icon: 'i-buoy', name: 'Pull Buoy', desc: 'Removes the kick to focus on pull and upper-body pace.', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141439_b63b9d49-5127-424b-882b-179ba30fad2a.png' },
+    { key: 'paddles', icon: 'i-paddle', name: 'Hand Paddles', desc: 'Adds resistance to sharpen catch and pull strength.', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141440_698a6d47-be6b-4c59-b222-6e4c67793c79.png' },
+    { key: 'snorkel', icon: 'i-snorkel', name: 'Snorkel', desc: 'Removes breathing so you can lock in on head position and technique.', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141441_7a5587b2-4b44-4e61-951d-7a43b401769a.png' }
   ];
   document.getElementById('gearGrid').innerHTML = GEAR.map(function (g) {
     return '<article class="card gear-card" data-reveal>' +
-      '<div class="icon-tile green">' + icon(g.icon) + '</div>' +
-      '<h3>' + g.name + '</h3><p>' + g.desc + '</p>' +
+      '<div class="gear-photo" style="background-image:url(\'' + g.photo + '\')"><div class="icon-tile green">' + icon(g.icon) + '</div></div>' +
+      '<div class="gear-body"><h3>' + g.name + '</h3><p>' + g.desc + '</p></div>' +
       '</article>';
   }).join('');
   var GEAR_ICON = {};
@@ -1033,16 +1095,16 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   /* ============================= DATA: VIDEOS ============================= */
   var VIDEOS = [
-    { title: 'Freestyle: Catch & High-Elbow Pull', level: 'All Levels', duration: '6:20' },
-    { title: 'Backstroke: Body Rotation Drill', level: 'Beginner', duration: '4:45' },
-    { title: 'Butterfly: Undulation Timing', level: 'Competitive', duration: '7:10' },
-    { title: 'Breaststroke: Whip-Kick Breakdown', level: 'All Levels', duration: '5:35' },
-    { title: 'Race Starts & Turns', level: 'Competitive', duration: '8:05' },
-    { title: 'IM Transitions Under Fatigue', level: 'Elite', duration: '9:40' }
+    { title: 'Freestyle: Catch & High-Elbow Pull', level: 'All Levels', duration: '6:20', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141447_6a4634df-9fd3-46b6-9938-bcf18daad45c.png' },
+    { title: 'Backstroke: Body Rotation Drill', level: 'Beginner', duration: '4:45', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141448_c539e83c-bb8d-4ac0-a62a-5498e10863aa.png' },
+    { title: 'Butterfly: Undulation Timing', level: 'Competitive', duration: '7:10', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141449_3571dde4-437d-4c85-819e-f3ede51de114.png' },
+    { title: 'Breaststroke: Whip-Kick Breakdown', level: 'All Levels', duration: '5:35', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141451_78a8270c-9930-4061-a01d-2aa0da93b0a7.png' },
+    { title: 'Race Starts & Turns', level: 'Competitive', duration: '8:05', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141452_a4800488-12db-40c9-b54c-48a9eb6fcf34.png' },
+    { title: 'IM Transitions Under Fatigue', level: 'Elite', duration: '9:40', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141453_30c867c8-d376-47f3-a188-f415397d1bdc.png' }
   ];
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="background-image:linear-gradient(180deg, rgba(7,11,10,0.15), rgba(7,11,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">' + v.duration + '</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
   }).join('');
@@ -1159,6 +1221,26 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return base + levelAdj;
   }
 
+  function parseTimeToSeconds(str) {
+    if (!str) return null;
+    str = str.trim();
+    if (!str) return null;
+    var parts = str.split(':');
+    var sec;
+    if (parts.length === 2) sec = (+parts[0]) * 60 + (+parts[1]);
+    else sec = +parts[0];
+    return isFinite(sec) && sec > 0 ? sec : null;
+  }
+
+  function personalPaceFromPB(pb50Sec, pb100Sec, goalKey) {
+    var racePace100;
+    if (pb100Sec) racePace100 = pb100Sec;
+    else if (pb50Sec) racePace100 = pb50Sec * 2 + 3; // + ~3s for the extra turn/fatigue over the second 50
+    else return null;
+    var goalOffset = { speed: 3, endurance: 12, technique: 15 }[goalKey];
+    return racePace100 + goalOffset;
+  }
+
   function strokeLabel(discipline) {
     return discipline === 'Individual Medley' ? 'IM (Fly–Back–Breast–Free order)' : discipline;
   }
@@ -1208,8 +1290,17 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   function generateWorkout() {
     var scaler = LEVEL_SCALERS[state.level];
-    var pace100 = paceSecondsPer100(state.goal, state.level);
+
+    var age = parseInt(document.getElementById('swimmerAge').value, 10);
+    var pb50Sec = parseTimeToSeconds(document.getElementById('pb50').value);
+    var pb100Sec = parseTimeToSeconds(document.getElementById('pb100').value);
+    var personalPace = personalPaceFromPB(pb50Sec, pb100Sec, state.goal);
+    var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goal, state.level);
+
     var totalM = state.distance;
+    var ageCapApplied = false;
+    if (age && age < 12 && totalM > 2000) { totalM = 2000; ageCapApplied = true; }
+
     var stroke = strokeLabel(state.discipline);
     var warmupM = Math.round((totalM * 0.12) / 100) * 100 || 200;
     var mainM = Math.round((totalM * 0.68) / 100) * 100;
@@ -1243,9 +1334,15 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.sets); }).join('') +
       renderBlock('Cool-Down', cooldown);
 
-    var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:24px;">' +
+    var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + stroke + ' · ' + (totalM >= 4000 ? '4km+' : (totalM / 1000) + 'km') + ' · ' +
       GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note + '</p>';
+
+    scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.88rem; margin-bottom:24px;">' +
+      (personalPace != null
+        ? 'Pace personalized from your ' + (pb100Sec ? '100m' : '50m') + ' Freestyle PB (' + formatTime(pb100Sec || pb50Sec) + ') — target ' + formatTime(pace100) + '/100m.'
+        : 'Add your 50m or 100m Freestyle PB above for pacing calculated from your own times.') +
+      (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
     if (state.level === 'elite') {
       html += '<div class="member-gate" data-ms-member="logged-out">' + icon('i-lock') +
