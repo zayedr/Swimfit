@@ -1264,6 +1264,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   </div>
 </div>
 
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1459,25 +1460,48 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
 
-  /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle checkout) =============================
-     Replace each REPLACE_WITH_PADDLE_* value with the real Paddle checkout link for that plan
-     (Paddle dashboard -> Checkout -> Checkout Links, or a Paddle.js price_id if you switch to
-     an in-page overlay checkout instead of a hosted link). */
-  var PADDLE_CHECKOUT_URLS = {
-    pro: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_PRO',
-    elite: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_ELITE',
-    ultra: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_ULTRA'
+  /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle Billing checkout) =============================
+     IDs below are Paddle PRODUCT ids (pro_...). Paddle.Checkout.open() needs the PRICE id
+     (pri_..., the specific monthly/annual price under that product) — open each product in the
+     Paddle dashboard and swap in its Price id if these don't work as-is.
+     Also replace REPLACE_WITH_PADDLE_CLIENT_TOKEN with your Paddle client-side token
+     (Paddle dashboard -> Developer Tools -> Authentication -> Client-side tokens — this is the
+     public token, safe to expose in frontend code; never put a Paddle API key/secret here). */
+  var PADDLE_CLIENT_TOKEN = 'REPLACE_WITH_PADDLE_CLIENT_TOKEN';
+  var PADDLE_PRICE_IDS = {
+    pro: 'pro_01kxvepbgps1gw1w5qmt45hev6',
+    elite: 'pro_01kxvet9dy5deg86r4xe16yb5k',
+    ultra: 'pro_01kxvev8we8cytygfk733nkjt7'
   };
   var PLAN_LABELS = { pro: 'Pro', elite: 'Elite', ultra: 'Ultra' };
   var pendingSubscribePlan = null;
+  var paddleReady = false;
+
+  if (window.Paddle && PADDLE_CLIENT_TOKEN.indexOf('REPLACE_WITH_') !== 0) {
+    try {
+      Paddle.Environment.set('production');
+      Paddle.Initialize({
+        token: PADDLE_CLIENT_TOKEN,
+        eventCallback: function (event) {
+          if (event.name === 'checkout.completed') {
+            alert('Thanks for subscribing to Swimfit! A confirmation is on its way to your email.');
+          }
+        }
+      });
+      paddleReady = true;
+    } catch (e) {}
+  }
 
   function goToPaddleCheckout(plan) {
-    var url = PADDLE_CHECKOUT_URLS[plan];
-    if (url && url.indexOf('REPLACE_WITH_') !== 0) {
-      window.location.href = url;
-    } else {
-      alert('Checkout for the ' + PLAN_LABELS[plan] + ' plan is being finalized — please check back shortly, or email SWIMFIT.ae@gmail.com to join now.');
+    if (!paddleReady) {
+      alert('Checkout is temporarily unavailable — please try again shortly, or email SWIMFIT.ae@gmail.com to join now.');
+      return;
     }
+    var checkoutSettings = { items: [{ priceId: PADDLE_PRICE_IDS[plan], quantity: 1 }] };
+    if (window.__firebaseUser && window.__firebaseUser.email) {
+      checkoutSettings.customer = { email: window.__firebaseUser.email };
+    }
+    Paddle.Checkout.open(checkoutSettings);
   }
 
   document.querySelectorAll('[data-plan]').forEach(function (btn) {
