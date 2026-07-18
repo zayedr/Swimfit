@@ -1462,12 +1462,10 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle Billing checkout) =============================
      IDs below are Paddle PRODUCT ids (pro_...). Paddle.Checkout.open() needs the PRICE id
-     (pri_..., the specific monthly/annual price under that product) — open each product in the
-     Paddle dashboard and swap in its Price id if these don't work as-is.
-     Also replace REPLACE_WITH_PADDLE_CLIENT_TOKEN with your Paddle client-side token
-     (Paddle dashboard -> Developer Tools -> Authentication -> Client-side tokens — this is the
-     public token, safe to expose in frontend code; never put a Paddle API key/secret here). */
-  var PADDLE_CLIENT_TOKEN = 'REPLACE_WITH_PADDLE_CLIENT_TOKEN';
+     (pri_..., the specific monthly/annual price under that product) — if checkout doesn't open
+     or Paddle logs an invalid-price error, open each product in the Paddle dashboard and swap
+     in its Price id instead. */
+  var PADDLE_CLIENT_TOKEN = 'live_8981fe2520a3f946c975f5a1ad2';
   var PADDLE_PRICE_IDS = {
     pro: 'pro_01kxvepbgps1gw1w5qmt45hev6',
     elite: 'pro_01kxvet9dy5deg86r4xe16yb5k',
