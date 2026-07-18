@@ -41,9 +41,11 @@
     if (!googleBtn || !logoutBtn) return;
 
     onAuthStateChanged(auth, function (user) {
+      window.__firebaseUser = user; // mirrored globally so the plain <script> (pricing Subscribe buttons) can read it
       document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = user ? 'none' : ''; });
       document.querySelectorAll('[data-auth-signed-in]').forEach(function (el) { el.style.display = user ? '' : 'none'; });
       logoutBtn.textContent = user && user.displayName ? 'Log Out (' + user.displayName.split(' ')[0] + ')' : 'Log Out';
+      document.dispatchEvent(new CustomEvent('swimfit:authchange', { detail: { user: user } }));
     });
 
     googleBtn.addEventListener('click', function () {
@@ -639,6 +641,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .price-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); position: relative; }
 .price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(31,163,90,0.09), var(--surface) 40%); }
 .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--green); color: var(--on-green); font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
+.price-badge-maroon { background: var(--maroon); color: var(--on-maroon); }
 .price-tier { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.1rem; color: var(--muted); }
 .price-amount { display: flex; align-items: baseline; gap: 8px; margin: var(--space-3) 0 var(--space-1); }
 .price-amount .num { font-family: var(--font-display); font-size: 2.8rem; font-weight: 700; }
@@ -1120,12 +1123,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Gym Focus dryland tracks</li>
           </ul>
           <p class="price-locked"><svg class="icon"><use href="#i-lock"/></svg> Technique Academy, video review and analytics require Elite</p>
-          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Pro" class="btn btn-ghost btn-block">Join Pro</a>
+          <button type="button" class="btn btn-ghost btn-block" data-plan="pro">Subscribe</button>
         </div>
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
           <span class="price-tier">Elite</span>
-          <div class="price-amount"><span class="num">99</span><span class="cur">AED</span></div>
+          <div class="price-amount"><span class="num">79</span><span class="cur">AED</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Everything unlocked, full stop</li>
@@ -1135,9 +1138,10 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Advanced race-pace analytics</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
           </ul>
-          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Elite" class="btn btn-primary btn-block">Join Elite</a>
+          <button type="button" class="btn btn-primary btn-block" data-plan="elite">Subscribe</button>
         </div>
         <div class="price-card" data-reveal>
+          <span class="price-badge price-badge-maroon">Includes 2 Months Free!</span>
           <span class="price-tier">Ultra</span>
           <div class="price-amount"><span class="num">499</span><span class="cur">AED</span></div>
           <p class="price-period">per year · best value</p>
@@ -1148,7 +1152,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Early access to new tracks</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Downloadable training plans</li>
           </ul>
-          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Ultra" class="btn btn-outline-maroon btn-block">Join Ultra</a>
+          <button type="button" class="btn btn-outline-maroon btn-block" data-plan="ultra">Subscribe</button>
         </div>
       </div>
       <p class="price-note">Prices shown in AED · VAT where applicable · Email us anytime to manage or cancel your membership.</p>
@@ -1454,6 +1458,45 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
+
+  /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle checkout) =============================
+     Replace each REPLACE_WITH_PADDLE_* value with the real Paddle checkout link for that plan
+     (Paddle dashboard -> Checkout -> Checkout Links, or a Paddle.js price_id if you switch to
+     an in-page overlay checkout instead of a hosted link). */
+  var PADDLE_CHECKOUT_URLS = {
+    pro: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_PRO',
+    elite: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_ELITE',
+    ultra: 'REPLACE_WITH_PADDLE_CHECKOUT_URL_ULTRA'
+  };
+  var PLAN_LABELS = { pro: 'Pro', elite: 'Elite', ultra: 'Ultra' };
+  var pendingSubscribePlan = null;
+
+  function goToPaddleCheckout(plan) {
+    var url = PADDLE_CHECKOUT_URLS[plan];
+    if (url && url.indexOf('REPLACE_WITH_') !== 0) {
+      window.location.href = url;
+    } else {
+      alert('Checkout for the ' + PLAN_LABELS[plan] + ' plan is being finalized — please check back shortly, or email SWIMFIT.ae@gmail.com to join now.');
+    }
+  }
+
+  document.querySelectorAll('[data-plan]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var plan = btn.dataset.plan;
+      if (window.__firebaseUser) { goToPaddleCheckout(plan); return; }
+      pendingSubscribePlan = plan;
+      openAuthModal();
+      document.getElementById('authStatusNote').textContent = 'Sign in to subscribe to the ' + PLAN_LABELS[plan] + ' plan.';
+    });
+  });
+
+  document.addEventListener('swimfit:authchange', function (e) {
+    if (e.detail.user && pendingSubscribePlan) {
+      var plan = pendingSubscribePlan;
+      pendingSubscribePlan = null;
+      goToPaddleCheckout(plan);
+    }
+  });
 
   /* ============================= WORKOUT GENERATOR ============================= */
   function dayIndex() {
