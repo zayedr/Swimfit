@@ -74,16 +74,12 @@ input, textarea, select { font: inherit; color: inherit; }
   --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_171031_b11e81b1-a255-4ada-817e-c991e150623a.png');
   --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
   --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
-  --community-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141435_a1fd3c33-2b99-4de9-8da5-848a94a5061c.png');
   --generator-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_151012_319bc69c-7a93-4fdd-ac93-63192ace37be.png');
   --gym-warmup-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161741_abe52edd-63e1-44fb-ac98-74437559fb4a.png');
   --gym-core-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161742_c0a04275-f91a-438d-8cf1-27605d521390.png');
   --gym-cooldown-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161743_023e6007-9516-41ce-ac6b-a7c49426e258.png');
-  --achievement-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161745_e6bc95ce-8d15-43b7-9219-ba90feabcbe2.png');
   --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161746_8c193427-24e0-4d2a-883e-ddbf0e4ec7cd.png');
   --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161747_02c58bbf-1f7e-4abb-bc0a-83c3585b591a.png');
-  --profile-hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_175113_966e4de6-fb4b-4a10-892d-6b19fa272c62.png');
-  --profile-action-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_183147_250bb57b-f19f-48fb-a66d-4f0e103af0a6.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -242,6 +238,18 @@ section { position: relative; scroll-margin-top: 96px; }
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(5,8,7,0.9) 100%);
 }
+.hero-video {
+  position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity 1400ms var(--ease);
+}
+.hero-video.is-playing { opacity: 0.6; }
+.hero-video-overlay {
+  position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(7,11,10,0.9) 0%, rgba(7,11,10,0.5) 45%, rgba(7,19,17,0.35) 100%),
+    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(5,8,7,0.92) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .hero-video { display: none; } }
 .hero-caustics {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background:
@@ -379,7 +387,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .discipline-card h3 { font-size: 1.3rem; text-transform: uppercase; margin-bottom: var(--space-1); }
 .discipline-card p { color: var(--muted); font-size: 0.94rem; }
 
-/* Reusable photo banner for tab headers (Gym, Community) */
+/* Reusable photo banner for tab headers */
 .tab-banner {
   height: 190px; border-radius: var(--radius-lg); margin-bottom: var(--space-6);
   background-image: linear-gradient(100deg, rgba(7,11,10,0.88) 10%, rgba(7,11,10,0.35) 60%, rgba(7,19,17,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
@@ -560,124 +568,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .video-featured-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
 @media (max-width: 640px) { .video-card-featured .video-thumb { aspect-ratio: 16/10; } }
 
-/* ============================= COMMUNITY / SOCIAL FEED ============================= */
-.community-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-7); text-align: center; margin-bottom: var(--space-7); }
-
-.social-feed { max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--space-5); }
-.composer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
-.composer-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
-.composer-head h3 { font-size: 1.15rem; text-transform: uppercase; }
-.field { margin-bottom: var(--space-3); }
-.field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.field input, .field textarea { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75em 0.9em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
-.field input:focus, .field textarea:focus { border-color: var(--aqua); }
-.field textarea { resize: vertical; min-height: 90px; }
-
-.feed-list { display: flex; flex-direction: column; gap: var(--space-4); }
-.post { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.post:hover { transform: translateY(-4px); border-color: var(--border-strong); box-shadow: var(--shadow-1); }
-.post-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
-.avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; color: var(--on-green); background: var(--green); }
-.post-name { font-weight: 600; }
-.post-time { color: var(--muted-2); font-size: 0.8rem; }
-.post-body { color: var(--fg); font-size: 0.96rem; }
-.post-tag { margin-top: var(--space-2); }
-.post-new { border-color: var(--green); box-shadow: 0 0 0 3px rgba(31,163,90,0.22); transition: transform var(--dur) var(--ease), border-color 900ms var(--ease), box-shadow 1400ms var(--ease); }
-
-.post-image { margin-top: var(--space-3); border-radius: var(--radius-sm); height: 220px; background-size: cover; background-position: center; overflow: hidden; }
-
-.post-achievement { background: linear-gradient(160deg, rgba(156,42,68,0.16), rgba(34,211,238,0.05)); }
-.post-achievement .post-headline { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 1.15rem; text-transform: uppercase; color: var(--maroon-bright); margin: var(--space-2) 0; }
-.post-achievement .post-headline .icon { width: 22px; height: 22px; }
-
-.post-video-attach { margin-top: var(--space-3); display: flex; align-items: center; gap: var(--space-3); background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); }
-.post-video-attach .post-video-thumb { width: 72px; height: 48px; border-radius: 8px; flex-shrink: 0; background-size: cover; background-position: center; position: relative; display: flex; align-items: center; justify-content: center; }
-.post-video-attach .post-video-thumb .icon { width: 18px; height: 18px; color: #fff; }
-.post-video-attach .post-video-title { font-weight: 600; font-size: 0.92rem; }
-.post-video-attach .post-video-sub { color: var(--muted-2); font-size: 0.78rem; }
-
-/* ============================= SWIMMER DASHBOARD / PROFILE ============================= */
-.profile-lookup { max-width: 720px; margin: 0 auto var(--space-6); }
-.profile-lookup-row { display: flex; align-items: flex-end; gap: var(--space-3); }
-.profile-lookup-row .profile-field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.profile-lookup-row .profile-field input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75em 0.9em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
-.profile-lookup-row .profile-field input:focus { border-color: var(--aqua); }
-.profile-hint { margin-top: var(--space-3); font-size: 0.85rem; color: var(--muted-2); }
-.chip-link { background: none; border: none; color: var(--aqua); font: inherit; cursor: pointer; padding: 0 4px; text-decoration: underline; text-underline-offset: 3px; }
-.chip-link:hover { color: var(--green-bright); }
-
-.profile-header-card {
-  position: relative; overflow: hidden; display: flex; align-items: center; gap: var(--space-4);
-  border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-5);
-}
-.profile-header-card::before {
-  content: ''; position: absolute; inset: 0; z-index: 0;
-  background-image: linear-gradient(100deg, rgba(7,11,10,0.94) 20%, rgba(7,11,10,0.6) 75%), var(--coach-photo), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
-  background-size: cover; background-position: center 25%;
-}
-.profile-header-card > * { position: relative; z-index: 1; }
-.avatar-lg { width: 62px; height: 62px; font-size: 1.4rem; }
-.profile-header-card h3 { font-size: 1.4rem; text-transform: uppercase; margin-bottom: 4px; }
-.profile-meta { display: flex; align-items: center; gap: var(--space-3); color: var(--muted-2); font-size: 0.86rem; flex-wrap: wrap; }
-
-.profile-avatar-upload { position: relative; width: 62px; height: 62px; border-radius: 50%; flex-shrink: 0; }
-.profile-avatar-upload .avatar { width: 100%; height: 100%; background-size: cover; background-position: center; }
-.profile-avatar-upload.editable { cursor: pointer; }
-.avatar-upload-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,11,10,0.72); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; opacity: 0; transition: opacity var(--dur) var(--ease); color: #fff; text-align: center; }
-.avatar-upload-overlay .icon { width: 16px; height: 16px; }
-.avatar-upload-overlay span { font-size: 0.52rem; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1; }
-.profile-avatar-upload.editable:hover .avatar-upload-overlay { opacity: 1; }
-
-#profileStatsGrid { margin-bottom: var(--space-6); }
-.profile-stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin-bottom: 6px; }
-.profile-stat-value { font-family: var(--font-display); font-size: 1.7rem; }
-
-.profile-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); }
-.muted-note { color: var(--muted-2); font-size: 0.84rem; margin-bottom: var(--space-4); }
-@media (max-width: 780px) { .profile-lookup-row { flex-direction: column; align-items: stretch; } .profile-header-card { flex-wrap: wrap; } }
-
-.profile-action-banner { margin-bottom: var(--space-6); }
-
-.pb-timeline-card { position: relative; overflow: hidden; }
-.pb-timeline-card::before {
-  content: ''; position: absolute; inset: 0; z-index: 0;
-  background-image: linear-gradient(160deg, rgba(7,11,10,0.95) 15%, rgba(7,11,10,0.7) 100%), var(--achievement-photo);
-  background-size: cover; background-position: center;
-}
-.pb-timeline-card > * { position: relative; z-index: 1; }
-.pb-timeline-head h3 { margin-bottom: 4px; }
-.pb-timeline { display: flex; flex-direction: column; padding-left: 28px; margin-top: var(--space-4); }
-.pb-timeline-item { position: relative; padding-bottom: var(--space-5); }
-.pb-timeline-item:last-child { padding-bottom: 0; }
-.pb-timeline-item::before { content: ''; position: absolute; left: -28px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 4px rgba(34,211,238,0.18); }
-.pb-timeline-item::after { content: ''; position: absolute; left: -24px; top: 14px; bottom: -6px; width: 2px; background: var(--border-strong); }
-.pb-timeline-item:last-child::after { display: none; }
-.pb-timeline-date { font-size: 0.76rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-.pb-timeline-detail { font-family: var(--font-display); font-size: 1.05rem; }
-.pb-timeline-detail strong { color: var(--aqua); }
-
-.profile-edit-form { max-width: 720px; margin: 0 auto var(--space-6); }
-.edit-pb-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
-.pb-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: var(--space-3); align-items: end; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); transition: border-color var(--dur) var(--ease); }
-.pb-row:hover { border-color: var(--border-strong); }
-.pb-row select, .pb-row input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6em 0.7em; color: var(--fg); font-size: 0.9rem; transition: border-color var(--dur) var(--ease); }
-.pb-row select:focus, .pb-row input:focus { border-color: var(--aqua); }
-.pb-row-remove { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); border-radius: var(--radius-sm); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease); }
-.pb-row-remove:hover { border-color: var(--maroon); color: var(--maroon-bright); transform: scale(1.08); }
-.pb-row-remove .icon { width: 16px; height: 16px; }
-@media (max-width: 620px) { .pb-row { grid-template-columns: 1fr 1fr; } .pb-row-remove { grid-column: span 2; width: 100%; } }
-.profile-edit-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
-
-.profile-discipline-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
-.profile-discipline-tags .tag { font-size: 0.72rem; }
-#profileSecuredBadge .icon { width: 11px; height: 11px; }
-
-.profile-auth-gate { max-width: 560px; margin: 0 auto var(--space-6); }
-.auth-disclaimer { display: flex; align-items: flex-start; gap: var(--space-2); background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); font-size: 0.8rem; color: var(--muted-2); margin-bottom: var(--space-4); }
-.auth-disclaimer .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: var(--aqua); }
-.auth-error { color: var(--maroon-bright); font-size: 0.86rem; margin: -8px 0 var(--space-3); }
-.otp-banner { background: rgba(34,211,238,0.1); border: 1px dashed var(--aqua); border-radius: var(--radius-sm); padding: var(--space-3); font-size: 0.9rem; color: var(--aqua); font-family: var(--font-display); letter-spacing: 0.04em; margin-bottom: var(--space-3); }
-
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
 .price-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); position: relative; }
@@ -816,8 +706,6 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <li><button type="button" data-tab="gym">Gym</button></li>
       <li><button type="button" data-tab="gear">Gear</button></li>
       <li><button type="button" data-tab="academy">Academy</button></li>
-      <li><button type="button" data-tab="community">Community</button></li>
-      <li><button type="button" data-tab="profile">Profile</button></li>
       <li><button type="button" data-tab="pricing">Pricing</button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
@@ -831,7 +719,6 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
 
     <div class="nav-cta">
-      <button type="button" class="btn btn-ghost btn-sm" id="navAccountBtn" data-tab="profile">Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" data-tab="pricing" data-welcome-trigger>Join Now</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
@@ -854,6 +741,10 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 <header class="hero" id="top">
   <div class="hero-bg"></div>
   <div class="hero-photo"></div>
+  <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
+    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+  </video>
+  <div class="hero-video-overlay" aria-hidden="true"></div>
   <div class="hero-caustics" aria-hidden="true"></div>
 
   <svg class="hero-swimmer" viewBox="0 0 320 170" aria-hidden="true" focusable="false">
@@ -1133,181 +1024,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <div class="grid grid-3" id="videoGrid"></div>
     </div>
 
-    <!-- ---------- COMMUNITY ---------- -->
-    <div class="tab-panel" id="panel-community">
-      <div class="tab-banner" style="--photo: var(--community-photo)" data-reveal></div>
-      <div class="section-head center">
-        <p class="eyebrow" style="justify-content:center">Swim Squad</p>
-        <h2>The Swimfit Community Feed</h2>
-        <p>Splits, PBs, technique questions and shared clips — a live feed of the whole squad training together.</p>
-      </div>
-
-      <div class="community-stats" data-reveal>
-        <div class="stat"><strong data-count="1204">0</strong><span>Active Swimmers</span></div>
-        <div class="stat"><strong data-count="48">0</strong><span>PBs Shared This Week</span></div>
-        <div class="stat"><strong data-count="312">0</strong><span>Posts This Month</span></div>
-      </div>
-
-      <div class="social-feed">
-        <form class="composer-card" id="commentForm" data-reveal>
-          <div class="composer-head"><span class="avatar">Y</span><h3>Share an Update</h3></div>
-          <div class="field">
-            <label for="cName">Name</label>
-            <input id="cName" name="name" type="text" placeholder="Your name" required maxlength="40">
-          </div>
-          <div class="field">
-            <label for="cBody">What's happening in the water today?</label>
-            <textarea id="cBody" name="body" placeholder="How did the set feel? Any tips for the pull-buoy section?" required maxlength="400"></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">
-            <svg class="icon"><use href="#i-comment"/></svg> Post to Feed
-          </button>
-        </form>
-
-        <div class="feed-list" id="commentList"></div>
-      </div>
-    </div>
-
-    <!-- ---------- PROFILE (SWIMMER DASHBOARD) ---------- -->
-    <div class="tab-panel" id="panel-profile">
-      <div class="tab-banner" style="--photo: var(--profile-hero-photo)" data-reveal></div>
-      <div class="section-head center">
-        <p class="eyebrow" style="justify-content:center">Your Training</p>
-        <h2>Swimmer Dashboard</h2>
-        <p>Create your profile, log your PBs and today's recovery metrics — your stats and trend update live.</p>
-      </div>
-
-      <div class="profile-lookup card" data-reveal>
-        <div class="profile-lookup-row">
-          <div class="profile-field" style="flex:1">
-            <label for="profileUsername">Username</label>
-            <input type="text" id="profileUsername" placeholder="e.g. alex, layla, omar — or type your own">
-          </div>
-          <button type="button" class="btn btn-primary" id="profileLoadBtn"><svg class="icon"><use href="#i-user"/></svg> Load Profile</button>
-          <button type="button" class="btn btn-outline-aqua" id="profileEditBtn"><svg class="icon"><use href="#i-target"/></svg> Create / Edit Profile</button>
-        </div>
-        <p class="profile-hint">Try a demo: <button type="button" class="chip-link" data-demo-user="alex">alex</button><button type="button" class="chip-link" data-demo-user="layla">layla</button><button type="button" class="chip-link" data-demo-user="omar">omar</button> — or enter any new username to start your own profile.</p>
-        <p class="profile-hint" id="profileEditHint" style="display:none; color:var(--maroon-bright)">Enter a username above first, then hit Create / Edit Profile.</p>
-        <p class="profile-hint" id="sessionBar" style="display:none">Signed in as <strong id="sessionUserLabel"></strong> · <button type="button" class="chip-link" id="logoutBtn">Log Out</button></p>
-      </div>
-
-      <div class="card profile-auth-gate" id="profileAuthGate" data-reveal style="display:none">
-        <h3 id="authGateTitle">Verify Identity</h3>
-        <p class="muted-note" id="authGateSubtitle">This profile is protected — enter the password to continue.</p>
-        <p class="auth-disclaimer"><svg class="icon"><use href="#i-lock"/></svg> Demo security simulation: this is a static, backend-free site, so the OTP code is shown on-screen instead of emailed. Never reuse a real password here.</p>
-
-        <div class="profile-field" id="authEmailField" style="display:none">
-          <label for="authEmail">Email Address</label>
-          <input type="email" id="authEmail" placeholder="you@example.com">
-        </div>
-        <div class="profile-row-2">
-          <div class="profile-field">
-            <label for="authPassword" id="authPasswordLabel">Password</label>
-            <input type="password" id="authPassword" placeholder="Enter password" autocomplete="new-password">
-          </div>
-          <div class="profile-field" id="authConfirmField" style="display:none">
-            <label for="authConfirmPassword">Confirm Password</label>
-            <input type="password" id="authConfirmPassword" placeholder="Re-enter password">
-          </div>
-        </div>
-        <p class="auth-error" id="authError" style="display:none"></p>
-
-        <div id="otpSection" style="display:none">
-          <div class="otp-banner" id="otpBanner"></div>
-          <div class="profile-field">
-            <label for="authOtp">Enter 6-Digit Code (OTP)</label>
-            <input type="text" id="authOtp" maxlength="6" inputmode="numeric" placeholder="000000">
-          </div>
-        </div>
-
-        <div class="profile-edit-actions">
-          <button type="button" class="btn btn-primary" id="sendOtpBtn">Send Verification Code</button>
-          <button type="button" class="btn btn-primary" id="verifyOtpBtn" style="display:none"><svg class="icon"><use href="#i-lock"/></svg> Verify &amp; Unlock</button>
-          <button type="button" class="btn btn-ghost" id="cancelAuthBtn">Cancel</button>
-        </div>
-      </div>
-
-      <form id="profileEditForm" class="card profile-edit-form" data-reveal style="display:none">
-        <h3 style="margin-bottom:4px" id="profileEditFormTitle">Create Profile</h3>
-        <p class="muted-note">Saved privately in this browser under this username.</p>
-
-        <div class="profile-field">
-          <label for="editName">Full Name (First, Middle, Last)</label>
-          <input type="text" id="editName" placeholder="e.g. Alex James Carter" required>
-        </div>
-        <div class="profile-row-2">
-          <div class="profile-field">
-            <label for="editAge">Age</label>
-            <input type="number" id="editAge" min="6" max="99" placeholder="e.g. 24">
-          </div>
-          <div class="profile-field">
-            <label for="editEmailField">Email Address</label>
-            <input type="email" id="editEmailField" placeholder="you@example.com" required>
-          </div>
-        </div>
-        <div class="profile-field">
-          <label for="editPasswordField" id="editPasswordLabel">Password</label>
-          <input type="password" id="editPasswordField" placeholder="Set a password to lock this profile" autocomplete="new-password">
-        </div>
-
-        <div class="config-group" style="margin-top:var(--space-4)">
-          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Swimming Disciplines</div>
-          <div class="chip-group" id="editDisciplineChips" role="group" aria-label="Swimming disciplines"></div>
-        </div>
-
-        <div class="config-group">
-          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Log a New Personal Best</div>
-          <p class="muted-note" style="margin-top:-8px">Leave blank to skip — anything filled in here is saved as a new dated entry in your PB timeline.</p>
-          <div id="editPbList" class="edit-pb-list"></div>
-          <button type="button" class="btn btn-ghost btn-sm" id="addPbBtn" style="margin-top:8px"><svg class="icon"><use href="#i-check"/></svg> Add Another Result</button>
-        </div>
-
-        <div class="profile-edit-actions">
-          <button type="submit" class="btn btn-primary" id="saveProfileBtn"><svg class="icon"><use href="#i-check"/></svg> Save Profile</button>
-          <button type="button" class="btn btn-ghost" id="cancelProfileBtn">Cancel</button>
-        </div>
-      </form>
-
-      <div id="profileEmpty" class="result-empty" data-reveal>
-        <svg class="icon"><use href="#i-user"/></svg>
-        <p>Enter a username above and hit <strong>Load Profile</strong>, or create a new one.</p>
-      </div>
-
-      <div id="profileView" style="display:none">
-        <div class="profile-header-card" data-reveal>
-          <div class="profile-avatar-upload" id="profileAvatarUpload">
-            <span class="avatar avatar-lg" id="profileAvatar">—</span>
-            <div class="avatar-upload-overlay" id="avatarUploadOverlay"><svg class="icon"><use href="#i-camera"/></svg><span>Change Photo</span></div>
-            <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
-          </div>
-          <div style="flex:1">
-            <h3 id="profileDisplayName">—</h3>
-            <div class="profile-meta"><span class="tag tag-green" id="profileLevel">—</span><span id="profileAge" class="profile-since"></span><span id="profileSince" class="profile-since"></span><span class="tag tag-aqua" id="profileSecuredBadge" style="display:none"><svg class="icon"><use href="#i-lock"/></svg> Secured</span></div>
-            <div class="profile-discipline-tags" id="profileDisciplineTags"></div>
-          </div>
-          <button type="button" class="btn btn-outline-maroon" id="profileLogoutBtn" style="display:none"><svg class="icon"><use href="#i-lock"/></svg> Log Out</button>
-        </div>
-
-        <div class="tab-banner profile-action-banner" style="--photo: var(--profile-action-photo)" data-reveal="scale"></div>
-
-        <div class="grid grid-4" id="profileStatsGrid" data-reveal></div>
-
-        <div class="card pb-timeline-card" data-reveal>
-          <div class="pb-timeline-head">
-            <h3>Personal Best Timeline</h3>
-            <p class="muted-note">Every result you log is saved here permanently, dated, so you can track progress over time.</p>
-          </div>
-          <div id="pbTimeline" class="pb-timeline"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- ---------- PRICING ---------- -->
     <div class="tab-panel" id="panel-pricing">
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center">Membership</p>
         <h2>Simple Pricing, Serious Results</h2>
-        <p>Billed in AED. Cancel anytime. Secure sign-up and account management, fully hosted on Swimfit.</p>
+        <p>Billed in AED. Cancel anytime. Reach out any time to join, upgrade or manage your membership.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card" data-reveal>
@@ -1317,10 +1039,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Basic Swim Workouts (Beginner &amp; Competitive)</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Gym Focus dryland tracks</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Community feed access</li>
           </ul>
           <p class="price-locked"><svg class="icon"><use href="#i-lock"/></svg> Technique Academy, video review and analytics require Elite</p>
-          <button type="button" class="btn btn-ghost btn-block" data-tab="profile">Join Pro</button>
+          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Pro" class="btn btn-ghost btn-block">Join Pro</a>
         </div>
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
@@ -1335,7 +1056,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Advanced race-pace analytics</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
           </ul>
-          <button type="button" class="btn btn-primary btn-block" data-tab="profile">Join Elite</button>
+          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Elite" class="btn btn-primary btn-block">Join Elite</a>
         </div>
         <div class="price-card" data-reveal>
           <span class="price-tier">Ultra</span>
@@ -1348,15 +1069,15 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Early access to new tracks</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Downloadable training plans</li>
           </ul>
-          <button type="button" class="btn btn-outline-maroon btn-block" data-tab="profile">Join Ultra</button>
+          <a href="mailto:SWIMFIT.ae@gmail.com?subject=Join%20Swimfit%20Ultra" class="btn btn-outline-maroon btn-block">Join Ultra</a>
         </div>
       </div>
-      <p class="price-note">Prices shown in AED · VAT where applicable · Manage your membership anytime from your Swimmer Dashboard.</p>
+      <p class="price-note">Prices shown in AED · VAT where applicable · Email us anytime to manage or cancel your membership.</p>
 
       <div class="faq-list">
         <details class="faq-item">
           <summary>Can I cancel anytime?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Yes. Every plan is billed monthly or annually with no lock-in — manage or cancel from your Swimmer Dashboard at any time.</div>
+          <div class="faq-body">Yes. Every plan is billed monthly or annually with no lock-in — just email us anytime to manage or cancel.</div>
         </details>
         <details class="faq-item">
           <summary>Does the workout generator repeat?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -1399,6 +1120,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           <li><button type="button" data-tab="disciplines">Disciplines</button></li>
           <li><button type="button" data-tab="workouts">Workout Generator</button></li>
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
+          <li><button type="button" data-tab="gear">Gear</button></li>
           <li><button type="button" data-tab="academy">Technique Academy</button></li>
         </ul>
       </div>
@@ -1406,14 +1128,11 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         <h4>Membership</h4>
         <ul>
           <li><button type="button" data-tab="pricing">Pricing</button></li>
-          <li><button type="button" data-tab="profile">Swimmer Dashboard</button></li>
-          <li><button type="button" data-tab="profile" id="footerAccountBtn">Sign In</button></li>
         </ul>
       </div>
       <div class="footer-col">
         <h4>Company</h4>
         <ul>
-          <li><button type="button" data-tab="community">Community</button></li>
           <li><a href="mailto:SWIMFIT.ae@gmail.com">Contact</a></li>
           <li><a href="#">Privacy Policy</a></li>
           <li><a href="#">Terms of Service</a></li>
@@ -1422,7 +1141,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026 Swimfit. All rights reserved.</span>
-      <span><a href="mailto:SWIMFIT.ae@gmail.com" style="color:var(--aqua)">SWIMFIT.ae@gmail.com</a> &middot; Secure account &amp; billing management.</span>
+      <span><a href="mailto:SWIMFIT.ae@gmail.com" style="color:var(--aqua)">SWIMFIT.ae@gmail.com</a> &middot; Questions about membership or billing? Just email us.</span>
     </div>
   </div>
 </footer>
@@ -1483,6 +1202,18 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   document.querySelectorAll('[data-welcome-trigger]').forEach(function (el) {
     el.addEventListener('click', playWelcomeVoice, { once: true });
   });
+
+  /* Hero background video — fades in once it actually starts playing; falls back
+     to the static .hero-photo layer beneath if it errors or never loads (e.g. a
+     slow connection or a network policy blocking the video CDN). */
+  var heroVideo = document.getElementById('heroVideo');
+  if (heroVideo && !reduceMotion) {
+    heroVideo.addEventListener('playing', function () { heroVideo.classList.add('is-playing'); });
+    heroVideo.addEventListener('error', function () { heroVideo.style.display = 'none'; }, true);
+    setTimeout(function () { if (heroVideo.readyState < 2) heroVideo.style.display = 'none'; }, 8000);
+  } else if (heroVideo) {
+    heroVideo.style.display = 'none';
+  }
 
   /* ============================= NAV / TAB CONTROLLER ============================= */
   var nav = document.getElementById('siteNav');
@@ -1873,10 +1604,8 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
     if (state.level === 'elite') {
-      html += getSession()
-        ? '<div class="member-gate"><strong>Elite review unlocked.</strong> Submit your set video from your Swimmer Dashboard for coach feedback within 48 hours.</div>'
-        : '<div class="member-gate">' + icon('i-lock') +
-          ' <strong>Video stroke review requires a signed-in profile.</strong> <a href="#" data-tab="profile" style="color:var(--aqua)">Sign in or create your Swimmer Dashboard</a> to unlock full video review on this set.</div>';
+      html += '<div class="member-gate">' + icon('i-lock') +
+        ' <strong>Elite tracks are a membership benefit.</strong> <a href="#" data-tab="pricing" style="color:var(--aqua)">Upgrade to Elite</a> to unlock full video stroke review on this set.</div>';
     }
 
     html += renderCoachTips();
@@ -2118,501 +1847,6 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     if (!btn) return;
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     renderGym(btn.dataset.focus);
-  });
-
-  /* ============================= COMMUNITY SOCIAL FEED ============================= */
-  var STORAGE_KEY = 'swimfit_feed_v2';
-  var SEED_COMMENTS = [
-    { type: 'achievement', name: 'Amina R.', time: '1 hour ago', headline: 'New 100m Freestyle PB: 1:05!', body: 'Generated a 3km endurance set with the pull buoy checked all week — the catch work finally paid off. Great tool!' },
-    { type: 'photo', name: 'Jordan K.', time: '3 hours ago', body: 'The speed-goal generator with fins on gave me a brutal but perfect sprint set today. Pool was empty at sunrise, worth it.', photo: 'var(--disc-photo-freestyle)' },
-    { type: 'video', name: 'Fatima A.', time: '5 hours ago', body: 'Finally cleaned up my whip-kick timing after watching this breakdown on repeat.', videoTitle: 'How to Swim Breaststroke', videoPhoto: 'var(--disc-photo-breaststroke)' },
-    { type: 'text', name: 'Omar S.', time: '9 hours ago', body: 'Switched to Elite level for the first time — those tightened intervals humbled me. Coming back tomorrow.' },
-    { type: 'achievement', name: 'Layla M.', time: '1 day ago', headline: 'First 4km Distance Set Complete', body: 'Never thought I’d get through a full 4km endurance set, but the descend ladder in the main set kept it manageable.' },
-    { type: 'photo', name: 'Khalid B.', time: '2 days ago', body: 'Dryland day — the sprint-focused Full Body routine the Gym tab built me is no joke.', photo: 'var(--gym-core-photo)' }
-  ];
-  function loadComments() {
-    try { var raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
-    return SEED_COMMENTS.slice();
-  }
-  function saveComments(list) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {} }
-  function initials(name) { return name.trim().split(/\s+/).slice(0, 2).map(function (n) { return n[0] || ''; }).join('').toUpperCase(); }
-  function escapeHtml(str) { var div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
-
-  var comments = loadComments();
-
-  function renderPost(c) {
-    var head = '<div class="post-head"><span class="avatar">' + escapeHtml(initials(c.name)) + '</span>' +
-      '<div><div class="post-name">' + escapeHtml(c.name) + '</div><div class="post-time">' + escapeHtml(c.time) + '</div></div></div>';
-    var body = '<p class="post-body">' + escapeHtml(c.body) + '</p>';
-    var extra = '';
-    var cls = 'post';
-    if (c.type === 'achievement') {
-      cls += ' post-achievement';
-      extra = '<div class="post-headline">' + icon('i-trophy') + '<span>' + escapeHtml(c.headline) + '</span></div>';
-      return '<article class="' + cls + '" data-reveal>' + head + extra + body + '<span class="tag tag-maroon post-tag">Achievement</span></article>';
-    }
-    if (c.type === 'photo') {
-      extra = '<div class="post-image" style="background-image:' + c.photo + '"></div>';
-      return '<article class="' + cls + '" data-reveal>' + head + body + extra + '<span class="tag tag-aqua post-tag">Photo</span></article>';
-    }
-    if (c.type === 'video') {
-      extra = '<div class="post-video-attach"><div class="post-video-thumb" style="background-image:' + c.videoPhoto + '">' + icon('i-play') + '</div>' +
-        '<div><div class="post-video-title">' + escapeHtml(c.videoTitle) + '</div><div class="post-video-sub">Shared from Technique Academy</div></div></div>';
-      return '<article class="' + cls + '" data-reveal>' + head + body + extra + '<span class="tag tag-green post-tag">Shared Clip</span></article>';
-    }
-    return '<article class="' + cls + '" data-reveal>' + head + body + '<span class="tag tag-aqua post-tag">On Today’s Set</span></article>';
-  }
-
-  function renderComments() {
-    document.getElementById('commentList').innerHTML = comments.map(renderPost).join('');
-    var list = document.getElementById('commentList');
-    if (io) list.querySelectorAll('[data-reveal]').forEach(function (el) { io.observe(el); });
-    else list.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
-  }
-  renderComments();
-  document.getElementById('commentForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var name = document.getElementById('cName').value.trim();
-    var body = document.getElementById('cBody').value.trim();
-    if (!name || !body) return;
-    var newPost = { type: 'text', name: name, body: body, time: 'Just now' };
-    comments.unshift(newPost);
-    saveComments(comments);
-
-    var list = document.getElementById('commentList');
-    list.insertAdjacentHTML('afterbegin', renderPost(newPost));
-    var el = list.firstElementChild;
-    el.classList.add('post-new');
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { el.classList.add('is-visible'); });
-    });
-    setTimeout(function () { el.classList.remove('post-new'); }, 2200);
-
-    var counters = document.querySelectorAll('.community-stats strong[data-count]');
-    var postsStat = counters[2];
-    if (postsStat) { postsStat.dataset.count = String(parseInt(postsStat.dataset.count, 10) + 1); postsStat.textContent = postsStat.dataset.count; }
-
-    this.reset();
-    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-  });
-
-  /* ============================= SWIMMER DASHBOARD ============================= */
-  var PROFILE_STORAGE_PREFIX = 'swimfit_profile_v1_';
-  var SESSION_KEY = 'swimfit_session_user';
-  var currentProfileUser = null;
-  var editingProfileUser = null;
-  var gateMode = null;
-  var gateUsername = null;
-  var pendingOtp = null;
-  var PB_DISTANCES = ['50m', '100m', '200m', '400m', '800m', '1500m'];
-
-  function randomOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
-  function sha256Hex(text) {
-    var enc = new TextEncoder().encode(text);
-    return crypto.subtle.digest('SHA-256', enc).then(function (buf) {
-      return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-    });
-  }
-  function getSession() { try { return localStorage.getItem(SESSION_KEY); } catch (e) { return null; } }
-  function setSession(username) { try { localStorage.setItem(SESSION_KEY, username); } catch (e) {} }
-  function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
-  function updateSessionBar() {
-    var session = getSession();
-    var bar = document.getElementById('sessionBar');
-    if (session) { document.getElementById('sessionUserLabel').textContent = session; bar.style.display = 'block'; }
-    else { bar.style.display = 'none'; }
-    var navBtn = document.getElementById('navAccountBtn');
-    var footerBtn = document.getElementById('footerAccountBtn');
-    var label = session ? 'My Account' : 'Sign In';
-    if (navBtn) navBtn.textContent = label;
-    if (footerBtn) footerBtn.textContent = label;
-  }
-  var DEMO_PROFILES = {
-    alex: {
-      name: 'Alex Carter', age: 22, level: 'Competitive', since: 'Member since Feb 2025',
-      disciplines: ['Freestyle', 'Individual Medley'],
-      pbHistory: [
-        { date: '2025-03-02', stroke: 'Freestyle', distance: '100m', time: '1:06.9' },
-        { date: '2025-08-14', stroke: 'Freestyle', distance: '50m', time: '0:29.1' },
-        { date: '2026-01-20', stroke: 'Freestyle', distance: '100m', time: '1:04.2' },
-        { date: '2026-06-05', stroke: 'Freestyle', distance: '50m', time: '0:27.8' },
-        { date: '2026-06-05', stroke: 'Freestyle', distance: '100m', time: '1:02.4' }
-      ]
-    },
-    layla: {
-      name: 'Layla Mansour', age: 19, level: 'Elite', since: 'Member since Sep 2024',
-      disciplines: ['Freestyle', 'Butterfly'],
-      pbHistory: [
-        { date: '2024-10-01', stroke: 'Freestyle', distance: '100m', time: '1:03.5' },
-        { date: '2025-02-11', stroke: 'Butterfly', distance: '100m', time: '1:06.8' },
-        { date: '2025-07-19', stroke: 'Freestyle', distance: '50m', time: '0:27.4' },
-        { date: '2026-01-30', stroke: 'Freestyle', distance: '100m', time: '1:00.1' },
-        { date: '2026-05-22', stroke: 'Butterfly', distance: '100m', time: '1:03.2' },
-        { date: '2026-06-28', stroke: 'Freestyle', distance: '50m', time: '0:26.1' },
-        { date: '2026-06-28', stroke: 'Freestyle', distance: '100m', time: '0:58.9' }
-      ]
-    },
-    omar: {
-      name: 'Omar Suleiman', age: 16, level: 'Beginner', since: 'Member since Jun 2026',
-      disciplines: ['Freestyle', 'Backstroke'],
-      pbHistory: [
-        { date: '2026-06-02', stroke: 'Backstroke', distance: '100m', time: '1:31.0' },
-        { date: '2026-06-20', stroke: 'Freestyle', distance: '100m', time: '1:22.5' },
-        { date: '2026-07-05', stroke: 'Backstroke', distance: '100m', time: '1:24.5' },
-        { date: '2026-07-15', stroke: 'Freestyle', distance: '100m', time: '1:18.0' }
-      ]
-    }
-  };
-
-  function capitalizeUsername(u) { return u.charAt(0).toUpperCase() + u.slice(1); }
-  function todayLabel() { return new Date().toISOString().slice(0, 10); }
-
-  function loadProfile(username) {
-    try {
-      var raw = localStorage.getItem(PROFILE_STORAGE_PREFIX + username);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    var seed = DEMO_PROFILES[username];
-    if (seed) return JSON.parse(JSON.stringify(seed));
-    return { name: capitalizeUsername(username), age: null, level: null, since: null, disciplines: [], pbHistory: [], avatarDataUrl: null };
-  }
-  function saveProfile(username, profile) {
-    try { localStorage.setItem(PROFILE_STORAGE_PREFIX + username, JSON.stringify(profile)); } catch (e) {}
-  }
-
-  function currentBests(pbHistory) {
-    var byKey = {};
-    (pbHistory || []).forEach(function (entry) {
-      var key = entry.stroke + '|' + entry.distance;
-      if (!byKey[key] || entry.date >= byKey[key].date) byKey[key] = entry;
-    });
-    return Object.keys(byKey).map(function (k) { return byKey[k]; });
-  }
-
-  function renderProfileStats(p) {
-    var bests = currentBests(p.pbHistory);
-    if (!bests.length) {
-      return '<p class="muted-note" style="grid-column:1/-1; margin:0">No personal bests logged yet — hit <strong>Create / Edit Profile</strong> to add your first one.</p>';
-    }
-    return bests.map(function (pb) {
-      return '<div class="card" data-reveal><div class="profile-stat-label">' + escapeHtml(pb.distance) + ' ' + escapeHtml(pb.stroke) + ' PB</div><div class="profile-stat-value">' + escapeHtml(pb.time) + '</div></div>';
-    }).join('');
-  }
-
-  function renderPbTimeline(pbHistory) {
-    if (!pbHistory || !pbHistory.length) {
-      return '<p class="muted-note" style="margin:0">No results logged yet — add your first Personal Best via Create / Edit Profile.</p>';
-    }
-    var sorted = pbHistory.slice().sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
-    return sorted.map(function (entry) {
-      return '<div class="pb-timeline-item" data-reveal>' +
-        '<div class="pb-timeline-date">' + escapeHtml(entry.date) + '</div>' +
-        '<div class="pb-timeline-detail">' + escapeHtml(entry.distance) + ' ' + escapeHtml(entry.stroke) + ' — <strong>' + escapeHtml(entry.time) + '</strong></div>' +
-        '</div>';
-    }).join('');
-  }
-
-  function renderProfileView(username) {
-    var p = loadProfile(username);
-    currentProfileUser = username;
-    document.getElementById('profileEmpty').style.display = 'none';
-    var view = document.getElementById('profileView');
-    view.style.display = 'block';
-
-    var avatarEl = document.getElementById('profileAvatar');
-    if (p.avatarDataUrl) { avatarEl.style.backgroundImage = 'url(' + p.avatarDataUrl + ')'; avatarEl.textContent = ''; }
-    else { avatarEl.style.backgroundImage = 'none'; avatarEl.textContent = initials(p.name); }
-    var isOwner = getSession() === username;
-    document.getElementById('profileAvatarUpload').classList.toggle('editable', isOwner);
-    document.getElementById('profileLogoutBtn').style.display = isOwner ? '' : 'none';
-
-    document.getElementById('profileDisplayName').textContent = p.name;
-    var levelEl = document.getElementById('profileLevel');
-    levelEl.textContent = p.level || '';
-    levelEl.style.display = p.level ? '' : 'none';
-    document.getElementById('profileAge').textContent = p.age ? p.age + ' yrs old' : '';
-    document.getElementById('profileSince').textContent = p.since || 'New profile';
-    document.getElementById('profileDisciplineTags').innerHTML = (p.disciplines || []).map(function (d) {
-      return '<span class="tag tag-aqua">' + escapeHtml(d) + '</span>';
-    }).join('');
-    document.getElementById('profileSecuredBadge').style.display = p.passwordHash ? '' : 'none';
-    document.getElementById('profileStatsGrid').innerHTML = renderProfileStats(p);
-    document.getElementById('pbTimeline').innerHTML = renderPbTimeline(p.pbHistory);
-
-    var toReveal = view.querySelectorAll('[data-reveal]');
-    if (io) toReveal.forEach(function (el) { io.observe(el); });
-    else toReveal.forEach(function (el) { el.classList.add('is-visible'); });
-  }
-
-  document.getElementById('profileLoadBtn').addEventListener('click', function () {
-    var input = document.getElementById('profileUsername').value.trim().toLowerCase().replace(/\s+/g, '');
-    if (!input) return;
-    document.getElementById('profileEditForm').style.display = 'none';
-    document.getElementById('profileAuthGate').style.display = 'none';
-    renderProfileView(input);
-  });
-  document.getElementById('profileUsername').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('profileLoadBtn').click(); }
-  });
-  document.querySelectorAll('[data-demo-user]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      document.getElementById('profileUsername').value = btn.dataset.demoUser;
-      document.getElementById('profileEditForm').style.display = 'none';
-      document.getElementById('profileAuthGate').style.display = 'none';
-      renderProfileView(btn.dataset.demoUser);
-    });
-  });
-  function doLogout(reopenGate) {
-    var loggedOutUser = getSession();
-    clearSession();
-    updateSessionBar();
-    if (reopenGate && loggedOutUser && currentProfileUser === loggedOutUser) {
-      var p = loadProfile(loggedOutUser);
-      openAuthGate(loggedOutUser, p.passwordHash ? 'verify' : 'register');
-    } else if (currentProfileUser) {
-      renderProfileView(currentProfileUser);
-    }
-  }
-  document.getElementById('logoutBtn').addEventListener('click', function () { doLogout(false); });
-  document.getElementById('profileLogoutBtn').addEventListener('click', function () { doLogout(true); });
-  updateSessionBar();
-
-  /* -------- Profile picture upload -------- */
-  document.getElementById('profileAvatarUpload').addEventListener('click', function () {
-    if (!this.classList.contains('editable')) return;
-    document.getElementById('avatarFileInput').click();
-  });
-  document.getElementById('avatarFileInput').addEventListener('change', function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file || !currentProfileUser) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      var img = new Image();
-      img.onload = function () {
-        var size = 240;
-        var canvas = document.createElement('canvas');
-        canvas.width = size; canvas.height = size;
-        var ctx = canvas.getContext('2d');
-        var scale = Math.max(size / img.width, size / img.height);
-        var w = img.width * scale, h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        var p = loadProfile(currentProfileUser);
-        p.avatarDataUrl = dataUrl;
-        saveProfile(currentProfileUser, p);
-        renderProfileView(currentProfileUser);
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  });
-
-  /* -------- Create / Edit Profile form -------- */
-  function buildPbRow(pb) {
-    var row = document.createElement('div');
-    row.className = 'pb-row';
-    row.innerHTML =
-      '<div class="profile-field"><label>Discipline</label><select class="pb-stroke">' +
-      DISCIPLINES.map(function (d) { return '<option value="' + d.name + '"' + (pb && pb.stroke === d.name ? ' selected' : '') + '>' + d.name + '</option>'; }).join('') +
-      '</select></div>' +
-      '<div class="profile-field"><label>Distance</label><select class="pb-distance">' +
-      PB_DISTANCES.map(function (d) { return '<option value="' + d + '"' + (pb && pb.distance === d ? ' selected' : '') + '>' + d + '</option>'; }).join('') +
-      '</select></div>' +
-      '<div class="profile-field"><label>Time</label><input type="text" class="pb-time" placeholder="e.g. 1:02.40" value="' + (pb ? escapeHtml(pb.time) : '') + '"></div>' +
-      '<button type="button" class="pb-row-remove" aria-label="Remove this personal best">' + icon('i-close') + '</button>';
-    row.querySelector('.pb-row-remove').addEventListener('click', function () { row.remove(); });
-    return row;
-  }
-  document.getElementById('addPbBtn').addEventListener('click', function () {
-    document.getElementById('editPbList').appendChild(buildPbRow(null));
-  });
-
-  function openEditForm(username) {
-    editingProfileUser = username;
-    var p = loadProfile(username);
-    document.getElementById('profileEditFormTitle').textContent = (p.since ? 'Edit Profile — ' : 'Create Profile — ') + username;
-    document.getElementById('editName').value = p.name && p.name !== capitalizeUsername(username) ? p.name : (p.name || '');
-    document.getElementById('editAge').value = p.age || '';
-    document.getElementById('editEmailField').value = p.email || '';
-    document.getElementById('editPasswordField').value = '';
-    document.getElementById('editPasswordLabel').textContent = p.passwordHash ? 'New Password (leave blank to keep current)' : 'Set Password';
-
-    document.getElementById('editDisciplineChips').innerHTML = DISCIPLINES.map(function (d) {
-      var active = (p.disciplines || []).indexOf(d.name) > -1;
-      return '<button type="button" class="chip" data-edit-discipline="' + d.name + '" aria-pressed="' + active + '">' + icon(d.icon) + d.name + '</button>';
-    }).join('');
-
-    var pbList = document.getElementById('editPbList');
-    pbList.innerHTML = '';
-    pbList.appendChild(buildPbRow(null));
-
-    document.getElementById('profileEmpty').style.display = 'none';
-    document.getElementById('profileView').style.display = 'none';
-    document.getElementById('profileEditHint').style.display = 'none';
-    document.getElementById('profileAuthGate').style.display = 'none';
-    var form = document.getElementById('profileEditForm');
-    form.style.display = 'block';
-    var toReveal = form.querySelectorAll('[data-reveal]');
-    if (io) toReveal.forEach(function (el) { io.observe(el); });
-    else toReveal.forEach(function (el) { el.classList.add('is-visible'); });
-    form.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-  }
-
-  document.getElementById('profileEditBtn').addEventListener('click', function () {
-    var input = document.getElementById('profileUsername').value.trim().toLowerCase().replace(/\s+/g, '');
-    if (!input) { document.getElementById('profileEditHint').style.display = 'block'; return; }
-    document.getElementById('profileEditHint').style.display = 'none';
-    var p = loadProfile(input);
-    gateUsername = input;
-    if (getSession() === input) { openEditForm(input); return; }
-    openAuthGate(input, p.passwordHash ? 'verify' : 'register');
-  });
-
-  function resetAuthGateFields() {
-    document.getElementById('authEmail').value = '';
-    document.getElementById('authPassword').value = '';
-    document.getElementById('authConfirmPassword').value = '';
-    document.getElementById('authOtp').value = '';
-    document.getElementById('authError').style.display = 'none';
-    document.getElementById('otpSection').style.display = 'none';
-    document.getElementById('sendOtpBtn').style.display = '';
-    document.getElementById('verifyOtpBtn').style.display = 'none';
-    pendingOtp = null;
-  }
-
-  function openAuthGate(username, mode) {
-    gateMode = mode;
-    resetAuthGateFields();
-    document.getElementById('profileEmpty').style.display = 'none';
-    document.getElementById('profileView').style.display = 'none';
-    document.getElementById('profileEditForm').style.display = 'none';
-    var isRegister = mode === 'register';
-    document.getElementById('authGateTitle').textContent = (isRegister ? 'Secure This Profile — ' : 'Verify Identity — ') + username;
-    document.getElementById('authGateSubtitle').textContent = isRegister
-      ? 'No account secures this username yet. Set an email and password to claim and protect it.'
-      : 'This profile is already protected. Enter the password to continue editing.';
-    document.getElementById('authEmailField').style.display = isRegister ? '' : 'none';
-    document.getElementById('authConfirmField').style.display = isRegister ? '' : 'none';
-    var gate = document.getElementById('profileAuthGate');
-    gate.style.display = 'block';
-    var toReveal = gate.querySelectorAll('[data-reveal]');
-    if (io) toReveal.forEach(function (el) { io.observe(el); });
-    else toReveal.forEach(function (el) { el.classList.add('is-visible'); });
-    gate.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-  }
-
-  function showAuthError(msg) {
-    var errorEl = document.getElementById('authError');
-    errorEl.textContent = msg;
-    errorEl.style.display = 'block';
-  }
-
-  document.getElementById('sendOtpBtn').addEventListener('click', function () {
-    document.getElementById('authError').style.display = 'none';
-    var password = document.getElementById('authPassword').value;
-    if (!password || password.length < 4) { showAuthError('Password must be at least 4 characters.'); return; }
-
-    if (gateMode === 'register') {
-      var email = document.getElementById('authEmail').value.trim();
-      var confirm = document.getElementById('authConfirmPassword').value;
-      if (!email || email.indexOf('@') === -1) { showAuthError('Enter a valid email address.'); return; }
-      if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
-      revealOtp();
-    } else {
-      var p = loadProfile(gateUsername);
-      sha256Hex(password).then(function (hash) {
-        if (hash !== p.passwordHash) { showAuthError('Incorrect password.'); return; }
-        revealOtp();
-      });
-    }
-  });
-
-  function revealOtp() {
-    pendingOtp = randomOtp();
-    document.getElementById('otpBanner').textContent = 'Simulated OTP (in a real deployment this would be emailed to you): ' + pendingOtp;
-    document.getElementById('otpSection').style.display = 'block';
-    document.getElementById('sendOtpBtn').style.display = 'none';
-    document.getElementById('verifyOtpBtn').style.display = '';
-  }
-
-  document.getElementById('verifyOtpBtn').addEventListener('click', function () {
-    document.getElementById('authError').style.display = 'none';
-    var enteredOtp = document.getElementById('authOtp').value.trim();
-    if (!pendingOtp || enteredOtp !== pendingOtp) { showAuthError('Incorrect verification code.'); return; }
-    var password = document.getElementById('authPassword').value;
-    var p = loadProfile(gateUsername);
-    var finish = function () {
-      setSession(gateUsername);
-      updateSessionBar();
-      document.getElementById('profileAuthGate').style.display = 'none';
-      openEditForm(gateUsername);
-    };
-    if (gateMode === 'register') {
-      sha256Hex(password).then(function (hash) {
-        p.email = document.getElementById('authEmail').value.trim();
-        p.passwordHash = hash;
-        if (!p.since) p.since = 'Member since ' + todayLabel();
-        saveProfile(gateUsername, p);
-        finish();
-      });
-    } else {
-      finish();
-    }
-  });
-
-  document.getElementById('cancelAuthBtn').addEventListener('click', function () {
-    document.getElementById('profileAuthGate').style.display = 'none';
-    if (currentProfileUser) { renderProfileView(currentProfileUser); }
-    else { document.getElementById('profileEmpty').style.display = ''; }
-  });
-
-  document.getElementById('editDisciplineChips').addEventListener('click', function (e) {
-    var chip = e.target.closest('.chip');
-    if (!chip) return;
-    chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-  });
-
-  document.getElementById('cancelProfileBtn').addEventListener('click', function () {
-    document.getElementById('profileEditForm').style.display = 'none';
-    if (currentProfileUser) { renderProfileView(currentProfileUser); }
-    else { document.getElementById('profileEmpty').style.display = ''; }
-  });
-
-  document.getElementById('profileEditForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var name = document.getElementById('editName').value.trim();
-    if (!name) return;
-    var age = parseInt(document.getElementById('editAge').value, 10);
-    var email = document.getElementById('editEmailField').value.trim();
-    var newPassword = document.getElementById('editPasswordField').value;
-    var disciplines = Array.from(document.querySelectorAll('#editDisciplineChips .chip[aria-pressed="true"]')).map(function (c) { return c.dataset.editDiscipline; });
-    var newPbs = Array.from(document.querySelectorAll('#editPbList .pb-row')).map(function (row) {
-      return { stroke: row.querySelector('.pb-stroke').value, distance: row.querySelector('.pb-distance').value, time: row.querySelector('.pb-time').value.trim() };
-    }).filter(function (pb) { return pb.time; });
-
-    var p = loadProfile(editingProfileUser);
-    var finishSave = function () {
-      p.name = name;
-      p.age = isNaN(age) ? null : age;
-      p.email = email;
-      p.disciplines = disciplines;
-      if (!p.pbHistory) p.pbHistory = [];
-      var today = todayLabel();
-      newPbs.forEach(function (pb) { p.pbHistory.push({ date: today, stroke: pb.stroke, distance: pb.distance, time: pb.time }); });
-      if (!p.since) p.since = 'Member since ' + todayLabel();
-      saveProfile(editingProfileUser, p);
-
-      document.getElementById('profileUsername').value = editingProfileUser;
-      document.getElementById('profileEditForm').style.display = 'none';
-      renderProfileView(editingProfileUser);
-    };
-
-    if (newPassword) {
-      sha256Hex(newPassword).then(function (hash) { p.passwordHash = hash; finishSave(); });
-      return;
-    }
-    finishSave();
   });
 
   /* ============================= REVEAL ON SCROLL ============================= */
