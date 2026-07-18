@@ -1499,6 +1499,11 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     if (window.__firebaseUser && window.__firebaseUser.email) {
       checkoutSettings.customer = { email: window.__firebaseUser.email };
     }
+    if (window.__firebaseUser && window.__firebaseUser.uid) {
+      // Echoed back on every Paddle webhook event so our Cloud Function can link the
+      // subscription to this Firebase user (see functions/index.js).
+      checkoutSettings.customData = { firebaseUid: window.__firebaseUser.uid };
+    }
     Paddle.Checkout.open(checkoutSettings);
   }
 
