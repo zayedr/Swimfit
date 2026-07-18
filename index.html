@@ -83,6 +83,7 @@ input, textarea, select { font: inherit; color: inherit; }
   --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161746_8c193427-24e0-4d2a-883e-ddbf0e4ec7cd.png');
   --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161747_02c58bbf-1f7e-4abb-bc0a-83c3585b591a.png');
   --profile-hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_175113_966e4de6-fb4b-4a10-892d-6b19fa272c62.png');
+  --profile-action-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_183147_250bb57b-f19f-48fb-a66d-4f0e103af0a6.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -606,35 +607,55 @@ section { position: relative; scroll-margin-top: 96px; }
 .chip-link { background: none; border: none; color: var(--aqua); font: inherit; cursor: pointer; padding: 0 4px; text-decoration: underline; text-underline-offset: 3px; }
 .chip-link:hover { color: var(--green-bright); }
 
-.profile-header-card { display: flex; align-items: center; gap: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-5); }
+.profile-header-card {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: var(--space-4);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-5);
+}
+.profile-header-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background-image: linear-gradient(100deg, rgba(7,11,10,0.94) 20%, rgba(7,11,10,0.6) 75%), var(--coach-photo), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-size: cover; background-position: center 25%;
+}
+.profile-header-card > * { position: relative; z-index: 1; }
 .avatar-lg { width: 62px; height: 62px; font-size: 1.4rem; }
 .profile-header-card h3 { font-size: 1.4rem; text-transform: uppercase; margin-bottom: 4px; }
-.profile-meta { display: flex; align-items: center; gap: var(--space-3); color: var(--muted-2); font-size: 0.86rem; }
+.profile-meta { display: flex; align-items: center; gap: var(--space-3); color: var(--muted-2); font-size: 0.86rem; flex-wrap: wrap; }
+
+.profile-avatar-upload { position: relative; width: 62px; height: 62px; border-radius: 50%; flex-shrink: 0; }
+.profile-avatar-upload .avatar { width: 100%; height: 100%; background-size: cover; background-position: center; }
+.profile-avatar-upload.editable { cursor: pointer; }
+.avatar-upload-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,11,10,0.72); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; opacity: 0; transition: opacity var(--dur) var(--ease); color: #fff; text-align: center; }
+.avatar-upload-overlay .icon { width: 16px; height: 16px; }
+.avatar-upload-overlay span { font-size: 0.52rem; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1; }
+.profile-avatar-upload.editable:hover .avatar-upload-overlay { opacity: 1; }
 
 #profileStatsGrid { margin-bottom: var(--space-6); }
 .profile-stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin-bottom: 6px; }
 .profile-stat-value { font-family: var(--font-display); font-size: 1.7rem; }
 
-.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-6); }
 .profile-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); }
 .muted-note { color: var(--muted-2); font-size: 0.84rem; margin-bottom: var(--space-4); }
-@media (max-width: 780px) { .profile-grid { grid-template-columns: 1fr; } .profile-lookup-row { flex-direction: column; align-items: stretch; } }
+@media (max-width: 780px) { .profile-lookup-row { flex-direction: column; align-items: stretch; } .profile-header-card { flex-wrap: wrap; } }
 
-.energy-chart-svg { width: 100%; height: auto; overflow: visible; }
-.energy-chart-svg .chart-grid { stroke: var(--border); stroke-width: 1; }
-.energy-chart-svg .chart-line { fill: none; stroke: var(--aqua); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.energy-chart-svg .chart-dot { fill: var(--bg); stroke: var(--aqua); stroke-width: 2; }
-.energy-chart-svg .chart-axis-label { fill: var(--muted-2); font-size: 9px; font-family: var(--font-body); }
-.profile-latest-row { display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
-.profile-latest-stat { flex: 1; text-align: center; }
-.profile-latest-stat strong { display: block; font-family: var(--font-display); font-size: 1.3rem; }
-.profile-latest-stat span { font-size: 0.76rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.profile-action-banner { margin-bottom: var(--space-6); }
 
-.profile-log-list-wrap h3 { margin-bottom: var(--space-3); }
-.profile-log-list { display: flex; flex-direction: column; gap: var(--space-2); }
-.profile-log-row { display: grid; grid-template-columns: 110px 1fr 1fr 1fr; gap: var(--space-3); align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); font-size: 0.88rem; }
-.profile-log-row span:first-child { color: var(--muted-2); font-size: 0.8rem; }
-@media (max-width: 600px) { .profile-log-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } }
+.pb-timeline-card { position: relative; overflow: hidden; }
+.pb-timeline-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background-image: linear-gradient(160deg, rgba(7,11,10,0.95) 15%, rgba(7,11,10,0.7) 100%), var(--achievement-photo);
+  background-size: cover; background-position: center;
+}
+.pb-timeline-card > * { position: relative; z-index: 1; }
+.pb-timeline-head h3 { margin-bottom: 4px; }
+.pb-timeline { display: flex; flex-direction: column; padding-left: 28px; margin-top: var(--space-4); }
+.pb-timeline-item { position: relative; padding-bottom: var(--space-5); }
+.pb-timeline-item:last-child { padding-bottom: 0; }
+.pb-timeline-item::before { content: ''; position: absolute; left: -28px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 4px rgba(34,211,238,0.18); }
+.pb-timeline-item::after { content: ''; position: absolute; left: -24px; top: 14px; bottom: -6px; width: 2px; background: var(--border-strong); }
+.pb-timeline-item:last-child::after { display: none; }
+.pb-timeline-date { font-size: 0.76rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+.pb-timeline-detail { font-family: var(--font-display); font-size: 1.05rem; }
+.pb-timeline-detail strong { color: var(--aqua); }
 
 .profile-edit-form { max-width: 720px; margin: 0 auto var(--space-6); }
 .edit-pb-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
@@ -779,6 +800,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 <symbol id="i-insta" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></symbol>
 <symbol id="i-yt" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5c.35 0 .68.04 1 .12"/><path d="M14 3c.3 2.3 2 4 4.5 4.2"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4V8z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
 </defs>
 </svg>
 
@@ -1236,9 +1258,10 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         </div>
 
         <div class="config-group">
-          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests</div>
+          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Log a New Personal Best</div>
+          <p class="muted-note" style="margin-top:-8px">Leave blank to skip — anything filled in here is saved as a new dated entry in your PB timeline.</p>
           <div id="editPbList" class="edit-pb-list"></div>
-          <button type="button" class="btn btn-ghost btn-sm" id="addPbBtn" style="margin-top:8px"><svg class="icon"><use href="#i-check"/></svg> Add Personal Best</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="addPbBtn" style="margin-top:8px"><svg class="icon"><use href="#i-check"/></svg> Add Another Result</button>
         </div>
 
         <div class="profile-edit-actions">
@@ -1254,43 +1277,29 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
       <div id="profileView" style="display:none">
         <div class="profile-header-card" data-reveal>
-          <span class="avatar avatar-lg" id="profileAvatar">—</span>
-          <div>
+          <div class="profile-avatar-upload" id="profileAvatarUpload">
+            <span class="avatar avatar-lg" id="profileAvatar">—</span>
+            <div class="avatar-upload-overlay" id="avatarUploadOverlay"><svg class="icon"><use href="#i-camera"/></svg><span>Change Photo</span></div>
+            <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
+          </div>
+          <div style="flex:1">
             <h3 id="profileDisplayName">—</h3>
             <div class="profile-meta"><span class="tag tag-green" id="profileLevel">—</span><span id="profileAge" class="profile-since"></span><span id="profileSince" class="profile-since"></span><span class="tag tag-aqua" id="profileSecuredBadge" style="display:none"><svg class="icon"><use href="#i-lock"/></svg> Secured</span></div>
             <div class="profile-discipline-tags" id="profileDisciplineTags"></div>
           </div>
+          <button type="button" class="btn btn-outline-maroon" id="profileLogoutBtn" style="display:none"><svg class="icon"><use href="#i-lock"/></svg> Log Out</button>
         </div>
+
+        <div class="tab-banner profile-action-banner" style="--photo: var(--profile-action-photo)" data-reveal="scale"></div>
 
         <div class="grid grid-4" id="profileStatsGrid" data-reveal></div>
 
-        <div class="profile-grid">
-          <div class="card" data-reveal="left">
-            <h3 style="margin-bottom:4px">Log Today's Metrics</h3>
-            <p class="muted-note">Stored privately in this browser — used to personalize your pacing and recovery guidance.</p>
-            <div class="config-group">
-              <div class="config-label">Energy Level <span id="energyValue" style="color:var(--aqua)">6</span>/10</div>
-              <input type="range" id="energySlider" min="1" max="10" value="6" aria-label="Energy level 1 to 10">
-            </div>
-            <div class="profile-row-2">
-              <div class="profile-field"><label for="sleepHours">Sleep (hrs)</label><input type="number" id="sleepHours" min="0" max="14" step="0.5" placeholder="e.g. 7.5"></div>
-              <div class="profile-field"><label for="restingHr">Resting HR</label><input type="number" id="restingHr" min="30" max="120" placeholder="e.g. 58"></div>
-            </div>
-            <button type="button" class="btn btn-primary btn-block" id="logMetricsBtn" style="margin-top:8px">
-              <svg class="icon"><use href="#i-heart-pulse"/></svg> Log Today's Metrics
-            </button>
+        <div class="card pb-timeline-card" data-reveal>
+          <div class="pb-timeline-head">
+            <h3>Personal Best Timeline</h3>
+            <p class="muted-note">Every result you log is saved here permanently, dated, so you can track progress over time.</p>
           </div>
-
-          <div class="card" data-reveal="right">
-            <h3>Energy Trend</h3>
-            <div id="energyChart"></div>
-            <div class="profile-latest-row" id="profileLatestRow"></div>
-          </div>
-        </div>
-
-        <div class="profile-log-list-wrap" data-reveal>
-          <h3>Recent Log Entries</h3>
-          <div id="profileLogList" class="profile-log-list"></div>
+          <div id="pbTimeline" class="pb-timeline"></div>
         </div>
       </div>
     </div>
@@ -2219,44 +2228,35 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     alex: {
       name: 'Alex Carter', age: 22, level: 'Competitive', since: 'Member since Feb 2025',
       disciplines: ['Freestyle', 'Individual Medley'],
-      pbs: [
-        { stroke: 'Freestyle', distance: '50m', time: '0:27.8' },
-        { stroke: 'Freestyle', distance: '100m', time: '1:02.4' }
-      ],
-      history: [
-        { date: '2026-07-08', energy: 7, sleep: 7.5, hr: 56 },
-        { date: '2026-07-10', energy: 6, sleep: 6.5, hr: 58 },
-        { date: '2026-07-12', energy: 8, sleep: 8, hr: 54 },
-        { date: '2026-07-14', energy: 5, sleep: 6, hr: 61 },
-        { date: '2026-07-16', energy: 7, sleep: 7, hr: 57 }
+      pbHistory: [
+        { date: '2025-03-02', stroke: 'Freestyle', distance: '100m', time: '1:06.9' },
+        { date: '2025-08-14', stroke: 'Freestyle', distance: '50m', time: '0:29.1' },
+        { date: '2026-01-20', stroke: 'Freestyle', distance: '100m', time: '1:04.2' },
+        { date: '2026-06-05', stroke: 'Freestyle', distance: '50m', time: '0:27.8' },
+        { date: '2026-06-05', stroke: 'Freestyle', distance: '100m', time: '1:02.4' }
       ]
     },
     layla: {
       name: 'Layla Mansour', age: 19, level: 'Elite', since: 'Member since Sep 2024',
       disciplines: ['Freestyle', 'Butterfly'],
-      pbs: [
-        { stroke: 'Freestyle', distance: '50m', time: '0:26.1' },
-        { stroke: 'Freestyle', distance: '100m', time: '0:58.9' },
-        { stroke: 'Butterfly', distance: '100m', time: '1:03.2' }
-      ],
-      history: [
-        { date: '2026-07-07', energy: 8, sleep: 8, hr: 50 },
-        { date: '2026-07-10', energy: 6, sleep: 6, hr: 55 },
-        { date: '2026-07-13', energy: 9, sleep: 8.5, hr: 48 },
-        { date: '2026-07-16', energy: 7, sleep: 7, hr: 52 }
+      pbHistory: [
+        { date: '2024-10-01', stroke: 'Freestyle', distance: '100m', time: '1:03.5' },
+        { date: '2025-02-11', stroke: 'Butterfly', distance: '100m', time: '1:06.8' },
+        { date: '2025-07-19', stroke: 'Freestyle', distance: '50m', time: '0:27.4' },
+        { date: '2026-01-30', stroke: 'Freestyle', distance: '100m', time: '1:00.1' },
+        { date: '2026-05-22', stroke: 'Butterfly', distance: '100m', time: '1:03.2' },
+        { date: '2026-06-28', stroke: 'Freestyle', distance: '50m', time: '0:26.1' },
+        { date: '2026-06-28', stroke: 'Freestyle', distance: '100m', time: '0:58.9' }
       ]
     },
     omar: {
       name: 'Omar Suleiman', age: 16, level: 'Beginner', since: 'Member since Jun 2026',
       disciplines: ['Freestyle', 'Backstroke'],
-      pbs: [
-        { stroke: 'Freestyle', distance: '100m', time: '1:18.0' },
-        { stroke: 'Backstroke', distance: '100m', time: '1:24.5' }
-      ],
-      history: [
-        { date: '2026-07-11', energy: 5, sleep: 6, hr: 68 },
-        { date: '2026-07-14', energy: 6, sleep: 7, hr: 65 },
-        { date: '2026-07-17', energy: 6, sleep: 6.5, hr: 66 }
+      pbHistory: [
+        { date: '2026-06-02', stroke: 'Backstroke', distance: '100m', time: '1:31.0' },
+        { date: '2026-06-20', stroke: 'Freestyle', distance: '100m', time: '1:22.5' },
+        { date: '2026-07-05', stroke: 'Backstroke', distance: '100m', time: '1:24.5' },
+        { date: '2026-07-15', stroke: 'Freestyle', distance: '100m', time: '1:18.0' }
       ]
     }
   };
@@ -2271,61 +2271,41 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     } catch (e) {}
     var seed = DEMO_PROFILES[username];
     if (seed) return JSON.parse(JSON.stringify(seed));
-    return { name: capitalizeUsername(username), age: null, level: null, since: null, disciplines: [], pbs: [], history: [] };
+    return { name: capitalizeUsername(username), age: null, level: null, since: null, disciplines: [], pbHistory: [], avatarDataUrl: null };
   }
   function saveProfile(username, profile) {
     try { localStorage.setItem(PROFILE_STORAGE_PREFIX + username, JSON.stringify(profile)); } catch (e) {}
   }
 
+  function currentBests(pbHistory) {
+    var byKey = {};
+    (pbHistory || []).forEach(function (entry) {
+      var key = entry.stroke + '|' + entry.distance;
+      if (!byKey[key] || entry.date >= byKey[key].date) byKey[key] = entry;
+    });
+    return Object.keys(byKey).map(function (k) { return byKey[k]; });
+  }
+
   function renderProfileStats(p) {
-    if (!p.pbs || !p.pbs.length) {
+    var bests = currentBests(p.pbHistory);
+    if (!bests.length) {
       return '<p class="muted-note" style="grid-column:1/-1; margin:0">No personal bests logged yet — hit <strong>Create / Edit Profile</strong> to add your first one.</p>';
     }
-    return p.pbs.map(function (pb) {
+    return bests.map(function (pb) {
       return '<div class="card" data-reveal><div class="profile-stat-label">' + escapeHtml(pb.distance) + ' ' + escapeHtml(pb.stroke) + ' PB</div><div class="profile-stat-value">' + escapeHtml(pb.time) + '</div></div>';
     }).join('');
   }
 
-  function buildEnergyChartSVG(history) {
-    if (!history.length) {
-      return '<p class="muted-note" style="margin:0">No entries logged yet — log today\'s metrics below to start your trend.</p>';
+  function renderPbTimeline(pbHistory) {
+    if (!pbHistory || !pbHistory.length) {
+      return '<p class="muted-note" style="margin:0">No results logged yet — add your first Personal Best via Create / Edit Profile.</p>';
     }
-    var w = 460, h = 160, padL = 22, padR = 12, padT = 14, padB = 22;
-    var plotW = w - padL - padR, plotH = h - padT - padB;
-    var n = history.length;
-    var points = history.map(function (entry, i) {
-      var x = n === 1 ? padL + plotW / 2 : padL + (plotW * i) / (n - 1);
-      var y = padT + plotH - (plotH * (entry.energy - 1)) / 9;
-      return { x: x, y: y, entry: entry };
-    });
-    var linePath = points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
-    var gridLines = [1, 5, 10].map(function (v) {
-      var y = padT + plotH - (plotH * (v - 1)) / 9;
-      return '<line class="chart-grid" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '"/><text class="chart-axis-label" x="2" y="' + (y + 3).toFixed(1) + '">' + v + '</text>';
-    }).join('');
-    var dots = points.map(function (p) {
-      return '<circle class="chart-dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4"><title>' + escapeHtml(p.entry.date) + ': Energy ' + p.entry.energy + '/10</title></circle>';
-    }).join('');
-    var labelStep = Math.max(1, Math.ceil(n / 6));
-    var xLabels = points.filter(function (_, i) { return i % labelStep === 0 || i === n - 1; }).map(function (p) {
-      return '<text class="chart-axis-label" x="' + p.x.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle">' + escapeHtml(p.entry.date.slice(5)) + '</text>';
-    }).join('');
-    return '<svg class="energy-chart-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Energy level trend over time">' +
-      gridLines + '<path class="chart-line" d="' + linePath + '"/>' + dots + xLabels + '</svg>';
-  }
-
-  function renderLatestRow(history) {
-    if (!history.length) return '';
-    var latest = history[history.length - 1];
-    return '<div class="profile-latest-stat"><strong>' + (latest.sleep != null ? latest.sleep + 'h' : '—') + '</strong><span>Last Sleep</span></div>' +
-      '<div class="profile-latest-stat"><strong>' + (latest.hr != null ? latest.hr : '—') + '</strong><span>Resting HR</span></div>' +
-      '<div class="profile-latest-stat"><strong>' + latest.energy + '/10</strong><span>Last Energy</span></div>';
-  }
-
-  function renderLogList(history) {
-    if (!history.length) return '<p class="muted-note">No entries yet — log your first check-in above.</p>';
-    return history.slice().reverse().slice(0, 6).map(function (e) {
-      return '<div class="profile-log-row"><span>' + escapeHtml(e.date) + '</span><span>Energy ' + e.energy + '/10</span><span>Sleep ' + (e.sleep != null ? e.sleep + 'h' : '—') + '</span><span>Resting HR ' + (e.hr != null ? e.hr : '—') + '</span></div>';
+    var sorted = pbHistory.slice().sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    return sorted.map(function (entry) {
+      return '<div class="pb-timeline-item" data-reveal>' +
+        '<div class="pb-timeline-date">' + escapeHtml(entry.date) + '</div>' +
+        '<div class="pb-timeline-detail">' + escapeHtml(entry.distance) + ' ' + escapeHtml(entry.stroke) + ' — <strong>' + escapeHtml(entry.time) + '</strong></div>' +
+        '</div>';
     }).join('');
   }
 
@@ -2335,7 +2315,14 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     document.getElementById('profileEmpty').style.display = 'none';
     var view = document.getElementById('profileView');
     view.style.display = 'block';
-    document.getElementById('profileAvatar').textContent = initials(p.name);
+
+    var avatarEl = document.getElementById('profileAvatar');
+    if (p.avatarDataUrl) { avatarEl.style.backgroundImage = 'url(' + p.avatarDataUrl + ')'; avatarEl.textContent = ''; }
+    else { avatarEl.style.backgroundImage = 'none'; avatarEl.textContent = initials(p.name); }
+    var isOwner = getSession() === username;
+    document.getElementById('profileAvatarUpload').classList.toggle('editable', isOwner);
+    document.getElementById('profileLogoutBtn').style.display = isOwner ? '' : 'none';
+
     document.getElementById('profileDisplayName').textContent = p.name;
     var levelEl = document.getElementById('profileLevel');
     levelEl.textContent = p.level || '';
@@ -2347,9 +2334,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     }).join('');
     document.getElementById('profileSecuredBadge').style.display = p.passwordHash ? '' : 'none';
     document.getElementById('profileStatsGrid').innerHTML = renderProfileStats(p);
-    document.getElementById('energyChart').innerHTML = buildEnergyChartSVG(p.history);
-    document.getElementById('profileLatestRow').innerHTML = renderLatestRow(p.history);
-    document.getElementById('profileLogList').innerHTML = renderLogList(p.history);
+    document.getElementById('pbTimeline').innerHTML = renderPbTimeline(p.pbHistory);
 
     var toReveal = view.querySelectorAll('[data-reveal]');
     if (io) toReveal.forEach(function (el) { io.observe(el); });
@@ -2374,27 +2359,50 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       renderProfileView(btn.dataset.demoUser);
     });
   });
-  document.getElementById('logoutBtn').addEventListener('click', function () {
+  function doLogout(reopenGate) {
+    var loggedOutUser = getSession();
     clearSession();
     updateSessionBar();
-  });
+    if (reopenGate && loggedOutUser && currentProfileUser === loggedOutUser) {
+      var p = loadProfile(loggedOutUser);
+      openAuthGate(loggedOutUser, p.passwordHash ? 'verify' : 'register');
+    } else if (currentProfileUser) {
+      renderProfileView(currentProfileUser);
+    }
+  }
+  document.getElementById('logoutBtn').addEventListener('click', function () { doLogout(false); });
+  document.getElementById('profileLogoutBtn').addEventListener('click', function () { doLogout(true); });
   updateSessionBar();
-  var energySlider = document.getElementById('energySlider');
-  energySlider.addEventListener('input', function () { document.getElementById('energyValue').textContent = energySlider.value; });
 
-  document.getElementById('logMetricsBtn').addEventListener('click', function () {
-    if (!currentProfileUser) return;
-    var p = loadProfile(currentProfileUser);
-    var today = todayLabel();
-    var energy = parseInt(energySlider.value, 10);
-    var sleepRaw = parseFloat(document.getElementById('sleepHours').value);
-    var hrRaw = parseInt(document.getElementById('restingHr').value, 10);
-    p.history = p.history.filter(function (e) { return e.date !== today; });
-    p.history.push({ date: today, energy: energy, sleep: isNaN(sleepRaw) ? null : sleepRaw, hr: isNaN(hrRaw) ? null : hrRaw });
-    saveProfile(currentProfileUser, p);
-    renderProfileView(currentProfileUser);
-    document.getElementById('sleepHours').value = '';
-    document.getElementById('restingHr').value = '';
+  /* -------- Profile picture upload -------- */
+  document.getElementById('profileAvatarUpload').addEventListener('click', function () {
+    if (!this.classList.contains('editable')) return;
+    document.getElementById('avatarFileInput').click();
+  });
+  document.getElementById('avatarFileInput').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file || !currentProfileUser) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var size = 240;
+        var canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var scale = Math.max(size / img.width, size / img.height);
+        var w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        var p = loadProfile(currentProfileUser);
+        p.avatarDataUrl = dataUrl;
+        saveProfile(currentProfileUser, p);
+        renderProfileView(currentProfileUser);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   });
 
   /* -------- Create / Edit Profile form -------- */
@@ -2434,8 +2442,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     var pbList = document.getElementById('editPbList');
     pbList.innerHTML = '';
-    if (p.pbs && p.pbs.length) { p.pbs.forEach(function (pb) { pbList.appendChild(buildPbRow(pb)); }); }
-    else { pbList.appendChild(buildPbRow(null)); }
+    pbList.appendChild(buildPbRow(null));
 
     document.getElementById('profileEmpty').style.display = 'none';
     document.getElementById('profileView').style.display = 'none';
@@ -2577,7 +2584,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var email = document.getElementById('editEmailField').value.trim();
     var newPassword = document.getElementById('editPasswordField').value;
     var disciplines = Array.from(document.querySelectorAll('#editDisciplineChips .chip[aria-pressed="true"]')).map(function (c) { return c.dataset.editDiscipline; });
-    var pbs = Array.from(document.querySelectorAll('#editPbList .pb-row')).map(function (row) {
+    var newPbs = Array.from(document.querySelectorAll('#editPbList .pb-row')).map(function (row) {
       return { stroke: row.querySelector('.pb-stroke').value, distance: row.querySelector('.pb-distance').value, time: row.querySelector('.pb-time').value.trim() };
     }).filter(function (pb) { return pb.time; });
 
@@ -2587,7 +2594,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       p.age = isNaN(age) ? null : age;
       p.email = email;
       p.disciplines = disciplines;
-      p.pbs = pbs;
+      if (!p.pbHistory) p.pbHistory = [];
+      var today = todayLabel();
+      newPbs.forEach(function (pb) { p.pbHistory.push({ date: today, stroke: pb.stroke, distance: pb.distance, time: pb.time }); });
       if (!p.since) p.since = 'Member since ' + todayLabel();
       saveProfile(editingProfileUser, p);
 
