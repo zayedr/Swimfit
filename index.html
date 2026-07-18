@@ -326,11 +326,8 @@ footer{border-top:1px solid var(--line);padding:30px 4vw;text-align:center;color
     <div class="wrap narrow">
       <div class="brandplate"><img class="brandimg" alt="SWIM FIT"></div>
       <div class="auth-head"><h1 class="display" data-t="li_title"></h1><p data-t="li_sub"></p></div>
-      <label class="f" data-t="email"></label>
-      <input class="input" id="liEmail" type="email" placeholder="you@email.com">
-      <label class="f" data-t="password"></label>
-      <input class="input" id="liPass" type="password" placeholder="••••••••">
-      <div style="margin-top:26px"><button class="btn primary w" onclick="doLogin()" data-t="signin"></button></div>
+      <p class="hint" style="margin-top:14px" data-t="li_ms_note"></p>
+      <div style="margin-top:26px"><a class="btn primary w" href="https://zayedr.memberspace.com/member/sign_in" data-t="signin"></a></div>
       <p class="hint" style="text-align:center;margin-top:16px"><span data-t="noacc"></span> <a href="#" style="color:var(--aqua)" onclick="show('signup');return false" data-t="createone"></a></p>
     </div>
   </section>
@@ -341,13 +338,8 @@ footer{border-top:1px solid var(--line);padding:30px 4vw;text-align:center;color
       <div class="brandplate"><img class="brandimg" alt="SWIM FIT"></div>
       <div class="steps"><i class="on"></i><i></i><i></i></div>
       <div class="auth-head"><h1 class="display" data-t="su_title"></h1><p data-t="su_sub"></p></div>
-      <label class="f" data-t="fullname"></label>
-      <input class="input" id="suName" type="text" placeholder="Zayed Al…">
-      <label class="f" data-t="email"></label>
-      <input class="input" id="suEmail" type="email" placeholder="you@email.com">
-      <label class="f" data-t="password"></label>
-      <input class="input" id="suPass" type="password">
-      <div style="margin-top:26px"><button class="btn primary w" onclick="toOnboard1()" data-t="continue"></button></div>
+      <p class="hint" style="margin-top:14px" data-t="su_ms_note"></p>
+      <div style="margin-top:26px"><a class="btn primary w" href="https://zayedr.memberspace.com/member/sign_up" data-t="su_cta"></a></div>
       <p class="hint" style="text-align:center;margin-top:16px"><span data-t="haveacc"></span> <a href="#" style="color:var(--aqua)" onclick="show('login');return false" data-t="signin"></a></p>
     </div>
   </section>
@@ -500,7 +492,6 @@ footer{border-top:1px solid var(--line);padding:30px 4vw;text-align:center;color
         <h1 class="display" data-t="plans_title"></h1>
         <p data-t="plans_sub"></p>
       </div>
-      <div>[ms-widget-embed path="/member/sign_in"]</div>
       <div class="plans-grid">
         <div class="plan">
           <h3 data-t="p_starter"></h3>
@@ -561,7 +552,7 @@ footer{border-top:1px solid var(--line);padding:30px 4vw;text-align:center;color
             <div class="ht"><b data-t="healthsync"></b><span id="healthSub"></span></div>
             <button class="switch" id="healthSwitch" onclick="toggleHealth()" aria-label="health"></button>
           </div>
-          <div style="margin-top:14px"><button class="btn ghost w" onclick="signOut()" data-t="signout"></button></div>
+          <div style="margin-top:14px"><a class="btn ghost w" href="https://zayedr.memberspace.com/member" data-t="signout"></a></div>
         </div>
       </div>
     </div>
@@ -594,9 +585,12 @@ const UI={
  nav_home:['Home','الرئيسية'],nav_pool:['Pool','المسبح'],nav_gym:['Gym','الجيم'],nav_plans:['Plans','الاشتراكات'],nav_profile:['Profile','حسابي'],
  tagline:['Your Coach. Your Water.','مدرّبك. وماؤك.'],tap:['tap to continue','اضغط للمتابعة'],
  li_title:['Welcome back.','أهلاً بعودتك.'],li_sub:['The pool missed you.','المسبح اشتاق لك.'],
+ li_ms_note:['Sign in securely via MemberSpace — opens in a protected window.','سجّل دخولك بأمان عبر MemberSpace — تُفتح في نافذة محمية.'],
  email:['Email','البريد الإلكتروني'],password:['Password','كلمة المرور'],signin:['Sign In','تسجيل الدخول'],
  noacc:['No account?','ما عندك حساب؟'],createone:['Create one','أنشئ حساباً'],haveacc:['Already have an account?','عندك حساب؟'],
  su_title:['Create your account.','أنشئ حسابك.'],su_sub:['Step 1 of 3 — the basics.','الخطوة ١ من ٣ — الأساسيات.'],
+ su_ms_note:['Account creation and billing are handled securely by MemberSpace.','إنشاء الحساب والدفع تتم بأمان عبر MemberSpace.'],
+ su_cta:['Create Account','إنشاء حساب'],
  fullname:['Full name','الاسم الكامل'],continue:['Continue','متابعة'],
  ob1_title:['About you.','عنّك أنت.'],ob1_sub:['Step 2 of 3 — so your coach knows who is swimming.','الخطوة ٢ من ٣ — ليعرف مدرّبك من يسبح.'],
  yourage:['Your age','عمرك'],yourlevel:['Your level','مستواك'],yourpool:['Your usual pool','مسبحك المعتاد'],
@@ -727,21 +721,19 @@ document.querySelectorAll('.brandimg').forEach(im=>im.src=LOGO);
 let splashT=setTimeout(()=>{if(document.getElementById('splash').classList.contains('active'))show('login')},2800);
 function skipSplash(){clearTimeout(splashT);show('login')}
 
-/* ---------- AUTH ---------- */
-function doLogin(){
-  const e=document.getElementById('liEmail').value.trim();
-  if(!e){toast(tr('Enter your email to sign in','اكتب بريدك لتسجيل الدخول'));return}
-  user.name=user.name||e.split('@')[0];
-  if(user.strokes.length===0){show('ob1');return}
-  enterApp();
+/* ---------- AUTH (MemberSpace) ---------- */
+function syncFromMemberSpace(){
+  if(typeof MemberSpace==='undefined'||!MemberSpace.getMemberInfo)return;
+  const data=MemberSpace.getMemberInfo();
+  if(data&&data.isLoggedIn&&data.memberInfo){
+    user.name=data.memberInfo.name||user.name;
+    user.email=data.memberInfo.email||user.email;
+    if(user.strokes.length===0)show('ob1');else enterApp();
+  }
 }
-function toOnboard1(){
-  const n=document.getElementById('suName').value.trim();
-  const e=document.getElementById('suEmail').value.trim();
-  const p=document.getElementById('suPass').value;
-  if(!n||!e||p.length<6){toast(tr('Fill everything — password 6+ characters','عبّي كل الحقول — كلمة المرور ٦ خانات فأكثر'));return}
-  user.name=n;user.email=e;show('ob1');
-}
+window.addEventListener('MemberSpace.ready',syncFromMemberSpace);
+window.addEventListener('MemberSpace.member.info',syncFromMemberSpace);
+window.addEventListener('MemberSpace.member.logout',signOut);
 function bumpAge(d){user.age=Math.min(70,Math.max(8,user.age+d));document.getElementById('ageNum').textContent=user.age}
 document.getElementById('levelChips').addEventListener('click',e=>{
   const c=e.target.closest('.chip');if(!c)return;
@@ -1421,8 +1413,6 @@ function setPlan(p){
 /* ================= BOOT ================= */
 applyLang();
 </script>
-
-<script> var MemberSpace = window.MemberSpace || {"subdomain":"zayedr"}; (function(d){ var s = d.createElement("script"); s.src = "https://cdn.memberspace.com/scripts/widgets.js"; var e = d.getElementsByTagName("script")[0]; e.parentNode.insertBefore(s,e); }(document)); </script>
 
 </body>
 </html>
