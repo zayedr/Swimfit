@@ -82,6 +82,7 @@ input, textarea, select { font: inherit; color: inherit; }
   --achievement-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161745_e6bc95ce-8d15-43b7-9219-ba90feabcbe2.png');
   --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161746_8c193427-24e0-4d2a-883e-ddbf0e4ec7cd.png');
   --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161747_02c58bbf-1f7e-4abb-bc0a-83c3585b591a.png');
+  --profile-hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_175113_966e4de6-fb4b-4a10-892d-6b19fa272c62.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -158,6 +159,8 @@ section { position: relative; scroll-margin-top: 96px; }
 .btn-ghost:hover { border-color: var(--aqua); color: var(--aqua); transform: translateY(-2px); }
 .btn-outline-maroon { background: transparent; color: var(--maroon-bright); border: 1px solid var(--maroon); }
 .btn-outline-maroon:hover { background: var(--maroon); color: var(--on-maroon); transform: translateY(-2px); }
+.btn-outline-aqua { background: transparent; color: var(--aqua); border: 1px solid var(--aqua); }
+.btn-outline-aqua:hover { background: var(--aqua); color: var(--bg); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(34,211,238,0.25); }
 .btn-block { width: 100%; }
 .btn-sm { padding: 0.6em 1.2em; font-size: 0.85rem; min-height: 38px; }
 
@@ -632,6 +635,21 @@ section { position: relative; scroll-margin-top: 96px; }
 .profile-log-row { display: grid; grid-template-columns: 110px 1fr 1fr 1fr; gap: var(--space-3); align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); font-size: 0.88rem; }
 .profile-log-row span:first-child { color: var(--muted-2); font-size: 0.8rem; }
 @media (max-width: 600px) { .profile-log-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } }
+
+.profile-edit-form { max-width: 720px; margin: 0 auto var(--space-6); }
+.edit-pb-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+.pb-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: var(--space-3); align-items: end; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); transition: border-color var(--dur) var(--ease); }
+.pb-row:hover { border-color: var(--border-strong); }
+.pb-row select, .pb-row input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6em 0.7em; color: var(--fg); font-size: 0.9rem; transition: border-color var(--dur) var(--ease); }
+.pb-row select:focus, .pb-row input:focus { border-color: var(--aqua); }
+.pb-row-remove { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); border-radius: var(--radius-sm); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.pb-row-remove:hover { border-color: var(--maroon); color: var(--maroon-bright); transform: scale(1.08); }
+.pb-row-remove .icon { width: 16px; height: 16px; }
+@media (max-width: 620px) { .pb-row { grid-template-columns: 1fr 1fr; } .pb-row-remove { grid-column: span 2; width: 100%; } }
+.profile-edit-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
+
+.profile-discipline-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
+.profile-discipline-tags .tag { font-size: 0.72rem; }
 
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
@@ -1125,10 +1143,11 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     <!-- ---------- PROFILE (SWIMMER DASHBOARD) ---------- -->
     <div class="tab-panel" id="panel-profile">
+      <div class="tab-banner" style="--photo: var(--profile-hero-photo)" data-reveal></div>
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center">Your Training</p>
         <h2>Swimmer Dashboard</h2>
-        <p>Look up a profile and log today's recovery metrics — your energy trend updates live.</p>
+        <p>Create your profile, log your PBs and today's recovery metrics — your stats and trend update live.</p>
       </div>
 
       <div class="profile-lookup card" data-reveal>
@@ -1138,13 +1157,47 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <input type="text" id="profileUsername" placeholder="e.g. alex, layla, omar — or type your own">
           </div>
           <button type="button" class="btn btn-primary" id="profileLoadBtn"><svg class="icon"><use href="#i-user"/></svg> Load Profile</button>
+          <button type="button" class="btn btn-outline-aqua" id="profileEditBtn"><svg class="icon"><use href="#i-target"/></svg> Create / Edit Profile</button>
         </div>
         <p class="profile-hint">Try a demo: <button type="button" class="chip-link" data-demo-user="alex">alex</button><button type="button" class="chip-link" data-demo-user="layla">layla</button><button type="button" class="chip-link" data-demo-user="omar">omar</button> — or enter any new username to start your own profile.</p>
+        <p class="profile-hint" id="profileEditHint" style="display:none; color:var(--maroon-bright)">Enter a username above first, then hit Create / Edit Profile.</p>
       </div>
+
+      <form id="profileEditForm" class="card profile-edit-form" data-reveal style="display:none">
+        <h3 style="margin-bottom:4px" id="profileEditFormTitle">Create Profile</h3>
+        <p class="muted-note">Saved privately in this browser under this username.</p>
+
+        <div class="profile-row-2">
+          <div class="profile-field">
+            <label for="editName">Name</label>
+            <input type="text" id="editName" placeholder="e.g. Alex Carter" required>
+          </div>
+          <div class="profile-field">
+            <label for="editAge">Age</label>
+            <input type="number" id="editAge" min="6" max="99" placeholder="e.g. 24">
+          </div>
+        </div>
+
+        <div class="config-group" style="margin-top:var(--space-4)">
+          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Swimming Disciplines</div>
+          <div class="chip-group" id="editDisciplineChips" role="group" aria-label="Swimming disciplines"></div>
+        </div>
+
+        <div class="config-group">
+          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests</div>
+          <div id="editPbList" class="edit-pb-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="addPbBtn" style="margin-top:8px"><svg class="icon"><use href="#i-check"/></svg> Add Personal Best</button>
+        </div>
+
+        <div class="profile-edit-actions">
+          <button type="submit" class="btn btn-primary" id="saveProfileBtn"><svg class="icon"><use href="#i-check"/></svg> Save Profile</button>
+          <button type="button" class="btn btn-ghost" id="cancelProfileBtn">Cancel</button>
+        </div>
+      </form>
 
       <div id="profileEmpty" class="result-empty" data-reveal>
         <svg class="icon"><use href="#i-user"/></svg>
-        <p>Enter a username above and hit <strong>Load Profile</strong> to see personalized stats.</p>
+        <p>Enter a username above and hit <strong>Load Profile</strong>, or create a new one.</p>
       </div>
 
       <div id="profileView" style="display:none">
@@ -1152,7 +1205,8 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           <span class="avatar avatar-lg" id="profileAvatar">—</span>
           <div>
             <h3 id="profileDisplayName">—</h3>
-            <div class="profile-meta"><span class="tag tag-green" id="profileLevel">—</span><span id="profileSince" class="profile-since"></span></div>
+            <div class="profile-meta"><span class="tag tag-green" id="profileLevel">—</span><span id="profileAge" class="profile-since"></span><span id="profileSince" class="profile-since"></span></div>
+            <div class="profile-discipline-tags" id="profileDisciplineTags"></div>
           </div>
         </div>
 
@@ -2086,10 +2140,16 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   /* ============================= SWIMMER DASHBOARD ============================= */
   var PROFILE_STORAGE_PREFIX = 'swimfit_profile_v1_';
   var currentProfileUser = null;
+  var editingProfileUser = null;
+  var PB_DISTANCES = ['50m', '100m', '200m', '400m', '800m', '1500m'];
   var DEMO_PROFILES = {
     alex: {
-      name: 'Alex Carter', level: 'Competitive', since: 'Member since Feb 2025',
-      pb50: '0:27.8', pb100: '1:02.4', weeklyVolume: '18km',
+      name: 'Alex Carter', age: 22, level: 'Competitive', since: 'Member since Feb 2025',
+      disciplines: ['Freestyle', 'Individual Medley'],
+      pbs: [
+        { stroke: 'Freestyle', distance: '50m', time: '0:27.8' },
+        { stroke: 'Freestyle', distance: '100m', time: '1:02.4' }
+      ],
       history: [
         { date: '2026-07-08', energy: 7, sleep: 7.5, hr: 56 },
         { date: '2026-07-10', energy: 6, sleep: 6.5, hr: 58 },
@@ -2099,8 +2159,13 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       ]
     },
     layla: {
-      name: 'Layla Mansour', level: 'Elite', since: 'Member since Sep 2024',
-      pb50: '0:26.1', pb100: '0:58.9', weeklyVolume: '32km',
+      name: 'Layla Mansour', age: 19, level: 'Elite', since: 'Member since Sep 2024',
+      disciplines: ['Freestyle', 'Butterfly'],
+      pbs: [
+        { stroke: 'Freestyle', distance: '50m', time: '0:26.1' },
+        { stroke: 'Freestyle', distance: '100m', time: '0:58.9' },
+        { stroke: 'Butterfly', distance: '100m', time: '1:03.2' }
+      ],
       history: [
         { date: '2026-07-07', energy: 8, sleep: 8, hr: 50 },
         { date: '2026-07-10', energy: 6, sleep: 6, hr: 55 },
@@ -2109,8 +2174,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       ]
     },
     omar: {
-      name: 'Omar Suleiman', level: 'Beginner', since: 'Member since Jun 2026',
-      pb50: '0:34.2', pb100: '1:18.0', weeklyVolume: '8km',
+      name: 'Omar Suleiman', age: 16, level: 'Beginner', since: 'Member since Jun 2026',
+      disciplines: ['Freestyle', 'Backstroke'],
+      pbs: [
+        { stroke: 'Freestyle', distance: '100m', time: '1:18.0' },
+        { stroke: 'Backstroke', distance: '100m', time: '1:24.5' }
+      ],
       history: [
         { date: '2026-07-11', energy: 5, sleep: 6, hr: 68 },
         { date: '2026-07-14', energy: 6, sleep: 7, hr: 65 },
@@ -2120,6 +2189,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   };
 
   function capitalizeUsername(u) { return u.charAt(0).toUpperCase() + u.slice(1); }
+  function todayLabel() { return new Date().toISOString().slice(0, 10); }
 
   function loadProfile(username) {
     try {
@@ -2128,21 +2198,18 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     } catch (e) {}
     var seed = DEMO_PROFILES[username];
     if (seed) return JSON.parse(JSON.stringify(seed));
-    return { name: capitalizeUsername(username), level: 'Beginner', since: 'New member', pb50: '—', pb100: '—', weeklyVolume: '—', history: [] };
+    return { name: capitalizeUsername(username), age: null, level: null, since: null, disciplines: [], pbs: [], history: [] };
   }
   function saveProfile(username, profile) {
     try { localStorage.setItem(PROFILE_STORAGE_PREFIX + username, JSON.stringify(profile)); } catch (e) {}
   }
 
   function renderProfileStats(p) {
-    var stats = [
-      { label: '50m Freestyle PB', value: p.pb50 },
-      { label: '100m Freestyle PB', value: p.pb100 },
-      { label: 'Weekly Volume', value: p.weeklyVolume },
-      { label: 'Training Level', value: p.level }
-    ];
-    return stats.map(function (s) {
-      return '<div class="card" data-reveal><div class="profile-stat-label">' + escapeHtml(s.label) + '</div><div class="profile-stat-value">' + escapeHtml(String(s.value)) + '</div></div>';
+    if (!p.pbs || !p.pbs.length) {
+      return '<p class="muted-note" style="grid-column:1/-1; margin:0">No personal bests logged yet — hit <strong>Create / Edit Profile</strong> to add your first one.</p>';
+    }
+    return p.pbs.map(function (pb) {
+      return '<div class="card" data-reveal><div class="profile-stat-label">' + escapeHtml(pb.distance) + ' ' + escapeHtml(pb.stroke) + ' PB</div><div class="profile-stat-value">' + escapeHtml(pb.time) + '</div></div>';
     }).join('');
   }
 
@@ -2197,8 +2264,14 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     view.style.display = 'block';
     document.getElementById('profileAvatar').textContent = initials(p.name);
     document.getElementById('profileDisplayName').textContent = p.name;
-    document.getElementById('profileLevel').textContent = p.level;
-    document.getElementById('profileSince').textContent = p.since;
+    var levelEl = document.getElementById('profileLevel');
+    levelEl.textContent = p.level || '';
+    levelEl.style.display = p.level ? '' : 'none';
+    document.getElementById('profileAge').textContent = p.age ? p.age + ' yrs old' : '';
+    document.getElementById('profileSince').textContent = p.since || 'New profile';
+    document.getElementById('profileDisciplineTags').innerHTML = (p.disciplines || []).map(function (d) {
+      return '<span class="tag tag-aqua">' + escapeHtml(d) + '</span>';
+    }).join('');
     document.getElementById('profileStatsGrid').innerHTML = renderProfileStats(p);
     document.getElementById('energyChart').innerHTML = buildEnergyChartSVG(p.history);
     document.getElementById('profileLatestRow').innerHTML = renderLatestRow(p.history);
@@ -2212,6 +2285,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   document.getElementById('profileLoadBtn').addEventListener('click', function () {
     var input = document.getElementById('profileUsername').value.trim().toLowerCase().replace(/\s+/g, '');
     if (!input) return;
+    document.getElementById('profileEditForm').style.display = 'none';
     renderProfileView(input);
   });
   document.getElementById('profileUsername').addEventListener('keydown', function (e) {
@@ -2220,6 +2294,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   document.querySelectorAll('[data-demo-user]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.getElementById('profileUsername').value = btn.dataset.demoUser;
+      document.getElementById('profileEditForm').style.display = 'none';
       renderProfileView(btn.dataset.demoUser);
     });
   });
@@ -2229,7 +2304,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   document.getElementById('logMetricsBtn').addEventListener('click', function () {
     if (!currentProfileUser) return;
     var p = loadProfile(currentProfileUser);
-    var today = new Date().toISOString().slice(0, 10);
+    var today = todayLabel();
     var energy = parseInt(energySlider.value, 10);
     var sleepRaw = parseFloat(document.getElementById('sleepHours').value);
     var hrRaw = parseInt(document.getElementById('restingHr').value, 10);
@@ -2239,6 +2314,95 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     renderProfileView(currentProfileUser);
     document.getElementById('sleepHours').value = '';
     document.getElementById('restingHr').value = '';
+  });
+
+  /* -------- Create / Edit Profile form -------- */
+  function buildPbRow(pb) {
+    var row = document.createElement('div');
+    row.className = 'pb-row';
+    row.innerHTML =
+      '<div class="profile-field"><label>Discipline</label><select class="pb-stroke">' +
+      DISCIPLINES.map(function (d) { return '<option value="' + d.name + '"' + (pb && pb.stroke === d.name ? ' selected' : '') + '>' + d.name + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="profile-field"><label>Distance</label><select class="pb-distance">' +
+      PB_DISTANCES.map(function (d) { return '<option value="' + d + '"' + (pb && pb.distance === d ? ' selected' : '') + '>' + d + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="profile-field"><label>Time</label><input type="text" class="pb-time" placeholder="e.g. 1:02.40" value="' + (pb ? escapeHtml(pb.time) : '') + '"></div>' +
+      '<button type="button" class="pb-row-remove" aria-label="Remove this personal best">' + icon('i-close') + '</button>';
+    row.querySelector('.pb-row-remove').addEventListener('click', function () { row.remove(); });
+    return row;
+  }
+  document.getElementById('addPbBtn').addEventListener('click', function () {
+    document.getElementById('editPbList').appendChild(buildPbRow(null));
+  });
+
+  function openEditForm(username) {
+    editingProfileUser = username;
+    var p = loadProfile(username);
+    document.getElementById('profileEditFormTitle').textContent = (p.since ? 'Edit Profile — ' : 'Create Profile — ') + username;
+    document.getElementById('editName').value = p.name && p.name !== capitalizeUsername(username) ? p.name : (p.name || '');
+    document.getElementById('editAge').value = p.age || '';
+
+    document.getElementById('editDisciplineChips').innerHTML = DISCIPLINES.map(function (d) {
+      var active = (p.disciplines || []).indexOf(d.name) > -1;
+      return '<button type="button" class="chip" data-edit-discipline="' + d.name + '" aria-pressed="' + active + '">' + icon(d.icon) + d.name + '</button>';
+    }).join('');
+
+    var pbList = document.getElementById('editPbList');
+    pbList.innerHTML = '';
+    if (p.pbs && p.pbs.length) { p.pbs.forEach(function (pb) { pbList.appendChild(buildPbRow(pb)); }); }
+    else { pbList.appendChild(buildPbRow(null)); }
+
+    document.getElementById('profileEmpty').style.display = 'none';
+    document.getElementById('profileView').style.display = 'none';
+    document.getElementById('profileEditHint').style.display = 'none';
+    var form = document.getElementById('profileEditForm');
+    form.style.display = 'block';
+    var toReveal = form.querySelectorAll('[data-reveal]');
+    if (io) toReveal.forEach(function (el) { io.observe(el); });
+    else toReveal.forEach(function (el) { el.classList.add('is-visible'); });
+    form.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  }
+
+  document.getElementById('profileEditBtn').addEventListener('click', function () {
+    var input = document.getElementById('profileUsername').value.trim().toLowerCase().replace(/\s+/g, '');
+    if (!input) { document.getElementById('profileEditHint').style.display = 'block'; return; }
+    openEditForm(input);
+  });
+
+  document.getElementById('editDisciplineChips').addEventListener('click', function (e) {
+    var chip = e.target.closest('.chip');
+    if (!chip) return;
+    chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  });
+
+  document.getElementById('cancelProfileBtn').addEventListener('click', function () {
+    document.getElementById('profileEditForm').style.display = 'none';
+    if (currentProfileUser) { renderProfileView(currentProfileUser); }
+    else { document.getElementById('profileEmpty').style.display = ''; }
+  });
+
+  document.getElementById('profileEditForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = document.getElementById('editName').value.trim();
+    if (!name) return;
+    var age = parseInt(document.getElementById('editAge').value, 10);
+    var disciplines = Array.from(document.querySelectorAll('#editDisciplineChips .chip[aria-pressed="true"]')).map(function (c) { return c.dataset.editDiscipline; });
+    var pbs = Array.from(document.querySelectorAll('#editPbList .pb-row')).map(function (row) {
+      return { stroke: row.querySelector('.pb-stroke').value, distance: row.querySelector('.pb-distance').value, time: row.querySelector('.pb-time').value.trim() };
+    }).filter(function (pb) { return pb.time; });
+
+    var p = loadProfile(editingProfileUser);
+    p.name = name;
+    p.age = isNaN(age) ? null : age;
+    p.disciplines = disciplines;
+    p.pbs = pbs;
+    if (!p.since) p.since = 'Member since ' + todayLabel();
+    saveProfile(editingProfileUser, p);
+
+    document.getElementById('profileUsername').value = editingProfileUser;
+    document.getElementById('profileEditForm').style.display = 'none';
+    renderProfileView(editingProfileUser);
   });
 
   /* ============================= REVEAL ON SCROLL ============================= */
