@@ -346,8 +346,9 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= PILL TABS (level / focus / goal selectors) ============================= */
 .pill-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); background: var(--bg-alt); padding: 6px; border-radius: 999px; }
-.pill-tab { padding: 0.55em 1.1em; border-radius: 999px; font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.85rem; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
+.pill-tab { padding: 0.55em 1.1em; border-radius: 999px; font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.85rem; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease); min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
 .pill-tab[aria-selected="true"] { background: var(--green); color: var(--on-green); }
+.pill-tab:hover:not([aria-selected="true"]) { color: var(--fg); transform: translateY(-1px); }
 .pill-tab .icon { width: 16px; height: 16px; }
 
 /* ============================= WORKOUT GENERATOR ============================= */
@@ -366,6 +367,8 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .chip .icon { width: 15px; height: 15px; }
 .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--on-green); }
+.chip:hover:not([aria-pressed="true"]) { border-color: var(--aqua); color: var(--fg); transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 16px rgba(34,211,238,0.12); }
+.chip[aria-pressed="true"]:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 20px rgba(46,204,129,0.3); }
 
 .slider-row { display: flex; align-items: center; gap: var(--space-4); }
 .slider-row input[type="range"] {
@@ -378,7 +381,9 @@ section { position: relative; scroll-margin-top: 96px; }
 .slider-row input[type="range"]::-moz-range-thumb {
   width: 22px; height: 22px; border-radius: 50%; background: var(--aqua); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--aqua);
 }
-.slider-value { font-family: var(--font-display); font-size: 1.4rem; min-width: 84px; text-align: right; color: var(--green-bright); }
+.slider-value { font-family: var(--font-display); font-size: 1.4rem; min-width: 84px; text-align: right; color: var(--green-bright); display: inline-block; }
+@keyframes valuePulse { 0% { transform: scale(1.35); color: var(--aqua); } 100% { transform: scale(1); color: var(--green-bright); } }
+.value-pulse { animation: valuePulse 320ms var(--ease); }
 
 .profile-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
 .profile-field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -392,8 +397,10 @@ section { position: relative; scroll-margin-top: 96px; }
   border: 1px solid var(--border); cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .equip-check:has(input:checked) { border-color: var(--green); background: rgba(31,163,90,0.08); }
+.equip-check:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.equip-check { transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur) var(--ease); }
 .equip-check input { accent-color: var(--green); width: 18px; height: 18px; }
-.equip-check .icon { width: 18px; height: 18px; color: var(--muted); }
+.equip-check .icon { width: 18px; height: 18px; color: var(--muted); transition: color var(--dur) var(--ease); }
 .equip-check:has(input:checked) .icon { color: var(--green-bright); }
 
 .quote-card {
@@ -418,10 +425,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .result-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 280px; text-align: center; color: var(--muted); gap: var(--space-3); }
 .result-empty .icon { width: 44px; height: 44px; color: var(--muted-2); }
 
+.workout-block { animation: blockIn 460ms var(--ease) both; }
 .workout-block + .workout-block { margin-top: var(--space-5); }
+.workout-block:nth-of-type(1) { animation-delay: 0ms; }
+.workout-block:nth-of-type(2) { animation-delay: 90ms; }
+.workout-block:nth-of-type(3) { animation-delay: 180ms; }
+.workout-block:nth-of-type(4) { animation-delay: 270ms; }
+.workout-block:nth-of-type(5) { animation-delay: 360ms; }
+@keyframes blockIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
 .workout-block-title { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; color: var(--aqua); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2); }
 .workout-block-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.set-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+.set-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); border-radius: 8px; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease), padding-inline var(--dur) var(--ease); }
+.set-row:hover { background: rgba(255,255,255,0.03); transform: translateX(3px); padding-inline: var(--space-2); }
 .set-row:last-child { border-bottom: none; }
 .set-main { display: flex; flex-direction: column; gap: 4px; }
 .set-title { font-weight: 600; font-size: 1rem; }
@@ -437,7 +452,9 @@ section { position: relative; scroll-margin-top: 96px; }
 .member-gate strong { color: var(--fg); }
 [data-ms-member="logged-in"] { display: none; }
 
-.coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); }
+.coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
+.coach-tips li { transition: transform var(--dur) var(--ease); }
+.coach-tips li:hover { transform: translateX(4px); }
 .coach-tips-head { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.85rem; color: var(--maroon-bright); margin-bottom: var(--space-3); }
 .coach-tips-head .icon { width: 18px; height: 18px; }
 .coach-tips ul { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -477,6 +494,13 @@ section { position: relative; scroll-margin-top: 96px; }
 .video-duration { position: absolute; bottom: var(--space-2); right: var(--space-2); background: rgba(0,0,0,0.55); font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; }
 .video-info { padding: var(--space-4); }
 .video-info h3 { font-size: 1.02rem; margin-bottom: var(--space-2); text-transform: none; }
+
+/* Featured masterclass: spans the full grid width with a taller, wider thumbnail */
+.video-card-featured { grid-column: 1 / -1; border-color: var(--maroon); }
+.video-card-featured .video-thumb { aspect-ratio: 21/7; }
+.video-card-featured .video-info h3 { font-size: 1.2rem; }
+.video-featured-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
+@media (max-width: 640px) { .video-card-featured .video-thumb { aspect-ratio: 16/10; } }
 
 /* ============================= COMMUNITY ============================= */
 .community-layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-5); align-items: start; }
@@ -775,12 +799,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
                 <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
               </div>
               <div class="profile-field">
-                <label for="pb50">50m Freestyle PB</label>
-                <input type="text" id="pb50" placeholder="0:28" inputmode="numeric">
+                <label for="pb50">50m Freestyle PB <span style="text-transform:none; font-weight:400; color:var(--muted-2)">(optional)</span></label>
+                <input type="text" id="pb50" placeholder="optional — e.g. 0:28">
               </div>
               <div class="profile-field">
-                <label for="pb100">100m Freestyle PB</label>
-                <input type="text" id="pb100" placeholder="1:05" inputmode="numeric">
+                <label for="pb100">100m Freestyle PB <span style="text-transform:none; font-weight:400; color:var(--muted-2)">(optional)</span></label>
+                <input type="text" id="pb100" placeholder="optional — e.g. 1:05">
               </div>
             </div>
           </div>
@@ -793,7 +817,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           <div class="config-group">
             <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Target Distance</div>
             <div class="slider-row">
-              <input type="range" id="distanceSlider" min="1000" max="4000" step="500" value="2000" aria-label="Target distance in meters">
+              <input type="range" id="distanceSlider" min="1000" max="6000" step="500" value="2000" aria-label="Target distance in meters">
               <span class="slider-value" id="distanceValue">2000m</span>
             </div>
           </div>
@@ -1158,19 +1182,29 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   // card will switch from the "coming soon" modal to playing that video
   // in place, automatically.
   var VIDEOS = [
-    { title: 'Freestyle: Catch & High-Elbow Pull', level: 'All Levels', duration: '6:20', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141447_6a4634df-9fd3-46b6-9938-bcf18daad45c.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_1' },
-    { title: 'Backstroke: Body Rotation Drill', level: 'Beginner', duration: '4:45', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141448_c539e83c-bb8d-4ac0-a62a-5498e10863aa.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_2' },
-    { title: 'Butterfly: Undulation Timing', level: 'Competitive', duration: '7:10', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141449_3571dde4-437d-4c85-819e-f3ede51de114.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_3' },
-    { title: 'Breaststroke: Whip-Kick Breakdown', level: 'All Levels', duration: '5:35', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141451_78a8270c-9930-4061-a01d-2aa0da93b0a7.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_4' },
-    { title: 'Race Starts & Turns', level: 'Competitive', duration: '8:05', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141452_a4800488-12db-40c9-b54c-48a9eb6fcf34.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_5' },
-    { title: 'IM Transitions Under Fatigue', level: 'Elite', duration: '9:40', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141453_30c867c8-d376-47f3-a188-f415397d1bdc.png', youtubeId: 'REPLACE_WITH_VIDEO_ID_6' }
+    { title: 'Freestyle: Catch & High-Elbow Pull', level: 'All Levels', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141447_6a4634df-9fd3-46b6-9938-bcf18daad45c.png', youtubeId: 'AQy_c30lNjI' },
+    { title: 'Backstroke: Body Rotation Drill', level: 'Beginner', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141448_c539e83c-bb8d-4ac0-a62a-5498e10863aa.png', youtubeId: 'MrFt6JHii8w' },
+    { title: 'Butterfly: Undulation Timing', level: 'Competitive', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141449_3571dde4-437d-4c85-819e-f3ede51de114.png', youtubeId: 'x-CB6aD4S2s' },
+    { title: 'Breaststroke: Whip-Kick Breakdown', level: 'All Levels', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141451_78a8270c-9930-4061-a01d-2aa0da93b0a7.png', youtubeId: 'EElzlIMjk_c' },
+    { title: 'Race Starts & Turns', level: 'Competitive', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141452_a4800488-12db-40c9-b54c-48a9eb6fcf34.png', youtubeId: 'GoyXk3xMfKY' },
+    { title: 'IM Transitions Under Fatigue', level: 'Elite', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141453_30c867c8-d376-47f3-a188-f415397d1bdc.png', youtubeId: '5hwv4HFpHTA' }
   ];
+  var FEATURED_VIDEO = { title: 'Featured Masterclass: Complete Technique Breakdown', level: 'Masterclass', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_151012_319bc69c-7a93-4fdd-ac93-63192ace37be.png', youtubeId: '8c_lt66Yvn4' };
+
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
       '<div class="video-thumb" style="background-image:linear-gradient(180deg, rgba(7,11,10,0.15), rgba(7,11,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
-      '<span class="video-duration">' + v.duration + '</span></div>' +
+      '<span class="video-duration">YouTube</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
-  }).join('');
+  }).join('') + (function () {
+    var v = FEATURED_VIDEO;
+    var i = VIDEOS.length;
+    VIDEOS.push(v);
+    return '<article class="card video-card video-card-featured" data-reveal data-video-index="' + i + '">' +
+      '<div class="video-thumb" style="background-image:linear-gradient(180deg, rgba(7,11,10,0.1), rgba(7,11,10,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<span class="video-duration">YouTube</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
+      '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-maroon">' + v.level + '</span></div></article>';
+  })();
 
   var modal = document.getElementById('videoModal');
   var modalTitle = document.getElementById('modalTitle');
@@ -1265,8 +1299,11 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   distanceSlider.value = state.distance;
   function updateDistanceLabel() {
     var v = +distanceSlider.value;
-    distanceValue.textContent = v >= 4000 ? '4km+' : (v / 1000) + 'km';
+    distanceValue.textContent = v >= 6000 ? '6km+' : (v / 1000) + 'km';
     state.distance = v;
+    distanceValue.classList.remove('value-pulse');
+    void distanceValue.offsetWidth;
+    distanceValue.classList.add('value-pulse');
   }
   updateDistanceLabel();
   distanceSlider.addEventListener('input', updateDistanceLabel);
@@ -1297,15 +1334,26 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return base + levelAdj;
   }
 
+  // Open, forgiving time parser for the optional PB fields — accepts "1:05",
+  // "65", "1m5s", "1m 5s", or "1 min 5 sec" so the field never feels "strictly
+  // restricted" to one exact format.
   function parseTimeToSeconds(str) {
     if (!str) return null;
-    str = str.trim();
+    str = str.trim().toLowerCase();
     if (!str) return null;
-    var parts = str.split(':');
-    var sec;
-    if (parts.length === 2) sec = (+parts[0]) * 60 + (+parts[1]);
-    else sec = +parts[0];
-    return isFinite(sec) && sec > 0 ? sec : null;
+    var mMatch = str.match(/(\d+(\.\d+)?)\s*m/);
+    var sMatch = str.match(/(\d+(\.\d+)?)\s*s/);
+    if (mMatch || sMatch) {
+      var total = (mMatch ? parseFloat(mMatch[1]) : 0) * 60 + (sMatch ? parseFloat(sMatch[1]) : 0);
+      return total > 0 ? total : null;
+    }
+    if (str.indexOf(':') > -1) {
+      var parts = str.split(':');
+      var sec = (+parts[0]) * 60 + (+parts[1]);
+      return isFinite(sec) && sec > 0 ? sec : null;
+    }
+    var plain = parseFloat(str);
+    return isFinite(plain) && plain > 0 ? plain : null;
   }
 
   // Pulls the first number out of an open free-text field like "40kg" or
@@ -1434,7 +1482,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       renderBlock('Cool-Down', cooldown);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
-      '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 4000 ? '4km+' : (totalM / 1000) + 'km') + ' · ' +
+      '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
       GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note +
       (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') + '</p>';
 
@@ -1488,13 +1536,35 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms sequence mirrors a strong pull phase.' },
       { name: 'Battle Ropes', prescription: '5 x 30s', cue: 'Alternating waves build the shoulder endurance a hard sprint set demands.' }
     ],
-    full: [
-      { name: 'Kettlebell Swings', prescription: '4 x 15', cue: 'Hip-hinge power — the same snap used off the wall on a turn.', weighted: true },
-      { name: 'Turkish Get-Up', prescription: '3 x 5 / side', cue: 'Full-body control under load — builds the stability a streamline needs.', weighted: true },
-      { name: 'Man-Makers', prescription: '3 x 8', cue: 'Combines a row, push-up and press — total-body conditioning in one rep.', weighted: true },
-      { name: 'Medicine Ball Slams', prescription: '4 x 8', cue: 'Drive from the hips — mirrors the power of a race start.', weighted: true },
-      { name: 'Renegade Rows', prescription: '3 x 10 / side', cue: 'Anti-rotation core work while pulling — directly carries to the catch phase.', weighted: true }
-    ],
+    full: {
+      // Sprint swimmers (Speed goal, or a short target distance): heavy,
+      // low-rep explosive power work.
+      sprint: [
+        { name: 'Squats', prescription: '5 x 3', loadPct: 0.85, weighted: true, cue: 'Heavy, low-rep — builds the explosive leg drive behind every start and turn.' },
+        { name: 'Deadlifts', prescription: '4 x 4', loadPct: 0.8, weighted: true, cue: 'Heavy posterior-chain strength — raw power for the pull-through.' },
+        { name: 'Weighted Pull-Ups', prescription: '4 x 4', loadPct: 0.25, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
+        { name: 'Power Cleans', prescription: '5 x 3', loadPct: 0.55, weighted: true, cue: 'Full-body explosiveness that mirrors the snap of a race start.' },
+        { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — mirrors the explosive push off the blocks.' }
+      ],
+      // Distance swimmers (Endurance goal, or a long target distance):
+      // high-rep muscular endurance and sustained pulling power.
+      distance: [
+        { name: 'Deadlifts', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'High-rep posterior-chain endurance — sustains pulling power deep into a race.' },
+        { name: 'Weighted Pull-Ups', prescription: '4 x 10', loadPct: 0.1, weighted: true, cue: 'Light added load, high volume — builds the muscular endurance for a long pull.' },
+        { name: 'Squats', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'Moderate load, higher reps — builds the leg endurance for a long swim.' },
+        { name: 'Rowing Machine Intervals', prescription: '5 x 500m', cue: 'Sustained pulling power and aerobic base that carries straight into distance sets.' },
+        { name: 'Turkish Get-Up', prescription: '3 x 5 / side', loadPct: 0.2, weighted: true, cue: 'Full-body control under load — builds the stability a streamline needs deep into a race.' }
+      ],
+      // No strong sprint/distance signal yet (e.g. Technique goal): balanced
+      // all-purpose strength across the same core lifts.
+      balanced: [
+        { name: 'Squats', prescription: '4 x 8', loadPct: 0.65, weighted: true, cue: 'All-purpose leg strength — the base under every kick and start.' },
+        { name: 'Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly to a powerful pull-through.' },
+        { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Adds load to the pull for real strength, beyond just bodyweight reps.' },
+        { name: 'Kettlebell Swings', prescription: '4 x 15', loadPct: 0.4, weighted: true, cue: 'Hip-hinge power — the same snap used off the wall on a turn.' },
+        { name: 'Medicine Ball Slams', prescription: '4 x 8', loadPct: 0.15, weighted: true, cue: 'Drive from the hips — mirrors the power of a race start.' }
+      ]
+    },
     upper: [
       { name: 'Band Pull-Aparts', prescription: '3 x 20', cue: 'Light band, full range — protects the shoulder for high stroke volume.' },
       { name: 'Push-Ups', prescription: '4 x 15', cue: 'Full lockout, tight core — builds the pressing strength behind every pull.' },
@@ -1523,6 +1593,20 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   var currentGymFocus = 'cardio';
 
+  // Reads the Workout Generator's own state (same discipline/goal/distance the
+  // swimmer already configured) so Full Body programming automatically leans
+  // sprint or distance without asking the swimmer to repeat themselves.
+  function gymOrientation() {
+    if (state.goal === 'speed' || state.distance <= 1500) return 'sprint';
+    if (state.goal === 'endurance' || state.distance >= 3500) return 'distance';
+    return 'balanced';
+  }
+  var GYM_ORIENTATION_LABEL = {
+    sprint: 'Sprint-focused — heavy, low-rep explosive power (from your Workout Generator settings)',
+    distance: 'Distance-focused — high-rep muscular endurance & sustained pulling power (from your Workout Generator settings)',
+    balanced: 'Balanced strength across core lifts (set a Speed or Endurance goal in the Workout Generator to specialize this)'
+  };
+
   function renderGym(focus) {
     currentGymFocus = focus;
     var tone = GYM_TONE[focus];
@@ -1530,13 +1614,16 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var workingWeight = parseFirstNumber(document.getElementById('gymWorkingWeight').value);
     var strengthLimit = parseFirstNumber(document.getElementById('gymStrengthLimit').value);
     var refMax = strengthLimit || (workingWeight ? workingWeight * 1.15 : null);
+    var orientation = focus === 'full' ? gymOrientation() : null;
+    var exercises = focus === 'full' ? GYM_FOCUS.full[orientation] : GYM_FOCUS[focus];
 
-    document.getElementById('gymGrid').innerHTML = GYM_FOCUS[focus].map(function (g) {
+    document.getElementById('gymGrid').innerHTML = exercises.map(function (g) {
       var prescription = (age && age < 12) ? scaleDownPrescription(g.prescription) : g.prescription;
       var loadNote = '';
       if (g.weighted && refMax) {
-        var suggested = Math.max(4, Math.round(refMax * 0.65 / 2) * 2);
-        loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (65% of your listed max — built for aquatic power, not a 1RM grind)</p>';
+        var pct = g.loadPct != null ? g.loadPct : 0.65;
+        var suggested = Math.max(4, Math.round(refMax * pct / 2) * 2);
+        loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (' + Math.round(pct * 100) + '% of your listed max)</p>';
       }
       return '<article class="card gym-card" data-reveal>' +
         '<span class="tag tag-' + tone + '">' + GYM_LABEL[focus] + '</span>' +
@@ -1547,8 +1634,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     var gymNote = document.getElementById('gymNote');
     var notes = [];
+    if (orientation) notes.push(GYM_ORIENTATION_LABEL[orientation] + '.');
     if (age && age < 12) notes.push('Sets/reps trimmed — youth-appropriate volume for an 11-and-under athlete.');
-    if (refMax) notes.push('Suggested loads use ' + (strengthLimit ? 'your strength limit' : 'your working weight') + ' (' + refMax.toFixed(0) + 'kg reference) at 65% for power-endurance, not max effort.');
+    if (refMax) notes.push('Suggested loads use ' + (strengthLimit ? 'your strength limit' : 'your working weight') + ' (' + refMax.toFixed(0) + 'kg reference), scaled per exercise for power vs. endurance work.');
     if (notes.length) { gymNote.textContent = notes.join(' '); gymNote.style.display = 'block'; }
     else { gymNote.style.display = 'none'; }
 
