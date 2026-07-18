@@ -67,12 +67,12 @@ input, textarea, select { font: inherit; color: inherit; }
      into these custom properties and the duotone treatment below will tint it
      to match the brand automatically. Left empty, a photographic-style gradient
      (light rays + vignette) fills the same role. */
-  --hero-photo: none;
-  --disc-photo-freestyle: none;
-  --disc-photo-backstroke: none;
-  --disc-photo-butterfly: none;
-  --disc-photo-breaststroke: none;
-  --disc-photo-medley: none;
+  --hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135528_43b7492d-7223-413c-94ce-79f00f825a00.png');
+  --disc-photo-freestyle: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135529_588ca873-6981-47c1-9714-77a9c038161f.png');
+  --disc-photo-backstroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135538_f4fc383d-d889-4812-80cb-adb065ed9d72.png');
+  --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
+  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135540_d5ca6f54-722b-4921-8b6c-0b5a4e10ffc4.png');
+  --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -367,6 +367,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .set-row:last-child { border-bottom: none; }
 .set-main { display: flex; flex-direction: column; gap: 4px; }
 .set-title { font-weight: 600; font-size: 1rem; }
+.set-pace { font-size: 0.78rem; color: var(--aqua); }
 .set-gear { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .set-gear .gear-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted); background: var(--bg-alt); padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .set-gear .gear-chip .icon { width: 13px; height: 13px; }
@@ -377,6 +378,13 @@ section { position: relative; scroll-margin-top: 96px; }
 .member-gate { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius); border: 1px dashed var(--border-strong); text-align: center; color: var(--muted); }
 .member-gate strong { color: var(--fg); }
 [data-ms-member="logged-in"] { display: none; }
+
+.coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); }
+.coach-tips-head { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.85rem; color: var(--maroon-bright); margin-bottom: var(--space-3); }
+.coach-tips-head .icon { width: 18px; height: 18px; }
+.coach-tips ul { display: flex; flex-direction: column; gap: var(--space-2); }
+.coach-tips li { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.92rem; }
+.coach-tips li .icon { width: 16px; height: 16px; color: var(--green-bright); margin-top: 3px; flex-shrink: 0; }
 
 @media (max-width: 900px) {
   .generator { grid-template-columns: 1fr; }
@@ -580,14 +588,14 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
 <!-- ============================= HERO ============================= -->
 <!--
-  Real photography hook: this sandbox's network policy blocks Unsplash, so no live
-  stock-photo URL is embedded here. Once you're outside this environment, grab a
-  licensed swimmer/pool action shot and set it as:
-    <body style="--hero-photo: url('https://your-image-url.jpg')">
-  or edit the --hero-photo custom property in the :root block above. The duotone
-  overlay is already tuned to tint any photo you drop in to match the brand.
-  Same pattern applies to --disc-photo-freestyle / -backstroke / -butterfly /
-  -breaststroke / -medley for the Discipline card thumbnails below.
+  Photography note: this sandbox's network policy blocks every stock-photo host
+  (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and refused), so no
+  licensed stock photo could be fetched or verified from here. The images wired
+  into --hero-photo / --disc-photo-* below are AI-generated (photorealistic
+  swimmer/pool action shots), not licensed photography — swap them for real
+  photos anytime by editing the same custom properties in the :root block above,
+  e.g. --hero-photo: url('https://your-image-url.jpg'). The duotone overlay is
+  tuned to tint whatever image is set to match the brand automatically.
 -->
 <header class="hero" id="top">
   <div class="hero-bg"></div>
@@ -916,7 +924,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         <h4>Company</h4>
         <ul>
           <li><button type="button" data-tab="community">Community</button></li>
-          <li><a href="#">Contact</a></li>
+          <li><a href="mailto:SWIMFIT.ae@gmail.com">Contact</a></li>
           <li><a href="#">Privacy Policy</a></li>
           <li><a href="#">Terms of Service</a></li>
         </ul>
@@ -924,7 +932,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026 Swimfit. All rights reserved.</span>
-      <span>Account &amp; billing powered by MemberSpace.</span>
+      <span><a href="mailto:SWIMFIT.ae@gmail.com" style="color:var(--aqua)">SWIMFIT.ae@gmail.com</a> &middot; Account &amp; billing powered by MemberSpace.</span>
     </div>
   </div>
 </footer>
@@ -1151,10 +1159,14 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return base + levelAdj;
   }
 
+  function strokeLabel(discipline) {
+    return discipline === 'Individual Medley' ? 'IM (Fly–Back–Breast–Free order)' : discipline;
+  }
+
   function buildSet(reps, dist, label, gearList, pace100, restBase, scaler) {
     var interval = Math.round(((dist / 100) * pace100 + restBase) * scaler.intervalMult);
     var rest = Math.max(10, Math.round(restBase * scaler.intervalMult + scaler.restAdd));
-    return { title: reps + ' x ' + dist + 'm ' + label, interval: interval, rest: rest, gear: gearList };
+    return { title: reps + ' x ' + dist + 'm ' + label, interval: interval, rest: rest, gear: gearList, pace: Math.round(pace100) };
   }
 
   function renderBlock(name, sets) {
@@ -1162,6 +1174,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var rows = sets.map(function (s) {
       var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
       return '<div class="set-row"><div class="set-main"><span class="set-title">' + s.title + '</span>' +
+        '<span class="set-pace">Target Pace: ' + formatTime(s.pace) + ' / 100m</span>' +
         (gearHtml ? '<div class="set-gear">' + gearHtml + '</div>' : '') + '</div>' +
         '<div class="set-interval"><strong>' + formatTime(s.interval) + '</strong><span>Interval</span></div>' +
         '<div class="set-rest"><strong>' + formatTime(s.rest) + '</strong><span>Rest</span></div></div>';
@@ -1169,48 +1182,78 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return '<div class="workout-block"><div class="workout-block-title">' + name + '</div>' + rows + '</div>';
   }
 
+  var TIPS_BY_DISCIPLINE = {
+    'Freestyle': 'Keep a high-elbow catch and rotate through the hips, not just the shoulders.',
+    'Backstroke': 'Keep your head still and level — just a slight ripple at the crown, eyes on the ceiling.',
+    'Butterfly': 'Start the undulation at your chest; let the hips and legs follow the wave rather than forcing it.',
+    'Breaststroke': 'Time the kick to snap shut just as your arms finish the outsweep and begin to recover.',
+    'Individual Medley': 'Plan each stroke transition two strokes before the wall — never rush the touch.'
+  };
+  var TIPS_BY_GOAL = {
+    speed: 'Your fastest speed in the pool is right after a start or turn — explode off every wall.',
+    endurance: 'Lock into a fixed breathing pattern (e.g. every 3rd stroke) and hold it, even as fatigue builds.',
+    technique: 'Count strokes per length — fewer, longer strokes almost always beat more, shorter ones.'
+  };
+  var UNIVERSAL_TIPS = [
+    'Streamline off every wall: glide tight and straight until your first kick, not before.',
+    'Flip turns: tuck earlier than feels natural and drive off the wall with straight legs.',
+    'Breath control: exhale steadily underwater so you are not gasping for air on the turn.'
+  ];
+
+  function renderCoachTips() {
+    var tips = [TIPS_BY_DISCIPLINE[state.discipline], TIPS_BY_GOAL[state.goal], UNIVERSAL_TIPS[dayIndex() % UNIVERSAL_TIPS.length]];
+    return '<div class="coach-tips"><div class="coach-tips-head">' + icon('i-target') + ' Coach’s Technical Tips</div><ul>' +
+      tips.map(function (t) { return '<li>' + icon('i-check') + '<span>' + t + '</span></li>'; }).join('') + '</ul></div>';
+  }
+
   function generateWorkout() {
     var scaler = LEVEL_SCALERS[state.level];
     var pace100 = paceSecondsPer100(state.goal, state.level);
     var totalM = state.distance;
-    var warmupM = Math.round((totalM * 0.1) / 100) * 100 || 200;
-    var mainM = Math.round((totalM * 0.7) / 100) * 100;
+    var stroke = strokeLabel(state.discipline);
+    var warmupM = Math.round((totalM * 0.12) / 100) * 100 || 200;
+    var mainM = Math.round((totalM * 0.68) / 100) * 100;
     var cooldownM = Math.max(100, totalM - warmupM - mainM);
+    var noScale = { intervalMult: 1, restAdd: 0 };
 
-    var warmup = [buildSet(1, warmupM, state.discipline + ', easy', [], pace100 + 15, 15, { intervalMult: 1, restAdd: 0 })];
+    var warmup = [
+      buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), stroke + ', easy — long smooth strokes', [], pace100 + 15, 15, noScale),
+      buildSet(4, 50, 'Drill/Build — odd 25 drill, even 25 build', state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale)
+    ];
 
     var main = [];
     if (state.goal === 'speed') {
-      var repDist = 50;
-      var reps = Math.max(4, Math.round(mainM / repDist));
-      main.push(buildSet(reps, repDist, state.discipline + ', max effort', state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 * 0.85, 25, scaler));
-      main.push(buildSet(Math.max(2, Math.round(reps / 2)), 25, 'Kick, max effort', state.equipment.filter(function (g) { return g === 'Kickboard' || g === 'Fins'; }), pace100 * 0.9, 30, scaler));
+      main.push({ name: 'Sprint Reps', sets: [buildSet(Math.max(4, Math.round(mainM * 0.5 / 50)), 50, stroke + ', max effort race pace', state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 * 0.82, 30, scaler)] });
+      main.push({ name: 'Explosive Turns & Starts', sets: [buildSet(Math.max(3, Math.round(mainM * 0.2 / 25)), 25, stroke + ', explosive off the wall', [], pace100 * 0.85, 35, scaler)] });
+      main.push({ name: 'Active Recovery', sets: [buildSet(Math.max(1, Math.round(mainM * 0.3 / 100)), 100, 'easy pace recovery swim', [], pace100 + 20, 15, scaler)] });
     } else if (state.goal === 'endurance') {
       var longRep = totalM >= 3000 ? 400 : 200;
-      var longReps = Math.max(2, Math.round((mainM * 0.6) / longRep));
-      main.push(buildSet(longReps, longRep, state.discipline + ', steady pace', [], pace100, 20, scaler));
-      var pullReps = Math.max(2, Math.round((mainM * 0.4) / 100));
-      main.push(buildSet(pullReps, 100, 'Pull, negative split', state.equipment.filter(function (g) { return g === 'Pull Buoy' || g === 'Hand Paddles'; }), pace100 + 5, 20, scaler));
+      main.push({ name: 'Aerobic Base', sets: [buildSet(Math.max(2, Math.round(mainM * 0.5 / longRep)), longRep, stroke + ', steady sustainable pace', [], pace100, 20, scaler)] });
+      main.push({ name: 'Negative-Split Pull', sets: [buildSet(Math.max(2, Math.round(mainM * 0.3 / 100)), 100, 'Pull — back half faster than front half', state.equipment.filter(function (g) { return g === 'Pull Buoy' || g === 'Hand Paddles'; }), pace100 + 5, 20, scaler)] });
+      main.push({ name: 'Descend Ladder', sets: [buildSet(4, 50, stroke + ', descend 1-4 (each rep faster than the last)', [], pace100 + 8, 15, scaler)] });
     } else {
-      var techReps = Math.max(4, Math.round((mainM * 0.6) / 50));
-      main.push(buildSet(techReps, 50, state.discipline + ', technique focus', ['Snorkel'], pace100 + 10, 20, scaler));
-      var equipReps = Math.max(2, Math.round((mainM * 0.4) / 100));
-      main.push(buildSet(equipReps, 100, 'Equipment drill', state.equipment.length ? state.equipment : ['Pull Buoy'], pace100 + 8, 20, scaler));
+      main.push({ name: 'Drill Focus', sets: [buildSet(Math.max(4, Math.round(mainM * 0.4 / 50)), 50, stroke + ', technique drill — catch & body position', ['Snorkel'], pace100 + 12, 20, scaler)] });
+      main.push({ name: 'Equipment Strength', sets: [buildSet(Math.max(2, Math.round(mainM * 0.4 / 100)), 100, 'Equipment-assisted pace work', state.equipment.length ? state.equipment : ['Pull Buoy'], pace100 + 8, 20, scaler)] });
+      main.push({ name: 'Stroke-Count Focus', sets: [buildSet(Math.max(4, Math.round(mainM * 0.2 / 25)), 25, stroke + ', minimum strokes per length', [], pace100 + 15, 20, scaler)] });
     }
 
-    var cooldown = [buildSet(1, cooldownM, 'easy, choice of stroke', [], pace100 + 20, 15, { intervalMult: 1, restAdd: 0 })];
+    var cooldown = [buildSet(1, cooldownM, 'easy, choice of stroke — focus on relaxed breathing', [], pace100 + 20, 15, noScale)];
 
-    var html = renderBlock('Warm-Up', warmup) + renderBlock('Main Set', main) + renderBlock('Cool-Down', cooldown);
+    var html = renderBlock('Warm-Up', warmup) +
+      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.sets); }).join('') +
+      renderBlock('Cool-Down', cooldown);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:24px;">' +
-      state.discipline + ' · ' + (totalM >= 4000 ? '4km+' : (totalM / 1000) + 'km') + ' · ' +
-      GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus. ' + scaler.note + '</p>';
+      '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + stroke + ' · ' + (totalM >= 4000 ? '4km+' : (totalM / 1000) + 'km') + ' · ' +
+      GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note + '</p>';
 
     if (state.level === 'elite') {
       html += '<div class="member-gate" data-ms-member="logged-out">' + icon('i-lock') +
         ' <strong>Elite tracks are a membership benefit.</strong> <a href="#" data-tab="pricing" style="color:var(--aqua)">Upgrade to Elite</a> to unlock full video stroke review on this set.</div>' +
         '<div class="member-gate" data-ms-member="logged-in"><strong>Elite review unlocked.</strong> Submit your set video from My Account for coach feedback within 48 hours.</div>';
     }
+
+    html += renderCoachTips();
 
     document.getElementById('workoutResult').innerHTML = scalerNoteHtml + html;
     document.getElementById('workoutResult').querySelectorAll('[data-tab]').forEach(function (btn) {
