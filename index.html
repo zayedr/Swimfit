@@ -6,6 +6,29 @@
 <title>Swimfit — Premium Swim Training Dashboard</title>
 <meta name="description" content="Swimfit is a premium swim-training dashboard: build a custom daily workout by discipline, distance, equipment and goal, pick your dryland focus, and manage your membership — for beginners through elite athletes.">
 <meta name="theme-color" content="#070B0A">
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyDSB_A998Dyf7ryXdJ8hgbyEc3_QF94bbQ",
+    authDomain: "swimfi-ae.firebaseapp.com",
+    projectId: "swimfi-ae",
+    storageBucket: "swimfi-ae.firebasestorage.app",
+    messagingSenderId: "122377858721",
+    appId: "1:122377858721:web:a138a0cfb0b8df3bf68ae0",
+    measurementId: "G-GKCG1EJXE0"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
