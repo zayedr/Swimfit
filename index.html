@@ -71,11 +71,17 @@ input, textarea, select { font: inherit; color: inherit; }
   --disc-photo-freestyle: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135529_588ca873-6981-47c1-9714-77a9c038161f.png');
   --disc-photo-backstroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135538_f4fc383d-d889-4812-80cb-adb065ed9d72.png');
   --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
-  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135540_d5ca6f54-722b-4921-8b6c-0b5a4e10ffc4.png');
+  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161739_8b8d9be5-3862-440d-b41c-3b26da3dfb34.png');
   --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
   --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
   --community-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141435_a1fd3c33-2b99-4de9-8da5-848a94a5061c.png');
   --generator-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_151012_319bc69c-7a93-4fdd-ac93-63192ace37be.png');
+  --gym-warmup-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161741_abe52edd-63e1-44fb-ac98-74437559fb4a.png');
+  --gym-core-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161742_c0a04275-f91a-438d-8cf1-27605d521390.png');
+  --gym-cooldown-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161743_023e6007-9516-41ce-ac6b-a7c49426e258.png');
+  --achievement-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161745_e6bc95ce-8d15-43b7-9219-ba90feabcbe2.png');
+  --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161746_8c193427-24e0-4d2a-883e-ddbf0e4ec7cd.png');
+  --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161747_02c58bbf-1f7e-4abb-bc0a-83c3585b591a.png');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -305,6 +311,37 @@ section { position: relative; scroll-margin-top: 96px; }
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); }
 .dash-panels { position: relative; }
+
+/* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
+   more expansive — a deliberate "flagship feature" width, wider than the
+   other tabs. */
+.panel-wide { width: 100vw; margin-left: calc(50% - 50vw); }
+.panel-wide-inner { max-width: 1560px; margin-inline: auto; padding-inline: var(--space-4); }
+
+.services-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-3); margin-bottom: var(--space-6); }
+.service-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.service-card:hover { transform: translateY(-6px); border-color: var(--border-strong); background: var(--surface-2); }
+.service-card .icon-tile { width: 40px; height: 40px; margin-bottom: var(--space-3); }
+.service-card .icon-tile .icon { width: 20px; height: 20px; }
+.service-card h3 { font-size: 0.98rem; text-transform: uppercase; margin-bottom: var(--space-2); }
+.service-card p { color: var(--muted); font-size: 0.85rem; }
+@media (max-width: 1150px) { .services-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .services-strip { grid-template-columns: 1fr; } }
+
+.coach-banner {
+  display: grid; grid-template-columns: 280px 1fr; gap: var(--space-6); align-items: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-5); margin-bottom: var(--space-7); overflow: hidden;
+}
+.coach-banner-photo {
+  height: 200px; border-radius: var(--radius); background-size: cover; background-position: center 20%;
+  background-image: linear-gradient(160deg, rgba(7,11,10,0.1), rgba(7,11,10,0.55)), var(--coach-photo), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  transition: transform 480ms var(--ease);
+}
+.coach-banner:hover .coach-banner-photo { transform: scale(1.05); }
+.coach-banner-body h3 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: var(--space-2); }
+.coach-banner-body p:last-child { color: var(--muted); }
+@media (max-width: 780px) { .coach-banner { grid-template-columns: 1fr; } .coach-banner-photo { height: 160px; } }
 .tab-panel { display: none; opacity: 0; transform: translateY(14px); }
 .tab-panel.active { display: block; }
 .reveal-ready .tab-panel.active.in { opacity: 1; transform: none; transition: opacity 420ms var(--ease), transform 420ms var(--ease); }
@@ -329,8 +366,10 @@ section { position: relative; scroll-margin-top: 96px; }
   position: relative; height: 108px;
   background-image: linear-gradient(160deg, rgba(7,11,10,0.15), rgba(7,11,10,0.75)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
   background-size: cover; background-position: center;
+  transition: transform 550ms var(--ease);
   display: flex; align-items: flex-end; padding: var(--space-3);
 }
+.discipline-card:hover .discipline-photo { transform: scale(1.08); }
 .discipline-photo .icon { width: 26px; height: 26px; color: var(--aqua); opacity: 0.9; }
 .discipline-body { padding: var(--space-4) var(--space-5) var(--space-5); }
 .discipline-card h3 { font-size: 1.3rem; text-transform: uppercase; margin-bottom: var(--space-1); }
@@ -474,10 +513,23 @@ section { position: relative; scroll-margin-top: 96px; }
 .gym-card h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: 4px; }
 .gym-card .cue { color: var(--muted); font-size: 0.9rem; margin-top: var(--space-2); }
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
+.gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.gym-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--shadow-2); border-color: var(--green); }
+
+.gym-phase + .gym-phase { margin-top: var(--space-7); }
+.gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.gym-phase-banner {
+  width: 64px; height: 64px; border-radius: var(--radius-sm); flex-shrink: 0;
+  background-image: linear-gradient(160deg, rgba(7,11,10,0.2), rgba(7,11,10,0.6)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-size: cover; background-position: center;
+}
+.gym-phase-title { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.gym-phase-title .icon { width: 22px; height: 22px; color: var(--aqua); }
 
 /* ============================= GEAR ============================= */
 .gear-card { text-align: center; padding: 0; overflow: hidden; }
-.gear-photo { height: 120px; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; justify-content: center; }
+.gear-photo { height: 120px; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: transform 550ms var(--ease); }
+.gear-card:hover .gear-photo { transform: scale(1.06); }
 .gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,11,10,0.05), rgba(16,26,25,0.96)); }
 .gear-photo .icon-tile { position: relative; z-index: 1; transform: translateY(45%); margin: 0; width: 64px; height: 64px; }
 .gear-photo .icon-tile .icon { width: 32px; height: 32px; }
@@ -487,7 +539,10 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= VIDEO ============================= */
 .video-card { padding: 0; overflow: hidden; }
-.video-thumb { position: relative; aspect-ratio: 16/10; background-color: var(--green-deep); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; }
+.video-thumb { position: relative; aspect-ratio: 16/10; background-color: var(--green-deep); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.video-thumb::before { content: ''; position: absolute; inset: 0; z-index: 0; background-image: var(--thumb-photo, none); background-size: cover; background-position: center; transform: scale(1); transition: transform 550ms var(--ease); }
+.video-card:hover .video-thumb::before { transform: scale(1.1); }
+.video-thumb > * { position: relative; z-index: 1; }
 .video-thumb .play-btn { width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; transition: transform var(--dur) var(--ease), background var(--dur) var(--ease); }
 .video-card:hover .play-btn { transform: scale(1.1); background: var(--green); color: var(--on-green); }
 .video-thumb .play-btn .icon { width: 20px; height: 20px; margin-left: 3px; }
@@ -502,25 +557,40 @@ section { position: relative; scroll-margin-top: 96px; }
 .video-featured-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
 @media (max-width: 640px) { .video-card-featured .video-thumb { aspect-ratio: 16/10; } }
 
-/* ============================= COMMUNITY ============================= */
-.community-layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-5); align-items: start; }
-.comment-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
-.comment-form h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: var(--space-3); }
+/* ============================= COMMUNITY / SOCIAL FEED ============================= */
+.community-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-7); text-align: center; margin-bottom: var(--space-7); }
+
+.social-feed { max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--space-5); }
+.composer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+.composer-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.composer-head h3 { font-size: 1.15rem; text-transform: uppercase; }
 .field { margin-bottom: var(--space-3); }
 .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
 .field input, .field textarea { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75em 0.9em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
 .field input:focus, .field textarea:focus { border-color: var(--aqua); }
 .field textarea { resize: vertical; min-height: 90px; }
-.comment-list { display: flex; flex-direction: column; gap: var(--space-3); max-height: 560px; overflow-y: auto; padding-right: 4px; }
-.comment { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); }
-.comment-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
-.avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; color: var(--on-green); background: var(--green); }
-.comment-name { font-weight: 600; }
-.comment-time { color: var(--muted-2); font-size: 0.8rem; }
-.comment-body { color: var(--fg); font-size: 0.96rem; }
-.comment-workout-tag { margin-top: var(--space-2); }
 
-@media (max-width: 900px) { .community-layout { grid-template-columns: 1fr; } }
+.feed-list { display: flex; flex-direction: column; gap: var(--space-4); }
+.post { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.post:hover { transform: translateY(-4px); border-color: var(--border-strong); box-shadow: var(--shadow-1); }
+.post-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; color: var(--on-green); background: var(--green); }
+.post-name { font-weight: 600; }
+.post-time { color: var(--muted-2); font-size: 0.8rem; }
+.post-body { color: var(--fg); font-size: 0.96rem; }
+.post-tag { margin-top: var(--space-2); }
+
+.post-image { margin-top: var(--space-3); border-radius: var(--radius-sm); height: 220px; background-size: cover; background-position: center; overflow: hidden; }
+
+.post-achievement { background: linear-gradient(160deg, rgba(156,42,68,0.16), rgba(34,211,238,0.05)); }
+.post-achievement .post-headline { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 1.15rem; text-transform: uppercase; color: var(--maroon-bright); margin: var(--space-2) 0; }
+.post-achievement .post-headline .icon { width: 22px; height: 22px; }
+
+.post-video-attach { margin-top: var(--space-3); display: flex; align-items: center; gap: var(--space-3); background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); }
+.post-video-attach .post-video-thumb { width: 72px; height: 48px; border-radius: 8px; flex-shrink: 0; background-size: cover; background-position: center; position: relative; display: flex; align-items: center; justify-content: center; }
+.post-video-attach .post-video-thumb .icon { width: 18px; height: 18px; color: #fff; }
+.post-video-attach .post-video-title { font-weight: 600; font-size: 0.92rem; }
+.post-video-attach .post-video-sub { color: var(--muted-2); font-size: 0.78rem; }
 
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
@@ -673,7 +743,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     <div class="nav-cta">
       <a href="https://YOUR-SUBDOMAIN.memberspace.com/login" data-ms-member="logged-out" class="btn btn-ghost btn-sm">Sign In</a>
       <a href="https://YOUR-SUBDOMAIN.memberspace.com/account" data-ms-member="logged-in" class="btn btn-ghost btn-sm">My Account</a>
-      <button type="button" class="btn btn-primary btn-sm" data-tab="pricing">Join Now</button>
+      <button type="button" class="btn btn-primary btn-sm" data-tab="pricing" data-welcome-trigger>Join Now</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
       </button>
@@ -727,7 +797,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     <h1 data-reveal="scale">Command the Water.<br>Own the <span class="accent">Race.</span></h1>
     <p data-reveal>A live training dashboard — build your own swim set, pick tonight's gym focus, and manage your membership, all without a single long scroll.</p>
     <div class="hero-actions" data-reveal>
-      <button type="button" class="btn btn-primary" data-tab="workouts">Build My Workout</button>
+      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger>Build My Workout</button>
       <button type="button" class="btn btn-ghost" data-tab="gym">Today's Gym Focus</button>
     </div>
     <div class="hero-stats" data-reveal>
@@ -782,11 +852,56 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
 
     <!-- ---------- WORKOUTS (interactive generator) ---------- -->
-    <div class="tab-panel" id="panel-workouts">
+    <div class="tab-panel panel-wide" id="panel-workouts">
+     <div class="panel-wide-inner">
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-stopwatch"/></svg> Build Your Own</p>
         <h2>Swim Workout Generator</h2>
         <p>Set your discipline, distance, gear and goal — Swimfit computes a full warm-up-to-cool-down set on the spot.</p>
+      </div>
+
+      <div class="tab-banner" style="--photo: var(--pool-edge-photo)" data-reveal></div>
+
+      <div class="services-strip">
+        <div class="service-card" data-reveal>
+          <div class="icon-tile aqua"><svg class="icon"><use href="#i-wave"/></svg></div>
+          <h3>Adaptive Daily Workouts</h3>
+          <p>Warm-up, main set and cool-down computed fresh from your discipline, distance and goal.</p>
+        </div>
+        <div class="service-card" data-reveal>
+          <div class="icon-tile green"><svg class="icon"><use href="#i-target"/></svg></div>
+          <h3>Personalized Pacing</h3>
+          <p>Target paces calculated from your own PB times, not a generic chart.</p>
+        </div>
+        <div class="service-card" data-reveal>
+          <div class="icon-tile maroon"><svg class="icon"><use href="#i-trophy"/></svg></div>
+          <h3>Race-Pace Analytics</h3>
+          <p>Interval and rest prescriptions scaled to Beginner, Competitive or Elite level.</p>
+        </div>
+        <div class="service-card" data-reveal>
+          <div class="icon-tile aqua"><svg class="icon"><use href="#i-play"/></svg></div>
+          <h3>Video Stroke Review</h3>
+          <p>Elite-level members can submit set video for personal coach feedback within 48 hours.</p>
+        </div>
+        <div class="service-card" data-reveal>
+          <div class="icon-tile green"><svg class="icon"><use href="#i-dumbbell"/></svg></div>
+          <h3>Dryland Integration</h3>
+          <p>Every swim goal links straight to a matching Gym Focus for real aquatic power.</p>
+        </div>
+        <div class="service-card" data-reveal>
+          <div class="icon-tile maroon"><svg class="icon"><use href="#i-target"/></svg></div>
+          <h3>Coach’s Technical Tips</h3>
+          <p>Discipline- and goal-specific coaching cues delivered with every generated set.</p>
+        </div>
+      </div>
+
+      <div class="coach-banner" data-reveal>
+        <div class="coach-banner-photo"></div>
+        <div class="coach-banner-body">
+          <p class="eyebrow" style="margin-bottom:8px">Meet Your Coach</p>
+          <h3>Every Set, Coached Like a Real Practice</h3>
+          <p>Swimfit’s generator doesn’t just spit out numbers — it structures a session the way a real coach would run poolside: purposeful warm-up, a main set built around your goal, and a cool-down that actually recovers you.</p>
+        </div>
       </div>
 
       <div class="generator">
@@ -864,6 +979,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           </div>
         </div>
       </div>
+     </div>
     </div>
 
     <!-- ---------- GYM (focus selector) ---------- -->
@@ -905,7 +1021,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
       </div>
       <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
-      <div class="grid grid-auto" id="gymGrid"></div>
+      <div id="gymGrid"></div>
     </div>
 
     <!-- ---------- GEAR ---------- -->
@@ -931,27 +1047,35 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     <!-- ---------- COMMUNITY ---------- -->
     <div class="tab-panel" id="panel-community">
       <div class="tab-banner" style="--photo: var(--community-photo)" data-reveal></div>
-      <div class="section-head">
-        <p class="eyebrow">Swim Squad</p>
-        <h2>Community &amp; Feedback</h2>
-        <p>Talk shop on today's set, share splits, or ask a technique question.</p>
+      <div class="section-head center">
+        <p class="eyebrow" style="justify-content:center">Swim Squad</p>
+        <h2>The Swimfit Community Feed</h2>
+        <p>Splits, PBs, technique questions and shared clips — a live feed of the whole squad training together.</p>
       </div>
-      <div class="community-layout">
-        <form class="comment-form" id="commentForm" data-reveal="left">
-          <h3>Leave a Comment</h3>
+
+      <div class="community-stats" data-reveal>
+        <div class="stat"><strong data-count="1204">0</strong><span>Active Swimmers</span></div>
+        <div class="stat"><strong data-count="48">0</strong><span>PBs Shared This Week</span></div>
+        <div class="stat"><strong data-count="312">0</strong><span>Posts This Month</span></div>
+      </div>
+
+      <div class="social-feed">
+        <form class="composer-card" id="commentForm" data-reveal>
+          <div class="composer-head"><span class="avatar">Y</span><h3>Share an Update</h3></div>
           <div class="field">
             <label for="cName">Name</label>
             <input id="cName" name="name" type="text" placeholder="Your name" required maxlength="40">
           </div>
           <div class="field">
-            <label for="cBody">Comment on today's set</label>
+            <label for="cBody">What's happening in the water today?</label>
             <textarea id="cBody" name="body" placeholder="How did the set feel? Any tips for the pull-buoy section?" required maxlength="400"></textarea>
           </div>
           <button type="submit" class="btn btn-primary btn-block">
-            <svg class="icon"><use href="#i-comment"/></svg> Post Comment
+            <svg class="icon"><use href="#i-comment"/></svg> Post to Feed
           </button>
         </form>
-        <div class="comment-list" id="commentList" data-reveal="right"></div>
+
+        <div class="feed-list" id="commentList"></div>
       </div>
     </div>
 
@@ -1098,6 +1222,45 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function icon(id) { return '<svg class="icon"><use href="#' + id + '"/></svg>'; }
 
+  /* ============================= UI SOUND (synthesized, no audio file needed) ============================= */
+  var audioCtx = null;
+  function playPop() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(760, t);
+      osc.frequency.exponentialRampToValueAtTime(360, t + 0.09);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(0.14, t + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.14);
+    } catch (e) {}
+  }
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.btn, [data-tab], .pill-tab, .play-btn')) playPop();
+  }, { passive: true });
+
+  /* Welcome voice clip — plays once, on the swimmer's first click of a main CTA */
+  var welcomePlayed = false;
+  function playWelcomeVoice() {
+    if (welcomePlayed) return;
+    welcomePlayed = true;
+    try {
+      var welcomeAudio = new Audio('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161725_65b99eab-4d9b-479c-acd6-831cba786882.wav');
+      welcomeAudio.volume = 0.85;
+      welcomeAudio.play().catch(function () {});
+    } catch (e) {}
+  }
+  document.querySelectorAll('[data-welcome-trigger]').forEach(function (el) {
+    el.addEventListener('click', playWelcomeVoice, { once: true });
+  });
+
   /* ============================= NAV / TAB CONTROLLER ============================= */
   var nav = document.getElementById('siteNav');
   var navToggle = document.getElementById('navToggle');
@@ -1193,7 +1356,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="background-image:linear-gradient(180deg, rgba(7,11,10,0.15), rgba(7,11,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(7,11,10,0.15), rgba(7,11,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
   }).join('') + (function () {
@@ -1201,7 +1364,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var i = VIDEOS.length;
     VIDEOS.push(v);
     return '<article class="card video-card video-card-featured" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="background-image:linear-gradient(180deg, rgba(7,11,10,0.1), rgba(7,11,10,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(7,11,10,0.1), rgba(7,11,10,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-maroon">' + v.level + '</span></div></article>';
   })();
@@ -1528,60 +1691,126 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   }
 
   /* ============================= GYM FOCUS SELECTOR ============================= */
+  // Every focus is a full daily routine matrix across four phases —
+  // Warm-Up, Core Activation, Main Power/Strength Lifts, and
+  // Cool-Down/Mobility — not just a flat list of exercises.
   var GYM_FOCUS = {
-    cardio: [
-      { name: 'Jump Rope Intervals', prescription: '6 x 45s', cue: 'Fast feet, light bounce — builds the cardio base that carries into longer swim sets.' },
-      { name: 'Burpees', prescription: '4 x 12', cue: 'Full-body reset that mirrors the gasping recovery after a race turn.' },
-      { name: 'Mountain Climbers', prescription: '4 x 30s', cue: 'Keep hips level — trains core stability under a raised heart rate.' },
-      { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms sequence mirrors a strong pull phase.' },
-      { name: 'Battle Ropes', prescription: '5 x 30s', cue: 'Alternating waves build the shoulder endurance a hard sprint set demands.' }
-    ],
-    full: {
-      // Sprint swimmers (Speed goal, or a short target distance): heavy,
-      // low-rep explosive power work.
-      sprint: [
-        { name: 'Squats', prescription: '5 x 3', loadPct: 0.85, weighted: true, cue: 'Heavy, low-rep — builds the explosive leg drive behind every start and turn.' },
-        { name: 'Deadlifts', prescription: '4 x 4', loadPct: 0.8, weighted: true, cue: 'Heavy posterior-chain strength — raw power for the pull-through.' },
-        { name: 'Weighted Pull-Ups', prescription: '4 x 4', loadPct: 0.25, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
-        { name: 'Power Cleans', prescription: '5 x 3', loadPct: 0.55, weighted: true, cue: 'Full-body explosiveness that mirrors the snap of a race start.' },
-        { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — mirrors the explosive push off the blocks.' }
+    cardio: {
+      warmup: [
+        { name: 'Arm Circles & Leg Swings', prescription: '2 x 10 each', cue: 'Opens the shoulders and hips before the heart rate climbs.' },
+        { name: 'Jumping Jacks', prescription: '2 x 30s', cue: 'Raises core temperature and primes the whole body for intervals.' }
       ],
-      // Distance swimmers (Endurance goal, or a long target distance):
-      // high-rep muscular endurance and sustained pulling power.
-      distance: [
-        { name: 'Deadlifts', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'High-rep posterior-chain endurance — sustains pulling power deep into a race.' },
-        { name: 'Weighted Pull-Ups', prescription: '4 x 10', loadPct: 0.1, weighted: true, cue: 'Light added load, high volume — builds the muscular endurance for a long pull.' },
-        { name: 'Squats', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'Moderate load, higher reps — builds the leg endurance for a long swim.' },
-        { name: 'Rowing Machine Intervals', prescription: '5 x 500m', cue: 'Sustained pulling power and aerobic base that carries straight into distance sets.' },
-        { name: 'Turkish Get-Up', prescription: '3 x 5 / side', loadPct: 0.2, weighted: true, cue: 'Full-body control under load — builds the stability a streamline needs deep into a race.' }
+      core: [
+        { name: 'Plank Hold', prescription: '3 x 30s', cue: 'Braces the trunk so cardio work doesn’t leak power through a loose core.' },
+        { name: 'Dead Bug', prescription: '3 x 10 / side', cue: 'Slow and controlled — anti-extension strength for a raised heart rate.' }
       ],
-      // No strong sprint/distance signal yet (e.g. Technique goal): balanced
-      // all-purpose strength across the same core lifts.
-      balanced: [
-        { name: 'Squats', prescription: '4 x 8', loadPct: 0.65, weighted: true, cue: 'All-purpose leg strength — the base under every kick and start.' },
-        { name: 'Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly to a powerful pull-through.' },
-        { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Adds load to the pull for real strength, beyond just bodyweight reps.' },
-        { name: 'Kettlebell Swings', prescription: '4 x 15', loadPct: 0.4, weighted: true, cue: 'Hip-hinge power — the same snap used off the wall on a turn.' },
-        { name: 'Medicine Ball Slams', prescription: '4 x 8', loadPct: 0.15, weighted: true, cue: 'Drive from the hips — mirrors the power of a race start.' }
+      main: [
+        { name: 'Jump Rope Intervals', prescription: '6 x 45s', cue: 'Fast feet, light bounce — builds the cardio base that carries into longer swim sets.' },
+        { name: 'Burpees', prescription: '4 x 12', cue: 'Full-body reset that mirrors the gasping recovery after a race turn.' },
+        { name: 'Mountain Climbers', prescription: '4 x 30s', cue: 'Keep hips level — trains core stability under a raised heart rate.' },
+        { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms sequence mirrors a strong pull phase.' },
+        { name: 'Battle Ropes', prescription: '5 x 30s', cue: 'Alternating waves build the shoulder endurance a hard sprint set demands.' }
+      ],
+      cooldown: [
+        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases the quads after repeated explosive leg work.' },
+        { name: 'Child’s Pose', prescription: '1 x 60s', cue: 'Long exhale, let the heart rate settle before you leave the mat.' },
+        { name: 'Deep Breathing Walk', prescription: '3–5 min', cue: 'Active recovery — walk it off with slow nasal breathing.' }
       ]
     },
-    upper: [
-      { name: 'Band Pull-Aparts', prescription: '3 x 20', cue: 'Light band, full range — protects the shoulder for high stroke volume.' },
-      { name: 'Push-Ups', prescription: '4 x 15', cue: 'Full lockout, tight core — builds the pressing strength behind every pull.' },
-      { name: 'Y-T-W Raises', prescription: '3 x 10 each', cue: 'Light dumbbells — builds the small stabilizers, not just the big movers.' },
-      { name: 'Pull-Ups', prescription: '4 x 6', cue: 'Scapular control on the way down mirrors a controlled recovery phase.' },
-      { name: 'Tricep Dips', prescription: '3 x 12', cue: 'Finishes the pull-through strength that powers the back half of the stroke.' }
-    ],
-    lower: [
-      { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — quality over fatigue.' },
-      { name: 'Broad Jumps', prescription: '3 x 6', cue: 'Stick the landing — builds the same triple-extension used off the block.' },
-      { name: 'Bulgarian Split Squats', prescription: '3 x 10 / side', cue: 'Single-leg strength and balance — carries into an even kick.' },
-      { name: 'Glute Bridges', prescription: '3 x 15', cue: 'Hip drive strength that powers a strong streamline kick-out.' },
-      { name: 'Calf Raises', prescription: '4 x 20', cue: 'Ankle stiffness and pop — directly supports flutter and dolphin kick.' }
-    ]
+    full: {
+      warmup: [
+        { name: 'Bodyweight Squats', prescription: '2 x 10', cue: 'Grooves the squat pattern before any load goes on the bar.' },
+        { name: 'Band Pull-Aparts (light)', prescription: '2 x 15', cue: 'Wakes up the upper back before pulling under load.' }
+      ],
+      core: [
+        { name: 'Pallof Press', prescription: '3 x 12 / side', cue: 'Anti-rotation strength — keeps the trunk stable while lifting heavy.' },
+        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The same braced position you hold in a streamline off every wall.' }
+      ],
+      // Sprint swimmers (Speed goal, or a short target distance): heavy,
+      // low-rep explosive power work.
+      main: {
+        sprint: [
+          { name: 'Squats', prescription: '5 x 3', loadPct: 0.85, weighted: true, cue: 'Heavy, low-rep — builds the explosive leg drive behind every start and turn.' },
+          { name: 'Deadlifts', prescription: '4 x 4', loadPct: 0.8, weighted: true, cue: 'Heavy posterior-chain strength — raw power for the pull-through.' },
+          { name: 'Weighted Pull-Ups', prescription: '4 x 4', loadPct: 0.25, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
+          { name: 'Power Cleans', prescription: '5 x 3', loadPct: 0.55, weighted: true, cue: 'Full-body explosiveness that mirrors the snap of a race start.' },
+          { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — mirrors the explosive push off the blocks.' }
+        ],
+        // Distance swimmers (Endurance goal, or a long target distance):
+        // high-rep muscular endurance and sustained pulling power.
+        distance: [
+          { name: 'Deadlifts', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'High-rep posterior-chain endurance — sustains pulling power deep into a race.' },
+          { name: 'Weighted Pull-Ups', prescription: '4 x 10', loadPct: 0.1, weighted: true, cue: 'Light added load, high volume — builds the muscular endurance for a long pull.' },
+          { name: 'Squats', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'Moderate load, higher reps — builds the leg endurance for a long swim.' },
+          { name: 'Rowing Machine Intervals', prescription: '5 x 500m', cue: 'Sustained pulling power and aerobic base that carries straight into distance sets.' },
+          { name: 'Turkish Get-Up', prescription: '3 x 5 / side', loadPct: 0.2, weighted: true, cue: 'Full-body control under load — builds the stability a streamline needs deep into a race.' }
+        ],
+        // No strong sprint/distance signal yet (e.g. Technique goal): balanced
+        // all-purpose strength across the same core lifts.
+        balanced: [
+          { name: 'Squats', prescription: '4 x 8', loadPct: 0.65, weighted: true, cue: 'All-purpose leg strength — the base under every kick and start.' },
+          { name: 'Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly to a powerful pull-through.' },
+          { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Adds load to the pull for real strength, beyond just bodyweight reps.' },
+          { name: 'Kettlebell Swings', prescription: '4 x 15', loadPct: 0.4, weighted: true, cue: 'Hip-hinge power — the same snap used off the wall on a turn.' },
+          { name: 'Medicine Ball Slams', prescription: '4 x 8', loadPct: 0.15, weighted: true, cue: 'Drive from the hips — mirrors the power of a race start.' }
+        ]
+      },
+      cooldown: [
+        { name: 'Hip Flexor Stretch', prescription: '2 x 30s / side', cue: 'Releases hips loaded up by squats and deadlifts.' },
+        { name: 'Lat Stretch', prescription: '2 x 30s / side', cue: 'Opens the lats worked hard by every pulling movement.' },
+        { name: 'Foam Roll — Thoracic Spine', prescription: '2 min', cue: 'Restores upper-back mobility for a full, relaxed streamline.' }
+      ]
+    },
+    upper: {
+      warmup: [
+        { name: 'Arm Circles', prescription: '2 x 15 each direction', cue: 'Lubricates the shoulder joint before any pressing or pulling.' },
+        { name: 'Scapular Push-Ups', prescription: '2 x 12', cue: 'Wakes up shoulder-blade control before load goes through the arms.' }
+      ],
+      core: [
+        { name: 'Side Plank', prescription: '3 x 20s / side', cue: 'Lateral core strength that keeps the hips from dropping mid-stroke.' },
+        { name: 'Bird Dog', prescription: '3 x 10 / side', cue: 'Cross-body stability that mirrors a controlled body-line pull.' }
+      ],
+      main: [
+        { name: 'Band Pull-Aparts', prescription: '3 x 20', cue: 'Light band, full range — protects the shoulder for high stroke volume.' },
+        { name: 'Push-Ups', prescription: '4 x 15', cue: 'Full lockout, tight core — builds the pressing strength behind every pull.' },
+        { name: 'Y-T-W Raises', prescription: '3 x 10 each', cue: 'Light dumbbells — builds the small stabilizers, not just the big movers.' },
+        { name: 'Pull-Ups', prescription: '4 x 6', cue: 'Scapular control on the way down mirrors a controlled recovery phase.' },
+        { name: 'Seated Cable Rows', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Builds the mid-back strength that keeps the catch high and the elbow up.' },
+        { name: 'Tricep Dips', prescription: '3 x 12', cue: 'Finishes the pull-through strength that powers the back half of the stroke.' }
+      ],
+      cooldown: [
+        { name: 'Doorway Chest Stretch', prescription: '2 x 30s', cue: 'Opens a chest tightened by repeated pressing and pulling.' },
+        { name: 'Cross-Body Shoulder Stretch', prescription: '2 x 30s / side', cue: 'Keeps the shoulder capsule mobile for a long, relaxed recovery.' }
+      ]
+    },
+    lower: {
+      warmup: [
+        { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range used in a flutter kick.' },
+        { name: 'Walking Lunges (bodyweight)', prescription: '2 x 10 / side', cue: 'Primes the legs for loaded single-leg work.' }
+      ],
+      core: [
+        { name: 'Side Plank with Leg Lift', prescription: '3 x 10 / side', cue: 'Hip stability under load — keeps the kick even and streamlined.' },
+        { name: 'Glute Bridge Hold', prescription: '3 x 30s', cue: 'Activates the glutes before they’re asked to fire explosively.' }
+      ],
+      main: [
+        { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — quality over fatigue.' },
+        { name: 'Broad Jumps', prescription: '3 x 6', cue: 'Stick the landing — builds the same triple-extension used off the block.' },
+        { name: 'Bulgarian Split Squats', prescription: '3 x 10 / side', loadPct: 0.4, weighted: true, cue: 'Single-leg strength and balance — carries into an even kick.' },
+        { name: 'Single-Leg RDL', prescription: '3 x 8 / side', loadPct: 0.3, weighted: true, cue: 'Builds the hamstring and balance control behind a strong dolphin kick.' },
+        { name: 'Glute Bridges', prescription: '3 x 15', cue: 'Hip drive strength that powers a strong streamline kick-out.' },
+        { name: 'Calf Raises', prescription: '4 x 20', cue: 'Ankle stiffness and pop — directly supports flutter and dolphin kick.' }
+      ],
+      cooldown: [
+        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases quads loaded by jumps and split squats.' },
+        { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Opens the hips for a full, unrestricted kick range.' },
+        { name: 'Calf Stretch', prescription: '2 x 30s / side', cue: 'Keeps the ankle supple for a whippy flutter kick.' }
+      ]
+    }
   };
   var GYM_TONE = { cardio: 'maroon', full: 'green', upper: 'aqua', lower: 'green' };
   var GYM_LABEL = { cardio: 'Fitness / Cardio', full: 'Full Body', upper: 'Upper Body', lower: 'Lower Body' };
+  var GYM_PHASE_LABEL = { warmup: 'Warm-Up', core: 'Core Activation', main: 'Main Power / Strength Lifts', cooldown: 'Cool-Down & Mobility' };
+  var GYM_PHASE_ICON = { warmup: 'i-heart-pulse', core: 'i-core', main: 'i-bolt', cooldown: 'i-droplet' };
 
   function scaleDownPrescription(str) {
     var m = str.match(/^(\d+)\s*x\s*(\d+)(.*)$/);
@@ -1607,30 +1836,50 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     balanced: 'Balanced strength across core lifts (set a Speed or Endurance goal in the Workout Generator to specialize this)'
   };
 
+  var GYM_PHASE_PHOTO = { warmup: 'var(--gym-warmup-photo)', core: 'var(--gym-core-photo)', main: 'none', cooldown: 'var(--gym-cooldown-photo)' };
+
+  function renderGymCard(g, tone, focusLabel, age, refMax) {
+    var prescription = (age && age < 12) ? scaleDownPrescription(g.prescription) : g.prescription;
+    var loadNote = '';
+    if (g.weighted && refMax) {
+      var pct = g.loadPct != null ? g.loadPct : 0.65;
+      var suggested = Math.max(4, Math.round(refMax * pct / 2) * 2);
+      loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (' + Math.round(pct * 100) + '% of your listed max)</p>';
+    }
+    return '<article class="card gym-card" data-reveal>' +
+      '<span class="tag tag-' + tone + '">' + focusLabel + '</span>' +
+      '<h3 style="margin-top:12px">' + g.name + '</h3>' +
+      '<p class="prescription">' + prescription + '</p>' + loadNote +
+      '<p class="cue">' + g.cue + '</p></article>';
+  }
+
+  function renderGymPhase(phaseKey, exercises, tone, focusLabel, age, refMax) {
+    var photo = GYM_PHASE_PHOTO[phaseKey];
+    var bannerHtml = photo !== 'none' ? '<div class="gym-phase-banner" style="--photo:' + photo + '"></div>' : '';
+    return '<div class="gym-phase" data-reveal>' +
+      '<div class="gym-phase-head">' + bannerHtml +
+      '<div class="gym-phase-title"><svg class="icon"><use href="#' + GYM_PHASE_ICON[phaseKey] + '"/></svg>' + GYM_PHASE_LABEL[phaseKey] + '</div></div>' +
+      '<div class="grid grid-auto">' + exercises.map(function (g) { return renderGymCard(g, tone, focusLabel, age, refMax); }).join('') + '</div>' +
+      '</div>';
+  }
+
   function renderGym(focus) {
     currentGymFocus = focus;
     var tone = GYM_TONE[focus];
+    var focusLabel = GYM_LABEL[focus];
     var age = parseInt(document.getElementById('gymAge').value, 10);
     var workingWeight = parseFirstNumber(document.getElementById('gymWorkingWeight').value);
     var strengthLimit = parseFirstNumber(document.getElementById('gymStrengthLimit').value);
     var refMax = strengthLimit || (workingWeight ? workingWeight * 1.15 : null);
     var orientation = focus === 'full' ? gymOrientation() : null;
-    var exercises = focus === 'full' ? GYM_FOCUS.full[orientation] : GYM_FOCUS[focus];
+    var routine = GYM_FOCUS[focus];
+    var mainExercises = focus === 'full' ? routine.main[orientation] : routine.main;
 
-    document.getElementById('gymGrid').innerHTML = exercises.map(function (g) {
-      var prescription = (age && age < 12) ? scaleDownPrescription(g.prescription) : g.prescription;
-      var loadNote = '';
-      if (g.weighted && refMax) {
-        var pct = g.loadPct != null ? g.loadPct : 0.65;
-        var suggested = Math.max(4, Math.round(refMax * pct / 2) * 2);
-        loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (' + Math.round(pct * 100) + '% of your listed max)</p>';
-      }
-      return '<article class="card gym-card" data-reveal>' +
-        '<span class="tag tag-' + tone + '">' + GYM_LABEL[focus] + '</span>' +
-        '<h3 style="margin-top:12px">' + g.name + '</h3>' +
-        '<p class="prescription">' + prescription + '</p>' + loadNote +
-        '<p class="cue">' + g.cue + '</p></article>';
-    }).join('');
+    document.getElementById('gymGrid').innerHTML =
+      renderGymPhase('warmup', routine.warmup, tone, focusLabel, age, refMax) +
+      renderGymPhase('core', routine.core, tone, focusLabel, age, refMax) +
+      renderGymPhase('main', mainExercises, tone, focusLabel, age, refMax) +
+      renderGymPhase('cooldown', routine.cooldown, tone, focusLabel, age, refMax);
 
     var gymNote = document.getElementById('gymNote');
     var notes = [];
@@ -1653,12 +1902,15 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     renderGym(btn.dataset.focus);
   });
 
-  /* ============================= COMMUNITY COMMENTS ============================= */
-  var STORAGE_KEY = 'swimfit_comments_v1';
+  /* ============================= COMMUNITY SOCIAL FEED ============================= */
+  var STORAGE_KEY = 'swimfit_feed_v2';
   var SEED_COMMENTS = [
-    { name: 'Amina R.', body: 'Generated a 3km endurance set with the pull buoy checked — my catch felt so much cleaner after. Great tool!', time: '2 hours ago' },
-    { name: 'Jordan K.', body: 'The speed-goal generator with fins on gave me a brutal but perfect sprint set today.', time: '5 hours ago' },
-    { name: 'Fatima A.', body: 'Switched to Elite level for the first time — those tightened intervals humbled me. Coming back tomorrow.', time: '1 day ago' }
+    { type: 'achievement', name: 'Amina R.', time: '1 hour ago', headline: 'New 100m Freestyle PB: 1:05!', body: 'Generated a 3km endurance set with the pull buoy checked all week — the catch work finally paid off. Great tool!' },
+    { type: 'photo', name: 'Jordan K.', time: '3 hours ago', body: 'The speed-goal generator with fins on gave me a brutal but perfect sprint set today. Pool was empty at sunrise, worth it.', photo: 'var(--disc-photo-freestyle)' },
+    { type: 'video', name: 'Fatima A.', time: '5 hours ago', body: 'Finally cleaned up my whip-kick timing after watching this breakdown on repeat.', videoTitle: 'Breaststroke: Whip-Kick Breakdown', videoPhoto: 'var(--disc-photo-breaststroke)' },
+    { type: 'text', name: 'Omar S.', time: '9 hours ago', body: 'Switched to Elite level for the first time — those tightened intervals humbled me. Coming back tomorrow.' },
+    { type: 'achievement', name: 'Layla M.', time: '1 day ago', headline: 'First 4km Distance Set Complete', body: 'Never thought I’d get through a full 4km endurance set, but the descend ladder in the main set kept it manageable.' },
+    { type: 'photo', name: 'Khalid B.', time: '2 days ago', body: 'Dryland day — the sprint-focused Full Body routine the Gym tab built me is no joke.', photo: 'var(--gym-core-photo)' }
   ];
   function loadComments() {
     try { var raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
@@ -1669,13 +1921,35 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   function escapeHtml(str) { var div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
   var comments = loadComments();
+
+  function renderPost(c) {
+    var head = '<div class="post-head"><span class="avatar">' + escapeHtml(initials(c.name)) + '</span>' +
+      '<div><div class="post-name">' + escapeHtml(c.name) + '</div><div class="post-time">' + escapeHtml(c.time) + '</div></div></div>';
+    var body = '<p class="post-body">' + escapeHtml(c.body) + '</p>';
+    var extra = '';
+    var cls = 'post';
+    if (c.type === 'achievement') {
+      cls += ' post-achievement';
+      extra = '<div class="post-headline">' + icon('i-trophy') + '<span>' + escapeHtml(c.headline) + '</span></div>';
+      return '<article class="' + cls + '" data-reveal>' + head + extra + body + '<span class="tag tag-maroon post-tag">Achievement</span></article>';
+    }
+    if (c.type === 'photo') {
+      extra = '<div class="post-image" style="background-image:' + c.photo + '"></div>';
+      return '<article class="' + cls + '" data-reveal>' + head + body + extra + '<span class="tag tag-aqua post-tag">Photo</span></article>';
+    }
+    if (c.type === 'video') {
+      extra = '<div class="post-video-attach"><div class="post-video-thumb" style="background-image:' + c.videoPhoto + '">' + icon('i-play') + '</div>' +
+        '<div><div class="post-video-title">' + escapeHtml(c.videoTitle) + '</div><div class="post-video-sub">Shared from Technique Academy</div></div></div>';
+      return '<article class="' + cls + '" data-reveal>' + head + body + extra + '<span class="tag tag-green post-tag">Shared Clip</span></article>';
+    }
+    return '<article class="' + cls + '" data-reveal>' + head + body + '<span class="tag tag-aqua post-tag">On Today’s Set</span></article>';
+  }
+
   function renderComments() {
-    document.getElementById('commentList').innerHTML = comments.map(function (c) {
-      return '<article class="comment"><div class="comment-head"><span class="avatar">' + escapeHtml(initials(c.name)) + '</span>' +
-        '<div><div class="comment-name">' + escapeHtml(c.name) + '</div><div class="comment-time">' + escapeHtml(c.time) + '</div></div></div>' +
-        '<p class="comment-body">' + escapeHtml(c.body) + '</p>' +
-        '<span class="tag tag-aqua comment-workout-tag">On Today’s Set</span></article>';
-    }).join('');
+    document.getElementById('commentList').innerHTML = comments.map(renderPost).join('');
+    var list = document.getElementById('commentList');
+    if (io) list.querySelectorAll('[data-reveal]').forEach(function (el) { io.observe(el); });
+    else list.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
   }
   renderComments();
   document.getElementById('commentForm').addEventListener('submit', function (e) {
@@ -1683,7 +1957,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var name = document.getElementById('cName').value.trim();
     var body = document.getElementById('cBody').value.trim();
     if (!name || !body) return;
-    comments.unshift({ name: name, body: body, time: 'Just now' });
+    comments.unshift({ type: 'text', name: name, body: body, time: 'Just now' });
     saveComments(comments);
     renderComments();
     this.reset();
