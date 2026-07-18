@@ -10,8 +10,7 @@
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
   // Your web app's Firebase configuration
   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -28,6 +27,50 @@
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  const auth = getAuth(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  // Real Google sign-in: clicking the button opens Google's own native popup,
+  // which handles the entire login (including any 2-step verification) itself —
+  // this page never sees or asks for a password or a code.
+  function wireFirebaseAuthUI() {
+    var googleBtn = document.getElementById('googleLoginBtn');
+    var statusNote = document.getElementById('authStatusNote');
+    var authModal = document.getElementById('authModal');
+    var logoutBtn = document.getElementById('navLogoutBtn');
+    if (!googleBtn || !logoutBtn) return;
+
+    onAuthStateChanged(auth, function (user) {
+      document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = user ? 'none' : ''; });
+      document.querySelectorAll('[data-auth-signed-in]').forEach(function (el) { el.style.display = user ? '' : 'none'; });
+      logoutBtn.textContent = user && user.displayName ? 'Log Out (' + user.displayName.split(' ')[0] + ')' : 'Log Out';
+    });
+
+    googleBtn.addEventListener('click', function () {
+      googleBtn.disabled = true;
+      statusNote.style.color = '';
+      statusNote.textContent = 'Waiting for Google sign-in…';
+      signInWithPopup(auth, googleProvider).then(function (result) {
+        statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
+        setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
+      }).catch(function (error) {
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = (error && error.code === 'auth/popup-closed-by-user')
+          ? 'Sign-in was cancelled.'
+          : 'Sign-in failed — please try again.';
+      }).finally(function () {
+        googleBtn.disabled = false;
+      });
+    });
+
+    logoutBtn.addEventListener('click', function () { signOut(auth); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireFirebaseAuthUI);
+  } else {
+    wireFirebaseAuthUI();
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -681,12 +724,8 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   margin: var(--space-4) 0; cursor: pointer; transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .google-btn:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
-.auth-modal-note { font-size: 0.78rem; color: var(--muted-2); }
-.auth-spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--border-strong); border-top-color: var(--aqua); margin: var(--space-4) auto; animation: authSpin 0.8s linear infinite; }
-@keyframes authSpin { to { transform: rotate(360deg); } }
-.otp-demo-code { font-family: var(--font-display); font-size: 2rem; letter-spacing: 0.15em; color: var(--aqua); background: var(--bg-alt); border: 1px dashed var(--aqua); border-radius: var(--radius-sm); padding: 10px; margin: var(--space-4) auto; max-width: 220px; }
-#authOtpInput { text-align: center; letter-spacing: 0.2em; font-size: 1.1rem; }
-.auth-error { color: var(--maroon-bright); font-size: 0.85rem; margin-top: var(--space-2); }
+.google-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
+.auth-modal-note { font-size: 0.78rem; color: var(--muted-2); margin-top: var(--space-3); }
 </style>
 </head>
 <body>
@@ -1205,46 +1244,19 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
 
-    <div id="authViewStart">
-      <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
-      <h3 id="authModalTitle">Sign In to Swimfit</h3>
-      <p>Quick access to your training dashboard.</p>
-      <button type="button" class="google-btn" id="googleLoginBtn">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
-          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-          <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
-        </svg>
-        <span>Continue with Google</span>
-      </button>
-      <p class="auth-modal-note">Demo mode — this is a static prototype with no real backend, so sign-in is fully simulated.</p>
-    </div>
-
-    <div id="authViewLoading" style="display:none">
-      <div class="auth-spinner" aria-hidden="true"></div>
-      <h3>Connecting…</h3>
-      <p>Securely verifying your account.</p>
-    </div>
-
-    <div id="authViewOtp" style="display:none">
-      <div class="icon-tile green"><svg class="icon"><use href="#i-lock"/></svg></div>
-      <h3>Confirm It's You</h3>
-      <p>Demo verification step — since this is a static prototype with no real backend, nothing was actually texted. Enter the code shown below to continue.</p>
-      <div class="otp-demo-code" id="authOtpDemoCode">000000</div>
-      <div class="profile-field" style="text-align:left; max-width:220px; margin-inline:auto;">
-        <label for="authOtpInput">6-digit code</label>
-        <input type="text" id="authOtpInput" maxlength="6" inputmode="numeric" placeholder="000000">
-      </div>
-      <p class="auth-error" id="authModalError" style="display:none">Incorrect code — try again.</p>
-      <button type="button" class="btn btn-primary btn-block" id="authOtpSubmit" style="margin-top:12px">Verify &amp; Continue</button>
-    </div>
-
-    <div id="authViewSuccess" style="display:none">
-      <div class="icon-tile green"><svg class="icon"><use href="#i-check"/></svg></div>
-      <h3>You're In!</h3>
-      <p>Signed in successfully.</p>
-    </div>
+    <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
+    <h3 id="authModalTitle">Sign In to Swimfit</h3>
+    <p>Quick access to your training dashboard.</p>
+    <button type="button" class="google-btn" id="googleLoginBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+    <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
   </div>
 </div>
 
@@ -1427,69 +1439,21 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('open'); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.classList.remove('open'); });
 
-  /* ============================= SIGN IN MODAL (simulated) ============================= */
-  var AUTH_SESSION_KEY = 'swimfit_demo_auth_session';
+  /* ============================= SIGN IN MODAL (open/close only — auth itself is
+     handled by Firebase, see the <script type="module"> in <head>) ============================= */
   var authModal = document.getElementById('authModal');
-  var authViews = {
-    start: document.getElementById('authViewStart'),
-    loading: document.getElementById('authViewLoading'),
-    otp: document.getElementById('authViewOtp'),
-    success: document.getElementById('authViewSuccess')
-  };
-  var authPendingOtp = null;
-
-  function showAuthView(name) {
-    Object.keys(authViews).forEach(function (k) { authViews[k].style.display = k === name ? 'block' : 'none'; });
-  }
   function openAuthModal() {
-    showAuthView('start');
-    document.getElementById('authOtpInput').value = '';
-    document.getElementById('authModalError').style.display = 'none';
+    document.getElementById('authStatusNote').textContent = 'Google handles sign-in and verification in its own secure window.';
+    document.getElementById('googleLoginBtn').disabled = false;
     authModal.classList.add('open');
   }
   function closeAuthModal() { authModal.classList.remove('open'); }
-  function randomOtp6() { return String(Math.floor(100000 + Math.random() * 900000)); }
-
-  function updateAuthNavUI() {
-    var loggedIn = false;
-    try { loggedIn = localStorage.getItem(AUTH_SESSION_KEY) === '1'; } catch (e) {}
-    document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = loggedIn ? 'none' : ''; });
-    document.querySelectorAll('[data-auth-signed-in]').forEach(function (el) { el.style.display = loggedIn ? '' : 'none'; });
-  }
 
   document.getElementById('navSignInBtn').addEventListener('click', openAuthModal);
   document.getElementById('navJoinNowBtn').addEventListener('click', openAuthModal);
   document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
-
-  document.getElementById('googleLoginBtn').addEventListener('click', function () {
-    showAuthView('loading');
-    var delay = 1000 + Math.random() * 4000;
-    setTimeout(function () {
-      authPendingOtp = randomOtp6();
-      document.getElementById('authOtpDemoCode').textContent = authPendingOtp;
-      showAuthView('otp');
-    }, delay);
-  });
-
-  document.getElementById('authOtpSubmit').addEventListener('click', function () {
-    var entered = document.getElementById('authOtpInput').value.trim();
-    var errorEl = document.getElementById('authModalError');
-    if (!authPendingOtp || entered !== authPendingOtp) { errorEl.style.display = 'block'; return; }
-    errorEl.style.display = 'none';
-    try { localStorage.setItem(AUTH_SESSION_KEY, '1'); } catch (e) {}
-    showAuthView('success');
-    updateAuthNavUI();
-    setTimeout(closeAuthModal, 1100);
-  });
-
-  document.getElementById('navLogoutBtn').addEventListener('click', function () {
-    try { localStorage.removeItem(AUTH_SESSION_KEY); } catch (e) {}
-    updateAuthNavUI();
-  });
-
-  updateAuthNavUI();
 
   /* ============================= WORKOUT GENERATOR ============================= */
   function dayIndex() {
