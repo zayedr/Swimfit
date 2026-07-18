@@ -493,7 +493,6 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .member-gate { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius); border: 1px dashed var(--border-strong); text-align: center; color: var(--muted); }
 .member-gate strong { color: var(--fg); }
-[data-ms-member="logged-in"] { display: none; }
 
 .coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
@@ -832,8 +831,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     </div>
 
     <div class="nav-cta">
-      <a href="https://YOUR-SUBDOMAIN.memberspace.com/login" data-ms-member="logged-out" class="btn btn-ghost btn-sm">Sign In</a>
-      <a href="https://YOUR-SUBDOMAIN.memberspace.com/account" data-ms-member="logged-in" class="btn btn-ghost btn-sm">My Account</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="navAccountBtn" data-tab="profile">Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" data-tab="pricing" data-welcome-trigger>Join Now</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
@@ -1322,7 +1320,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Community feed access</li>
           </ul>
           <p class="price-locked"><svg class="icon"><use href="#i-lock"/></svg> Technique Academy, video review and analytics require Elite</p>
-          <a href="https://YOUR-SUBDOMAIN.memberspace.com/checkout?plan=PRO_PLAN_ID" class="btn btn-ghost btn-block">Join Pro</a>
+          <button type="button" class="btn btn-ghost btn-block" data-tab="profile">Join Pro</button>
         </div>
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
@@ -1337,7 +1335,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Advanced race-pace analytics</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
           </ul>
-          <a href="https://YOUR-SUBDOMAIN.memberspace.com/checkout?plan=ELITE_PLAN_ID" class="btn btn-primary btn-block">Join Elite</a>
+          <button type="button" class="btn btn-primary btn-block" data-tab="profile">Join Elite</button>
         </div>
         <div class="price-card" data-reveal>
           <span class="price-tier">Ultra</span>
@@ -1350,15 +1348,15 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
             <li><svg class="icon"><use href="#i-check"/></svg> Early access to new tracks</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Downloadable training plans</li>
           </ul>
-          <a href="https://YOUR-SUBDOMAIN.memberspace.com/checkout?plan=ULTRA_PLAN_ID" class="btn btn-outline-maroon btn-block">Join Ultra</a>
+          <button type="button" class="btn btn-outline-maroon btn-block" data-tab="profile">Join Ultra</button>
         </div>
       </div>
-      <p class="price-note">Prices shown in AED · VAT where applicable · Manage or cancel your membership anytime from My Account.</p>
+      <p class="price-note">Prices shown in AED · VAT where applicable · Manage your membership anytime from your Swimmer Dashboard.</p>
 
       <div class="faq-list">
         <details class="faq-item">
           <summary>Can I cancel anytime?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Yes. Every plan is billed monthly or annually with no lock-in — manage or cancel from My Account at any time.</div>
+          <div class="faq-body">Yes. Every plan is billed monthly or annually with no lock-in — manage or cancel from your Swimmer Dashboard at any time.</div>
         </details>
         <details class="faq-item">
           <summary>Does the workout generator repeat?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -1409,8 +1407,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
         <ul>
           <li><button type="button" data-tab="pricing">Pricing</button></li>
           <li><button type="button" data-tab="profile">Swimmer Dashboard</button></li>
-          <li><a href="https://YOUR-SUBDOMAIN.memberspace.com/account" data-ms-member="logged-in">My Account</a></li>
-          <li><a href="https://YOUR-SUBDOMAIN.memberspace.com/login" data-ms-member="logged-out">Sign In</a></li>
+          <li><button type="button" data-tab="profile" id="footerAccountBtn">Sign In</button></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -1876,9 +1873,10 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
     if (state.level === 'elite') {
-      html += '<div class="member-gate" data-ms-member="logged-out">' + icon('i-lock') +
-        ' <strong>Elite tracks are a membership benefit.</strong> <a href="#" data-tab="pricing" style="color:var(--aqua)">Upgrade to Elite</a> to unlock full video stroke review on this set.</div>' +
-        '<div class="member-gate" data-ms-member="logged-in"><strong>Elite review unlocked.</strong> Submit your set video from My Account for coach feedback within 48 hours.</div>';
+      html += getSession()
+        ? '<div class="member-gate"><strong>Elite review unlocked.</strong> Submit your set video from your Swimmer Dashboard for coach feedback within 48 hours.</div>'
+        : '<div class="member-gate">' + icon('i-lock') +
+          ' <strong>Video stroke review requires a signed-in profile.</strong> <a href="#" data-tab="profile" style="color:var(--aqua)">Sign in or create your Swimmer Dashboard</a> to unlock full video review on this set.</div>';
     }
 
     html += renderCoachTips();
@@ -2223,6 +2221,11 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var bar = document.getElementById('sessionBar');
     if (session) { document.getElementById('sessionUserLabel').textContent = session; bar.style.display = 'block'; }
     else { bar.style.display = 'none'; }
+    var navBtn = document.getElementById('navAccountBtn');
+    var footerBtn = document.getElementById('footerAccountBtn');
+    var label = session ? 'My Account' : 'Sign In';
+    if (navBtn) navBtn.textContent = label;
+    if (footerBtn) footerBtn.textContent = label;
   }
   var DEMO_PROFILES = {
     alex: {
@@ -2646,15 +2649,5 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   switchTab('workouts', { scroll: false });
 })();
 </script>
-
-<!--
-  MemberSpace setup:
-  1. Replace every "YOUR-SUBDOMAIN" above with your MemberSpace account subdomain.
-  2. Replace PRO_PLAN_ID / ELITE_PLAN_ID / ULTRA_PLAN_ID with the plan IDs from your MemberSpace dashboard
-     (Settings -> Plans), matching PRO (49 AED/mo), ELITE (99 AED/mo) and ULTRA (499 AED/yr).
-  3. Paste your MemberSpace embed script (from MemberSpace > Installation) just before </body> —
-     it will automatically show/hide any element with a data-ms-member="logged-in" / "logged-out"
-     attribute and intercept the login/checkout links above.
--->
 </body>
 </html>
