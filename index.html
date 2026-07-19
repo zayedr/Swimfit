@@ -101,6 +101,27 @@
     requestAnimationFrame(step);
   }
 
+  // Friendly copy for the Firebase Auth error codes real users actually hit in
+  // production — including the two easy-to-forget Firebase Console toggles
+  // (email-link sign-in method, authorized domains), so a misconfiguration
+  // shows up as a clear message here instead of a generic "sign-in failed".
+  var AUTH_ERROR_MESSAGES = {
+    'auth/popup-closed-by-user': 'Sign-in was cancelled.',
+    'auth/cancelled-popup-request': 'Sign-in was cancelled.',
+    'auth/popup-blocked': 'Your browser blocked the sign-in popup — please allow popups for this site and try again.',
+    'auth/unauthorized-domain': 'This domain isn’t authorized for sign-in yet — please contact support.',
+    'auth/network-request-failed': 'Network error — please check your connection and try again.',
+    'auth/invalid-email': 'That email address doesn’t look valid — please double-check it.',
+    'auth/operation-not-allowed': 'This sign-in method isn’t enabled yet — please contact support.',
+    'auth/invalid-action-code': 'That sign-in link has expired or was already used — please request a new one.',
+    'auth/expired-action-code': 'That sign-in link has expired — please request a new one.',
+    'auth/user-disabled': 'This account has been disabled — please contact support.',
+    'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.'
+  };
+  function describeAuthError(error, fallback) {
+    return (error && AUTH_ERROR_MESSAGES[error.code]) || fallback;
+  }
+
   // Real Google sign-in: clicking the button opens Google's own native popup,
   // which handles the entire login (including any 2-step verification) itself —
   // this page never sees or asks for a password or a code.
@@ -138,9 +159,7 @@
         setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
       }).catch(function (error) {
         statusNote.style.color = '#e5484d';
-        statusNote.textContent = (error && error.code === 'auth/popup-closed-by-user')
-          ? 'Sign-in was cancelled.'
-          : 'Sign-in failed — please try again.';
+        statusNote.textContent = describeAuthError(error, 'Sign-in failed — please try again.');
       }).finally(function () {
         googleBtn.disabled = false;
       });
@@ -160,9 +179,7 @@
           statusNote.textContent = 'Check your Gmail inbox — tap the secure link we just sent to ' + email + ' to finish signing in.';
         }).catch(function (error) {
           statusNote.style.color = '#e5484d';
-          statusNote.textContent = (error && error.code === 'auth/invalid-email')
-            ? 'That email address doesn’t look valid — please double-check it.'
-            : 'Couldn’t send the sign-in link — please try again.';
+          statusNote.textContent = describeAuthError(error, 'Couldn’t send the sign-in link — please try again.');
         }).finally(function () {
           emailSubmitBtn.disabled = false;
         });
@@ -188,11 +205,11 @@
           window.history.replaceState({}, document.title, window.location.pathname);
           if (statusNote) statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
           setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
-        }).catch(function () {
+        }).catch(function (error) {
           window.history.replaceState({}, document.title, window.location.pathname);
           if (statusNote) {
             statusNote.style.color = '#e5484d';
-            statusNote.textContent = 'That sign-in link has expired or was already used — please request a new one.';
+            statusNote.textContent = describeAuthError(error, 'That sign-in link has expired or was already used — please request a new one.');
           }
         });
       }

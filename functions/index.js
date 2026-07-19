@@ -6,27 +6,50 @@
  * HTTPS functions (paddleWebhook) with a 1st-gen Auth trigger (onUserCreated)
  * in the same codebase — both are fully supported together.
  *
- * Setup (one-time):
- *   1. cd functions && npm install
- *   2. firebase deploy --only functions   (deploys with a placeholder secret prompt)
- *   3. Copy the deployed paddleWebhook HTTPS URL, register it in the Paddle dashboard
- *      under Developer Tools -> Notifications -> Webhook destinations (select the
- *      events you want, e.g. subscription.created/updated/canceled, transaction.completed).
- *   4. Paddle then shows a webhook signing secret for that destination. Store it with:
+ * ============================= GO-LIVE CHECKLIST =============================
+ * Two of these steps are Firebase Console toggles, not code — easy to miss,
+ * and real users will see a clear "This sign-in method isn't enabled yet" /
+ * "This domain isn't authorized" message (see describeAuthError in index.html)
+ * if either is skipped.
+ *
+ *   1. Firebase Console -> Authentication -> Sign-in method:
+ *        - Google: confirm it's enabled (already done per prior setup).
+ *        - Email/Password provider -> enable the "Email link (passwordless
+ *          sign-in)" toggle. Without this, sendSignInLinkToEmail fails for
+ *          every real visitor with auth/operation-not-allowed.
+ *   2. Firebase Console -> Authentication -> Settings -> Authorized domains:
+ *        add swimfit.com (and www.swimfit.com if that resolves too). Without
+ *        this, both Google popup and email-link sign-in fail with
+ *        auth/unauthorized-domain for anyone on the live domain.
+ *   3. Firebase Console -> Firestore Database: create the database if it
+ *      doesn't exist yet (either starting mode is fine — step 7 below
+ *      deploys and enforces the real firestore.rules regardless).
+ *   4. cd functions && npm install
+ *   5. Set the required secrets (prompts for the value, nothing is echoed):
  *        firebase functions:secrets:set PADDLE_WEBHOOK_SECRET
- *      (paste the secret when prompted), then redeploy:
- *        firebase deploy --only functions
- *   5. For the welcome email, set SMTP credentials from your email provider
- *      (e.g. an SMTP relay from Gmail/Google Workspace, SendGrid, Mailgun, Postmark):
  *        firebase functions:secrets:set SMTP_HOST
  *        firebase functions:secrets:set SMTP_PORT
  *        firebase functions:secrets:set SMTP_USER
  *        firebase functions:secrets:set SMTP_PASS
- *      then redeploy. Without these set, onUserCreated still creates the Firestore
- *      profile and increments the registered-users counter — it just skips the
- *      email send (logged, not thrown, so a missing/bad SMTP config never blocks
- *      user creation).
- *   6. Deploy Firestore rules too: firebase deploy --only firestore:rules
+ *      (SMTP secrets are optional at first — onUserCreated still creates the
+ *      Firestore profile and increments the registered-users counter without
+ *      them, it just skips the welcome-email send, logged not thrown, so a
+ *      missing/bad SMTP config can never block user creation.)
+ *   6. firebase deploy --only functions
+ *   7. firebase deploy --only firestore:rules
+ *   8. Copy the deployed paddleWebhook HTTPS URL, register it in the Paddle
+ *      dashboard under Developer Tools -> Notifications -> Webhook
+ *      destinations (select the events you want, e.g.
+ *      subscription.created/updated/canceled, transaction.completed). Paddle
+ *      then shows a webhook signing secret for that destination — that's the
+ *      value step 5 already asked for; if you're registering the webhook for
+ *      the first time, come back and update the secret with the same command
+ *      and redeploy.
+ *
+ * Known separate risk (Paddle Billing, not this file): PADDLE_PRICE_IDS in
+ * index.html currently holds Paddle PRODUCT ids (pro_...); Paddle.Checkout.open()
+ * needs the PRICE id (pri_...) under each product. Confirm/swap these in the
+ * Paddle dashboard before real customers try to subscribe.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -194,6 +217,7 @@ async function sendWelcomeEmail(user) {
 // double-counted by repeat client-side logins.
 exports.onUserCreated = functionsV1
   .runWith({ secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS] })
+  .region('us-central1')
   .auth.user()
   .onCreate(async function (user) {
     try {
