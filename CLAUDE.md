@@ -12,7 +12,7 @@ package manager — styled and scripted inline. It is the live Swimfit site, dep
 The site is a marketing/training dashboard: a persistent Hero (with a looping background
 video generated via image-to-video, falling back gracefully to a static photo layer if it
 fails to load) + About section, followed by a tabbed shell: Disciplines, Workouts, Gym, Gear,
-Academy, Pricing. Workouts and Gym each get their own full-screen looping background video
+Academy, AI Coach, Distance Tracker, Pricing. Workouts and Gym each get their own full-screen looping background video
 (swimmer/pool and dryland-gym respectively, lazy-loaded on first visit to that tab); the
 other four tabs share a CSS-only ambient water animation instead. A prior round built out a
 full Community feed and a Profile/Swimmer Dashboard (with a client-side simulated
@@ -43,7 +43,68 @@ public-read/no-client-write; `email_otps` is fully server-only, no client access
 flow, aside from the Firebase-gated Paddle Billing checkout wired to the Subscribe buttons.
 A floating "AI Swim Coach" chat widget (gated behind sign-in) calls the `aiSwimCoach` Cloud
 Function, which proxies to the Claude API behind a strict swim-only system prompt and a
-per-user daily message cap.
+per-user daily message cap. There is also a dedicated full-screen "AI Coach" tab
+(`data-tab="coach"`, `#panel-coach`) in the same tab shell — a richer, independent surface
+over the identical endpoint, with its own in-memory chat history. Both surfaces let a
+swimmer attach up to 3 photos per message (workout log pages, gear, technique/posture
+stills); images are downscaled client-side to a 1600px longest edge and re-encoded as JPEG
+on a canvas before upload. `aiSwimCoach` accepts an optional `images` array
+(`{mediaType, data}` per image, base64-encoded, validated server-side against a media-type
+allowlist, a per-image size cap, and a per-message count cap) and forwards them to Claude as
+multimodal content blocks alongside the text turn — the floating widget never sends images,
+so this is purely additive.
+
+**Trial + subscription tier system.** Every new account gets a 7-day free trial starting at
+signup (`users/{uid}.trialStartedAt`, set once on first `ensureUserProfile` write; a
+pre-existing account missing this field gets it backfilled to "now" — grandfathered rather
+than retroactively locked out from a signup date that predates this feature). Once the trial
+lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
+resolves each event's Paddle **product** id (not price id — see the Paddle risk note below) to
+a plan key (`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes `{plan, status,
+...}` onto `paddle_subscriptions/{uid}`; an `active`/`trialing` status counts as paid. The
+resolved access level — `'trial' | 'pro' | 'elite' | 'ultra' | 'locked' | 'admin'` — is computed
+in two places that must stay in sync: client-side in index.html
+(`recomputeAccessLevel`/`window.__swimfitAccess`, reactive via an `onSnapshot` on
+`paddle_subscriptions/{uid}` plus a 5-minute re-check timer, broadcast as a
+`swimfit:accesschange` DOM event) and server-side in `functions/index.js`
+(`getAccessLevel(uid)`, Admin-SDK reads only — never trusts anything the client claims). A
+`'locked'` swimmer (trial expired, no active plan) sees a full-screen `#paywallOverlay` that
+blocks the whole dashboard; the one Cloud Function that actually costs money, `aiSwimCoach`,
+independently re-derives access level and rejects the call outright when locked, and rejects
+`images` specifically for the `pro` plan (Pro gets the floating widget only — no full-screen
+page, no saved history, no photo upload; enforced both client-side via
+`coachPageTierAllowed()` and server-side, since that's a real API-cost boundary). Workouts'
+"Elite" training level (a pre-existing difficulty tier, distinct from the *subscription* tier
+of the same name) is gated the same way: `tierAllowsEliteLevel()` replaces the generated set
+with a `.tier-lock-card` upgrade prompt for `pro`, and shows a "you're previewing this on
+trial" nudge instead of real content for trial swimmers. Gym workouts, Technique Academy
+videos, and the new Distance Tracker tab are **not** tier-gated — open to any signed-in
+swimmer regardless of plan, matching how they always worked before this system existed.
+Elite/Ultra/trial (and the admin account below) get a persisted AI Coach transcript on the
+full-screen page — `coach_history/{uid}` (text only, capped at 60 entries; image bytes are
+never persisted, only sent per-request) — loaded once per sign-in and upserted after each
+exchange; Pro never reaches that surface, so it has no persisted history by construction.
+
+There's a single hardcoded house account, `swimfit.ae@gmail.com` (the `ADMIN_EMAILS` array in
+`functions/index.js`, kept in sync with the `SWIMFIT_ADMIN_EMAIL` constant in index.html's
+module `<script>`), that always resolves to access level `'admin'` — full Ultra-equivalent
+access everywhere above, trial/subscription status irrelevant. Signing in as that address
+shows an "Ultra Access" nav badge and short-circuits the Subscribe buttons (both the Pricing
+tab's and the paywall overlay's) with a friendly alert instead of opening real Paddle checkout.
+
+**Known pre-existing risk, not introduced by the tier system above but now higher-stakes:**
+`PADDLE_PRICE_IDS` in index.html holds Paddle **product** ids (`pro_...`) where
+`Paddle.Checkout.open()` needs a **price** id (`pri_...`) — checkout was already flagged as
+needing a fix in the Paddle dashboard before real customers subscribe. Now that trial expiry
+leads to a hard paywall, confirm checkout actually works before merging this to `main` —
+otherwise a swimmer whose trial lapses would have no working way to pay.
+
+**New Distance Tracker tab** (`data-tab="tracker"`, `#panel-tracker`) lets a signed-in swimmer
+manually log a swim (date + km + optional discipline) to `swim_logs/{uid}/entries/{entryId}`
+(owner-only, create+delete, no in-place edit — delete and re-log to fix a mislog) and view
+Daily/Weekly/Monthly aggregate totals plus a recent-entries list. There's no workout-completion
+tracking anywhere else in the app, so this is deliberately a manual log, not derived from the
+Workout Generator's proposed sets.
 
 Right after a swimmer's first successful sign-in (Google or email-OTP — either path fires
 `onAuthStateChanged` the same way), an onboarding modal collects Full Name, Country, Age,
