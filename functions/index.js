@@ -103,6 +103,21 @@ const KNOWN_PADDLE_EVENT_TYPES = [
   'transaction.paid'
 ];
 
+// Maps a Paddle PRODUCT id (data.items[].price.product_id on the webhook
+// payload) to the Swimfit plan it represents — keyed by product rather than
+// price so this stays correct even across a monthly/annual price change on
+// the same product, and matches the pro_.../PADDLE_PRICE_IDS constants
+// already hardcoded in index.html's checkout call. Keep the two in sync.
+const PADDLE_PLAN_BY_PRODUCT_ID = {
+  'pro_01kxvepbgps1gw1w5qmt45hev6': 'pro',
+  'pro_01kxvet9dy5deg86r4xe16yb5k': 'elite',
+  'pro_01kxvev8we8cytygfk733nkjt7': 'ultra'
+};
+// Paddle subscription statuses that count as "actively paying" — everything
+// else (canceled, paused, past_due) drops the swimmer back to the post-trial
+// paywall until they resubscribe.
+const PADDLE_ACTIVE_STATUSES = ['active', 'trialing'];
+
 function verifyPaddleSignature(rawBody, signatureHeader, secret) {
   if (!signatureHeader || !secret) return false;
 
@@ -175,6 +190,15 @@ exports.paddleWebhook = onRequest(
         var priceIds = Array.isArray(data.items)
           ? data.items.map(function (item) { return item.price && item.price.id; }).filter(Boolean)
           : [];
+        var productIds = Array.isArray(data.items)
+          ? data.items.map(function (item) { return item.price && item.price.product_id; }).filter(Boolean)
+          : [];
+        // First product id that maps to a known plan wins — a subscription only
+        // ever carries one Swimfit product per checkout, so ties aren't expected.
+        var plan = null;
+        for (var pIdx = 0; pIdx < productIds.length; pIdx++) {
+          if (PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]) { plan = PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]; break; }
+        }
 
         await db.collection('paddle_subscriptions').doc(String(docId)).set(
           {
@@ -184,6 +208,8 @@ exports.paddleWebhook = onRequest(
             customerId: data.customer_id || null,
             firebaseUid: firebaseUid,
             priceIds: priceIds,
+            productIds: productIds,
+            plan: plan,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             raw: data
           },
@@ -248,6 +274,35 @@ function isAdminEmail(email) {
   return !!email && ADMIN_EMAILS.indexOf(String(email).toLowerCase()) !== -1;
 }
 
+const TRIAL_DAYS = 7;
+
+// Resolves what a signed-in swimmer can currently access: 'trial' during the
+// first TRIAL_DAYS after signup, whichever Paddle plan is actively paid for
+// after that ('pro' | 'elite' | 'ultra'), or 'locked' once the trial has
+// lapsed with no active subscription. Mirrors the client-side resolution in
+// index.html so the one call that actually costs money (aiSwimCoach) can't be
+// tricked by a client that simply hides its own paywall UI — this always
+// re-derives access from Firestore via the Admin SDK, never from anything the
+// request body claims. Fails open (returns 'trial') only when the user's
+// profile doc doesn't exist at all yet, to avoid a brand-new signup racing
+// its own first profile write into an incorrect instant lockout.
+async function getAccessLevel(uid) {
+  var userSnap = await db.collection('users').doc(uid).get();
+  var userData = userSnap.exists ? userSnap.data() : null;
+  var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
+  var trialStart = trialStartField ? trialStartField.toDate() : new Date();
+  if (!userData || Date.now() < trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) {
+    return 'trial';
+  }
+
+  var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
+  var subData = subSnap.exists ? subSnap.data() : null;
+  if (subData && subData.plan && PADDLE_ACTIVE_STATUSES.indexOf(subData.status) !== -1) {
+    return subData.plan;
+  }
+  return 'locked';
+}
+
 // Allowed browser origins for every user-facing (non-webhook) function below —
 // the AI Coach widget and the email-OTP sign-in endpoints. Add a dev origin
 // here temporarily (e.g. 'http://localhost:8000') if testing against a
@@ -309,6 +364,11 @@ exports.aiSwimCoach = onRequest(
     }
     var uid = decoded.uid;
     var isAdmin = isAdminEmail(decoded.email);
+    var accessLevel = isAdmin ? 'admin' : await getAccessLevel(uid);
+    if (accessLevel === 'locked') {
+      res.status(402).json({ error: 'Your free trial has ended — subscribe to a plan to keep chatting with the AI Coach.' });
+      return;
+    }
 
     var body = req.body || {};
     var message = typeof body.message === 'string' ? body.message.trim() : '';
@@ -358,6 +418,10 @@ exports.aiSwimCoach = onRequest(
     }
 
     var rawImages = Array.isArray(body.images) ? body.images : [];
+    if (rawImages.length > 0 && accessLevel === 'pro') {
+      res.status(403).json({ error: 'Photo analysis is an Elite feature — upgrade to attach workout, gear or technique photos.' });
+      return;
+    }
     if (rawImages.length > COACH_MAX_IMAGES_PER_MESSAGE) {
       res.status(400).json({ error: 'You can attach up to ' + COACH_MAX_IMAGES_PER_MESSAGE + ' images per message.' });
       return;
