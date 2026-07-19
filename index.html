@@ -22,7 +22,7 @@
       or checkout for real visitors — worse than having no CSP.
   To enable: uncomment the <meta> tag below, deploy to a preview/staging
   URL if you have one (or accept testing directly on production), then in a
-  real browser exercise Google Sign-In, the email-link flow, and a Paddle
+  real browser exercise Google Sign-In, the email-OTP flow, and a Paddle
   checkout end to end. If anything breaks, the browser console names the
   exact blocked origin/directive to add. Rolling back is just re-commenting
   this tag.
@@ -53,7 +53,7 @@
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
   import {
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-    sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink
+    signInWithCustomToken
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, runTransaction
@@ -77,7 +77,6 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
-  const EMAIL_LINK_STORAGE_KEY = 'swimfitEmailForSignIn';
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
   // Firebase ID token to its Cloud Function call without importing the SDK
@@ -87,7 +86,7 @@
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
   };
 
-  // Every signed-in user (Google or email-link) gets a Firestore profile doc.
+  // Every signed-in user (Google or email-OTP) gets a Firestore profile doc.
   // createdAt is only ever set once, on the very first sign-in — everything
   // else (lastLoginAt, provider, display name/photo) refreshes on every visit.
   // The authoritative "how many swimmers have registered" count is NOT kept
@@ -163,9 +162,9 @@
   }
 
   // Friendly copy for the Firebase Auth error codes real users actually hit in
-  // production — including the two easy-to-forget Firebase Console toggles
-  // (email-link sign-in method, authorized domains), so a misconfiguration
-  // shows up as a clear message here instead of a generic "sign-in failed".
+  // production — including the easy-to-forget Firebase Console "authorized
+  // domains" toggle, so a misconfiguration shows up as a clear message here
+  // instead of a generic "sign-in failed".
   var AUTH_ERROR_MESSAGES = {
     'auth/popup-closed-by-user': 'Sign-in was cancelled.',
     'auth/cancelled-popup-request': 'Sign-in was cancelled.',
@@ -174,10 +173,10 @@
     'auth/network-request-failed': 'Network error — please check your connection and try again.',
     'auth/invalid-email': 'That email address doesn’t look valid — please double-check it.',
     'auth/operation-not-allowed': 'This sign-in method isn’t enabled yet — please contact support.',
-    'auth/invalid-action-code': 'That sign-in link has expired or was already used — please request a new one.',
-    'auth/expired-action-code': 'That sign-in link has expired — please request a new one.',
     'auth/user-disabled': 'This account has been disabled — please contact support.',
-    'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.'
+    'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.',
+    'auth/invalid-custom-token': 'That verification session has expired — please request a new code.',
+    'auth/custom-token-mismatch': 'That verification session is invalid — please request a new code.'
   };
   function describeAuthError(error, fallback) {
     return (error && AUTH_ERROR_MESSAGES[error.code]) || fallback;
@@ -187,19 +186,29 @@
   // which handles the entire login (including any 2-step verification) itself —
   // this page never sees or asks for a password or a code.
   //
-  // Email sign-in uses Firebase's native passwordless "email link" flow —
-  // this IS Firebase's real OTP-equivalent for email: instead of a code you
-  // type in, Firebase emails a single-use secure sign-in link straight to the
-  // user's Gmail; opening it on this page completes the sign-in. There is no
-  // password and no code this site ever sees or handles itself.
+  // Email sign-in is a real, typed 6-digit OTP: requestEmailOtp (Cloud
+  // Function) generates the code server-side, hashes+stores it in Firestore,
+  // and emails it through Swimfit's own SMTP; verifyEmailOtp checks the typed
+  // code against that hash, then mints a Firebase custom token that this page
+  // exchanges for a real session via signInWithCustomToken. This page never
+  // handles a password, and the raw code only ever lives in the email itself
+  // and briefly in the code input below — never in Firestore, never in a URL.
+  var OTP_REQUEST_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/requestEmailOtp';
+  var OTP_VERIFY_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/verifyEmailOtp';
+
   function wireFirebaseAuthUI() {
     var googleBtn = document.getElementById('googleLoginBtn');
     var statusNote = document.getElementById('authStatusNote');
     var authModal = document.getElementById('authModal');
     var logoutBtn = document.getElementById('navLogoutBtn');
-    var emailForm = document.getElementById('emailLinkForm');
-    var emailInput = document.getElementById('emailLinkInput');
-    var emailSubmitBtn = document.getElementById('emailLinkSubmitBtn');
+    var otpRequestForm = document.getElementById('otpRequestForm');
+    var otpEmailInput = document.getElementById('otpEmailInput');
+    var otpRequestBtn = document.getElementById('otpRequestBtn');
+    var otpVerifyForm = document.getElementById('otpVerifyForm');
+    var otpCodeInput = document.getElementById('otpCodeInput');
+    var otpVerifyBtn = document.getElementById('otpVerifyBtn');
+    var otpResendBtn = document.getElementById('otpResendBtn');
+    var otpChangeEmailBtn = document.getElementById('otpChangeEmailBtn');
     if (!googleBtn || !logoutBtn) return;
 
     onAuthStateChanged(auth, function (user) {
@@ -226,78 +235,158 @@
       });
     });
 
-    // A short client-side cooldown after each successful send. This is a UX
-    // speed bump, not a real security boundary — someone could still call
-    // the SDK directly from a script — but it stops the on-page form itself
-    // from being trivially mashed into a mail-bombing tool. Firebase App
-    // Check (reCAPTCHA) is the real production-grade mitigation for this;
-    // see the note in functions/index.js.
-    var EMAIL_LINK_COOLDOWN_SECONDS = 45;
-    var emailCooldownUntil = 0;
-    function startEmailCooldown() {
-      emailCooldownUntil = Date.now() + EMAIL_LINK_COOLDOWN_SECONDS * 1000;
-      emailSubmitBtn.disabled = true;
+    logoutBtn.addEventListener('click', function () { signOut(auth); });
+
+    if (!otpRequestForm || !otpVerifyForm) { wireRegisteredUsersCounter(); return; }
+
+    // A short client-side cooldown after each send. This is a UX speed bump,
+    // not a real security boundary — someone could still call the endpoint
+    // directly — but it stops the on-page form itself from being trivially
+    // mashed. The Cloud Function enforces the real cooldown + hourly cap
+    // server-side regardless (see requestEmailOtp in functions/index.js);
+    // Firebase App Check is the further production-grade mitigation noted
+    // there.
+    var OTP_RESEND_COOLDOWN_SECONDS = 45;
+    var otpCooldownUntil = 0;
+    var otpEmailForVerification = '';
+    function startOtpCooldown(btn, idleLabel) {
+      otpCooldownUntil = Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000;
+      btn.disabled = true;
       (function tick() {
-        var remaining = Math.ceil((emailCooldownUntil - Date.now()) / 1000);
-        if (remaining <= 0) {
-          emailSubmitBtn.disabled = false;
-          emailSubmitBtn.innerHTML = '<svg class="icon"><use href="#i-comment"/></svg> Send Me a Sign-In Link';
-          return;
-        }
-        emailSubmitBtn.textContent = 'Resend available in ' + remaining + 's';
+        var remaining = Math.ceil((otpCooldownUntil - Date.now()) / 1000);
+        if (remaining <= 0) { btn.disabled = false; btn.textContent = idleLabel; return; }
+        btn.textContent = 'Resend available in ' + remaining + 's';
         setTimeout(tick, 1000);
       })();
     }
 
-    if (emailForm) {
-      emailForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (Date.now() < emailCooldownUntil) return;
-        var email = (emailInput.value || '').trim();
-        if (!email) return;
-        emailSubmitBtn.disabled = true;
-        statusNote.style.color = '';
-        statusNote.textContent = 'Sending your secure sign-in link…';
-        var actionCodeSettings = { url: window.location.origin + window.location.pathname, handleCodeInApp: true };
-        sendSignInLinkToEmail(auth, email, actionCodeSettings).then(function () {
-          window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
-          statusNote.textContent = 'Check your Gmail inbox — tap the secure link we just sent to ' + email + ' to finish signing in.';
-          startEmailCooldown();
-        }).catch(function (error) {
+    function showOtpStep(step) {
+      otpRequestForm.style.display = step === 'request' ? '' : 'none';
+      otpVerifyForm.style.display = step === 'verify' ? '' : 'none';
+    }
+
+    // Exposed so openAuthModal (in the other <script>, at the bottom of the
+    // page) can reset this UI back to the email step whenever the modal is
+    // reopened, mirroring how it already resets googleBtn.
+    window.__resetAuthModalOtpUI = function () {
+      showOtpStep('request');
+      if (otpCodeInput) otpCodeInput.value = '';
+    };
+
+    function requestOtp(email) {
+      return fetch(OTP_REQUEST_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      });
+    }
+
+    otpRequestForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (Date.now() < otpCooldownUntil) return;
+      var email = (otpEmailInput.value || '').trim();
+      if (!email) return;
+      otpRequestBtn.disabled = true;
+      statusNote.style.color = '';
+      statusNote.textContent = 'Sending your verification code…';
+      requestOtp(email).then(function (result) {
+        if (!result.ok) {
+          otpRequestBtn.disabled = false;
           statusNote.style.color = '#e5484d';
-          statusNote.textContent = describeAuthError(error, 'Couldn’t send the sign-in link — please try again.');
-          emailSubmitBtn.disabled = false;
+          statusNote.textContent = (result.data && result.data.error) || 'Couldn’t send a code — please try again.';
+          return;
+        }
+        otpEmailForVerification = email;
+        statusNote.style.color = '';
+        statusNote.textContent = 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
+        showOtpStep('verify');
+        otpCodeInput.value = '';
+        // Both buttons share the same cooldown window (one code send either
+        // way), so reflect it on the resend button immediately too — otherwise
+        // it looks clickable for the next 45s even though the click handler's
+        // own guard silently no-ops it.
+        startOtpCooldown(otpRequestBtn, 'Send Verification Code');
+        if (otpResendBtn) startOtpCooldown(otpResendBtn, 'Resend code');
+        setTimeout(function () { otpCodeInput.focus(); }, 50);
+      }).catch(function () {
+        otpRequestBtn.disabled = false;
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = 'Network error — please try again.';
+      });
+    });
+
+    otpVerifyForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = (otpCodeInput.value || '').trim();
+      if (!/^\d{6}$/.test(code)) {
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = 'Enter the 6-digit code from your email.';
+        return;
+      }
+      otpVerifyBtn.disabled = true;
+      statusNote.style.color = '';
+      statusNote.textContent = 'Verifying…';
+      fetch(OTP_VERIFY_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmailForVerification, code: code })
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        if (!result.ok || !result.data || !result.data.token) {
+          otpVerifyBtn.disabled = false;
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = (result.data && result.data.error) || 'That code didn’t work — please try again.';
+          return;
+        }
+        return signInWithCustomToken(auth, result.data.token).then(function (cred) {
+          statusNote.style.color = '';
+          statusNote.textContent = 'Signed in as ' + (cred.user.email || otpEmailForVerification) + '.';
+          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
+          otpRequestForm.reset();
+          otpVerifyForm.reset();
+          showOtpStep('request');
+        });
+      }).catch(function (error) {
+        otpVerifyBtn.disabled = false;
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = describeAuthError(error, 'That code didn’t work — please try again.');
+      });
+    });
+
+    if (otpResendBtn) {
+      otpResendBtn.addEventListener('click', function () {
+        if (Date.now() < otpCooldownUntil || !otpEmailForVerification) return;
+        otpResendBtn.disabled = true;
+        statusNote.style.color = '';
+        statusNote.textContent = 'Resending your verification code…';
+        requestOtp(otpEmailForVerification).then(function (result) {
+          if (!result.ok) {
+            otpResendBtn.disabled = false;
+            statusNote.style.color = '#e5484d';
+            statusNote.textContent = (result.data && result.data.error) || 'Couldn’t resend the code — please try again.';
+            return;
+          }
+          statusNote.style.color = '';
+          statusNote.textContent = 'Sent a new code to ' + otpEmailForVerification + '.';
+          startOtpCooldown(otpResendBtn, 'Resend code');
+        }).catch(function () {
+          otpResendBtn.disabled = false;
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Network error — please try again.';
         });
       });
     }
 
-    logoutBtn.addEventListener('click', function () { signOut(auth); });
-
-    // Completing an email-link sign-in: the user clicked the link in their
-    // Gmail inbox and landed back on this exact page with a one-time code
-    // in the URL. If they opened it in a different browser/device than the
-    // one they requested it from, localStorage won't have the email, so we
-    // fall back to asking for it once (Firebase's own documented pattern
-    // for this edge case).
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      var storedEmail = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
-      var email = storedEmail || window.prompt('Confirm your email address to finish signing in:');
-      if (email) {
-        if (authModal) authModal.classList.add('open');
-        if (statusNote) statusNote.textContent = 'Finishing sign-in…';
-        signInWithEmailLink(auth, email, window.location.href).then(function (result) {
-          window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
-          window.history.replaceState({}, document.title, window.location.pathname);
-          if (statusNote) statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
-          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
-        }).catch(function (error) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          if (statusNote) {
-            statusNote.style.color = '#e5484d';
-            statusNote.textContent = describeAuthError(error, 'That sign-in link has expired or was already used — please request a new one.');
-          }
-        });
-      }
+    if (otpChangeEmailBtn) {
+      otpChangeEmailBtn.addEventListener('click', function () {
+        showOtpStep('request');
+        statusNote.style.color = '';
+        statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
+        otpCodeInput.value = '';
+      });
     }
 
     wireRegisteredUsersCounter();
@@ -329,7 +418,7 @@
   ];
 
   // ============================= ONBOARDING (profile completion) =============================
-  // Runs once per account, after Google or email-link sign-in, until the
+  // Runs once per account, after Google or email-OTP sign-in, until the
   // swimmer's users/{uid} doc has onboardingComplete: true. Usernames are
   // claimed via a Firestore transaction against usernames/{normalizedName} —
   // that document existing at all is the actual uniqueness guarantee
@@ -1273,6 +1362,13 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .email-link-input:focus { border-color: var(--aqua); }
 .email-link-form .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
 .email-link-form .btn .icon { width: 16px; height: 16px; }
+.otp-code-input { text-align: center; letter-spacing: 0.5em; font-size: 1.3rem; font-family: var(--font-display); }
+.otp-secondary-link {
+  background: none; border: none; color: var(--muted); font-size: 0.78rem; text-decoration: underline;
+  text-underline-offset: 2px; cursor: pointer; padding: 4px 0; text-align: center;
+}
+.otp-secondary-link:hover { color: var(--aqua); }
+.otp-secondary-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
 
 /* ============================= ONBOARDING MODAL ============================= */
 .onboarding-modal-box { max-width: 480px; text-align: left; max-height: min(88vh, 720px); overflow-y: auto; }
@@ -1894,12 +1990,22 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     <div class="auth-divider"><span>or</span></div>
 
-    <form class="email-link-form" id="emailLinkForm">
-      <label for="emailLinkInput" class="sr-only">Email address</label>
-      <input type="email" id="emailLinkInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
-      <button type="submit" class="btn btn-outline-aqua btn-sm" id="emailLinkSubmitBtn">
-        <svg class="icon"><use href="#i-comment"/></svg> Send Me a Sign-In Link
+    <form class="email-link-form" id="otpRequestForm">
+      <label for="otpEmailInput" class="sr-only">Email address</label>
+      <input type="email" id="otpEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
+      <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpRequestBtn">
+        <svg class="icon"><use href="#i-comment"/></svg> Send Verification Code
       </button>
+    </form>
+
+    <form class="email-link-form" id="otpVerifyForm" style="display:none">
+      <label for="otpCodeInput" class="sr-only">6-digit verification code</label>
+      <input type="text" id="otpCodeInput" class="email-link-input otp-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="123456" required autocomplete="one-time-code">
+      <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpVerifyBtn">
+        <svg class="icon"><use href="#i-check"/></svg> Verify &amp; Sign In
+      </button>
+      <button type="button" class="otp-secondary-link" id="otpResendBtn">Resend code</button>
+      <button type="button" class="otp-secondary-link" id="otpChangeEmailBtn">Use a different email</button>
     </form>
 
     <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
@@ -2193,8 +2299,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     statusNote.style.color = '';
     statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
     document.getElementById('googleLoginBtn').disabled = false;
-    var emailSubmitBtn = document.getElementById('emailLinkSubmitBtn');
-    if (emailSubmitBtn) emailSubmitBtn.disabled = false;
+    if (typeof window.__resetAuthModalOtpUI === 'function') window.__resetAuthModalOtpUI();
     authModal.classList.add('open');
   }
   function closeAuthModal() { authModal.classList.remove('open'); }
