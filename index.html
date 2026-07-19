@@ -412,13 +412,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
 
-/* Full-screen ambient background behind the Workouts and Gym tabs only —
-   fades in/out on tab switch, sits behind the dash-panels content, and
-   bakes a near-opaque dark gradient into its own layer so section-head
-   text (which isn't inside a solid-background card) stays fully legible. */
-.dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity 600ms ease; }
-#dashboard[data-active-tab="workouts"] .dash-ambient-bg,
-#dashboard[data-active-tab="gym"] .dash-ambient-bg { opacity: 1; }
+/* Full-screen ambient CSS background — always on, every tab. It's the
+   universal base layer (and the sole background on Disciplines, Gear,
+   Academy and Pricing) and doubles as the graceful fallback if a Workouts/
+   Gym video fails or is still loading. Workouts and Gym additionally layer
+   a real looping video + dark overlay on top once it starts playing — see
+   .dash-bg-video below. Bakes a near-opaque dark gradient into its own
+   layer so section-head text (which isn't inside a solid-background card)
+   stays fully legible. */
+.dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 1; pointer-events: none; }
 .dash-ambient-bg::before {
   content: ''; position: absolute; inset: -12%;
   background:
@@ -449,6 +451,21 @@ section { position: relative; scroll-margin-top: 96px; }
 @media (prefers-reduced-motion: reduce) {
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
 }
+
+/* Full-screen looping video backgrounds for Workouts (swimmer in a pool) and
+   Gym (dryland training) — loaded lazily on first visit to each tab (see the
+   JS in switchTab()), faded in only while that tab is active, and backed by
+   a dark overlay wash so cards/text stay fully readable. Falls back to the
+   .dash-ambient-bg CSS effect underneath if the video errors or never loads. */
+.dash-bg-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 900ms ease; }
+.dash-bg-video.is-playing[data-for="workouts"] { opacity: 0; }
+.dash-bg-video.is-playing[data-for="gym"] { opacity: 0; }
+#dashboard[data-active-tab="workouts"] .dash-bg-video[data-for="workouts"].is-playing,
+#dashboard[data-active-tab="gym"] .dash-bg-video[data-for="gym"].is-playing { opacity: 0.5; }
+.dash-bg-overlay { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; background: linear-gradient(160deg, rgba(7,11,10,0.82) 0%, rgba(7,11,10,0.65) 55%, rgba(7,11,10,0.82) 100%); }
+#dashboard[data-active-tab="workouts"] .dash-bg-overlay,
+#dashboard[data-active-tab="gym"] .dash-bg-overlay { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .dash-bg-video { display: none; } }
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
    more expansive — a deliberate "flagship feature" width, wider than the
@@ -1002,6 +1019,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
   <div class="dash-ambient-bg" aria-hidden="true"></div>
+  <video class="dash-bg-video" id="workoutsBgVideo" data-for="workouts" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <video class="dash-bg-video" id="gymBgVideo" data-for="gym" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <div class="dash-bg-overlay" aria-hidden="true"></div>
   <div class="wrap dash-panels">
 
     <!-- ---------- DISCIPLINES ---------- -->
@@ -1424,6 +1444,31 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     heroVideo.style.display = 'none';
   }
 
+  // Workouts/Gym full-screen background videos — deliberately NOT given a
+  // <source> in the HTML so nothing downloads until a visitor actually opens
+  // that tab. The DASH_BG_VIDEO_SOURCES URL is injected on first activation;
+  // same playing/error/timeout fallback pattern as the hero video above, so
+  // the .dash-ambient-bg CSS layer underneath still shows if a video fails.
+  var DASH_BG_VIDEO_SOURCES = {
+    workouts: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085032_3e352ac2-3f8b-4236-af35-32847ba2203c.mp4',
+    gym: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085030_f1f39cea-0f9f-4419-83fa-6cb1878f6a60.mp4'
+  };
+  function loadDashBgVideo(tabId) {
+    var url = DASH_BG_VIDEO_SOURCES[tabId];
+    var video = document.querySelector('.dash-bg-video[data-for="' + tabId + '"]');
+    if (!url || !video || video.dataset.loaded || reduceMotion) return;
+    video.dataset.loaded = '1';
+    var source = document.createElement('source');
+    source.src = url;
+    source.type = 'video/mp4';
+    video.appendChild(source);
+    video.addEventListener('playing', function () { video.classList.add('is-playing'); });
+    video.addEventListener('error', function () { video.style.display = 'none'; }, true);
+    setTimeout(function () { if (video.readyState < 2) video.style.display = 'none'; }, 8000);
+    video.load();
+    video.play().catch(function () {});
+  }
+
   /* ============================= NAV / TAB CONTROLLER ============================= */
   var nav = document.getElementById('siteNav');
   var navToggle = document.getElementById('navToggle');
@@ -1449,6 +1494,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     if (!next) return;
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
+    if (id === 'workouts' || id === 'gym') loadDashBgVideo(id);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { next.classList.add('in'); });
     });
