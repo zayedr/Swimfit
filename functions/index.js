@@ -50,6 +50,13 @@
  * index.html currently holds Paddle PRODUCT ids (pro_...); Paddle.Checkout.open()
  * needs the PRICE id (pri_...) under each product. Confirm/swap these in the
  * Paddle dashboard before real customers try to subscribe.
+ *
+ * Optional further hardening: the public "Send Me a Sign-In Link" form has a
+ * client-side cooldown (see index.html) but no server-side abuse protection —
+ * for real production traffic, enable Firebase App Check (Console ->
+ * App Check -> register the web app with reCAPTCHA v3/Enterprise) so
+ * sendSignInLinkToEmail can't be scripted into a mail-bombing tool against
+ * arbitrary addresses using Swimfit's sending reputation.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -71,6 +78,19 @@ const SMTP_PASS = defineSecret('SMTP_PASS');
 
 // Reject signatures older than this to guard against replay attacks.
 const MAX_SIGNATURE_AGE_SECONDS = 300;
+
+// Only these event types get written to Firestore — see the allowlist check
+// in paddleWebhook. Extend this list deliberately if you register for more
+// events in the Paddle dashboard.
+const KNOWN_PADDLE_EVENT_TYPES = [
+  'subscription.created',
+  'subscription.updated',
+  'subscription.canceled',
+  'subscription.paused',
+  'subscription.resumed',
+  'transaction.completed',
+  'transaction.paid'
+];
 
 function verifyPaddleSignature(rawBody, signatureHeader, secret) {
   if (!signatureHeader || !secret) return false;
@@ -124,6 +144,16 @@ exports.paddleWebhook = onRequest(
     var eventType = event.event_type;
     var data = event.data || {};
     logger.info('Paddle webhook received', { eventType: eventType, eventId: event.event_id });
+
+    // Defense in depth beyond the signature check above: only ever act on the
+    // event types this integration is actually built to handle. A verified
+    // signature proves the request came from Paddle, not that every possible
+    // event type Paddle might ever add is safe to blindly process here.
+    if (KNOWN_PADDLE_EVENT_TYPES.indexOf(eventType) === -1) {
+      logger.info('Paddle webhook: event type not in the known allowlist, acking without processing', { eventType: eventType });
+      res.status(200).send('OK');
+      return;
+    }
 
     try {
       var customData = data.custom_data || {};
