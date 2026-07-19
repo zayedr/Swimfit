@@ -237,6 +237,17 @@ const COACH_MAX_IMAGES_PER_MESSAGE = 3;
 const COACH_MAX_IMAGE_BASE64_CHARS = 6000000; // ~4.5MB decoded — generous for a compressed phone photo
 const COACH_ALLOWED_IMAGE_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+// House account(s) that always get full, unrestricted access — currently just
+// Swimfit's own admin/support inbox. Checked against decoded.email from a
+// verified Firebase ID token (never a client-supplied field), so this can't be
+// spoofed by anyone who isn't actually signed into that real mailbox. Keep in
+// sync with the matching constant in index.html's module <script> (no shared
+// module system between the two files, so it's duplicated deliberately).
+const ADMIN_EMAILS = ['swimfit.ae@gmail.com'];
+function isAdminEmail(email) {
+  return !!email && ADMIN_EMAILS.indexOf(String(email).toLowerCase()) !== -1;
+}
+
 // Allowed browser origins for every user-facing (non-webhook) function below —
 // the AI Coach widget and the email-OTP sign-in endpoints. Add a dev origin
 // here temporarily (e.g. 'http://localhost:8000') if testing against a
@@ -297,6 +308,7 @@ exports.aiSwimCoach = onRequest(
       return;
     }
     var uid = decoded.uid;
+    var isAdmin = isAdminEmail(decoded.email);
 
     var body = req.body || {};
     var message = typeof body.message === 'string' ? body.message.trim() : '';
@@ -319,13 +331,15 @@ exports.aiSwimCoach = onRequest(
       history.push({ role: turn.role, content: content });
     }
 
-    var allowed;
-    try {
-      allowed = await checkAndIncrementCoachUsage(uid);
-    } catch (err) {
-      logger.error('aiSwimCoach: usage-limit check failed', err);
-      res.status(500).json({ error: 'The coach is temporarily unavailable. Please try again shortly.' });
-      return;
+    var allowed = true;
+    if (!isAdmin) {
+      try {
+        allowed = await checkAndIncrementCoachUsage(uid);
+      } catch (err) {
+        logger.error('aiSwimCoach: usage-limit check failed', err);
+        res.status(500).json({ error: 'The coach is temporarily unavailable. Please try again shortly.' });
+        return;
+      }
     }
     if (!allowed) {
       res.status(429).json({ error: 'You\'ve hit today\'s coaching message limit — come back tomorrow for more.' });

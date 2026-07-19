@@ -100,6 +100,15 @@
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
   };
 
+  // House account that always has full, unrestricted "Ultra" access sitewide —
+  // client side this only ever drives cosmetic UI (badge, skipping upsell
+  // copy, skipping real-money checkout); the one function call that actually
+  // enforces a limit (aiSwimCoach's daily message cap) re-checks this same
+  // address server-side against the verified ID token, so this constant being
+  // visible in page source grants nothing by itself. Keep in sync with
+  // ADMIN_EMAILS in functions/index.js.
+  var SWIMFIT_ADMIN_EMAIL = 'swimfit.ae@gmail.com';
+
   // Every signed-in user (Google or email-OTP) gets a Firestore profile doc.
   // createdAt is only ever set once, on the very first sign-in — everything
   // else (lastLoginAt, provider, display name/photo) refreshes on every visit.
@@ -225,8 +234,11 @@
     var otpChangeEmailBtn = document.getElementById('otpChangeEmailBtn');
     if (!googleBtn || !logoutBtn) return;
 
+    var adminBadge = document.getElementById('navAdminBadge');
     onAuthStateChanged(auth, function (user) {
       window.__firebaseUser = user; // mirrored globally so the plain <script> (pricing Subscribe buttons) can read it
+      window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase() === SWIMFIT_ADMIN_EMAIL);
+      if (adminBadge) adminBadge.hidden = !window.__isAdminAccount;
       document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = user ? 'none' : ''; });
       document.querySelectorAll('[data-auth-signed-in]').forEach(function (el) { el.style.display = user ? '' : 'none'; });
       logoutBtn.textContent = user && user.displayName ? 'Log Out (' + user.displayName.split(' ')[0] + ')' : 'Log Out';
@@ -776,6 +788,16 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .brand { display: flex; align-items: center; gap: var(--space-2); }
 .brand img { height: 30px; width: auto; }
+
+.nav-admin-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, var(--maroon), var(--maroon-bright));
+  color: var(--on-maroon); font-family: var(--font-display); font-weight: 700;
+  font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.nav-admin-badge[hidden] { display: none; }
+.nav-admin-badge .icon { width: 13px; height: 13px; }
 
 .nav-links { display: flex; align-items: center; gap: var(--space-5); }
 .nav-links button {
@@ -1794,6 +1816,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="nav-cta">
       <button type="button" class="btn btn-ghost btn-sm" id="navSignInBtn" data-auth-signed-out>Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" id="navJoinNowBtn" data-welcome-trigger data-auth-signed-out>Join Now</button>
+      <span class="nav-admin-badge" id="navAdminBadge" hidden><svg class="icon"><use href="#i-bolt"/></svg> Ultra Access</span>
       <button type="button" class="btn btn-outline-maroon btn-sm" id="navLogoutBtn" data-auth-signed-in style="display:none">Log Out</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
@@ -2891,6 +2914,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   document.querySelectorAll('[data-plan]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var plan = btn.dataset.plan;
+      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
       if (window.__firebaseUser) { goToPaddleCheckout(plan); return; }
       pendingSubscribePlan = plan;
       openAuthModal();
@@ -2902,6 +2926,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (e.detail.user && pendingSubscribePlan) {
       var plan = pendingSubscribePlan;
       pendingSubscribePlan = null;
+      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
       goToPaddleCheckout(plan);
     }
   });
@@ -3612,7 +3637,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         : 'Add your 50m or 100m Freestyle PB above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
-    if (state.level === 'elite') {
+    if (state.level === 'elite' && !window.__isAdminAccount) {
       html += '<div class="member-gate">' + icon('i-lock') +
         ' <strong>Elite tracks are a membership benefit.</strong> <a href="#" data-tab="pricing" style="color:var(--aqua)">Upgrade to Elite</a> to unlock full video stroke review on this set.</div>';
     }

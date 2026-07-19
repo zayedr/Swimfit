@@ -54,6 +54,17 @@ allowlist, a per-image size cap, and a per-message count cap) and forwards them 
 multimodal content blocks alongside the text turn — the floating widget never sends images,
 so this is purely additive.
 
+There's a single hardcoded house account, `swimfit.ae@gmail.com` (the `ADMIN_EMAILS` array in
+`functions/index.js`, kept in sync with the `SWIMFIT_ADMIN_EMAIL` constant in index.html's
+module `<script>`), that always has full "Ultra" access. Since Academy videos and Gym workouts
+were never actually paywalled in code (the "membership" copy on those tabs is marketing, not
+enforcement), the only real server-side restriction to bypass was the AI Coach's daily
+message cap — `aiSwimCoach` skips `checkAndIncrementCoachUsage` entirely when the verified ID
+token's email matches, so it can never be spoofed by a client-supplied field. Client-side,
+signing in as that address shows an "Ultra Access" nav badge, skips the Elite-tier upsell
+banner on generated workouts, and short-circuits the Subscribe buttons with a friendly alert
+instead of opening real Paddle checkout.
+
 Right after a swimmer's first successful sign-in (Google or email-OTP — either path fires
 `onAuthStateChanged` the same way), an onboarding modal collects Full Name, Country, Age,
 Date of Birth, and a unique Username, gated on `users/{uid}.onboardingComplete` so it
