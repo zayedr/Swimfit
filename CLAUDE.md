@@ -34,7 +34,20 @@ Firestore can't be reached; that same function sends a branded welcome email ove
 Firestore access is locked down by `firestore.rules` (a user can only read/write their own
 profile; `stats/counters` is public-read/no-client-write). "Join Pro/Elite/Ultra" on the
 Pricing tab still opens a `mailto:` instead of any checkout flow, aside from the
-Firebase-gated Paddle Billing checkout wired to the Subscribe buttons.
+Firebase-gated Paddle Billing checkout wired to the Subscribe buttons. A floating "AI Swim
+Coach" chat widget (gated behind sign-in) calls the `aiSwimCoach` Cloud Function, which
+proxies to the Claude API behind a strict swim-only system prompt and a per-user daily
+message cap.
+
+Right after a swimmer's first successful sign-in (Google or email-link — either path fires
+`onAuthStateChanged` the same way), an onboarding modal collects Full Name, Country, Age,
+Date of Birth, and a unique Username, gated on `users/{uid}.onboardingComplete` so it
+re-prompts on a later sign-in if closed before finishing rather than skipping it forever.
+Username uniqueness is enforced by a Firestore transaction claiming `usernames/{username}`
+(doc ID = the normalized username) alongside the `users/{uid}` write — `firestore.rules`
+only allows *creating* a `usernames/{username}` doc that doesn't already exist and forbids
+update/delete entirely, so a username reservation is permanent and race-safe without needing
+a Cloud Function.
 
 There are no build, lint, or test commands — verify changes by serving the file locally
 (e.g. `python3 -m http.server`) and testing in a browser (Playwright is available in this
