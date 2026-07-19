@@ -10,7 +10,13 @@
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+    sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
   // Your web app's Firebase configuration
   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -28,16 +34,90 @@
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
   const auth = getAuth(app);
+  const db = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
+  const EMAIL_LINK_STORAGE_KEY = 'swimfitEmailForSignIn';
+
+  // Every signed-in user (Google or email-link) gets a Firestore profile doc.
+  // createdAt is only ever set once, on the very first sign-in — everything
+  // else (lastLoginAt, provider, display name/photo) refreshes on every visit.
+  // The authoritative "how many swimmers have registered" count is NOT kept
+  // here — it's incremented exactly once per brand-new account by the
+  // onUserCreated Cloud Function (see functions/index.js), so repeat logins
+  // or a failed client write here can never double-count it.
+  async function ensureUserProfile(user) {
+    try {
+      var ref = doc(db, 'users', user.uid);
+      var snap = await getDoc(ref);
+      var payload = {
+        email: user.email || null,
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        provider: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+        lastLoginAt: serverTimestamp()
+      };
+      if (!snap.exists()) payload.createdAt = serverTimestamp();
+      await setDoc(ref, payload, { merge: true });
+    } catch (e) {
+      // Non-fatal — the user stays signed in either way; this only affects
+      // the optional Firestore profile convenience data.
+    }
+  }
+
+  // Live "Registered Swimmers" counter, read from the public stats/counters
+  // doc that the Cloud Function maintains. Hides the whole stat tile if
+  // Firestore can't be reached rather than showing a stuck "0".
+  function wireRegisteredUsersCounter() {
+    var el = document.getElementById('registeredUsersCount');
+    var tile = document.getElementById('registeredUsersStat');
+    if (!el || !tile) return;
+    var settled = false;
+    var timeout = setTimeout(function () { if (!settled) tile.style.display = 'none'; }, 8000);
+    try {
+      onSnapshot(doc(db, 'stats', 'counters'), function (snap) {
+        settled = true;
+        clearTimeout(timeout);
+        var count = snap.exists() && typeof snap.data().userCount === 'number' ? snap.data().userCount : null;
+        if (count == null) { tile.style.display = 'none'; return; }
+        tile.style.display = '';
+        animateCountTo(el, count);
+      }, function () {
+        settled = true;
+        tile.style.display = 'none';
+      });
+    } catch (e) {
+      tile.style.display = 'none';
+    }
+  }
+  function animateCountTo(el, target) {
+    var start = parseInt(el.textContent, 10) || 0;
+    var startTime = null, duration = 900;
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var progress = Math.min((ts - startTime) / duration, 1);
+      el.textContent = Math.round(start + (target - start) * (1 - Math.pow(1 - progress, 3)));
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
 
   // Real Google sign-in: clicking the button opens Google's own native popup,
   // which handles the entire login (including any 2-step verification) itself —
   // this page never sees or asks for a password or a code.
+  //
+  // Email sign-in uses Firebase's native passwordless "email link" flow —
+  // this IS Firebase's real OTP-equivalent for email: instead of a code you
+  // type in, Firebase emails a single-use secure sign-in link straight to the
+  // user's Gmail; opening it on this page completes the sign-in. There is no
+  // password and no code this site ever sees or handles itself.
   function wireFirebaseAuthUI() {
     var googleBtn = document.getElementById('googleLoginBtn');
     var statusNote = document.getElementById('authStatusNote');
     var authModal = document.getElementById('authModal');
     var logoutBtn = document.getElementById('navLogoutBtn');
+    var emailForm = document.getElementById('emailLinkForm');
+    var emailInput = document.getElementById('emailLinkInput');
+    var emailSubmitBtn = document.getElementById('emailLinkSubmitBtn');
     if (!googleBtn || !logoutBtn) return;
 
     onAuthStateChanged(auth, function (user) {
@@ -45,6 +125,7 @@
       document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = user ? 'none' : ''; });
       document.querySelectorAll('[data-auth-signed-in]').forEach(function (el) { el.style.display = user ? '' : 'none'; });
       logoutBtn.textContent = user && user.displayName ? 'Log Out (' + user.displayName.split(' ')[0] + ')' : 'Log Out';
+      if (user) ensureUserProfile(user);
       document.dispatchEvent(new CustomEvent('swimfit:authchange', { detail: { user: user } }));
     });
 
@@ -65,7 +146,59 @@
       });
     });
 
+    if (emailForm) {
+      emailForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = (emailInput.value || '').trim();
+        if (!email) return;
+        emailSubmitBtn.disabled = true;
+        statusNote.style.color = '';
+        statusNote.textContent = 'Sending your secure sign-in link…';
+        var actionCodeSettings = { url: window.location.origin + window.location.pathname, handleCodeInApp: true };
+        sendSignInLinkToEmail(auth, email, actionCodeSettings).then(function () {
+          window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
+          statusNote.textContent = 'Check your Gmail inbox — tap the secure link we just sent to ' + email + ' to finish signing in.';
+        }).catch(function (error) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = (error && error.code === 'auth/invalid-email')
+            ? 'That email address doesn’t look valid — please double-check it.'
+            : 'Couldn’t send the sign-in link — please try again.';
+        }).finally(function () {
+          emailSubmitBtn.disabled = false;
+        });
+      });
+    }
+
     logoutBtn.addEventListener('click', function () { signOut(auth); });
+
+    // Completing an email-link sign-in: the user clicked the link in their
+    // Gmail inbox and landed back on this exact page with a one-time code
+    // in the URL. If they opened it in a different browser/device than the
+    // one they requested it from, localStorage won't have the email, so we
+    // fall back to asking for it once (Firebase's own documented pattern
+    // for this edge case).
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      var storedEmail = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
+      var email = storedEmail || window.prompt('Confirm your email address to finish signing in:');
+      if (email) {
+        if (authModal) authModal.classList.add('open');
+        if (statusNote) statusNote.textContent = 'Finishing sign-in…';
+        signInWithEmailLink(auth, email, window.location.href).then(function (result) {
+          window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          if (statusNote) statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
+          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
+        }).catch(function () {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          if (statusNote) {
+            statusNote.style.color = '#e5484d';
+            statusNote.textContent = 'That sign-in link has expired or was already used — please request a new one.';
+          }
+        });
+      }
+    }
+
+    wireRegisteredUsersCounter();
   }
 
   if (document.readyState === 'loading') {
@@ -846,6 +979,13 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .google-btn:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
 .google-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
 .auth-modal-note { font-size: 0.78rem; color: var(--muted-2); margin-top: var(--space-3); }
+.auth-divider { display: flex; align-items: center; gap: var(--space-3); color: var(--muted-2); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; margin: var(--space-2) 0; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.email-link-form { display: flex; flex-direction: column; gap: var(--space-3); text-align: left; }
+.email-link-input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7em 0.9em; color: var(--fg); font-family: var(--font-body); font-size: 0.95rem; transition: border-color var(--dur) var(--ease); }
+.email-link-input:focus { border-color: var(--aqua); }
+.email-link-form .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.email-link-form .btn .icon { width: 16px; height: 16px; }
 </style>
 </head>
 <body>
@@ -984,6 +1124,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       <div class="stat"><strong data-count="3">0</strong><span>Skill Tracks</span></div>
       <div class="stat"><strong data-count="4">0</strong><span>Gym Focuses</span></div>
       <div class="stat"><strong data-count="24">0</strong><span>Hour Access</span></div>
+      <div class="stat" id="registeredUsersStat" style="display:none"><strong id="registeredUsersCount">0</strong><span>Registered Swimmers</span></div>
     </div>
   </div>
 </header>
@@ -1382,6 +1523,17 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       </svg>
       <span>Continue with Google</span>
     </button>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <form class="email-link-form" id="emailLinkForm">
+      <label for="emailLinkInput" class="sr-only">Email address</label>
+      <input type="email" id="emailLinkInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
+      <button type="submit" class="btn btn-outline-aqua btn-sm" id="emailLinkSubmitBtn">
+        <svg class="icon"><use href="#i-comment"/></svg> Send Me a Sign-In Link
+      </button>
+    </form>
+
     <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
   </div>
 </div>
@@ -1597,8 +1749,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
      handled by Firebase, see the <script type="module"> in <head>) ============================= */
   var authModal = document.getElementById('authModal');
   function openAuthModal() {
-    document.getElementById('authStatusNote').textContent = 'Google handles sign-in and verification in its own secure window.';
+    var statusNote = document.getElementById('authStatusNote');
+    statusNote.style.color = '';
+    statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
     document.getElementById('googleLoginBtn').disabled = false;
+    var emailSubmitBtn = document.getElementById('emailLinkSubmitBtn');
+    if (emailSubmitBtn) emailSubmitBtn.disabled = false;
     authModal.classList.add('open');
   }
   function closeAuthModal() { authModal.classList.remove('open'); }

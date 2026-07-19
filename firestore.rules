@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Swimfit Firestore rules.
+//
+// users/{uid}       — a swimmer's own profile. Only that swimmer can read or write it.
+// stats/counters    — the public "registered swimmers" counter. Readable by anyone
+//                      (including signed-out visitors, since it's shown on the marketing
+//                      site's Hero), but never writable from a client — it's only ever
+//                      incremented by the onUserCreated Cloud Function via the Admin SDK,
+//                      which bypasses these rules entirely.
+// paddle_subscriptions/{docId} — billing records. A swimmer can read only their own
+//                      (matched by the firebaseUid the checkout attached), never write.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /stats/counters {
+      allow get: if true;
+      allow list, create, update, delete: if false;
+    }
+
+    match /paddle_subscriptions/{docId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
