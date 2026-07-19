@@ -92,6 +92,23 @@ access everywhere above, trial/subscription status irrelevant. Signing in as tha
 shows an "Ultra Access" nav badge and short-circuits the Subscribe buttons (both the Pricing
 tab's and the paywall overlay's) with a friendly alert instead of opening real Paddle checkout.
 
+That same address also unlocks a hidden **Admin Panel** tab (`data-tab="admin"`,
+`#panel-admin`, nav entry shown/hidden via `[data-admin-only]`). It lists every registered
+swimmer (`adminListUsers`, capped at the 300 most recent) with their resolved plan and lets
+the admin grant/clear a manual plan override per swimmer (`adminSetUserPlan`, writes
+`paddle_subscriptions/{uid}` with `source: 'admin_grant'` — same shape `paddleWebhook` writes,
+so it's picked up identically by `getAccessLevel`/`recomputeAccessLevel`). Every `admin*`
+Cloud Function independently re-verifies the caller's ID token and `isAdminEmail()` — none of
+this is expressed as a Firestore rule, since "list every user" or "write any user's plan" is
+exactly the kind of cross-user privilege that's safer funneled through a server-verified
+endpoint than trusted to a security-rules expression. Direct messaging is a per-swimmer thread
+at `admin_chats/{uid}/messages` — the admin's side reads/sends via `adminGetThread`/
+`adminSendMessage` (Admin SDK), while the swimmer's own side (a floating inbox widget, mirrored
+from the AI Coach fab but bottom-left) reads/replies straight through Firestore in real time,
+gated by ordinary owner-only rules (`sender` must be `'user'` on their own writes). The
+swimmer's inbox widget sits above the paywall overlay in z-order deliberately — a locked-out
+swimmer can still read and reply to a support message from the team.
+
 **Known pre-existing risk, not introduced by the tier system above but now higher-stakes:**
 `PADDLE_PRICE_IDS` in index.html holds Paddle **product** ids (`pro_...`) where
 `Paddle.Checkout.open()` needs a **price** id (`pri_...`) — checkout was already flagged as
@@ -116,19 +133,21 @@ only allows *creating* a `usernames/{username}` doc that doesn't already exist a
 update/delete entirely, so a username reservation is permanent and race-safe without needing
 a Cloud Function.
 
-Between the persistent About section and the tabbed shell, the landing page carries four
+Between the persistent About section and the tabbed shell, the landing page carries five
 conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch
 promo code, `localStorage`-persisted dismissal via a synchronous flash-prevention script in
 `<head>` so returning visitors never see a layout shift — the fixed `--announce-h` custom
 property drives the nav's `top` offset and `body`'s `padding-top` together, never JS-measured);
-an **App Preview** (`#appPreview`, a static browser-chrome-framed mockup of the weekly
-distance chart / goal ring / specialization chips a signed-in swimmer would actually see);
-**Social Proof** (`#socialProof`, an infinite-scrolling testimonial marquee plus branded
-Instagram/TikTok follow cards linking to `@swimfit.ae`); and a **Plan Sneak Peek**
-(`#planPreview`, a Pro/Elite/Ultra pill-tab switcher that swaps a single preview card's price,
-features and accent color client-side — its own "join" CTA only ever routes to the real
-Pricing tab via `data-tab`, it never touches checkout directly, so it can't double-fire
-alongside the real Subscribe buttons' `[data-plan]` handler).
+an **Offers Strip** (`#offersStrip`, right after About — two eye-catching cards for the 7-day
+free trial and Ultra's 2-months-free annual pricing, separate from the SWIM20 launch code in
+the announcement bar above); an **App Preview** (`#appPreview`, a static browser-chrome-framed
+mockup of the weekly distance chart / goal ring / specialization chips a signed-in swimmer
+would actually see); **Social Proof** (`#socialProof`, an infinite-scrolling testimonial
+marquee plus branded Instagram/TikTok follow cards linking to `@swimfit.ae`); and a **Plan
+Sneak Peek** (`#planPreview`, a Pro/Elite/Ultra pill-tab switcher that swaps a single preview
+card's price, features and accent color client-side — its own "join" CTA only ever routes to
+the real Pricing tab via `data-tab`, it never touches checkout directly, so it can't
+double-fire alongside the real Subscribe buttons' `[data-plan]` handler).
 
 There are no build, lint, or test commands — verify changes by serving the file locally
 (e.g. `python3 -m http.server`) and testing in a browser (Playwright is available in this

@@ -33,6 +33,13 @@ rules_version = '2';
 //                      gate that *is* enforced server-side). Text only — image attachments
 //                      are never persisted here, only a placeholder, to stay well under the
 //                      1 MiB document size limit and to avoid ever storing image bytes twice.
+// admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
+//                      unreadForUser, etc). Never client-writable at all — only the
+//                      admin*  Cloud Functions (Admin SDK, admin-email-gated) ever write it;
+//                      the owning swimmer can read it (to know a message is waiting).
+//   /messages/{id}    — the actual thread. The swimmer can read the whole thing and post
+//                      their own replies (sender must be 'user'); admin messages are written
+//                      exclusively by adminSendMessage via the Admin SDK, never by this rule.
 service cloud.firestore {
   // Shared field-level validation for users/{uid} writes. Keeping this in one
   // function (rather than duplicating it across the create/update rules)
@@ -88,6 +95,21 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['messages', 'updatedAt'])
         && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+    }
+
+    match /admin_chats/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['sender', 'text', 'createdAt'])
+          && request.resource.data.sender == 'user'
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+        allow update, delete: if false;
+      }
     }
 
     match /usernames/{username} {
