@@ -314,6 +314,175 @@ const ALLOWED_WEB_ORIGINS = [
   'https://swimfi-ae.web.app'
 ];
 
+// ============================================================================
+// Admin Panel — swimfit.ae@gmail.com only. Every endpoint below re-verifies
+// the caller's ID token and re-checks isAdminEmail() itself (never trusts a
+// client-claimed role), then reads/writes with the Admin SDK, which bypasses
+// firestore.rules entirely — that's deliberate: it keeps every privileged
+// cross-user operation (listing all swimmers, messaging any one of them,
+// granting a plan) funneled through one auditable, server-verified path
+// instead of trying to express "is the admin" as a Firestore rule.
+const ADMIN_MESSAGE_MAX_LENGTH = 2000;
+const ADMIN_LIST_USERS_LIMIT = 300;
+
+// Verifies the request is a POST from a signed-in admin. On failure, writes
+// the appropriate error response itself and returns null — callers just need
+// to `if (!decoded) return;` right after calling this.
+async function verifyAdminRequest(req, res) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return null;
+  }
+  var authHeader = req.get('Authorization') || '';
+  var tokenMatch = authHeader.match(/^Bearer (.+)$/);
+  if (!tokenMatch) {
+    res.status(401).json({ error: 'Please sign in.' });
+    return null;
+  }
+  var decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+  } catch (err) {
+    res.status(401).json({ error: 'Your session expired — please sign in again.' });
+    return null;
+  }
+  if (!isAdminEmail(decoded.email)) {
+    logger.warn('Admin endpoint called by a non-admin account', { uid: decoded.uid });
+    res.status(403).json({ error: 'Admin access required.' });
+    return null;
+  }
+  return decoded;
+}
+
+exports.adminListUsers = onRequest(
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    var decoded = await verifyAdminRequest(req, res);
+    if (!decoded) return;
+
+    try {
+      var usersSnap = await db.collection('users').orderBy('createdAt', 'desc').limit(ADMIN_LIST_USERS_LIMIT).get();
+      var users = await Promise.all(usersSnap.docs.map(async function (userDoc) {
+        var uid = userDoc.id;
+        var data = userDoc.data();
+        var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
+        var subData = subSnap.exists ? subSnap.data() : null;
+        var chatSnap = await db.collection('admin_chats').doc(uid).get();
+        var chatData = chatSnap.exists ? chatSnap.data() : null;
+        return {
+          uid: uid,
+          email: data.email || null,
+          displayName: data.displayName || null,
+          createdAt: data.createdAt ? data.createdAt.toMillis() : null,
+          trialStartedAt: data.trialStartedAt ? data.trialStartedAt.toMillis() : null,
+          plan: subData && subData.plan ? subData.plan : null,
+          status: subData && subData.status ? subData.status : null,
+          lastMessageText: chatData ? chatData.lastMessageText || null : null,
+          lastMessageAt: chatData && chatData.lastMessageAt ? chatData.lastMessageAt.toMillis() : null,
+          unreadForAdmin: !!(chatData && chatData.unreadForAdmin)
+        };
+      }));
+      res.status(200).json({ users: users });
+    } catch (err) {
+      logger.error('adminListUsers failed', err);
+      res.status(500).json({ error: 'Could not load the user list.' });
+    }
+  }
+);
+
+exports.adminGetThread = onRequest(
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    var decoded = await verifyAdminRequest(req, res);
+    if (!decoded) return;
+
+    var targetUid = typeof req.body.targetUid === 'string' ? req.body.targetUid : '';
+    if (!targetUid) {
+      res.status(400).json({ error: 'targetUid is required.' });
+      return;
+    }
+    try {
+      var messagesSnap = await db.collection('admin_chats').doc(targetUid).collection('messages').orderBy('createdAt', 'asc').get();
+      var messages = messagesSnap.docs.map(function (d) {
+        var m = d.data();
+        return { sender: m.sender, text: m.text, createdAt: m.createdAt ? m.createdAt.toMillis() : null };
+      });
+      // Viewing the thread counts as the admin having read it.
+      await db.collection('admin_chats').doc(targetUid).set({ unreadForAdmin: false }, { merge: true });
+      res.status(200).json({ messages: messages });
+    } catch (err) {
+      logger.error('adminGetThread failed', err);
+      res.status(500).json({ error: 'Could not load that conversation.' });
+    }
+  }
+);
+
+exports.adminSendMessage = onRequest(
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    var decoded = await verifyAdminRequest(req, res);
+    if (!decoded) return;
+
+    var targetUid = typeof req.body.targetUid === 'string' ? req.body.targetUid : '';
+    var text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    if (!targetUid || !text) {
+      res.status(400).json({ error: 'targetUid and text are required.' });
+      return;
+    }
+    if (text.length > ADMIN_MESSAGE_MAX_LENGTH) {
+      res.status(400).json({ error: 'Message is too long (max ' + ADMIN_MESSAGE_MAX_LENGTH + ' characters).' });
+      return;
+    }
+    try {
+      var now = admin.firestore.FieldValue.serverTimestamp();
+      await db.collection('admin_chats').doc(targetUid).collection('messages').add({ sender: 'admin', text: text, createdAt: now });
+      await db.collection('admin_chats').doc(targetUid).set(
+        { lastMessageText: text, lastMessageAt: now, lastSender: 'admin', unreadForUser: true, unreadForAdmin: false },
+        { merge: true }
+      );
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      logger.error('adminSendMessage failed', err);
+      res.status(500).json({ error: 'Could not send that message.' });
+    }
+  }
+);
+
+// Manual plan grant/override — lets the admin comp a swimmer a plan (support
+// gesture, promo, etc.) without them ever touching Paddle. Writes the same
+// shape paddleWebhook writes so getAccessLevel()/recomputeAccessLevel() pick
+// it up identically; 'clear' removes the override by deleting the doc so the
+// swimmer falls back to their trial/real Paddle status.
+const ADMIN_GRANTABLE_PLANS = ['pro', 'elite', 'ultra'];
+exports.adminSetUserPlan = onRequest(
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    var decoded = await verifyAdminRequest(req, res);
+    if (!decoded) return;
+
+    var targetUid = typeof req.body.targetUid === 'string' ? req.body.targetUid : '';
+    var plan = typeof req.body.plan === 'string' ? req.body.plan : '';
+    if (!targetUid || (!plan || (plan !== 'clear' && ADMIN_GRANTABLE_PLANS.indexOf(plan) === -1))) {
+      res.status(400).json({ error: 'targetUid and a valid plan (pro/elite/ultra/clear) are required.' });
+      return;
+    }
+    try {
+      if (plan === 'clear') {
+        await db.collection('paddle_subscriptions').doc(targetUid).delete();
+      } else {
+        await db.collection('paddle_subscriptions').doc(targetUid).set(
+          { plan: plan, status: 'active', source: 'admin_grant', updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+      }
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      logger.error('adminSetUserPlan failed', err);
+      res.status(500).json({ error: 'Could not update that plan.' });
+    }
+  }
+);
+
 function coachTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }

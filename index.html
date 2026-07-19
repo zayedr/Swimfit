@@ -144,6 +144,28 @@
     return deleteDoc(doc(db, 'swim_logs', auth.currentUser.uid, 'entries', entryId));
   };
 
+  // Admin Panel direct-message thread — the swimmer's own side. Reading is
+  // real-time (onSnapshot); replying writes directly to Firestore as
+  // sender:'user' (see firestore.rules) — only the admin's own messages go
+  // through a Cloud Function, since those need to reach an arbitrary uid.
+  window.__adminChatSubscribeMeta = function (onNext) {
+    if (!auth.currentUser) return function () {};
+    return onSnapshot(doc(db, 'admin_chats', auth.currentUser.uid), function (snap) {
+      onNext(snap.exists() ? snap.data() : null);
+    });
+  };
+  window.__adminChatSubscribeMessages = function (onNext) {
+    if (!auth.currentUser) return function () {};
+    var q = query(collection(db, 'admin_chats', auth.currentUser.uid, 'messages'), orderBy('createdAt', 'asc'));
+    return onSnapshot(q, function (snap) {
+      onNext(snap.docs.map(function (d) { return d.data(); }));
+    });
+  };
+  window.__adminChatReply = function (text) {
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    return addDoc(collection(db, 'admin_chats', auth.currentUser.uid, 'messages'), { sender: 'user', text: text, createdAt: serverTimestamp() });
+  };
+
   // House account that always has full, unrestricted "Ultra" access sitewide —
   // client side this only ever drives cosmetic UI (badge, skipping upsell
   // copy, skipping real-money checkout); the one function call that actually
@@ -341,6 +363,7 @@
     onAuthStateChanged(auth, function (user) {
       window.__firebaseUser = user; // mirrored globally so the plain <script> (pricing Subscribe buttons) can read it
       window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase() === SWIMFIT_ADMIN_EMAIL);
+      document.querySelectorAll('[data-admin-only]').forEach(function (el) { el.style.display = window.__isAdminAccount ? '' : 'none'; });
       window.__swimfitTrialStartedAt = null;
       latestSubscriptionDoc = null;
       if (unsubscribeSubscriptionDoc) { unsubscribeSubscriptionDoc(); unsubscribeSubscriptionDoc = null; }
@@ -935,6 +958,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out infinite; transform-origin: bottom center; }
 .nav-icon-comment { animation: navCommentPulse 2s ease-in-out infinite; transform-origin: center; }
 .nav-icon-droplet { animation: navDropletBob 2.2s ease-in-out infinite; transform-origin: center; }
+.nav-icon-admin { animation: navAdminSpin 3s ease-in-out infinite; transform-origin: center; }
 @keyframes navDumbbellPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 @keyframes navWaveRipple { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes navFinSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
@@ -943,6 +967,7 @@ section { position: relative; scroll-margin-top: 96px; }
 @keyframes navTrophyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes navCommentPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @keyframes navDropletBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes navAdminSpin { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-12deg); } }
 @media (prefers-reduced-motion: reduce) {
   .nav-icon, .nav-icon-wave path { animation: none !important; }
 }
@@ -1534,10 +1559,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .email-link-input:focus { border-color: var(--aqua); }
 .email-link-form .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
 .email-link-form .btn .icon { width: 16px; height: 16px; }
-.otp-code-input { text-align: center; letter-spacing: 0.5em; font-size: 1.3rem; font-family: var(--font-display); }
+.otp-code-input { text-align: center; letter-spacing: 0.6em; font-size: 1.5rem; font-family: var(--font-display); padding-block: 0.8em; }
+.otp-secondary-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.otp-secondary-dot { color: var(--muted-2); font-size: 0.78rem; }
 .otp-secondary-link {
   background: none; border: none; color: var(--muted); font-size: 0.78rem; text-decoration: underline;
-  text-underline-offset: 2px; cursor: pointer; padding: 4px 0; text-align: center;
+  text-underline-offset: 2px; cursor: pointer; padding: 4px 0;
 }
 .otp-secondary-link:hover { color: var(--aqua); }
 .otp-secondary-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
@@ -1661,6 +1688,28 @@ body.paywall-locked { overflow: hidden; }
   .coach-fab { right: var(--space-3); bottom: var(--space-3); }
 }
 
+/* ============================= ADMIN MESSAGES WIDGET (user-facing inbox) =============================
+   Mirrors .coach-fab/.coach-panel but on the opposite side, with a z-index
+   above the global paywall (400) so a locked-out swimmer can still read and
+   reply to a message from the team even while the rest of the dashboard is
+   blocked. */
+.admin-msg-fab {
+  position: fixed; left: var(--space-4); bottom: var(--space-4); z-index: 410;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--aqua);
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-2); cursor: pointer;
+  transition: transform var(--dur) var(--ease);
+}
+.admin-msg-fab:hover { transform: translateY(-3px); }
+.admin-msg-fab .icon { width: 22px; height: 22px; }
+.admin-msg-fab-dot { position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--maroon-bright); border: 2px solid var(--surface-2); }
+.admin-msg-fab-dot[hidden] { display: none; }
+.admin-msg-panel { left: var(--space-4); right: auto; bottom: calc(var(--space-4) + 72px); z-index: 410; }
+@media (max-width: 480px) {
+  .admin-msg-panel { left: var(--space-2); right: var(--space-2); width: auto; bottom: calc(var(--space-2) + 72px); max-height: min(520px, calc(100vh - 120px)); }
+  .admin-msg-fab { left: var(--space-3); bottom: var(--space-3); }
+}
+
 /* ============================= AI SWIM COACH — FULL PAGE ============================= */
 .coach-page-shell {
   display: flex; flex-direction: column; height: min(72vh, 760px); min-height: 480px;
@@ -1739,6 +1788,34 @@ body.paywall-locked { overflow: hidden; }
   .tracker-log-row { grid-template-columns: 1fr; }
 }
 
+/* ============================= ADMIN PANEL ============================= */
+.admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
+.admin-users-col, .admin-chat-col { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.admin-users-count { font-size: 0.85rem; color: var(--muted); }
+.admin-users-table-wrap { flex: 1; overflow-y: auto; }
+.admin-users-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.admin-users-table th { text-align: left; padding: var(--space-2) var(--space-4); color: var(--muted-2); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.admin-users-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.admin-users-table tr:last-child td { border-bottom: none; }
+.admin-users-table tr.is-selected { background: rgba(34,211,238,0.08); }
+.admin-user-name { font-weight: 600; }
+.admin-user-email { color: var(--muted); font-size: 0.78rem; display: block; }
+.admin-plan-select { background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); font-size: 0.8rem; padding: 4px 6px; }
+.admin-msg-btn { position: relative; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--aqua); flex-shrink: 0; }
+.admin-msg-btn:hover { background: var(--surface-2); }
+.admin-msg-btn .icon { width: 16px; height: 16px; }
+.admin-unread-dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--maroon-bright); border: 2px solid var(--surface); }
+.admin-chat-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
+.admin-chat-messages { flex: 1; }
+.admin-chat-form { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.admin-chat-form textarea { flex: 1; }
+@media (max-width: 900px) {
+  .admin-panel-shell { grid-template-columns: 1fr; height: auto; }
+  .admin-users-col { height: 360px; }
+  .admin-chat-col { height: 480px; }
+}
+
 /* ============================= ANNOUNCEMENT BAR ============================= */
 .announce-bar {
   position: fixed; top: 0; inset-inline: 0; z-index: 150; height: var(--announce-h);
@@ -1786,6 +1863,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   .announce-text-short { display: inline; }
   .announce-cta-full { display: none; }
   .announce-cta-short { display: inline; }
+}
+
+/* ============================= OFFERS STRIP (trial + Ultra annual savings) ============================= */
+.offers-strip { padding-block: var(--space-6); }
+.offers-strip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+.offer-card {
+  position: relative; display: flex; gap: var(--space-4); align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  padding: var(--space-5); overflow: hidden;
+}
+.offer-card-trial { background: linear-gradient(160deg, rgba(34,211,238,0.08), var(--surface)); }
+.offer-card-ultra { background: linear-gradient(160deg, rgba(196,59,92,0.1), var(--surface)); border-color: var(--maroon-bright); }
+.offer-card-badge {
+  position: absolute; top: -1px; right: var(--space-4); background: var(--maroon); color: var(--on-maroon);
+  font-family: var(--font-display); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.offer-card-icon {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--aqua);
+}
+.offer-card-ultra .offer-card-icon { color: var(--maroon-bright); }
+.offer-card-icon .icon { width: 24px; height: 24px; }
+.offer-card-eyebrow { display: block; font-family: var(--font-display); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-2); margin-bottom: 4px; }
+.offer-card-body h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: var(--space-2); }
+.offer-card-body p { color: var(--muted); font-size: 0.9rem; margin-bottom: var(--space-4); }
+@media (max-width: 780px) {
+  .offers-strip-grid { grid-template-columns: 1fr; }
 }
 
 /* ============================= APP PREVIEW (dashboard mockup teaser) ============================= */
@@ -1993,6 +2098,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span>AI Coach</span></button></li>
       <li><button type="button" data-tab="tracker"><svg class="icon nav-icon nav-icon-droplet" aria-hidden="true"><use href="#i-droplet"/></svg><span>Tracker</span></button></li>
       <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span>Pricing</span></button></li>
+      <li data-admin-only style="display:none"><button type="button" data-tab="admin"><svg class="icon nav-icon nav-icon-admin" aria-hidden="true"><use href="#i-user"/></svg><span>Admin</span></button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
         <a href="https://www.tiktok.com/@swimfit.ae" target="_blank" rel="noopener" aria-label="TikTok"><svg class="icon"><use href="#i-tiktok"/></svg></a>
@@ -2102,6 +2208,31 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="icon-tile maroon"><svg class="icon"><use href="#i-trophy"/></svg></div>
         <h3>One Squad, Every Level</h3>
         <p>Beginners, competitive swimmers and elite athletes train side by side in one community, one platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= OFFERS STRIP (trial + Ultra annual savings) ============================= -->
+<section class="offers-strip" id="offersStrip">
+  <div class="wrap offers-strip-grid">
+    <div class="offer-card offer-card-trial" data-reveal>
+      <div class="offer-card-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
+      <div class="offer-card-body">
+        <span class="offer-card-eyebrow">New Here?</span>
+        <h3>7 Days, Fully Free</h3>
+        <p>Every new account gets full platform access from day one — every swim track, Gym Focus, the AI Coach and Distance Tracker — free for a full week. No card required to start.</p>
+        <button type="button" class="btn btn-outline-aqua btn-sm" id="offerTrialCtaBtn" data-auth-signed-out>Start Free Trial</button>
+      </div>
+    </div>
+    <div class="offer-card offer-card-ultra" data-reveal>
+      <span class="offer-card-badge">Best Value</span>
+      <div class="offer-card-icon"><svg class="icon"><use href="#i-trophy"/></svg></div>
+      <div class="offer-card-body">
+        <span class="offer-card-eyebrow">Go Annual</span>
+        <h3>2 Months Free On Ultra</h3>
+        <p>Pay 499 AED once a year for Ultra — that's 10 months' price for 12 months of full access, instead of billing month to month.</p>
+        <button type="button" class="btn btn-primary btn-sm" data-tab="pricing">See Ultra Pricing</button>
       </div>
     </div>
   </div>
@@ -2719,6 +2850,47 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
     </div>
 
+    <!-- ---------- ADMIN PANEL (swimfit.ae@gmail.com only) ---------- -->
+    <div class="tab-panel panel-wide" id="panel-admin">
+     <div class="panel-wide-inner">
+      <div class="section-head">
+        <p class="eyebrow"><svg class="icon"><use href="#i-user"/></svg> Admin Panel</p>
+        <h2>Swimmers &amp; Messages</h2>
+        <p>Every registered account, their plan, and a direct line to message any one of them.</p>
+      </div>
+
+      <div class="admin-panel-shell">
+        <div class="admin-users-col">
+          <div class="admin-users-toolbar">
+            <span class="admin-users-count" id="adminUsersCount">Loading…</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="adminRefreshBtn">Refresh</button>
+          </div>
+          <div class="admin-users-table-wrap">
+            <table class="admin-users-table">
+              <thead>
+                <tr><th>Swimmer</th><th>Plan</th><th>Joined</th><th></th></tr>
+              </thead>
+              <tbody id="adminUsersTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-chat-col">
+          <div class="admin-chat-header" id="adminChatHeader">
+            <span>Select a swimmer to message them</span>
+          </div>
+          <div class="coach-messages admin-chat-messages" id="adminChatMessages"></div>
+          <form class="admin-chat-form" id="adminChatForm" style="display:none">
+            <textarea id="adminChatInput" class="coach-input" rows="1" placeholder="Reply as Swimfit Admin…" maxlength="2000"></textarea>
+            <button type="submit" class="coach-send-btn" id="adminChatSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+     </div>
+    </div>
+
   </div>
 </section>
 
@@ -2817,8 +2989,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpVerifyBtn">
         <svg class="icon"><use href="#i-check"/></svg> Verify &amp; Sign In
       </button>
-      <button type="button" class="otp-secondary-link" id="otpResendBtn">Resend code</button>
-      <button type="button" class="otp-secondary-link" id="otpChangeEmailBtn">Use a different email</button>
+      <div class="otp-secondary-row">
+        <button type="button" class="otp-secondary-link" id="otpResendBtn">Resend code</button>
+        <span class="otp-secondary-dot" aria-hidden="true">·</span>
+        <button type="button" class="otp-secondary-link" id="otpChangeEmailBtn">Use a different email</button>
+      </div>
     </form>
 
     <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
@@ -2918,6 +3093,32 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <label for="coachInput" class="sr-only">Ask the AI Swim Coach</label>
     <textarea id="coachInput" class="coach-input" rows="1" placeholder="Ask about technique, dryland, your log…" maxlength="2000" required></textarea>
     <button type="submit" class="coach-send-btn" id="coachSendBtn" aria-label="Send">
+      <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+    </button>
+  </form>
+</div>
+
+<!-- ============================= ADMIN MESSAGES WIDGET (user-facing inbox) ============================= -->
+<button type="button" class="admin-msg-fab" id="adminMsgFab" data-auth-signed-in style="display:none" aria-haspopup="dialog" aria-expanded="false" aria-label="Messages from Swimfit">
+  <svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg>
+  <span class="admin-msg-fab-dot" id="adminMsgFabDot" hidden></span>
+</button>
+
+<div class="coach-panel admin-msg-panel" id="adminMsgPanel" role="dialog" aria-labelledby="adminMsgPanelTitle">
+  <div class="coach-panel-header">
+    <div>
+      <h4 id="adminMsgPanelTitle">Messages</h4>
+      <p>Direct messages from the Swimfit team</p>
+    </div>
+    <button type="button" class="coach-panel-close" id="adminMsgPanelClose" aria-label="Close">
+      <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+    </button>
+  </div>
+  <div class="coach-messages" id="adminMsgMessages"></div>
+  <form class="coach-form" id="adminMsgForm">
+    <label for="adminMsgInput" class="sr-only">Reply</label>
+    <textarea id="adminMsgInput" class="coach-input" rows="1" placeholder="Reply…" maxlength="2000"></textarea>
+    <button type="submit" class="coach-send-btn" id="adminMsgSendBtn" aria-label="Send">
       <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
     </button>
   </form>
@@ -3154,6 +3355,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   document.getElementById('navSignInBtn').addEventListener('click', openAuthModal);
   document.getElementById('navJoinNowBtn').addEventListener('click', openAuthModal);
+  var offerTrialCtaBtn = document.getElementById('offerTrialCtaBtn');
+  if (offerTrialCtaBtn) offerTrialCtaBtn.addEventListener('click', openAuthModal);
   document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
@@ -4807,6 +5010,260 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     });
     document.addEventListener('swimfit:authchange', function (e) {
       if (e.detail.user) { loadEntriesIfNeeded(); } else { loadedForUid = null; cachedEntries = []; renderStat(); renderEntries(); }
+    });
+  })();
+
+  /* ============================= ADMIN PANEL (swimfit.ae@gmail.com only) ============================= */
+  var ADMIN_LIST_USERS_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminListUsers';
+  var ADMIN_GET_THREAD_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminGetThread';
+  var ADMIN_SEND_MESSAGE_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminSendMessage';
+  var ADMIN_SET_PLAN_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminSetUserPlan';
+
+  (function wireAdminPanel() {
+    var tbody = document.getElementById('adminUsersTbody');
+    var countEl = document.getElementById('adminUsersCount');
+    var refreshBtn = document.getElementById('adminRefreshBtn');
+    var chatHeader = document.getElementById('adminChatHeader');
+    var chatMessages = document.getElementById('adminChatMessages');
+    var chatForm = document.getElementById('adminChatForm');
+    var chatInput = document.getElementById('adminChatInput');
+    var chatSendBtn = document.getElementById('adminChatSendBtn');
+    if (!tbody || !chatForm) return;
+
+    var users = [];
+    var selectedUid = null;
+    var pollTimer = null;
+
+    function adminFetch(endpoint, body) {
+      return window.__firebaseGetIdToken().then(function (idToken) {
+        return fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify(body || {})
+        });
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      });
+    }
+
+    function formatDate(ms) {
+      return ms ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    }
+
+    function renderUsers() {
+      tbody.innerHTML = '';
+      countEl.textContent = users.length + (users.length === 1 ? ' swimmer' : ' swimmers');
+      users.forEach(function (u) {
+        var tr = document.createElement('tr');
+        tr.className = u.uid === selectedUid ? 'is-selected' : '';
+
+        var nameTd = document.createElement('td');
+        var nameEl = document.createElement('span');
+        nameEl.className = 'admin-user-name';
+        nameEl.textContent = u.displayName || '(no name)';
+        var emailEl = document.createElement('span');
+        emailEl.className = 'admin-user-email';
+        emailEl.textContent = u.email || u.uid;
+        nameTd.appendChild(nameEl);
+        nameTd.appendChild(emailEl);
+
+        var planTd = document.createElement('td');
+        var planSelect = document.createElement('select');
+        planSelect.className = 'admin-plan-select';
+        [['', 'Trial/None'], ['pro', 'Pro'], ['elite', 'Elite'], ['ultra', 'Ultra']].forEach(function (opt) {
+          var o = document.createElement('option');
+          o.value = opt[0];
+          o.textContent = opt[1];
+          if ((u.plan || '') === opt[0]) o.selected = true;
+          planSelect.appendChild(o);
+        });
+        planSelect.addEventListener('change', function () {
+          var plan = planSelect.value || 'clear';
+          planSelect.disabled = true;
+          adminFetch(ADMIN_SET_PLAN_ENDPOINT, { targetUid: u.uid, plan: plan }).then(function (result) {
+            if (result.ok) u.plan = planSelect.value || null;
+          }).finally(function () { planSelect.disabled = false; });
+        });
+        planTd.appendChild(planSelect);
+
+        var joinedTd = document.createElement('td');
+        joinedTd.textContent = formatDate(u.createdAt);
+
+        var msgTd = document.createElement('td');
+        var msgBtn = document.createElement('button');
+        msgBtn.type = 'button';
+        msgBtn.className = 'admin-msg-btn';
+        msgBtn.setAttribute('aria-label', 'Message ' + (u.displayName || u.email || 'this swimmer'));
+        msgBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg>';
+        if (u.unreadForAdmin) {
+          var dot = document.createElement('span');
+          dot.className = 'admin-unread-dot';
+          msgBtn.appendChild(dot);
+        }
+        msgBtn.addEventListener('click', function () { openThread(u); });
+        msgTd.appendChild(msgBtn);
+
+        tr.appendChild(nameTd);
+        tr.appendChild(planTd);
+        tr.appendChild(joinedTd);
+        tr.appendChild(msgTd);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function loadUsers() {
+      countEl.textContent = 'Loading…';
+      return adminFetch(ADMIN_LIST_USERS_ENDPOINT).then(function (result) {
+        if (!result.ok || !result.data || !Array.isArray(result.data.users)) {
+          countEl.textContent = 'Could not load the user list.';
+          return;
+        }
+        users = result.data.users;
+        renderUsers();
+      }).catch(function () { countEl.textContent = 'Could not load the user list.'; });
+    }
+
+    function appendChatBubble(sender, text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg ' + (sender === 'admin' ? 'coach-msg-user' : 'coach-msg-assistant');
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      chatMessages.appendChild(row);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function openThread(u) {
+      selectedUid = u.uid;
+      renderUsers();
+      chatHeader.textContent = 'Chatting with ' + (u.displayName || u.email || u.uid);
+      chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Loading…</p>';
+      chatForm.style.display = '';
+      adminFetch(ADMIN_GET_THREAD_ENDPOINT, { targetUid: u.uid }).then(function (result) {
+        chatMessages.innerHTML = '';
+        if (!result.ok || !result.data || !Array.isArray(result.data.messages)) {
+          chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Couldn\'t load this conversation.</p>';
+          return;
+        }
+        if (!result.data.messages.length) {
+          chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">No messages yet — say hello!</p>';
+        } else {
+          result.data.messages.forEach(function (m) { appendChatBubble(m.sender, m.text); });
+        }
+        u.unreadForAdmin = false;
+      });
+    }
+
+    chatForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!selectedUid) return;
+      var text = (chatInput.value || '').trim();
+      if (!text) return;
+      chatSendBtn.disabled = true;
+      adminFetch(ADMIN_SEND_MESSAGE_ENDPOINT, { targetUid: selectedUid, text: text }).then(function (result) {
+        if (result.ok) {
+          appendChatBubble('admin', text);
+          chatInput.value = '';
+        }
+      }).finally(function () { chatSendBtn.disabled = false; });
+    });
+    chatInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatForm.requestSubmit(); }
+    });
+
+    if (refreshBtn) refreshBtn.addEventListener('click', loadUsers);
+    document.querySelectorAll('[data-tab="admin"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.__isAdminAccount) return;
+        loadUsers();
+        if (!pollTimer) pollTimer = setInterval(function () { if (window.__isAdminAccount) loadUsers(); }, 20000);
+      });
+    });
+  })();
+
+  /* ============================= ADMIN MESSAGES WIDGET (user-facing inbox) =============================
+     Every signed-in non-admin swimmer gets this floating widget so they can see
+     and reply to direct messages the admin sends via the Admin Panel above.
+     Real-time (onSnapshot) via the __adminChat* bridges exposed by the module
+     <script> in <head>; deliberately reachable even behind the paywall overlay
+     (higher z-index) since a locked-out swimmer should still be able to read
+     and reply to a support message from the team. */
+  (function wireAdminMessagesWidget() {
+    var fab = document.getElementById('adminMsgFab');
+    var dot = document.getElementById('adminMsgFabDot');
+    var panel = document.getElementById('adminMsgPanel');
+    var closeBtn = document.getElementById('adminMsgPanelClose');
+    var messagesEl = document.getElementById('adminMsgMessages');
+    var form = document.getElementById('adminMsgForm');
+    var input = document.getElementById('adminMsgInput');
+    var sendBtn = document.getElementById('adminMsgSendBtn');
+    if (!fab || !panel || !form || !messagesEl || !input || !sendBtn) return;
+
+    var unsubscribeMeta = null;
+    var unsubscribeMessages = null;
+
+    function renderMessages(messages) {
+      messagesEl.innerHTML = '';
+      messages.forEach(function (m) {
+        var row = document.createElement('div');
+        row.className = 'coach-msg ' + (m.sender === 'admin' ? 'coach-msg-assistant' : 'coach-msg-user');
+        var bubble = document.createElement('div');
+        bubble.className = 'coach-bubble';
+        bubble.textContent = m.text;
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function openPanel() {
+      panel.classList.add('open');
+      fab.setAttribute('aria-expanded', 'true');
+      if (dot) dot.hidden = true;
+    }
+    function closePanel() {
+      panel.classList.remove('open');
+      fab.setAttribute('aria-expanded', 'false');
+    }
+    fab.addEventListener('click', function () { if (panel.classList.contains('open')) closePanel(); else openPanel(); });
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('open')) closePanel(); });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = (input.value || '').trim();
+      if (!text || typeof window.__adminChatReply !== 'function') return;
+      sendBtn.disabled = true;
+      window.__adminChatReply(text).then(function () { input.value = ''; }).finally(function () { sendBtn.disabled = false; });
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    function subscribe() {
+      if (unsubscribeMeta) unsubscribeMeta();
+      if (unsubscribeMessages) unsubscribeMessages();
+      if (typeof window.__adminChatSubscribeMeta === 'function') {
+        unsubscribeMeta = window.__adminChatSubscribeMeta(function (meta) {
+          if (dot) dot.hidden = !(meta && meta.lastSender === 'admin' && !panel.classList.contains('open'));
+        });
+      }
+      if (typeof window.__adminChatSubscribeMessages === 'function') {
+        unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); });
+      }
+    }
+
+    document.addEventListener('swimfit:authchange', function (e) {
+      fab.style.display = (e.detail.user && !window.__isAdminAccount) ? '' : 'none';
+      if (!e.detail.user) {
+        closePanel();
+        renderMessages([]);
+        if (unsubscribeMeta) unsubscribeMeta();
+        if (unsubscribeMessages) unsubscribeMessages();
+        return;
+      }
+      if (!window.__isAdminAccount) subscribe();
     });
   })();
 
