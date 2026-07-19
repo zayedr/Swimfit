@@ -55,6 +55,20 @@ only allows *creating* a `usernames/{username}` doc that doesn't already exist a
 update/delete entirely, so a username reservation is permanent and race-safe without needing
 a Cloud Function.
 
+Between the persistent About section and the tabbed shell, the landing page carries four
+conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch
+promo code, `localStorage`-persisted dismissal via a synchronous flash-prevention script in
+`<head>` so returning visitors never see a layout shift — the fixed `--announce-h` custom
+property drives the nav's `top` offset and `body`'s `padding-top` together, never JS-measured);
+an **App Preview** (`#appPreview`, a static browser-chrome-framed mockup of the weekly
+distance chart / goal ring / specialization chips a signed-in swimmer would actually see);
+**Social Proof** (`#socialProof`, an infinite-scrolling testimonial marquee plus branded
+Instagram/TikTok follow cards linking to `@swimfit.ae`); and a **Plan Sneak Peek**
+(`#planPreview`, a Pro/Elite/Ultra pill-tab switcher that swaps a single preview card's price,
+features and accent color client-side — its own "join" CTA only ever routes to the real
+Pricing tab via `data-tab`, it never touches checkout directly, so it can't double-fire
+alongside the real Subscribe buttons' `[data-plan]` handler).
+
 There are no build, lint, or test commands — verify changes by serving the file locally
 (e.g. `python3 -m http.server`) and testing in a browser (Playwright is available in this
 environment for automated checks).
