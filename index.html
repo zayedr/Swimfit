@@ -3362,15 +3362,16 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
 
   /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle Billing checkout) =============================
-     IDs below are Paddle PRODUCT ids (pro_...). Paddle.Checkout.open() needs the PRICE id
-     (pri_..., the specific monthly/annual price under that product) — if checkout doesn't open
-     or Paddle logs an invalid-price error, open each product in the Paddle dashboard and swap
-     in its Price id instead. */
+     Real Paddle PRICE ids (pri_...) as of 2026-07-19 — Paddle.Checkout.open()
+     needs the price id, not the product id (pro_...) that used to live here;
+     the product ids are still used server-side in functions/index.js
+     (PADDLE_PLAN_BY_PRODUCT_ID) to resolve a webhook event to a plan, which is
+     a separate, still-correct mapping unaffected by this fix. */
   var PADDLE_CLIENT_TOKEN = 'live_8981fe2520a3f946c975f5a1ad2';
   var PADDLE_PRICE_IDS = {
-    pro: 'pro_01kxvepbgps1gw1w5qmt45hev6',
-    elite: 'pro_01kxvet9dy5deg86r4xe16yb5k',
-    ultra: 'pro_01kxvev8we8cytygfk733nkjt7'
+    pro: 'pri_01kxxv52g2r41z02hsbfzaepyv',
+    elite: 'pri_01kxxvaqrfy9dqnaswssqabgx2',
+    ultra: 'pri_01kxxves4frfx01sww4z6ah0bw'
   };
   var PLAN_LABELS = { pro: 'Pro', elite: 'Elite', ultra: 'Ultra' };
   var pendingSubscribePlan = null;
