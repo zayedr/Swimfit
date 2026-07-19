@@ -2,7 +2,16 @@ rules_version = '2';
 
 // Swimfit Firestore rules.
 //
-// users/{uid}       — a swimmer's own profile. Only that swimmer can read or write it.
+// users/{uid}       — a swimmer's own profile, including the onboarding fields
+//                      (fullName, country, age, dob, username, onboardingComplete).
+//                      Only that swimmer can ever read or write it — 100% private.
+// usernames/{name}  — a permanent uid reservation keyed by the (lowercase,
+//                      normalized) username itself. Its mere existence is the
+//                      single source of truth for "is this username taken".
+//                      create-only/immutable, so no client can ever hijack or
+//                      free up a username someone else already claimed — this
+//                      is what makes usernames actually unique, not just
+//                      "unique at the moment nobody's watching".
 // stats/counters    — the public "registered swimmers" counter. Readable by anyone
 //                      (including signed-out visitors, since it's shown on the marketing
 //                      site's Hero), but never writable from a client — it's only ever
@@ -10,7 +19,24 @@ rules_version = '2';
 //                      which bypasses these rules entirely.
 // paddle_subscriptions/{docId} — billing records. A swimmer can read only their own
 //                      (matched by the firebaseUid the checkout attached), never write.
+// email_otps/{email}  — pending 6-digit sign-in codes (hashed, never the raw code).
+//                      Server-only: requestEmailOtp/verifyEmailOtp (functions/index.js)
+//                      read and write it exclusively via the Admin SDK, which bypasses
+//                      these rules entirely, so it's explicitly denied here for every
+//                      client rather than left to the catch-all below.
 service cloud.firestore {
+  // Shared field-level validation for users/{uid} writes. Keeping this in one
+  // function (rather than duplicating it across the create/update rules)
+  // means the onboarding fields can only ever be tightened in one place.
+  function isValidProfileWrite(data) {
+    return (!('username' in data) || (data.username is string && data.username.matches('^[a-z0-9_]{3,20}$')))
+      && (!('age' in data) || (data.age is int && data.age >= 5 && data.age <= 120))
+      && (!('dob' in data) || (data.dob is string && data.dob.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+      && (!('fullName' in data) || (data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 80))
+      && (!('country' in data) || (data.country is string && data.country.size() > 0 && data.country.size() <= 60))
+      && (!('onboardingComplete' in data) || data.onboardingComplete is bool);
+  }
+
   match /databases/{database}/documents {
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
@@ -23,11 +49,35 @@ service cloud.firestore {
       // the first write, so .diff() can't run against it.
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys()
-             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt']);
+             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
+                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete'])
+        && isValidProfileWrite(request.resource.data);
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt']);
+             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
+                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete'])
+        && isValidProfileWrite(request.resource.data);
       allow delete: if false;
+    }
+
+    match /usernames/{username} {
+      // A single-document get (used for the live "is this available?" check
+      // and inside the claiming transaction) is allowed for any signed-in
+      // swimmer. list is blocked so the full username directory can never be
+      // scraped/enumerated.
+      allow get: if request.auth != null;
+      allow list: if false;
+      // Only ever a brand-new reservation the caller is making for themselves,
+      // for a well-formed username, holding nothing but the two expected
+      // fields. Firestore only evaluates "create" when the document doesn't
+      // already exist, so once *any* uid has claimed a given username this
+      // branch can never fire again for that document — that's the actual
+      // uniqueness guarantee, not just an application-level check.
+      allow create: if request.auth != null
+        && username.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /stats/counters {
@@ -38,6 +88,10 @@ service cloud.firestore {
     match /paddle_subscriptions/{docId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
       allow write: if false;
+    }
+
+    match /email_otps/{email} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

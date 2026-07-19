@@ -7,20 +7,22 @@
  * in the same codebase — both are fully supported together.
  *
  * ============================= GO-LIVE CHECKLIST =============================
- * Two of these steps are Firebase Console toggles, not code — easy to miss,
- * and real users will see a clear "This sign-in method isn't enabled yet" /
- * "This domain isn't authorized" message (see describeAuthError in index.html)
- * if either is skipped.
+ * One of these steps is a Firebase Console toggle, not code — easy to miss,
+ * and real users will see a clear "This domain isn't authorized" message
+ * (see describeAuthError in index.html) if it's skipped.
  *
  *   1. Firebase Console -> Authentication -> Sign-in method:
  *        - Google: confirm it's enabled (already done per prior setup).
- *        - Email/Password provider -> enable the "Email link (passwordless
- *          sign-in)" toggle. Without this, sendSignInLinkToEmail fails for
- *          every real visitor with auth/operation-not-allowed.
+ *        - Email/Password provider does NOT need to be enabled: email sign-in
+ *          is a custom 6-digit-code flow (requestEmailOtp/verifyEmailOtp
+ *          below) that mints its own custom token via the Admin SDK
+ *          (admin.auth().createCustomToken), so it doesn't go through any
+ *          Firebase-Console-configured sign-in provider at all.
  *   2. Firebase Console -> Authentication -> Settings -> Authorized domains:
  *        add swimfit.com (and www.swimfit.com if that resolves too). Without
- *        this, both Google popup and email-link sign-in fail with
- *        auth/unauthorized-domain for anyone on the live domain.
+ *        this, Google popup sign-in fails with auth/unauthorized-domain for
+ *        anyone on the live domain (the email-OTP flow isn't affected by this
+ *        setting since it never calls a Firebase-hosted sign-in provider).
  *   3. Firebase Console -> Firestore Database: create the database if it
  *      doesn't exist yet (either starting mode is fine — step 7 below
  *      deploys and enforces the real firestore.rules regardless).
@@ -32,11 +34,12 @@
  *        firebase functions:secrets:set SMTP_USER
  *        firebase functions:secrets:set SMTP_PASS
  *        firebase functions:secrets:set ANTHROPIC_API_KEY
- *      (SMTP secrets are optional at first — onUserCreated still creates the
- *      Firestore profile and increments the registered-users counter without
- *      them, it just skips the welcome-email send, logged not thrown, so a
- *      missing/bad SMTP config can never block user creation. ANTHROPIC_API_KEY
- *      is required for the aiSwimCoach function — get a key from
+ *      (SMTP secrets power both the welcome email AND the email-OTP
+ *      verification code — without them, onUserCreated still creates the
+ *      Firestore profile/counter (just skips the welcome email), but
+ *      requestEmailOtp will fail every request with a 502 until they're set,
+ *      since there's no other way to deliver the code. ANTHROPIC_API_KEY is
+ *      required for the aiSwimCoach function — get a key from
  *      https://console.anthropic.com and paste it in when prompted.)
  *   6. firebase deploy --only functions
  *   7. firebase deploy --only firestore:rules
@@ -48,21 +51,22 @@
  *      value step 5 already asked for; if you're registering the webhook for
  *      the first time, come back and update the secret with the same command
  *      and redeploy.
- *   9. aiSwimCoach (the AI Swim Coach chat feature) needs no separate webhook
- *      registration — index.html calls its HTTPS URL directly once you paste
- *      it into the AI_COACH_ENDPOINT constant near the chat widget code.
+ *   9. aiSwimCoach, requestEmailOtp, and verifyEmailOtp need no separate
+ *      webhook registration — index.html calls their HTTPS URLs directly
+ *      once you paste them into the matching *_ENDPOINT constants near each
+ *      feature's code.
  *
  * Known separate risk (Paddle Billing, not this file): PADDLE_PRICE_IDS in
  * index.html currently holds Paddle PRODUCT ids (pro_...); Paddle.Checkout.open()
  * needs the PRICE id (pri_...) under each product. Confirm/swap these in the
  * Paddle dashboard before real customers try to subscribe.
  *
- * Optional further hardening: the public "Send Me a Sign-In Link" form has a
- * client-side cooldown (see index.html) but no server-side abuse protection —
- * for real production traffic, enable Firebase App Check (Console ->
- * App Check -> register the web app with reCAPTCHA v3/Enterprise) so
- * sendSignInLinkToEmail can't be scripted into a mail-bombing tool against
- * arbitrary addresses using Swimfit's sending reputation.
+ * Optional further hardening: requestEmailOtp already rate-limits by email
+ * (cooldown + hourly cap) and verifyEmailOtp locks a code after 5 wrong
+ * guesses, but neither is IP-aware — for real production traffic, enable
+ * Firebase App Check (Console -> App Check -> register the web app with
+ * reCAPTCHA v3/Enterprise) so these endpoints can't be scripted at volume
+ * from a single source.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -228,10 +232,11 @@ const COACH_MAX_MESSAGE_LENGTH = 2000;
 const COACH_MAX_HISTORY_MESSAGES = 12;
 const COACH_DAILY_MESSAGE_LIMIT = 40;
 
-// Allowed browser origins for the chat widget. Add a dev origin here
-// temporarily (e.g. 'http://localhost:8000') if testing against a deployed
-// function from a local static server.
-const COACH_ALLOWED_ORIGINS = ['https://swimfit.com', 'https://www.swimfit.com'];
+// Allowed browser origins for every user-facing (non-webhook) function below —
+// the AI Coach widget and the email-OTP sign-in endpoints. Add a dev origin
+// here temporarily (e.g. 'http://localhost:8000') if testing against a
+// deployed function from a local static server.
+const ALLOWED_WEB_ORIGINS = ['https://swimfit.com', 'https://www.swimfit.com'];
 
 function coachTodayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -259,7 +264,7 @@ async function checkAndIncrementCoachUsage(uid) {
 }
 
 exports.aiSwimCoach = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], cors: COACH_ALLOWED_ORIGINS, region: 'us-central1' },
+  { secrets: [ANTHROPIC_API_KEY], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method Not Allowed' });
@@ -435,9 +440,10 @@ async function sendWelcomeEmail(user) {
 }
 
 // Fires exactly once per brand-new Firebase Auth account, regardless of
-// sign-in method (Google or email link) — this is the single authoritative
-// place the registered-users counter is incremented, so it can never be
-// double-counted by repeat client-side logins.
+// sign-in method (Google, or an Admin-SDK-created account from a first-time
+// email OTP verification) — this is the single authoritative place the
+// registered-users counter is incremented, so it can never be double-counted
+// by repeat client-side logins.
 exports.onUserCreated = functionsV1
   .runWith({ secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS] })
   .region('us-central1')
@@ -472,5 +478,241 @@ exports.onUserCreated = functionsV1
     } catch (err) {
       logger.error('onUserCreated: failed to send welcome email', err);
     }
+  }
+);
+
+// ============================================================================
+// Email OTP sign-in — a real 6-digit code, emailed through Swimfit's own SMTP,
+// that the swimmer types back in. Replaces Firebase's built-in email-link
+// method entirely: these two functions ARE the passwordless sign-in flow, so
+// (unlike aiSwimCoach) they run before any Firebase ID token exists and can't
+// require one. Callers unauthenticated by design; every other Firebase Auth
+// account (Google, or a previous OTP sign-in) resolves through the same
+// admin.auth().getUserByEmail lookup in verifyEmailOtp, so one email address
+// always maps to exactly one account no matter how it was created.
+const OTP_LENGTH = 6;
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const OTP_MAX_VERIFY_ATTEMPTS = 5;
+const OTP_MAX_REQUESTS_PER_WINDOW = 5;
+const OTP_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 45 * 1000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(raw) {
+  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+}
+function isValidEmail(email) {
+  return !!email && email.length <= 254 && EMAIL_RE.test(email);
+}
+function hashOtpCode(code, email) {
+  return crypto.createHash('sha256').update(code + ':' + email).digest('hex');
+}
+
+function otpEmailHtml(code) {
+  return (
+    '<div style="background:#070B0A;padding:40px 20px;font-family:Helvetica,Arial,sans-serif;">' +
+      '<div style="max-width:480px;margin:0 auto;background:#101A19;border:1px solid #1c2b29;border-radius:16px;overflow:hidden;">' +
+        '<div style="background:linear-gradient(135deg,#124a3d,#1f6b3a);padding:32px 32px 24px;">' +
+          '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:0.02em;">SWIM<span style="color:#22d3ee;">FIT</span></div>' +
+        '</div>' +
+        '<div style="padding:32px;color:#F3F7F5;">' +
+          '<h1 style="font-size:20px;margin:0 0 16px;color:#ffffff;">Your verification code</h1>' +
+          '<p style="font-size:15px;line-height:1.6;color:#97A9A3;margin:0 0 24px;">Enter this code on swimfit.com to finish signing in. It expires in 10 minutes.</p>' +
+          '<div style="font-family:Georgia,serif;font-size:36px;font-weight:700;letter-spacing:0.3em;color:#22d3ee;text-align:center;padding:16px;background:#0B1312;border-radius:12px;">' +
+            escapeHtml(code) +
+          '</div>' +
+          '<p style="font-size:12px;line-height:1.6;color:#5f7570;margin:28px 0 0;">' +
+            'If you didn’t request this code, you can safely ignore this email — nobody can sign in without it.' +
+          '</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+async function sendOtpEmail(email, code) {
+  var host = SMTP_HOST.value(), port = SMTP_PORT.value(), smtpUser = SMTP_USER.value(), pass = SMTP_PASS.value();
+  if (!host || !smtpUser || !pass) {
+    throw new Error('SMTP not configured');
+  }
+  var transporter = nodemailer.createTransport({
+    host: host,
+    port: Number(port) || 587,
+    secure: Number(port) === 465,
+    auth: { user: smtpUser, pass: pass }
+  });
+  await transporter.sendMail({
+    from: 'Swimfit <' + smtpUser + '>',
+    to: email,
+    subject: 'Your Swimfit verification code',
+    html: otpEmailHtml(code)
+  });
+}
+
+exports.requestEmailOtp = onRequest(
+  { secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method Not Allowed' });
+      return;
+    }
+
+    var email = normalizeEmail(req.body && req.body.email);
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+
+    var ref = db.collection('email_otps').doc(email);
+    var now = Date.now();
+    var code = null;
+    var outcome;
+    try {
+      outcome = await db.runTransaction(async function (tx) {
+        var snap = await tx.get(ref);
+        var data = snap.exists ? snap.data() : null;
+
+        if (data && data.lastSentAt && now - data.lastSentAt < OTP_RESEND_COOLDOWN_MS) {
+          return { ok: false, reason: 'cooldown' };
+        }
+
+        var windowActive = data && data.windowStart && now - data.windowStart < OTP_REQUEST_WINDOW_MS;
+        var requestCount = windowActive ? (data.requestCount || 0) : 0;
+        if (requestCount >= OTP_MAX_REQUESTS_PER_WINDOW) {
+          return { ok: false, reason: 'rate_limited' };
+        }
+
+        code = String(crypto.randomInt(0, 1000000)).padStart(OTP_LENGTH, '0');
+        tx.set(ref, {
+          codeHash: hashOtpCode(code, email),
+          expiresAt: now + OTP_EXPIRY_MS,
+          attempts: 0,
+          lastSentAt: now,
+          windowStart: windowActive ? data.windowStart : now,
+          requestCount: requestCount + 1
+        });
+        return { ok: true };
+      });
+    } catch (err) {
+      logger.error('requestEmailOtp: transaction failed', err);
+      res.status(500).json({ error: 'Could not send a verification code — please try again.' });
+      return;
+    }
+
+    if (!outcome.ok) {
+      var msg = outcome.reason === 'cooldown'
+        ? 'Please wait a little before requesting another code.'
+        : 'Too many code requests for this email — please try again later.';
+      res.status(429).json({ error: msg });
+      return;
+    }
+
+    try {
+      await sendOtpEmail(email, code);
+    } catch (err) {
+      logger.error('requestEmailOtp: failed to send email', err);
+      res.status(502).json({ error: 'Could not send the verification email — please try again.' });
+      return;
+    }
+
+    res.status(200).json({ ok: true });
+  }
+);
+
+exports.verifyEmailOtp = onRequest(
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  async function (req, res) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method Not Allowed' });
+      return;
+    }
+
+    var email = normalizeEmail(req.body && req.body.email);
+    var code = typeof (req.body && req.body.code) === 'string' ? req.body.code.trim() : '';
+    if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+      res.status(400).json({ error: 'Please enter the 6-digit code we sent you.' });
+      return;
+    }
+
+    var ref = db.collection('email_otps').doc(email);
+    var outcome;
+    try {
+      outcome = await db.runTransaction(async function (tx) {
+        var snap = await tx.get(ref);
+        if (!snap.exists) return { ok: false, reason: 'not_found' };
+
+        var data = snap.data();
+        var now = Date.now();
+        if (now > data.expiresAt) {
+          tx.delete(ref);
+          return { ok: false, reason: 'expired' };
+        }
+        if ((data.attempts || 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
+          tx.delete(ref);
+          return { ok: false, reason: 'too_many_attempts' };
+        }
+
+        var expectedHash = hashOtpCode(code, email);
+        var expectedBuf = Buffer.from(expectedHash, 'utf8');
+        var actualBuf = Buffer.from(String(data.codeHash || ''), 'utf8');
+        var matches = expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
+        if (!matches) {
+          tx.update(ref, { attempts: (data.attempts || 0) + 1 });
+          return { ok: false, reason: 'invalid_code' };
+        }
+
+        tx.delete(ref); // single-use: a verified code can never be replayed
+        return { ok: true };
+      });
+    } catch (err) {
+      logger.error('verifyEmailOtp: transaction failed', err);
+      res.status(500).json({ error: 'Could not verify that code — please try again.' });
+      return;
+    }
+
+    if (!outcome.ok) {
+      var reasonMessages = {
+        expired: 'That code expired — please request a new one.',
+        too_many_attempts: 'Too many incorrect attempts — please request a new code.',
+        not_found: 'Please request a new verification code.',
+        invalid_code: 'That code is incorrect — please try again.'
+      };
+      var status = outcome.reason === 'invalid_code' || outcome.reason === 'not_found' ? 400 : 429;
+      res.status(status).json({ error: reasonMessages[outcome.reason] });
+      return;
+    }
+
+    var userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+      if (!userRecord.emailVerified) {
+        await admin.auth().updateUser(userRecord.uid, { emailVerified: true });
+      }
+    } catch (err) {
+      if (err && err.code === 'auth/user-not-found') {
+        try {
+          userRecord = await admin.auth().createUser({ email: email, emailVerified: true });
+        } catch (createErr) {
+          logger.error('verifyEmailOtp: failed to create user', createErr);
+          res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
+          return;
+        }
+      } else {
+        logger.error('verifyEmailOtp: failed to look up user', err);
+        res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
+        return;
+      }
+    }
+
+    var customToken;
+    try {
+      customToken = await admin.auth().createCustomToken(userRecord.uid);
+    } catch (err) {
+      logger.error('verifyEmailOtp: failed to mint custom token', err);
+      res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
+      return;
+    }
+
+    res.status(200).json({ token: customToken });
   }
 );
