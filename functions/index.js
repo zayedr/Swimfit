@@ -236,7 +236,12 @@ const COACH_DAILY_MESSAGE_LIMIT = 40;
 // the AI Coach widget and the email-OTP sign-in endpoints. Add a dev origin
 // here temporarily (e.g. 'http://localhost:8000') if testing against a
 // deployed function from a local static server.
-const ALLOWED_WEB_ORIGINS = ['https://swimfit.com', 'https://www.swimfit.com'];
+const ALLOWED_WEB_ORIGINS = [
+  'https://swimfit.com',
+  'https://www.swimfit.com',
+  'https://zayedr.github.io',
+  'https://swimfi-ae.web.app'
+];
 
 function coachTodayKey() {
   return new Date().toISOString().slice(0, 10);
