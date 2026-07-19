@@ -540,7 +540,40 @@ section { position: relative; scroll-margin-top: 96px; }
   transition: transform 0.08s linear;
 }
 .result-panel > * { position: relative; z-index: 1; }
+.result-panel .result-panel-water-bg { position: absolute; inset: -24px; z-index: 0; overflow: hidden; pointer-events: none; }
+.result-panel-water-bg::before {
+  content: ''; position: absolute; inset: -40%;
+  background:
+    radial-gradient(ellipse 60% 40% at 22% 28%, rgba(56,224,196,0.16), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 78% 68%, rgba(56,224,196,0.11), transparent 60%),
+    radial-gradient(ellipse 45% 30% at 50% 92%, rgba(120,200,255,0.09), transparent 60%);
+  filter: blur(3px);
+  animation: waterReflectionDrift 22s ease-in-out infinite alternate;
+}
+.result-panel-water-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.05) 48%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.05) 52%, transparent 58%);
+  background-size: 240% 240%;
+  animation: waterShimmerSweep 10s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes waterReflectionDrift {
+  0% { transform: translate(-2%, -2%) scale(1); }
+  50% { transform: translate(2%, 3%) scale(1.06); }
+  100% { transform: translate(-3%, 1%) scale(1.02); }
+}
+@keyframes waterShimmerSweep {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .result-panel-water-bg::before, .result-panel-water-bg::after { animation: none; }
+}
 .result-watermark { position: absolute; top: -30px; right: -30px; width: 220px; height: 220px; color: var(--aqua); opacity: 0.08; pointer-events: none; z-index: 0; }
+.round-label { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-4) 0 var(--space-2); }
+.round-label-badge { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.72rem; color: var(--bg); background: var(--aqua); padding: 4px 12px; border-radius: 999px; }
+.round-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.workout-block .round-label:first-of-type { margin-top: 0; }
 .result-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 280px; text-align: center; color: var(--muted); gap: var(--space-3); }
 .result-empty .icon { width: 44px; height: 44px; color: var(--muted-2); }
 
@@ -1035,6 +1068,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
           </div>
 
           <div class="result-panel" data-reveal="right">
+            <div class="result-panel-water-bg" aria-hidden="true"></div>
             <svg class="icon workout-watermark result-watermark"><use href="#i-stopwatch"/></svg>
             <div id="workoutResult">
               <div class="result-empty">
@@ -1619,9 +1653,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   });
 
   var LEVEL_SCALERS = {
-    beginner:    { intervalMult: 1.25, restAdd: 15, blocks: 2, note: 'We’ve built extra rest into every interval today — the goal is clean, repeatable technique, not the clock. Speed always follows good technique, never the other way around.' },
-    competitive: { intervalMult: 1.0,  restAdd: 0,  blocks: 3, note: 'Intervals and rest are set at full race-relevant volume today — enough load to create a real training stimulus, enough rest to hit every rep with quality.' },
-    elite:       { intervalMult: 0.9,  restAdd: -5, blocks: 4, note: 'Tightened intervals and a bonus set today — the margins that matter at this level. Includes personalized video review.' }
+    beginner:    { intervalMult: 1.25, restAdd: 15, blocks: 2, minRounds: 2, maxRounds: 2, note: 'We’ve built extra rest into every interval today — the goal is clean, repeatable technique, not the clock. Speed always follows good technique, never the other way around.' },
+    competitive: { intervalMult: 1.0,  restAdd: 0,  blocks: 3, minRounds: 2, maxRounds: 3, note: 'Intervals and rest are set at full race-relevant volume today — enough load to create a real training stimulus, enough rest to hit every rep with quality.' },
+    elite:       { intervalMult: 0.9,  restAdd: -5, blocks: 4, minRounds: 3, maxRounds: 3, note: 'Tightened intervals and a bonus set today — the margins that matter at this level. Includes personalized video review.' }
   };
 
   function formatTime(sec) {
@@ -1699,20 +1733,28 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return { title: reps + ' x ' + dist + 'm ' + label, interval: interval, rest: rest, gear: gearList, pace: Math.round(pace100) };
   }
 
-  function renderBlock(name, sets, intent) {
-    if (!sets.length) return '';
-    var rows = sets.map(function (s) {
-      var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
-      return '<div class="set-row"><div class="set-main"><span class="set-title">' + s.title + '</span>' +
-        '<span class="set-pace">Target Pace: ' + formatTime(s.pace) + ' / 100m</span>' +
-        (gearHtml ? '<div class="set-gear">' + gearHtml + '</div>' : '') + '</div>' +
-        '<div class="set-interval"><strong>' + formatTime(s.interval) + '</strong><span>Interval</span></div>' +
-        '<div class="set-rest"><strong>' + formatTime(s.rest) + '</strong><span>Rest</span></div></div>';
+  // rounds is an array of { label, sets } — label is a short round title
+  // (e.g. "Round 1 — Build Pace") or null/undefined for a flat, single-round
+  // block like Warm-Up/Cool-Down where a "round" heading would just be noise.
+  function renderBlock(name, rounds, intent) {
+    var totalSets = rounds.reduce(function (n, r) { return n + r.sets.length; }, 0);
+    if (!totalSets) return '';
+    var body = rounds.map(function (round) {
+      var rows = round.sets.map(function (s) {
+        var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
+        return '<div class="set-row"><div class="set-main"><span class="set-title">' + s.title + '</span>' +
+          '<span class="set-pace">Target Pace: ' + formatTime(s.pace) + ' / 100m</span>' +
+          (gearHtml ? '<div class="set-gear">' + gearHtml + '</div>' : '') + '</div>' +
+          '<div class="set-interval"><strong>' + formatTime(s.interval) + '</strong><span>Interval</span></div>' +
+          '<div class="set-rest"><strong>' + formatTime(s.rest) + '</strong><span>Rest</span></div></div>';
+      }).join('');
+      var labelHtml = round.label ? '<div class="round-label"><span class="round-label-badge">' + round.label + '</span></div>' : '';
+      return labelHtml + rows;
     }).join('');
     var intentHtml = intent
       ? '<div class="coach-intent">' + icon('i-target') + '<div><span class="coach-intent-label">Coach’s Intent — Why This Set</span><span class="coach-intent-body">' + intent + '</span></div></div>'
       : '';
-    return '<div class="workout-block"><div class="workout-block-title">' + name + '</div>' + intentHtml + rows + '</div>';
+    return '<div class="workout-block"><div class="workout-block-title">' + name + '</div>' + intentHtml + body + '</div>';
   }
 
   function pickN(arr, n) {
@@ -1724,6 +1766,22 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     return copy.slice(0, Math.min(n, copy.length));
   }
   function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // How many rounds (2-3) a given level is allowed to build a Main Set
+  // circuit from — randomized within the level's range so back-to-back
+  // generations at the same level don't always land on the same shape.
+  function roundCountFor(scaler) {
+    var min = scaler.minRounds || 2, max = scaler.maxRounds || min;
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+  // Splits a Main Set archetype's total meterage evenly across n rounds,
+  // rounded to a clean 50m so every round still lands on a swimmable rep scheme.
+  function splitShareEqual(shareM, n) {
+    var per = Math.max(50, Math.round((shareM / n) / 50) * 50);
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(per);
+    return out;
+  }
 
   var WARMUP_INTENTS = {
     beginner: [
@@ -1755,27 +1813,42 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     {
       name: 'Sprint Reps',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
-        return [buildSet(Math.max(4, Math.round(shareM / 50)), 50, nextStroke() + ', max effort race pace', equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 * 0.82, 30, scaler)];
+        var hasFins = equipment.indexOf('Fins') > -1;
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Build Into It', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ', build — each rep faster than the last', [], pace100 * 0.9, 30, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Max Effort' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ', max effort race pace', hasFins ? ['Fins'] : [], pace100 * 0.8, 30, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Variable Interval Ladder', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', all-out on a tighter interval than Round 2', [], pace100 * 0.76, 20, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Short, all-out 50s with full recovery train your ATP-PC energy system — the explosive pathway that fires your start and the first 15 meters off every wall. Long rest between reps means you’re training raw speed, not fatigue tolerance.',
-        'This is about neuromuscular intent, not conditioning: enough rest between reps that every single one can be fired at true maximum effort, which is the only way sprint speed actually improves.'
+        'Short, all-out 50s with full recovery train your ATP-PC energy system — the explosive pathway that fires your start and the first 15 meters off every wall. Each round tightens the pace or the interval so the circuit builds toward true maximum effort, not just fatigue.',
+        'This is about neuromuscular intent, not conditioning: enough rest between reps that every single one can be fired at true maximum effort — the rounds simply raise the stakes as you go, which is the only way sprint speed actually improves.'
       ]
     },
     {
       name: 'Explosive Turns & Starts',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(3, Math.round(shareM / 25)), 25, nextStroke() + ', explosive off the wall', [], pace100 * 0.85, 35, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Streamline & Push-Off', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ', explosive off the wall, hold a tight streamline', [], pace100 * 0.9, 35, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Race-Speed Transitions', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ', explosive turn into an all-out finish', [], pace100 * 0.82, 30, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Fly-and-Die Variable', sets: [buildSet(Math.max(2, Math.round(m / 25)), 25, nextStroke() + ', sprint off the wall on a tight interval — no room to coast', [], pace100 * 0.78, 20, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Races are won and lost in transitions. This isolates the push-off itself — tight streamline, full leg drive — until it becomes automatic under fatigue, not just something you think about when fresh.',
-        'Most swimmers lose more time to a sloppy turn than they gain from a fast middle length. Repeating the wall in isolation, at full intent, rewires it into muscle memory.'
+        'Races are won and lost in transitions. Each round isolates the push-off at a higher stake than the last — tight streamline, full leg drive — until it becomes automatic under fatigue, not just something you think about when fresh.',
+        'Most swimmers lose more time to a sloppy turn than they gain from a fast middle length. Tightening the interval round over round rewires the wall into muscle memory under real fatigue.'
       ]
     },
     {
       name: 'Active Recovery',
       build: function (shareM, pace100, scaler) {
-        return [buildSet(Math.max(1, Math.round(shareM / 100)), 100, 'easy pace recovery swim', [], pace100 + 20, 15, scaler)];
+        return [{ label: null, sets: [buildSet(Math.max(1, Math.round(shareM / 100)), 100, 'easy pace recovery swim', [], pace100 + 20, 15, scaler)] }];
       },
       intents: [
         'Easy swimming between hard efforts actively flushes lactate from the working muscles — moving blood through them clears fatigue products faster than standing still ever would.'
@@ -1784,26 +1857,45 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     {
       name: 'Broken Race-Pace 100s',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
-        return [buildSet(Math.max(2, Math.round(shareM / 100)), 100, nextStroke() + ', broken into 4x25 @ 5s rest — faster than straight race pace', equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 * 0.8, 25, scaler)];
+        var hasFins = equipment.indexOf('Fins') > -1;
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Broken 100s, Building', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ', broken into 4x25 @ 8s rest — building toward race pace', [], pace100 * 0.86, 25, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Broken 100s, Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ', broken into 4x25 @ 5s rest — faster than straight race pace', hasFins ? ['Fins'] : [], pace100 * 0.8, 25, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Straight Race-Pace 100', sets: [buildSet(Math.max(1, Math.round(m / 100)), 100, nextStroke() + ', swum straight through — prove you can hold what the broken reps taught you', [], pace100 * 0.82, 40, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Breaking the 100 into 25s with only a five-second touch lets you hold a faster pace than you could swim it straight through — your body learns exactly what race speed feels like without paying the full fatigue cost yet.'
+        'Breaking the 100 into 25s with only a short touch lets you hold a faster pace than you could swim it straight through — each round closes that gap until you’re asked to prove it unbroken, at true race speed.'
       ]
     },
     {
       name: 'Descending Power Ladder',
-      build: function (shareM, pace100, scaler, nextStroke) {
-        var reps = Math.max(1, Math.round(shareM / 150));
-        var sets = [];
-        for (var i = 0; i < reps; i++) {
-          sets.push(buildSet(1, 75, nextStroke() + ', strong — building into the wall', [], pace100 * 0.88, 25, scaler));
-          sets.push(buildSet(1, 50, nextStroke() + ', faster than the 75', [], pace100 * 0.84, 25, scaler));
-          sets.push(buildSet(1, 25, 'all-out — fastest of the set', [], pace100 * 0.78, 20, scaler));
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        var hasPaddles = equipment.indexOf('Hand Paddles') > -1;
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        function ladder(m, mult, gear) {
+          var reps = Math.max(1, Math.round(m / 150));
+          var sets = [];
+          for (var i = 0; i < reps; i++) {
+            sets.push(buildSet(1, 75, nextStroke() + ', strong — building into the wall', gear, pace100 * (mult + 0.1), 25, scaler));
+            sets.push(buildSet(1, 50, nextStroke() + ', faster than the 75', gear, pace100 * mult, 25, scaler));
+            sets.push(buildSet(1, 25, 'all-out — fastest of the set', [], pace100 * (mult - 0.06), 20, scaler));
+          }
+          return sets;
         }
-        return sets;
+        var templates = [
+          function (m) { return { label: 'Round 1 — Building Ladder', sets: ladder(m, 0.88, []) }; },
+          function (m) { return { label: 'Round 2 — Power Ladder' + (hasPaddles ? ', Paddles On' : ''), sets: ladder(m, 0.82, hasPaddles ? ['Hand Paddles'] : []) }; },
+          function (m) { return { label: 'Round 3 — All-Out Ladder', sets: ladder(m, 0.76, []) }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Shortening the distance each rep while holding — or increasing — your velocity as fatigue accumulates is the single best predictor of how you finish a race, not how you start one.'
+        'Shortening the distance each rep while holding — or increasing — your velocity as fatigue accumulates is the single best predictor of how you finish a race. Each round resets the ladder at a faster baseline than the last, layering that skill under real fatigue.'
       ]
     }
   ];
@@ -1813,47 +1905,83 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       name: 'Aerobic Base',
       build: function (shareM, pace100, scaler, nextStroke, equipment, totalM) {
         var longRep = totalM >= 3000 ? 400 : 200;
-        return [buildSet(Math.max(2, Math.round(shareM / longRep)), longRep, nextStroke() + ', steady sustainable pace', [], pace100, 20, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Steady Aerobic Base', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', steady sustainable pace', [], pace100, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Controlled Tempo', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', same pace, tighter interval than Round 1', [], pace100 - 2, 12, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Buoy-Assisted Cruise', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', pull, focus on rhythm not effort', ['Pull Buoy'], pace100 + 2, 20, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Sustained swimming at a steady, controlled effort is how you build mitochondrial density and improve your body’s ability to use oxygen efficiently — it’s the aerobic engine every longer swim is ultimately built on.'
+        'Sustained swimming at a steady, controlled effort is how you build mitochondrial density and improve your body’s ability to use oxygen efficiently. Each round changes the interval or the tool while the pace stays honest, so the aerobic engine gets built from more than one angle.'
       ]
     },
     {
       name: 'Negative-Split Pull',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
-        return [buildSet(Math.max(2, Math.round(shareM / 100)), 100, 'Pull — back half faster than front half', equipment.filter(function (g) { return g === 'Pull Buoy' || g === 'Hand Paddles'; }), pace100 + 5, 20, scaler)];
+        var gear = equipment.filter(function (g) { return g === 'Pull Buoy' || g === 'Hand Paddles'; });
+        var g = gear.length ? gear : ['Pull Buoy'];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Even Pace Pull', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — even, controlled pace throughout', g, pace100 + 8, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Negative Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — back half faster than front half', g, pace100 + 5, 20, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — descend 1 through the set', g, pace100 + 2, 15, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Swimming the second half faster proves — to your body and your head — that you can accelerate on command even with real work already in the legs and lungs. That’s pacing discipline, and it’s trainable.'
+        'Swimming the second half faster proves — to your body and your head — that you can accelerate on command even with real work already in the legs and lungs. Each round raises that demand, from an even pace up to a full descend, so pacing discipline is built in layers.'
       ]
     },
     {
       name: 'Descend Ladder',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(4, Math.round(shareM / 50)), 50, nextStroke() + ', descend — each rep faster than the last', [], pace100 + 8, 15, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Descend 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', descend — each rep faster than the last', [], pace100 + 8, 15, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Descend, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', descend again — less rest than Round 1', [], pace100 + 4, 10, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Best Average Challenge', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', hold your fastest Round 2 pace for every single rep', [], pace100, 10, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Getting faster on every rep forces you to control effort early so you have something left to give late — exactly the discipline that prevents the third-quarter fade in a longer race.'
+        'Getting faster on every rep forces you to control effort early so you have something left to give late. Each round tightens the interval or raises the bar the last round set, exactly the discipline that prevents the third-quarter fade in a longer race.'
       ]
     },
     {
       name: 'Broken Threshold Swim',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(2, Math.round(shareM / 200)), 200, nextStroke() + ', held at threshold effort — controlled but honest', [], pace100 + 3, 12, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Threshold Entry', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', held at threshold effort — controlled but honest', [], pace100 + 5, 15, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Threshold, Shorter Rest', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', held at threshold effort — half the rest of Round 1', [], pace100 + 3, 8, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Broken 200 Push', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', broken into 2x100 @ 10s — push the pace', [], pace100, 20, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Short rest breaks let you accumulate more total time near your threshold pace than one long unbroken swim would allow — that’s precisely where your aerobic ceiling gets pushed up.'
+        'Short rest breaks let you accumulate more total time near your threshold pace than one long unbroken swim would allow. Each round shortens the rest or the pace target, precisely where your aerobic ceiling gets pushed up.'
       ]
     },
     {
       name: 'Build-By-Thirds',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var dist = Math.max(200, Math.round(shareM / 100) * 100);
-        return [buildSet(1, dist, nextStroke() + ', build by thirds — easy / moderate / strong across the swim', [], pace100 + 6, 15, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — easy / moderate / strong across the swim', [], pace100 + 6, 15, scaler)] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 2 — Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ', same build pattern — each third starts faster than last round', [], pace100 + 2, 15, scaler)] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 3 — Race-Effort Final Third', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — final third at race effort', [], pace100, 15, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Shifting gears within one continuous swim, rather than resting between reps, trains the more specific skill of changing pace mid-race without losing stroke length or rhythm.'
+        'Shifting gears within one continuous swim, rather than resting between reps, trains the more specific skill of changing pace mid-race without losing stroke length or rhythm. Each round raises the baseline, so the same shift gets harder to execute cleanly.'
       ]
     }
   ];
@@ -1862,46 +1990,82 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     {
       name: 'Drill Focus',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(4, Math.round(shareM / 50)), 50, nextStroke() + ', technique drill — catch & body position', ['Snorkel'], pace100 + 12, 20, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', technique drill — catch & body position', ['Snorkel'], pace100 + 14, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', odd 25 drill, even 25 full stroke — hold the drill feel', [], pace100 + 10, 18, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Full Stroke, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke, one technical cue per length', [], pace100 + 6, 15, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Isolating the catch and body position at low intensity lets your nervous system actually rewire the movement pattern — fatigue is what causes swimmers to revert to old habits, so we work on this while you’re fresh.'
+        'Isolating the catch and body position at low intensity lets your nervous system actually rewire the movement pattern. Each round removes a layer of scaffolding — first the drill alone, then blended with full stroke, then full stroke with just a cue — so the fix survives contact with real swimming.'
       ]
     },
     {
       name: 'Equipment Strength',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
-        return [buildSet(Math.max(2, Math.round(shareM / 100)), 100, 'Equipment-assisted pace work', equipment.length ? equipment : ['Pull Buoy'], pace100 + 8, 20, scaler)];
+        var gear = equipment.length ? equipment : ['Pull Buoy'];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Equipment-Assisted Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Equipment-assisted pace work', gear, pace100 + 10, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Equipment-Assisted Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Equipment-assisted pace work — same gear, faster target', gear, pace100 + 6, 18, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Gear Off, Transfer Check', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear — transfer the feel built in Rounds 1-2', [], pace100 + 4, 15, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Equipment isolates specific muscle groups and removes compensations, so the strength or feel you build here transfers directly back into full-stroke swimming once the gear comes off.'
+        'Equipment isolates specific muscle groups and removes compensations. The final round strips the gear away on purpose — that’s the only way to prove the strength or feel actually transfers back into full-stroke swimming.'
       ]
     },
     {
       name: 'Stroke-Count Focus',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(4, Math.round(shareM / 25)), 25, nextStroke() + ', minimum strokes per length', [], pace100 + 15, 20, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Baseline Count', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', minimum strokes per length', [], pace100 + 15, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Hold Count, Add Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', same stroke count as Round 1, faster pace', [], pace100 + 10, 15, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', race pace — see how much your count rises under speed', [], pace100 + 4, 12, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Counting strokes per length makes efficiency measurable, not just a feeling. Fewer, longer strokes at the same pace means more distance per stroke — and that’s what separates efficient swimmers from merely strong ones.'
+        'Counting strokes per length makes efficiency measurable, not just a feeling. Each round holds that same count against a faster and faster target — the honest test of whether your efficiency survives speed.'
       ]
     },
     {
       name: 'Catch-Up Drill Progression',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(4, Math.round(shareM / 50)), 50, nextStroke() + ', catch-up drill — full extension before the next arm pulls', [], pace100 + 14, 20, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Catch-Up, Slow & Exaggerated', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', catch-up drill — full extension before the next arm pulls', [], pace100 + 16, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', first 25 catch-up, second 25 full stroke holding the extension', [], pace100 + 10, 18, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Full Stroke, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke — hold the same front-end extension at speed', [], pace100 + 6, 15, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Catch-up drilling forces a complete extension and a distinct catch before the recovering arm enters — isolating the exact moment most swimmers rush and lose their hold on the water.'
+        'Catch-up drilling forces a complete extension and a distinct catch before the recovering arm enters. Each round hands more of the stroke back to full speed while asking you to keep that same extension — isolating the exact moment most swimmers rush and lose their hold on the water.'
       ]
     },
     {
       name: 'Tempo Awareness Set',
       build: function (shareM, pace100, scaler, nextStroke) {
-        return [buildSet(Math.max(4, Math.round(shareM / 50)), 50, nextStroke() + ', vary stroke rate each rep — same effort, different tempo', [], pace100 + 10, 20, scaler)];
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Slow Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', deliberately slow stroke rate, same effort', [], pace100 + 12, 20, scaler)] }; },
+          function (m) { return { label: 'Round 2 — Fast Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', deliberately fast stroke rate, same effort', [], pace100 + 8, 15, scaler)] }; },
+          function (m) { return { label: 'Round 3 — Choose Your Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', pick whichever tempo felt fastest for the same effort', [], pace100 + 4, 12, scaler)] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
       intents: [
-        'Deliberately varying stroke rate without changing effort builds the awareness to choose the most efficient tempo for any pace — instead of defaulting to whatever tempo feels familiar.'
+        'Deliberately varying stroke rate without changing effort builds the awareness to choose the most efficient tempo for any pace. The final round hands the choice back to you — the real test of whether that awareness stuck.'
       ]
     }
   ];
@@ -1969,7 +2133,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
       var shareM = Math.round((mainM * share) / 100) * 100 || 100;
       return {
         name: archetype.name,
-        sets: archetype.build(shareM, pace100, scaler, nextStroke, state.equipment, totalM),
+        rounds: archetype.build(shareM, pace100, scaler, nextStroke, state.equipment, totalM),
         intent: pickOne(archetype.intents)
       };
     });
@@ -1977,9 +2141,9 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var cooldown = [buildSet(1, cooldownM, nextStroke() + ', easy — focus on relaxed breathing', [], pace100 + 20, 15, noScale)];
     var cooldownIntent = pickOne(COOLDOWN_INTENTS[state.level]);
 
-    var html = renderBlock('Warm-Up', warmup, warmupIntent) +
-      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.sets, block.intent); }).join('') +
-      renderBlock('Cool-Down', cooldown, cooldownIntent);
+    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], warmupIntent) +
+      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, block.intent); }).join('') +
+      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
