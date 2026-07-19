@@ -109,12 +109,10 @@ gated by ordinary owner-only rules (`sender` must be `'user'` on their own write
 swimmer's inbox widget sits above the paywall overlay in z-order deliberately — a locked-out
 swimmer can still read and reply to a support message from the team.
 
-**Known pre-existing risk, not introduced by the tier system above but now higher-stakes:**
-`PADDLE_PRICE_IDS` in index.html holds Paddle **product** ids (`pro_...`) where
-`Paddle.Checkout.open()` needs a **price** id (`pri_...`) — checkout was already flagged as
-needing a fix in the Paddle dashboard before real customers subscribe. Now that trial expiry
-leads to a hard paywall, confirm checkout actually works before merging this to `main` —
-otherwise a swimmer whose trial lapses would have no working way to pay.
+`PADDLE_PRICE_IDS` in index.html holds real Paddle **price** ids (`pri_...`, fixed 2026-07-19 —
+it previously held product ids, which `Paddle.Checkout.open()` rejects). The **product** ids
+those prices belong to are a separate, still-correct mapping used server-side in
+`functions/index.js` (`PADDLE_PLAN_BY_PRODUCT_ID`) to resolve a webhook event to a plan.
 
 **New Distance Tracker tab** (`data-tab="tracker"`, `#panel-tracker`) lets a signed-in swimmer
 manually log a swim (date + km + optional discipline) to `swim_logs/{uid}/entries/{entryId}`
