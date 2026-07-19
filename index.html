@@ -409,8 +409,46 @@ section { position: relative; scroll-margin-top: 96px; }
 .lane-strip::after { content: ''; flex: 1; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--aqua) 0 22px, transparent 22px 40px); opacity: 0.35; }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
-.dashboard { padding-block: var(--space-6) var(--space-8); }
-.dash-panels { position: relative; }
+.dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
+.dash-panels { position: relative; z-index: 1; }
+
+/* Full-screen ambient background behind the Workouts and Gym tabs only —
+   fades in/out on tab switch, sits behind the dash-panels content, and
+   bakes a near-opaque dark gradient into its own layer so section-head
+   text (which isn't inside a solid-background card) stays fully legible. */
+.dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity 600ms ease; }
+#dashboard[data-active-tab="workouts"] .dash-ambient-bg,
+#dashboard[data-active-tab="gym"] .dash-ambient-bg { opacity: 1; }
+.dash-ambient-bg::before {
+  content: ''; position: absolute; inset: -12%;
+  background:
+    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(56,224,196,0.16), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 88% 25%, rgba(34,211,238,0.12), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 30% 95%, rgba(56,224,196,0.12), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 90% 90%, rgba(120,200,255,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(11,19,18,0.97) 0%, rgba(11,19,18,0.88) 45%, rgba(11,19,18,0.97) 100%);
+  filter: blur(4px);
+  animation: dashAmbientDrift 28s ease-in-out infinite alternate;
+}
+.dash-ambient-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(124deg, transparent 0px, transparent 34px, rgba(255,255,255,0.03) 34px, rgba(255,255,255,0.03) 38px, transparent 38px, transparent 76px);
+  background-size: 220% 220%;
+  animation: dashAmbientCaustic 20s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes dashAmbientDrift {
+  0% { transform: translate(-2%, -1%) scale(1.04); }
+  50% { transform: translate(2%, 2%) scale(1.09); }
+  100% { transform: translate(-1%, 1%) scale(1.06); }
+}
+@keyframes dashAmbientCaustic {
+  0% { background-position: 0px 0px; }
+  100% { background-position: 140px 90px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
+}
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
    more expansive — a deliberate "flagship feature" width, wider than the
@@ -963,6 +1001,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
+  <div class="dash-ambient-bg" aria-hidden="true"></div>
   <div class="wrap dash-panels">
 
     <!-- ---------- DISCIPLINES ---------- -->
@@ -1409,6 +1448,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     var next = document.getElementById('panel-' + id);
     if (!next) return;
     next.classList.add('active');
+    dashboard.setAttribute('data-active-tab', id);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { next.classList.add('in'); });
     });
