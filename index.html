@@ -79,6 +79,14 @@
   const googleProvider = new GoogleAuthProvider();
   const EMAIL_LINK_STORAGE_KEY = 'swimfitEmailForSignIn';
 
+  // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
+  // Firebase ID token to its Cloud Function call without importing the SDK
+  // itself. Rejects cleanly if nobody's signed in — the widget treats that
+  // the same as any other "please sign in" case.
+  window.__firebaseGetIdToken = function () {
+    return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
+  };
+
   // Every signed-in user (Google or email-link) gets a Firestore profile doc.
   // createdAt is only ever set once, on the very first sign-in — everything
   // else (lastLoginAt, provider, display name/photo) refreshes on every visit.
@@ -1068,6 +1076,65 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .email-link-input:focus { border-color: var(--aqua); }
 .email-link-form .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
 .email-link-form .btn .icon { width: 16px; height: 16px; }
+
+/* ============================= AI SWIM COACH WIDGET ============================= */
+.coach-fab {
+  position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 210;
+  width: 60px; height: 60px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--green), var(--aqua));
+  color: var(--on-green); display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-2); border: none; cursor: pointer;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.coach-fab:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 24px 60px rgba(34,211,238,0.35); }
+.coach-fab .icon { width: 26px; height: 26px; }
+.coach-fab[aria-expanded="true"] { background: var(--surface-2); color: var(--aqua); }
+
+.coach-panel {
+  position: fixed; right: var(--space-4); bottom: calc(var(--space-4) + 76px); z-index: 210;
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  max-height: min(560px, calc(100vh - 140px));
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2); display: flex; flex-direction: column; overflow: hidden;
+  opacity: 0; transform: translateY(16px) scale(0.97); pointer-events: none;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.coach-panel.open { opacity: 1; transform: none; pointer-events: auto; }
+
+.coach-panel-header {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4); background: linear-gradient(135deg, var(--green-deep), var(--surface-2));
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.coach-panel-header h4 { margin: 0; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.coach-panel-header p { margin: 2px 0 0; font-size: 0.72rem; color: var(--muted); }
+.coach-panel-close { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.coach-panel-close:hover { background: rgba(255,255,255,0.08); }
+
+.coach-messages { flex: 1; overflow-y: auto; padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.coach-msg { display: flex; }
+.coach-msg-user { justify-content: flex-end; }
+.coach-msg-assistant { justify-content: flex-start; }
+.coach-bubble {
+  max-width: 84%; padding: 0.65em 0.9em; border-radius: var(--radius-sm); font-size: 0.88rem; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
+.coach-msg-user .coach-bubble { background: var(--green); color: var(--on-green); border-bottom-right-radius: 4px; }
+.coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.coach-bubble.coach-typing { color: var(--muted); font-style: italic; }
+.coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); }
+
+.coach-form { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.coach-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6em 0.9em; color: var(--fg); font-family: var(--font-body); font-size: 0.88rem; resize: none; max-height: 90px; }
+.coach-input:focus { border-color: var(--aqua); }
+.coach-send-btn { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--aqua); color: var(--on-aqua); border: none; cursor: pointer; transition: transform var(--dur) var(--ease); }
+.coach-send-btn:hover:not(:disabled) { transform: scale(1.06); }
+.coach-send-btn:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 480px) {
+  .coach-panel { right: var(--space-2); left: var(--space-2); width: auto; bottom: calc(var(--space-2) + 72px); max-height: min(520px, calc(100vh - 120px)); }
+  .coach-fab { right: var(--space-3); bottom: var(--space-3); }
+}
 </style>
 </head>
 <body>
@@ -1618,6 +1685,31 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 
     <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
   </div>
+</div>
+
+<!-- ============================= AI SWIM COACH WIDGET ============================= -->
+<button type="button" class="coach-fab" id="coachFab" aria-haspopup="dialog" aria-expanded="false" aria-label="Chat with the AI Swim Coach">
+  <svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg>
+</button>
+
+<div class="coach-panel" id="coachPanel" role="dialog" aria-labelledby="coachPanelTitle">
+  <div class="coach-panel-header">
+    <div>
+      <h4 id="coachPanelTitle">AI Swim Coach</h4>
+      <p>Technique, dryland &amp; log analysis — swim topics only</p>
+    </div>
+    <button type="button" class="coach-panel-close" id="coachPanelClose" aria-label="Close chat">
+      <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+    </button>
+  </div>
+  <div class="coach-messages" id="coachMessages"></div>
+  <form class="coach-form" id="coachForm">
+    <label for="coachInput" class="sr-only">Ask the AI Swim Coach</label>
+    <textarea id="coachInput" class="coach-input" rows="1" placeholder="Ask about technique, dryland, your log…" maxlength="2000" required></textarea>
+    <button type="submit" class="coach-send-btn" id="coachSendBtn" aria-label="Send">
+      <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+    </button>
+  </form>
 </div>
 
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
@@ -2809,6 +2901,121 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
     }
     requestAnimationFrame(step);
   });
+
+  /* ============================= AI SWIM COACH WIDGET =============================
+     Calls the aiSwimCoach Cloud Function (functions/index.js) — Firebase-Auth-gated,
+     so a signed-out visitor is routed to the sign-in modal instead of reaching the
+     API. Chat history lives in memory only (never persisted) and every bubble is
+     rendered with .textContent, never innerHTML, so nothing the AI returns — or a
+     crafted prompt tries to smuggle in — can ever execute as markup. */
+  var AI_COACH_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/aiSwimCoach';
+  var AI_COACH_HISTORY_LIMIT = 12;
+
+  (function wireAiCoach() {
+    var fab = document.getElementById('coachFab');
+    var panel = document.getElementById('coachPanel');
+    var closeBtn = document.getElementById('coachPanelClose');
+    var messagesEl = document.getElementById('coachMessages');
+    var form = document.getElementById('coachForm');
+    var input = document.getElementById('coachInput');
+    var sendBtn = document.getElementById('coachSendBtn');
+    if (!fab || !panel || !form || !messagesEl || !input || !sendBtn) return;
+
+    var coachHistory = [];
+    var sending = false;
+
+    function appendMessage(role, text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-' + role;
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return bubble;
+    }
+
+    function openPanel() {
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+      panel.classList.add('open');
+      fab.setAttribute('aria-expanded', 'true');
+      if (!messagesEl.children.length) {
+        appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach — ask me about stroke technique, dryland training, or how to read your workout log. What\'s up?');
+      }
+      setTimeout(function () { input.focus(); }, 50);
+    }
+    function closePanel() {
+      panel.classList.remove('open');
+      fab.setAttribute('aria-expanded', 'false');
+    }
+
+    fab.addEventListener('click', function () {
+      if (panel.classList.contains('open')) closePanel(); else openPanel();
+    });
+    closeBtn.addEventListener('click', closePanel);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('open')) closePanel(); });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (sending) return;
+      var text = (input.value || '').trim();
+      if (!text) return;
+      if (!window.__firebaseUser) { openPanel(); return; }
+
+      appendMessage('user', text);
+      input.value = '';
+      sending = true;
+      sendBtn.disabled = true;
+      var historyForRequest = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
+      coachHistory.push({ role: 'user', content: text });
+      coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
+
+      var typingBubble = appendMessage('assistant', 'Thinking…');
+      typingBubble.classList.add('coach-typing');
+
+      window.__firebaseGetIdToken().then(function (idToken) {
+        return fetch(AI_COACH_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify({
+            message: text,
+            history: historyForRequest,
+            discipline: state.disciplines.join(', '),
+            level: state.level,
+            goal: state.goal
+          })
+        });
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        typingBubble.classList.remove('coach-typing');
+        if (!result.ok || !result.data || !result.data.reply) {
+          typingBubble.classList.add('coach-error');
+          typingBubble.textContent = (result.data && result.data.error) || 'The coach couldn\'t process that — please try again.';
+          return;
+        }
+        typingBubble.textContent = result.data.reply;
+        coachHistory.push({ role: 'assistant', content: result.data.reply });
+        coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
+      }).catch(function () {
+        typingBubble.classList.remove('coach-typing');
+        typingBubble.classList.add('coach-error');
+        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+      }).finally(function () {
+        sending = false;
+        sendBtn.disabled = false;
+      });
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) closePanel();
+    });
+  })();
 
   /* ============================= INIT ============================= */
   renderGym('cardio');
