@@ -43,7 +43,16 @@ public-read/no-client-write; `email_otps` is fully server-only, no client access
 flow, aside from the Firebase-gated Paddle Billing checkout wired to the Subscribe buttons.
 A floating "AI Swim Coach" chat widget (gated behind sign-in) calls the `aiSwimCoach` Cloud
 Function, which proxies to the Claude API behind a strict swim-only system prompt and a
-per-user daily message cap.
+per-user daily message cap. There is also a dedicated full-screen "AI Coach" tab
+(`data-tab="coach"`, `#panel-coach`) in the same tab shell — a richer, independent surface
+over the identical endpoint, with its own in-memory chat history. Both surfaces let a
+swimmer attach up to 3 photos per message (workout log pages, gear, technique/posture
+stills); images are downscaled client-side to a 1600px longest edge and re-encoded as JPEG
+on a canvas before upload. `aiSwimCoach` accepts an optional `images` array
+(`{mediaType, data}` per image, base64-encoded, validated server-side against a media-type
+allowlist, a per-image size cap, and a per-message count cap) and forwards them to Claude as
+multimodal content blocks alongside the text turn — the floating widget never sends images,
+so this is purely additive.
 
 Right after a swimmer's first successful sign-in (Google or email-OTP — either path fires
 `onAuthStateChanged` the same way), an onboarding modal collects Full Name, Country, Age,

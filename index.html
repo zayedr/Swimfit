@@ -799,12 +799,14 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav-icon-target { animation: navTargetPulse 2.2s ease-in-out infinite; transform-origin: center; }
 .nav-icon-lane { animation: navLaneShift 2.8s ease-in-out infinite; }
 .nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out infinite; transform-origin: bottom center; }
+.nav-icon-comment { animation: navCommentPulse 2s ease-in-out infinite; transform-origin: center; }
 @keyframes navDumbbellPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 @keyframes navWaveRipple { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes navFinSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 @keyframes navTargetPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
 @keyframes navLaneShift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
 @keyframes navTrophyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes navCommentPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @media (prefers-reduced-motion: reduce) {
   .nav-icon, .nav-icon-wave path { animation: none !important; }
 }
@@ -1477,6 +1479,54 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   .coach-fab { right: var(--space-3); bottom: var(--space-3); }
 }
 
+/* ============================= AI SWIM COACH — FULL PAGE ============================= */
+.coach-page-shell {
+  display: flex; flex-direction: column; height: min(72vh, 760px); min-height: 480px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2); overflow: hidden;
+}
+.coach-page-locked {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  gap: var(--space-3); padding: var(--space-6); color: var(--muted);
+}
+.coach-page-locked .icon { width: 40px; height: 40px; color: var(--aqua); }
+.coach-page-locked h3 { color: var(--fg); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.coach-page-locked p { max-width: 40ch; }
+
+.coach-page-messages { padding: var(--space-5); }
+.coach-page-messages .coach-bubble { max-width: 74%; font-size: 0.95rem; }
+.coach-page-messages .coach-bubble-images { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.coach-page-messages .coach-bubble-images img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+
+.coach-page-attachments { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-4) 0; background: var(--bg-alt); }
+.coach-page-attachments[hidden] { display: none; }
+.coach-page-thumb { position: relative; width: 64px; height: 64px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); flex-shrink: 0; }
+.coach-page-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.coach-page-thumb-remove {
+  position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(7,11,10,0.75); color: var(--fg); display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
+}
+.coach-page-thumb-remove .icon { width: 12px; height: 12px; }
+.coach-page-thumb-remove:hover { background: var(--maroon); }
+
+.coach-page-form { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.coach-page-form-row { display: flex; gap: var(--space-2); align-items: flex-end; }
+.coach-attach-btn {
+  width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: var(--surface-2); color: var(--aqua); border: 1px solid var(--border); cursor: pointer; transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.coach-attach-btn .icon { width: 19px; height: 19px; }
+.coach-attach-btn:hover:not(:disabled) { transform: scale(1.06); background: var(--surface); }
+.coach-attach-btn:disabled { opacity: 0.5; cursor: default; }
+.coach-page-input { min-height: 42px; max-height: 140px; font-size: 0.95rem; }
+.coach-page-hint { margin: 0; font-size: 0.72rem; color: var(--muted-2); }
+.coach-page-hint.coach-page-hint-error { color: var(--maroon-bright); }
+
+@media (max-width: 640px) {
+  .coach-page-shell { height: min(78vh, 700px); border-radius: var(--radius); }
+  .coach-page-messages .coach-bubble { max-width: 88%; }
+}
+
 /* ============================= ANNOUNCEMENT BAR ============================= */
 .announce-bar {
   position: fixed; top: 0; inset-inline: 0; z-index: 150; height: var(--announce-h);
@@ -1728,6 +1778,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><button type="button" data-tab="gym"><svg class="icon nav-icon nav-icon-dumbbell" aria-hidden="true"><use href="#i-dumbbell"/></svg><span>Gym</span></button></li>
       <li><button type="button" data-tab="gear"><svg class="icon nav-icon nav-icon-fin" aria-hidden="true"><use href="#i-fin"/></svg><span>Gear</span></button></li>
       <li><button type="button" data-tab="academy"><svg class="icon nav-icon nav-icon-target" aria-hidden="true"><use href="#i-target"/></svg><span>Academy</span></button></li>
+      <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span>AI Coach</span></button></li>
       <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span>Pricing</span></button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
@@ -2264,6 +2315,45 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="grid grid-3" id="videoGrid"></div>
     </div>
 
+    <!-- ---------- AI COACH (full page) ---------- -->
+    <div class="tab-panel panel-wide" id="panel-coach">
+     <div class="panel-wide-inner">
+      <div class="section-head">
+        <p class="eyebrow"><svg class="icon"><use href="#i-comment"/></svg> AI Swim Coach</p>
+        <h2>Your Coach, On Call</h2>
+        <p>Ask about technique, dryland or your training log — attach a photo of a workout page, your gear, or your stroke for specific, coach-level feedback.</p>
+      </div>
+
+      <div class="coach-page-shell" data-auth-signed-out>
+        <div class="coach-page-locked">
+          <svg class="icon"><use href="#i-lock"/></svg>
+          <h3>Sign In To Chat With The Coach</h3>
+          <p>Creating a free account takes seconds and unlocks the full AI Swim Coach, including photo analysis of your technique, gear and logs.</p>
+          <button type="button" class="btn btn-primary" id="coachPageSignInBtn">Sign In</button>
+        </div>
+      </div>
+
+      <div class="coach-page-shell" data-auth-signed-in style="display:none">
+        <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
+        <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
+        <form class="coach-page-form" id="coachPageForm">
+          <div class="coach-page-form-row">
+            <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach or take a photo">
+              <svg class="icon"><use href="#i-camera"/></svg>
+            </button>
+            <input type="file" id="coachPageFileInput" accept="image/*" multiple capture="environment" hidden>
+            <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
+            <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo…" maxlength="2000"></textarea>
+            <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+          <p class="coach-page-hint" id="coachPageHint">Up to 3 photos per message · JPEG, PNG, WEBP or GIF</p>
+        </form>
+      </div>
+     </div>
+    </div>
+
     <!-- ---------- PRICING ---------- -->
     <div class="tab-panel" id="panel-pricing">
       <div class="section-head center">
@@ -2363,6 +2453,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
           <li><button type="button" data-tab="gear">Gear</button></li>
           <li><button type="button" data-tab="academy">Technique Academy</button></li>
+          <li><button type="button" data-tab="coach">AI Swim Coach</button></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -3907,6 +3998,224 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     document.addEventListener('swimfit:authchange', function (e) {
       if (!e.detail.user) closePanel();
+    });
+  })();
+
+  /* ============================= AI SWIM COACH — FULL PAGE ============================= */
+  /* A second, richer surface for the same aiSwimCoach endpoint: full-width chat
+     history plus photo attachments (workout logs, gear, technique stills) that
+     get downscaled/re-encoded client-side before upload. Entirely independent
+     of wireAiCoach() above — the floating widget is untouched. Same
+     .textContent-only rendering discipline for anything AI-sourced; the only
+     img src values ever set here are local blob/data URLs of the user's own
+     selected photos, never anything from the network response. */
+  var AI_COACH_PAGE_MAX_IMAGES = 3;
+  var AI_COACH_PAGE_MAX_DIMENSION = 1600;
+  var AI_COACH_PAGE_JPEG_QUALITY = 0.82;
+
+  (function wireAiCoachPage() {
+    var messagesEl = document.getElementById('coachPageMessages');
+    var attachmentsEl = document.getElementById('coachPageAttachments');
+    var form = document.getElementById('coachPageForm');
+    var input = document.getElementById('coachPageInput');
+    var sendBtn = document.getElementById('coachPageSendBtn');
+    var attachBtn = document.getElementById('coachPageAttachBtn');
+    var fileInput = document.getElementById('coachPageFileInput');
+    var hint = document.getElementById('coachPageHint');
+    var signInBtn = document.getElementById('coachPageSignInBtn');
+    if (!messagesEl || !form || !input || !sendBtn || !attachBtn || !fileInput) return;
+
+    var coachPageHistory = [];
+    var pendingImages = []; // { mediaType, data (base64, no prefix), previewUrl }
+    var sending = false;
+    var welcomed = false;
+
+    if (signInBtn) {
+      signInBtn.addEventListener('click', function () { if (typeof openAuthModal === 'function') openAuthModal(); });
+    }
+
+    function appendMessage(role, text, images) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-' + role;
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      if (images && images.length) {
+        var imgWrap = document.createElement('div');
+        imgWrap.className = 'coach-bubble-images';
+        images.forEach(function (src) {
+          var img = document.createElement('img');
+          img.src = src;
+          img.alt = 'Attached photo';
+          imgWrap.appendChild(img);
+        });
+        bubble.appendChild(imgWrap);
+      }
+      if (text) {
+        var textNode = document.createElement('div');
+        textNode.textContent = text;
+        bubble.appendChild(textNode);
+      }
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return bubble;
+    }
+
+    function setHint(text, isError) {
+      if (!hint) return;
+      hint.textContent = text;
+      hint.classList.toggle('coach-page-hint-error', !!isError);
+    }
+    function resetHint() {
+      setHint('Up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos per message · JPEG, PNG, WEBP or GIF', false);
+    }
+
+    function renderAttachments() {
+      attachmentsEl.innerHTML = '';
+      attachmentsEl.hidden = pendingImages.length === 0;
+      pendingImages.forEach(function (img, idx) {
+        var thumb = document.createElement('div');
+        thumb.className = 'coach-page-thumb';
+        var el = document.createElement('img');
+        el.src = img.previewUrl;
+        el.alt = 'Selected photo ' + (idx + 1);
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'coach-page-thumb-remove';
+        removeBtn.setAttribute('aria-label', 'Remove photo');
+        removeBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>';
+        removeBtn.addEventListener('click', function () {
+          pendingImages.splice(idx, 1);
+          renderAttachments();
+        });
+        thumb.appendChild(el);
+        thumb.appendChild(removeBtn);
+        attachmentsEl.appendChild(thumb);
+      });
+    }
+
+    // Downscale to at most AI_COACH_PAGE_MAX_DIMENSION on the longest edge and
+    // re-encode as JPEG — keeps upload size and Anthropic API cost/latency
+    // down regardless of how large the original phone photo was.
+    function compressImageFile(file) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        var objectUrl = URL.createObjectURL(file);
+        img.onload = function () {
+          URL.revokeObjectURL(objectUrl);
+          var w = img.naturalWidth, h = img.naturalHeight;
+          var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
+          resolve({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
+        };
+        img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('image decode failed')); };
+        img.src = objectUrl;
+      });
+    }
+
+    attachBtn.addEventListener('click', function () {
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(fileInput.files || []);
+      fileInput.value = '';
+      if (!files.length) return;
+      var room = AI_COACH_PAGE_MAX_IMAGES - pendingImages.length;
+      if (room <= 0) { setHint('You can attach up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos per message.', true); return; }
+      files = files.filter(function (f) { return f.type.indexOf('image/') === 0; }).slice(0, room);
+      if (!files.length) return;
+      Promise.all(files.map(compressImageFile)).then(function (results) {
+        pendingImages = pendingImages.concat(results);
+        renderAttachments();
+        resetHint();
+      }).catch(function () {
+        setHint('Couldn\'t read one of those photos — try a different file.', true);
+      });
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (sending) return;
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+
+      var text = (input.value || '').trim();
+      var images = pendingImages.slice();
+      if (!text && !images.length) return;
+      if (!text) text = 'Please take a look at the attached photo(s) and give me your feedback.';
+
+      appendMessage('user', text, images.map(function (img) { return img.previewUrl; }));
+      input.value = '';
+      pendingImages = [];
+      renderAttachments();
+      resetHint();
+
+      sending = true;
+      sendBtn.disabled = true;
+      attachBtn.disabled = true;
+      var historyForRequest = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
+      coachPageHistory.push({ role: 'user', content: text });
+      coachPageHistory = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
+
+      var typingBubble = appendMessage('assistant', 'Thinking…');
+      typingBubble.classList.add('coach-typing');
+
+      window.__firebaseGetIdToken().then(function (idToken) {
+        return fetch(AI_COACH_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify({
+            message: text,
+            history: historyForRequest,
+            discipline: state.disciplines.join(', '),
+            level: state.level,
+            goal: state.goal,
+            images: images.map(function (img) { return { mediaType: img.mediaType, data: img.data }; })
+          })
+        });
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        typingBubble.classList.remove('coach-typing');
+        if (!result.ok || !result.data || !result.data.reply) {
+          typingBubble.classList.add('coach-error');
+          typingBubble.textContent = (result.data && result.data.error) || 'The coach couldn\'t process that — please try again.';
+          return;
+        }
+        typingBubble.textContent = result.data.reply;
+        coachPageHistory.push({ role: 'assistant', content: result.data.reply });
+        coachPageHistory = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
+      }).catch(function () {
+        typingBubble.classList.remove('coach-typing');
+        typingBubble.classList.add('coach-error');
+        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+      }).finally(function () {
+        sending = false;
+        sendBtn.disabled = false;
+        attachBtn.disabled = false;
+      });
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    function maybeWelcome() {
+      if (welcomed || !window.__firebaseUser || messagesEl.children.length) return;
+      welcomed = true;
+      appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
+    }
+    document.querySelectorAll('[data-tab="coach"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { setTimeout(maybeWelcome, 0); });
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (e.detail.user) maybeWelcome();
     });
   })();
 
