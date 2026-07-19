@@ -13,7 +13,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // Field-level allowlist, not just an owner-check: even though this is
+      // the swimmer's own doc, restricting *which* fields the client can
+      // ever write means adding a privileged field here later (e.g. an
+      // entitlement flag) can't accidentally become client-settable just
+      // because it lives in a doc the owner already has write access to.
+      // create/update are split because resource.data doesn't exist yet on
+      // the first write, so .diff() can't run against it.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys()
+             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt']);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt']);
+      allow delete: if false;
     }
 
     match /stats/counters {

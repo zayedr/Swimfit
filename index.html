@@ -6,6 +6,47 @@
 <title>Swimfit — Premium Swim Training Dashboard</title>
 <meta name="description" content="Swimfit is a premium swim-training dashboard: build a custom daily workout by discipline, distance, equipment and goal, pick your dryland focus, and manage your membership — for beginners through elite athletes.">
 <meta name="theme-color" content="#070B0A">
+<!--
+  Content-Security-Policy — drafted, NOT yet enabled. Deliberately left
+  commented out rather than switched on blind:
+    - GitHub Pages serves this file with no way to set custom HTTP response
+      headers, so a <meta> tag is the only delivery option at all.
+    - Report-Only mode is NOT supported via <meta> — confirmed directly in a
+      real Chromium console: "The report-only Content Security Policy ...
+      was delivered via a <meta> element, which is disallowed. The policy
+      has been ignored." So there is no zero-risk way to test this in place
+      on a static host — it's enforcing from the moment it's uncommented.
+    - It also can't be verified here against the live Firebase Auth/Paddle
+      Checkout traffic (this environment has no outbound network access at
+      all), so getting an origin wrong could silently break Google Sign-In
+      or checkout for real visitors — worse than having no CSP.
+  To enable: uncomment the <meta> tag below, deploy to a preview/staging
+  URL if you have one (or accept testing directly on production), then in a
+  real browser exercise Google Sign-In, the email-link flow, and a Paddle
+  checkout end to end. If anything breaks, the browser console names the
+  exact blocked origin/directive to add. Rolling back is just re-commenting
+  this tag.
+  It covers every external origin the site actually uses (Firebase Auth/
+  Firestore, Paddle Billing, Google Fonts, the CloudFront media host, and
+  YouTube embeds) plus 'unsafe-inline' for script/style, which it can't avoid
+  without a build step to add nonces to the page's inline <script>/<style>
+  blocks — so it restricts which *external* origins can load a script, open
+  a connection, or be framed, without being a complete inline-XSS mitigation.
+
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.paddle.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data: https://d8j0ntlcm91z4.cloudfront.net https://*.paddle.com;
+  media-src 'self' https://d8j0ntlcm91z4.cloudfront.net;
+  connect-src 'self' https://*.googleapis.com https://*.google.com https://*.paddle.com https://*.cloudfunctions.net https://*.run.app;
+  frame-src https://www.youtube-nocookie.com https://*.paddle.com https://swimfi-ae.firebaseapp.com;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+">
+-->
 <script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
@@ -165,9 +206,33 @@
       });
     });
 
+    // A short client-side cooldown after each successful send. This is a UX
+    // speed bump, not a real security boundary — someone could still call
+    // the SDK directly from a script — but it stops the on-page form itself
+    // from being trivially mashed into a mail-bombing tool. Firebase App
+    // Check (reCAPTCHA) is the real production-grade mitigation for this;
+    // see the note in functions/index.js.
+    var EMAIL_LINK_COOLDOWN_SECONDS = 45;
+    var emailCooldownUntil = 0;
+    function startEmailCooldown() {
+      emailCooldownUntil = Date.now() + EMAIL_LINK_COOLDOWN_SECONDS * 1000;
+      emailSubmitBtn.disabled = true;
+      (function tick() {
+        var remaining = Math.ceil((emailCooldownUntil - Date.now()) / 1000);
+        if (remaining <= 0) {
+          emailSubmitBtn.disabled = false;
+          emailSubmitBtn.innerHTML = '<svg class="icon"><use href="#i-comment"/></svg> Send Me a Sign-In Link';
+          return;
+        }
+        emailSubmitBtn.textContent = 'Resend available in ' + remaining + 's';
+        setTimeout(tick, 1000);
+      })();
+    }
+
     if (emailForm) {
       emailForm.addEventListener('submit', function (e) {
         e.preventDefault();
+        if (Date.now() < emailCooldownUntil) return;
         var email = (emailInput.value || '').trim();
         if (!email) return;
         emailSubmitBtn.disabled = true;
@@ -177,10 +242,10 @@
         sendSignInLinkToEmail(auth, email, actionCodeSettings).then(function () {
           window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
           statusNote.textContent = 'Check your Gmail inbox — tap the secure link we just sent to ' + email + ' to finish signing in.';
+          startEmailCooldown();
         }).catch(function (error) {
           statusNote.style.color = '#e5484d';
           statusNote.textContent = describeAuthError(error, 'Couldn’t send the sign-in link — please try again.');
-        }).finally(function () {
           emailSubmitBtn.disabled = false;
         });
       });
