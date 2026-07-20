@@ -124,11 +124,14 @@ service cloud.firestore {
     }
 
     match /usernames/{username} {
-      // A single-document get (used for the live "is this available?" check
-      // and inside the claiming transaction) is allowed for any signed-in
-      // swimmer. list is blocked so the full username directory can never be
-      // scraped/enumerated.
-      allow get: if request.auth != null;
+      // A single-document get (used for the live "is this available?" check,
+      // now surfaced in the upfront Create Account form before the swimmer
+      // has even verified their email — so before request.auth exists — and
+      // again inside the claiming transaction) is allowed for anyone. list is
+      // blocked so the full username directory can never be scraped/enumerated,
+      // and a get only ever reveals "does this exact username exist", never
+      // who it belongs to beyond the uid already on the doc.
+      allow get: if true;
       allow list: if false;
       // Only ever a brand-new reservation the caller is making for themselves,
       // for a well-formed username, holding nothing but the two expected

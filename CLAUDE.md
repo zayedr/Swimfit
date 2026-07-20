@@ -126,9 +126,26 @@ tracking anywhere else in the app, so this is deliberately a manual log, not der
 Workout Generator's proposed sets.
 
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
-only swaps copy/button labels — both modes drive the exact same Google + email-OTP mechanics,
-since `verifyEmailOtp` already creates the Firebase account transparently on first use. There is
-still no password anywhere in this app by design.
+swaps copy/button labels *and* which fields are visible — both modes still drive the exact same
+Google + email-OTP mechanics underneath, since `verifyEmailOtp` already creates the Firebase
+account transparently on first use, and there's still no password anywhere in this app by design.
+Create Account mode additionally shows Full Name + Username fields (`#otpSignupFields`) inline in
+the very first step, alongside Email — all captured and validated client-side *before* a code is
+ever sent, rather than waiting for a later onboarding step, so a swimmer's name/username reaches
+Firestore as early as possible. The Username field gets the same live availability check as the
+onboarding wizard's (debounced `getDoc` against `usernames/{username}`, reusing
+`window.__onboardingCheckUsernameTaken`) — `firestore.rules`' `usernames/{username}` allows `get`
+for anyone (including signed-out visitors), specifically so this pre-auth check works; `list` stays
+blocked so the directory can't be enumerated. On submit, the pending Full Name/Username are held in
+memory and sent alongside `email`/`code` to `verifyEmailOtp`, which persists them via the Admin SDK
+(`captureUpfrontProfile`) at the moment the account is actually verified/created — a Firestore
+`users/{uid}` merge write plus an atomic `usernames/{username}` claim transaction, mirroring what
+the onboarding wizard does, but happening immediately rather than depending on the wizard being
+completed. This is entirely best-effort and non-fatal to sign-in: any Firestore error here is
+swallowed (logged server-side only) and the swimmer still gets signed in; a name/username that
+doesn't make it through this path is simply captured later via the wizard instead, same as before
+this existed. Google sign-in has no equivalent upfront form (Google's own popup only ever returns
+name/email/photo), so it's unaffected and still relies entirely on the wizard below.
 
 Right after a swimmer's first successful sign-in (Google or email-OTP — either path fires
 `onAuthStateChanged` the same way), a 3-step onboarding **wizard** (`#onboardingModal`, gated on
@@ -137,18 +154,25 @@ walks a new swimmer through: **Step 1 (Account Info)** — Full Name, Country, a
 and their already-verified Email shown read-only; **Step 2 (Training Specialization)** —
 discipline(s), target distance, and training focus, using the exact same chip/slider controls as
 the Workouts tab; **Step 3 (Fitness Metrics)** — Age, DOB, and optional 50m/100m PBs plus gym
-working weight/strength limit. All wizard inputs use custom JS validation per step, not the
-`required` HTML attribute — Chromium's native constraint validation still considers `required`
-fields inside a later, currently-`hidden` step and silently blocks the whole form's submit event,
-so relying on it breaks a multi-step form. Completing the wizard writes everything to
-`users/{uid}` in one transaction (`window.__onboardingSaveProfile`, module `<script>`) alongside
-the username claim, *and* immediately pushes Steps 2-3's answers into the live Workouts/Gym
-generator controls and regenerates both — so the swimmer's first look at either tab already
-reflects what they just told us, not the site defaults. Username uniqueness is enforced by a
-Firestore transaction claiming `usernames/{username}` (doc ID = the normalized username)
-alongside the `users/{uid}` write — `firestore.rules` only allows *creating* a
+working weight/strength limit. Step 1's Full Name/Username prefill (and Username locks read-only)
+whenever they were already captured upfront via the Create Account form above — `ensureUserProfile`
+passes the freshly-read `users/{uid}` snapshot into `window.__openOnboardingIfNeeded(user,
+existingProfileData)` so the wizard never re-asks for data it already has. All wizard inputs use
+custom JS validation per step, not the `required` HTML attribute — Chromium's native constraint
+validation still considers `required` fields inside a later, currently-`hidden` step and silently
+blocks the whole form's submit event, so relying on it breaks a multi-step form. Completing the
+wizard writes everything to `users/{uid}` in one transaction (`window.__onboardingSaveProfile`,
+module `<script>`) alongside the username claim, *and* immediately pushes Steps 2-3's answers into
+the live Workouts/Gym generator controls and regenerates both — so the swimmer's first look at
+either tab already reflects what they just told us, not the site defaults. Username uniqueness is
+enforced by a Firestore transaction claiming `usernames/{username}` (doc ID = the normalized
+username) alongside the `users/{uid}` write — `firestore.rules` only allows *creating* a
 `usernames/{username}` doc that doesn't already exist and forbids update/delete entirely, so a
 username reservation is permanent and race-safe without needing a Cloud Function.
+`__onboardingSaveProfile`'s transaction treats a username doc that already exists *and* is owned by
+the same uid as a no-op rather than a conflict (only a different uid owning it is a real
+`USERNAME_TAKEN` failure) — this is what lets a swimmer who already claimed their username upfront
+finish the wizard without the transaction spuriously failing on its own prior claim.
 
 Between the persistent About section and the tabbed shell, the landing page carries five
 conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch

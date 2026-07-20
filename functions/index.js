@@ -792,6 +792,64 @@ function hashOtpCode(code, email) {
   return crypto.createHash('sha256').update(code + ':' + email).digest('hex');
 }
 
+var ONBOARDING_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+function normalizeUsername(raw) {
+  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+}
+function sanitizeFullName(raw) {
+  var name = typeof raw === 'string' ? raw.trim() : '';
+  return name.length > 0 && name.length <= 80 ? name : '';
+}
+
+// Best-effort capture of the swimmer's name/username at the moment their
+// account is verified/created — mirrors what the onboarding wizard would
+// otherwise write later, so a swimmer who fills out the upfront Create
+// Account fields shows up in Firestore immediately instead of depending on
+// them finishing the wizard. Never throws: any failure here must not block
+// sign-in, since the wizard remains the fallback path for this same data.
+async function captureUpfrontProfile(uid, email, fullNameRaw, usernameRaw) {
+  var fullName = sanitizeFullName(fullNameRaw);
+  var username = normalizeUsername(usernameRaw);
+  var validUsername = username && ONBOARDING_USERNAME_RE.test(username);
+
+  var result = { usernameClaimed: false };
+  try {
+    var userRef = db.collection('users').doc(uid);
+    var userSnap = await userRef.get();
+    var existing = userSnap.exists ? userSnap.data() : null;
+
+    var profileUpdate = { lastLoginAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (!userSnap.exists) {
+      profileUpdate.email = email;
+      profileUpdate.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      profileUpdate.trialStartedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+    if (fullName && !(existing && existing.fullName)) {
+      profileUpdate.fullName = fullName;
+    }
+    await userRef.set(profileUpdate, { merge: true });
+
+    if (validUsername && !(existing && existing.username)) {
+      var usernameRef = db.collection('usernames').doc(username);
+      try {
+        await db.runTransaction(async function (tx) {
+          var usernameSnap = await tx.get(usernameRef);
+          if (usernameSnap.exists) throw new Error('USERNAME_TAKEN');
+          tx.set(usernameRef, { uid: uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+          tx.set(userRef, { username: username }, { merge: true });
+        });
+        result.usernameClaimed = true;
+      } catch (err) {
+        // Username already taken by someone else — non-fatal, the swimmer
+        // can still pick a different one later via the onboarding wizard.
+      }
+    }
+  } catch (err) {
+    logger.error('captureUpfrontProfile: failed to persist upfront profile data', err);
+  }
+  return result;
+}
+
 function otpEmailHtml(code) {
   return (
     '<div style="background:#070B0A;padding:40px 20px;font-family:Helvetica,Arial,sans-serif;">' +
@@ -913,6 +971,13 @@ exports.verifyEmailOtp = onRequest(
 
     var email = normalizeEmail(req.body && req.body.email);
     var code = typeof (req.body && req.body.code) === 'string' ? req.body.code.trim() : '';
+    // Optional — only ever sent from the Create Account view (the Sign In
+    // view has no such fields). Captured here, at the moment the account is
+    // actually verified/created, so a swimmer's name/username lands in
+    // Firestore immediately instead of depending on the onboarding wizard
+    // being completed afterward.
+    var fullNameInput = req.body && req.body.fullName;
+    var usernameInput = req.body && req.body.username;
     if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
       res.status(400).json({ error: 'Please enter the 6-digit code we sent you.' });
       return;
@@ -997,6 +1062,11 @@ exports.verifyEmailOtp = onRequest(
       return;
     }
 
-    res.status(200).json({ token: customToken });
+    var captureResult = { usernameClaimed: false };
+    if (sanitizeFullName(fullNameInput) || normalizeUsername(usernameInput)) {
+      captureResult = await captureUpfrontProfile(userRecord.uid, email, fullNameInput, usernameInput);
+    }
+
+    res.status(200).json({ token: customToken, usernameClaimed: captureResult.usernameClaimed });
   }
 );
