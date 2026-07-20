@@ -42,6 +42,20 @@
  *      required for the aiSwimCoach function — get a key from
  *      https://console.anthropic.com and paste it in when prompted.)
  *   6. firebase deploy --only functions
+ *      Every onRequest function below declares `invoker: 'public'` so the
+ *      Firebase CLI grants the underlying Cloud Run service's
+ *      roles/run.invoker to allUsers automatically at deploy time — 2nd-gen
+ *      (Cloud Run-backed) functions are private by default, and without this,
+ *      every call (including the CORS preflight) is rejected at the
+ *      infrastructure layer before the function code — and its cors: [...]
+ *      check — ever runs. The browser reports that as a bare failed fetch
+ *      ("Network error"/CORS error), not a readable error from this code, and
+ *      `firebase deploy` can report success even when the grant didn't take
+ *      (e.g. a GCP org policy like Domain Restricted Sharing blocking public
+ *      IAM bindings) — if requests still fail after redeploying, confirm in
+ *      GCP Console -> Cloud Run -> (function name) -> Permissions that
+ *      allUsers has Cloud Run Invoker, or ask whoever administers the GCP
+ *      project to lift that org policy for this project.
  *   7. firebase deploy --only firestore:rules
  *   8. Copy the deployed paddleWebhook HTTPS URL, register it in the Paddle
  *      dashboard under Developer Tools -> Notifications -> Webhook
@@ -142,7 +156,7 @@ function verifyPaddleSignature(rawBody, signatureHeader, secret) {
 }
 
 exports.paddleWebhook = onRequest(
-  { secrets: [PADDLE_WEBHOOK_SECRET], cors: false, region: 'us-central1' },
+  { secrets: [PADDLE_WEBHOOK_SECRET], cors: false, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
@@ -357,7 +371,7 @@ async function verifyAdminRequest(req, res) {
 }
 
 exports.adminListUsers = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
@@ -393,7 +407,7 @@ exports.adminListUsers = onRequest(
 );
 
 exports.adminGetThread = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
@@ -420,7 +434,7 @@ exports.adminGetThread = onRequest(
 );
 
 exports.adminSendMessage = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
@@ -457,7 +471,7 @@ exports.adminSendMessage = onRequest(
 // swimmer falls back to their trial/real Paddle status.
 const ADMIN_GRANTABLE_PLANS = ['pro', 'elite', 'ultra'];
 exports.adminSetUserPlan = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
@@ -511,7 +525,7 @@ async function checkAndIncrementCoachUsage(uid) {
 }
 
 exports.aiSwimCoach = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { secrets: [ANTHROPIC_API_KEY], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method Not Allowed' });
@@ -892,7 +906,7 @@ async function sendOtpEmail(email, code) {
 }
 
 exports.requestEmailOtp = onRequest(
-  { secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method Not Allowed' });
@@ -962,7 +976,7 @@ exports.requestEmailOtp = onRequest(
 );
 
 exports.verifyEmailOtp = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1' },
+  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method Not Allowed' });
