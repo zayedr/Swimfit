@@ -21,11 +21,6 @@ rules_version = '2';
 //                      which bypasses these rules entirely.
 // paddle_subscriptions/{docId} — billing records. A swimmer can read only their own
 //                      (matched by the firebaseUid the checkout attached), never write.
-// email_otps/{email}  — pending 6-digit sign-in codes (hashed, never the raw code).
-//                      Server-only: requestEmailOtp/verifyEmailOtp (functions/index.js)
-//                      read and write it exclusively via the Admin SDK, which bypasses
-//                      these rules entirely, so it's explicitly denied here for every
-//                      client rather than left to the catch-all below.
 // swim_logs/{uid}/entries/{entryId} — a swimmer's manually-logged distance entries for
 //                      the Distance Tracker page. Owner-only; deletable (to fix a mislog)
 //                      but never editable in place — delete and re-log instead.
@@ -154,10 +149,6 @@ service cloud.firestore {
     match /paddle_subscriptions/{docId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
       allow write: if false;
-    }
-
-    match /email_otps/{email} {
-      allow read, write: if false;
     }
 
     match /{document=**} {

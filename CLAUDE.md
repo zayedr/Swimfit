@@ -25,69 +25,73 @@ down to a pure content/training-tool experience — don't re-introduce nav links
 links, or JS for either without being asked.
 
 Auth is **real Firebase Authentication** (project `swimfi-ae`), wired in the `<script
-type="module">` in `<head>`. There are three sign-in mechanics: **Google** (`signInWithPopup`,
-unchanged since the start); a **mandatory password** (`createUserWithEmailAndPassword` /
-`signInWithEmailAndPassword` — Google's Identity Platform hashes/verifies/stores the password
-entirely server-side, this app never sees or persists it itself); and a **legacy 6-digit email
-OTP** kept solely as a fallback sign-in method for accounts created before password auth
-shipped (this project was passwordless-only for a while — see git history — before this round
-added real passwords back in at the user's explicit request). The `#authModal`'s
-`passwordAuthForm` is the primary, default-visible form in both Sign In and Create Account
-mode: Create Account requires Full Name + Username + Email + Password + Confirm Password (all
-native HTML5 `required`, toggled on/off in lockstep with `#passwordSignupFields`' visibility by
-`setAuthMode()` — same hidden-required-field trap as ever, same fix); Sign In only needs
-Email + Password. A "Sign in with a code instead" link swaps to the pre-existing
-`otpRequestForm`/`otpVerifyForm` pair (now email-only again, no name/username fields — new
-registrations always go through the password form, so OTP never needs to capture profile data
-anymore) for anyone whose account predates this and has no password on file; a "Use password
-instead" link swaps back. Switching to Create Account mode always forces back to the password
-view via `window.__showAuthMethod('password')`, since Create Account has no code-based option.
-A password must be 8+ characters with at least one letter and one number (`PASSWORD_STRENGTH_RE`);
-on successful signup, `updateProfile()` sets the Firebase Auth `displayName`,
-`sendEmailVerification()` fires (best-effort), and a client-side atomic transaction
-(`claimUsernameAndProfile`, mirroring the same `usernames/{username}` create-only guarantee
-`firestore.rules` already enforces for every other signup path) writes `fullName`/`username`/
-`email` onto `users/{uid}` — no Cloud Function round-trip needed since the swimmer is already
-authenticated by that point. "Forgot password?" calls `sendPasswordResetEmail()` (Firebase's own
-hosted reset flow). Session persistence is explicit — `setPersistence(auth,
-browserLocalPersistence)` (falling back to `browserSessionPersistence` if IndexedDB is
-unavailable, e.g. Safari private browsing) — so a signed-in swimmer stays signed in across a
-refresh or closed tab regardless of which of the three methods they used.
+type="module">` in `<head>`. There are exactly two sign-in mechanics: **Google**
+(`signInWithPopup`, unchanged since the start) and **Email/Password**
+(`createUserWithEmailAndPassword` / `signInWithEmailAndPassword` — Google's Identity Platform
+hashes/verifies/stores the password entirely server-side, this app never sees or persists it
+itself). The legacy 6-digit email-OTP sign-in method (and its `requestEmailOtp`/`verifyEmailOtp`
+Cloud Functions, `email_otps` Firestore collection, "sign in with a code instead" link, and
+`signInWithCustomToken` import) has been **removed entirely**, front and back end, at the user's
+explicit request — it was the last remaining "Network error"-prone path now that Email/Password
+is enabled in the Firebase Console, and every new registration already went through the password
+form anyway. `#authModal`'s `passwordAuthForm` is now the *only* form: Create Account requires
+Full Name + Username + Email + Password + Confirm Password (all native HTML5 `required`, toggled
+on/off in lockstep with `#passwordSignupFields`' visibility by `setAuthMode()` — same
+hidden-required-field trap as ever, same fix); Sign In only needs Email + Password. The only
+other link in the modal is "Forgot password?" (`#passwordSecondaryRow`), which calls
+`sendPasswordResetEmail()` (Firebase's own hosted reset flow) — there is no more "code" path to
+swap to or from, so `setAuthMode()` no longer needs to force any auth-method view on mode switch.
+A password must be 8+ characters with at least one letter and one number
+(`PASSWORD_STRENGTH_RE`); on successful signup, `updateProfile()` sets the Firebase Auth
+`displayName`, `sendEmailVerification()` fires (best-effort), and a client-side atomic
+transaction (`claimUsernameAndProfile`, mirroring the same `usernames/{username}` create-only
+guarantee `firestore.rules` already enforces) writes `fullName`/`username`/`email` onto
+`users/{uid}` — no Cloud Function round-trip needed since the swimmer is already authenticated by
+that point. Session persistence is explicit — `setPersistence(auth, browserLocalPersistence)`
+(falling back to `browserSessionPersistence` if IndexedDB is unavailable, e.g. Safari private
+browsing) — so a signed-in swimmer stays signed in across a refresh or closed tab regardless of
+which of the two methods they used. Any pre-existing account that was created OTP-only (before
+this removal, with no password ever set on it) now has only "Forgot password?" as a recovery
+path — there is no code-based fallback left for it to sign in through.
 
-`requestEmailOtp`/`verifyEmailOtp` (Cloud Functions, unchanged this round, still reachable only
-via the "sign in with a code" fallback) work exactly as before: `requestEmailOtp` generates the
-code, hashes+stores it in the server-only `email_otps/{email}` Firestore collection with an
-expiry/attempt-lock/rate-limit, and emails it through Swimfit's own SMTP — it also still accepts
-an optional `username` (409s cleanly if taken, before sending anything) and returns
-`accountExists` informationally, dormant capability now that the frontend's OTP form never
-sends either field, since profile capture is the password form's job; `verifyEmailOtp` checks
-the code, resolves/creates the Firebase Auth user for that email via the Admin SDK (one email
-always maps to one account however it was created), and mints a custom token the client
-exchanges via `signInWithCustomToken`. Every signed-in user, via any of the three methods, gets
-a Firestore `users/{uid}` profile doc (client-written, merged on each login via
-`ensureUserProfile`). The Firebase Cloud Function `onUserCreated` (`functions/index.js`, 1st-gen
-Auth trigger, fires regardless of which method created the account) is the sole place that
-increments the public `stats/counters.userCount` doc — exactly once per brand-new account —
-which the Hero's "Registered Swimmers" stat tile reads live via `onSnapshot` and hides
-gracefully if Firestore can't be reached; that same function sends a branded welcome email over
-SMTP (secrets: `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, skipped harmlessly if unset,
-also reused by requestEmailOtp for the verification-code email). Firestore access is locked
-down by `firestore.rules` (a user can only read/write their own profile; `stats/counters` is
-public-read/no-client-write; `email_otps` is fully server-only, no client access at all).
-Every `onRequest` Cloud Function declares `invoker: 'public'` so `firebase deploy` grants the
-underlying Cloud Run service's invoker role to `allUsers` automatically — 2nd-gen functions
-are private by default, and without this every call (including the CORS preflight) is
-rejected at the infrastructure layer before the function's own `cors`/auth checks ever run,
-which the browser reports as a bare failed fetch rather than a readable error. Signing out
-(`signOut(auth)`) fires `onAuthStateChanged(null)`, which every feature with its own local
-state (AI Coach widget/page, Distance Tracker, Admin Panel inbox) independently clears via a
-shared `swimfit:authchange` DOM event; a separate top-level listener on that same event
-additionally switches away from a signed-in-only tab (Coach/Tracker/Admin) back to Workouts
-if a swimmer signs out while on one, since the Admin Panel in particular has no in-place
-"please sign in" fallback of its own (unlike Coach/Tracker, whose panels do). The house admin
-account (`swimfit.ae@gmail.com`, see below) works identically through any of the three sign-in
-methods — `isAdminEmail()`/`SWIMFIT_ADMIN_EMAIL` match on the resolved email address, not on how
-the session was created.
+Every signed-in user, via either method, gets a Firestore `users/{uid}` profile doc
+(client-written, merged on each login via `ensureUserProfile`), including a `trialStartedAt`
+timestamp set once on that first write (a pre-existing account missing this field gets it
+backfilled to "now" — grandfathered rather than retroactively locked out). The Firebase Cloud
+Function `onUserCreated` (`functions/index.js`, 1st-gen Auth trigger, fires regardless of which
+method created the account) is the sole place that increments the public
+`stats/counters.userCount` doc — exactly once per brand-new account — which the Hero's
+"Registered Swimmers" stat tile reads live via `onSnapshot` and hides gracefully if Firestore
+can't be reached; that same function sends a branded welcome email over SMTP (secrets:
+`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, skipped harmlessly if unset). Firestore access is
+locked down by `firestore.rules` (a user can only read/write their own profile; `stats/counters`
+is public-read/no-client-write; the now-unused `email_otps` collection's explicit rule was
+removed along with the OTP backend, though the file's catch-all deny-all rule already covered it
+either way). Every `onRequest` Cloud Function declares `invoker: 'public'` so `firebase deploy`
+grants the underlying Cloud Run service's invoker role to `allUsers` automatically — 2nd-gen
+functions are private by default, and without this every call (including the CORS preflight) is
+rejected at the infrastructure layer before the function's own `cors`/auth checks ever run, which
+the browser reports as a bare failed fetch rather than a readable error. **If the Admin Panel or
+AI Coach are showing network/CORS-style errors in production, check this first** — the code for
+both `adminListUsers` and `aiSwimCoach` was audited this round and is correct (including
+`invoker: 'public'`), so a live failure most likely means Cloud Functions haven't been redeployed
+since `invoker: 'public'` was added; run `firebase deploy --only functions` to pick up any pending
+backend changes, including this round's OTP-function removal (which will prompt to confirm
+deleting `requestEmailOtp`/`verifyEmailOtp` from the live project, or run
+`firebase functions:delete requestEmailOtp verifyEmailOtp` proactively first).
+
+Signing out (`signOut(auth)`) fires `onAuthStateChanged(null)`, which every feature with its own
+local state (AI Coach widget/page, Distance Tracker, Admin Panel inbox) independently clears via
+a shared `swimfit:authchange` DOM event; a separate top-level listener on that same event
+(`SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin']`) additionally switches away from a
+signed-in-only tab back to Workouts if a swimmer signs out while on one — since the Admin Panel
+in particular has no in-place "please sign in" fallback of its own (unlike Coach/Tracker, whose
+panels do) — and then smooth-scrolls the page back to the Hero (`#top`) so signing out always
+visibly returns the swimmer to the landing page rather than leaving them scrolled deep into a
+now-inaccessible tab. The house admin account (`swimfit.ae@gmail.com`, see below) works
+identically through either sign-in method — `isAdminEmail()`/`SWIMFIT_ADMIN_EMAIL` match on the
+resolved email address, not on how the session was created; it remains the *sole* admin account
+by explicit user decision — no second hardcoded admin email has been added.
 "Join Pro/Elite/Ultra" on the Pricing tab still opens a `mailto:` instead of any checkout
 flow, aside from the Firebase-gated Paddle Billing checkout wired to the Subscribe buttons.
 A floating "AI Swim Coach" chat widget (gated behind sign-in) calls the `aiSwimCoach` Cloud
@@ -117,11 +121,15 @@ taper plan", "Explain lactate threshold", etc.) that hide the moment either a re
 sent or persisted history loads in, so they only ever appear alongside the canned welcome
 message on a genuinely fresh conversation.
 
-**Trial + subscription tier system.** Every new account gets a 7-day free trial starting at
-signup (`users/{uid}.trialStartedAt`, set once on first `ensureUserProfile` write; a
-pre-existing account missing this field gets it backfilled to "now" — grandfathered rather
-than retroactively locked out from a signup date that predates this feature). Once the trial
-lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
+**Trial + subscription tier system.** Every new account gets a strict 7-day free trial starting
+at signup (`users/{uid}.trialStartedAt`, see above). The nav's trial badge shows a real, live
+countdown rather than a static day count — days+hours while more than a day remains, then
+hours+minutes, then just minutes, computed from `access.trialEndsAt` on every
+`swimfit:accesschange` and kept current by a 30-second recompute interval (`recomputeAccessLevel`
+was previously on a 5-minute timer; tightened this round so the displayed countdown never drifts
+far from real wall-clock time). The instant the countdown reaches zero, `recomputeAccessLevel`
+resolves the swimmer to `'locked'` and the full-screen `#paywallOverlay` takes over — there is no
+grace window. Once the trial lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
 resolves each event's Paddle **product** id (not price id — see the Paddle risk note below) to
 a plan key (`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes `{plan, status,
 ...}` onto `paddle_subscriptions/{uid}`; an `active`/`trialing` status counts as paid. The
@@ -157,10 +165,16 @@ tab's and the paywall overlay's) with a friendly alert instead of opening real P
 
 That same address also unlocks a hidden **Admin Panel** tab (`data-tab="admin"`,
 `#panel-admin`, nav entry shown/hidden via `[data-admin-only]`). It lists every registered
-swimmer (`adminListUsers`, capped at the 300 most recent) with their resolved plan and lets
-the admin grant/clear a manual plan override per swimmer (`adminSetUserPlan`, writes
-`paddle_subscriptions/{uid}` with `source: 'admin_grant'` — same shape `paddleWebhook` writes,
-so it's picked up identically by `getAccessLevel`/`recomputeAccessLevel`). Every `admin*`
+swimmer (`adminListUsers`, capped at the 300 most recent) with their name, email, resolved plan,
+and join date, and lets the admin grant/clear a manual plan override per swimmer
+(`adminSetUserPlan`, writes `paddle_subscriptions/{uid}` with `source: 'admin_grant'` — same
+shape `paddleWebhook` writes, so it's picked up identically by
+`getAccessLevel`/`recomputeAccessLevel`). `adminListUsers` was hardened this round: a
+`safeMillis()` helper guards every `.toMillis()` call (a doc missing a timestamp field no longer
+throws), and each swimmer's subscription/chat sub-lookups run in their own isolated `try/catch`
+so one malformed record can't 500 the entire list — the previous "Could not load the user list"
+failure mode was traced to this class of issue, on top of the general `invoker: 'public'`
+redeploy caveat noted above. Every `admin*`
 Cloud Function independently re-verifies the caller's ID token and `isAdminEmail()` — none of
 this is expressed as a Firestore rule, since "list every user" or "write any user's plan" is
 exactly the kind of cross-user privilege that's safer funneled through a server-verified
@@ -211,37 +225,33 @@ chips for generating a full day's or week's routine and for iterating on it ("ma
 "add more core work"). Neither panel persists history — in-memory only, cleared on sign-out,
 same tier/cost posture as the floating widget (no server-side enforcement beyond what
 `aiSwimCoach` already does for every caller). Every Gym exercise card also gained a "Watch
-Technique" button (`.gym-watch-btn`) that opens the same `#videoModal` "Coming Soon" placeholder
-already used for in-production Academy videos, rather than a second bespoke modal.
+Technique" block (`.gym-video-frame`, redesigned this round from a plain `.gym-watch-btn` text
+link into a full 21:9 video-frame placeholder with a centered play button and label) that opens
+the same `#videoModal` "Coming Soon" placeholder already used for in-production Academy videos,
+rather than a second bespoke modal — every exercise (Arm Circles, Jumping Jacks, Planks, etc.)
+gets one.
 
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
-swaps copy/button labels *and* which fields are visible — both modes still drive the exact same
-Google + email-OTP mechanics underneath, since `verifyEmailOtp` already creates the Firebase
-account transparently on first use, and there's still no password anywhere in this app by design.
-Create Account mode shows Full Name + Username fields (`#otpSignupFields`) inline alongside Email
-in the very first step — all three are native HTML5 `required` (toggled on/off in lockstep with
-`#otpSignupFields`' visibility by `setAuthMode()`, since a `required` field that's merely
-`display:none` still blocks the whole form's `submit` event in Chromium, the same trap the old
-multi-step wizard hit) plus custom JS validation, so a swimmer cannot reach the OTP step at all
-without filling them in. The Username field gets a live availability check (debounced `getDoc`
-against `usernames/{username}` via `window.__checkUsernameTaken`) — `firestore.rules`'
+swaps copy/button labels *and* which fields are visible, driving the password-only mechanics
+described above (Google is a separate button, unaffected by this toggle). Create Account mode
+shows Full Name + Username fields (`#passwordSignupFields`) inline alongside Email + Password +
+Confirm Password — all native HTML5 `required` (toggled on/off in lockstep with
+`#passwordSignupFields`' visibility by `setAuthMode()`, since a `required` field that's merely
+`display:none` still blocks the whole form's `submit` event in Chromium) plus custom JS
+validation. The Username field gets a live availability check (debounced `getDoc` against
+`usernames/{username}` via `window.__checkUsernameTaken`) — `firestore.rules`'
 `usernames/{username}` allows `get` for anyone (including signed-out visitors), specifically so
 this pre-auth check works; `list` stays blocked so the directory can't be enumerated. On submit,
-the validated Full Name/Username are held in memory and sent alongside `email`/`code` to
-`verifyEmailOtp`, which persists them via the Admin SDK (`captureUpfrontProfile`) at the moment the
-account is actually verified/created — a Firestore `users/{uid}` merge write plus an atomic
-`usernames/{username}` claim transaction — so a swimmer's name/username lands in Firestore
-immediately, in the same request that creates their account. This is best-effort and non-fatal to
-sign-in: any Firestore error here is swallowed (logged server-side only) and the swimmer still gets
-signed in, just without those two fields set. Google sign-in has no equivalent form (Google's own
-popup only ever returns name/email/photo) and currently has no path to set a Username at all — this
-app previously used a post-signup onboarding wizard as a fallback for exactly that case, but the
+Full Name/Username are captured directly by `claimUsernameAndProfile` (see above) once the
+swimmer is authenticated. Google sign-in has no equivalent form (Google's own popup only ever
+returns name/email/photo) and currently has no path to set a Username at all — this app
+previously used a post-signup onboarding wizard as a fallback for exactly that case, but the
 wizard has been removed entirely, along with `window.__onboardingSaveProfile` and the training
 specialization / fitness metrics fields it used to collect (`disciplines`, `distance`, `goal`,
 `pb50`, `pb100`, `workingWeight`, `strengthLimit` on `users/{uid}` — still allowed by
-`firestore.rules` but no longer written by any client code). Create Account's upfront capture above
-is now the only signup-time data-capture surface; a Google-sign-in swimmer without a Username is a
-known gap, not yet addressed.
+`firestore.rules` but no longer written by any client code). Create Account's password-form
+capture above is now the only signup-time data-capture surface; a Google-sign-in swimmer without
+a Username is a known gap, not yet addressed.
 
 Between the persistent About section and the tabbed shell, the landing page carries five
 conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch
@@ -263,9 +273,21 @@ There are no build, lint, or test commands — verify changes by serving the fil
 (e.g. `python3 -m http.server`) and testing in a browser (Playwright is available in this
 environment for automated checks).
 
+A full codebase purge was done alongside the OTP removal above: dead `AUTH_ERROR_MESSAGES`
+entries left over from the removed `signInWithCustomToken` path (`auth/invalid-custom-token`,
+`auth/custom-token-mismatch`) and a stale "Paddle risk" comment about `PADDLE_PRICE_IDS` holding
+product-not-price ids (already fixed in an earlier round; the note just hadn't been removed) were
+deleted. Note for future purges: anything matching `wave`/`wavy` in this codebase (`.hero-waves`,
+`.hero-wave-1`/`-2`, the `i-wave` icon symbol, `nav-icon-wave`) is legitimate, actively-rendering
+Hero/nav design — not stale placeholder content — and should not be deleted on sight just because
+the name sounds informal.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
 rebuilt from scratch) used MemberSpace for authentication and billing. MemberSpace has since
 been **fully removed** from the codebase — no script tags, checkout links, or `data-ms-member`
-attributes remain anywhere.
+attributes remain anywhere. A later round added a passwordless email-OTP auth system, which was
+itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
+Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
+Firestore collection no longer exist anywhere in this codebase.

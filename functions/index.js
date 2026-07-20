@@ -18,15 +18,13 @@
  *          signInWithEmailAndPassword directly from the client, which go
  *          through this Firebase-Console-configured provider. Without it
  *          enabled, every password signup/sign-in fails with
- *          auth/operation-not-allowed. (The legacy 6-digit-code fallback,
- *          requestEmailOtp/verifyEmailOtp below, is unaffected either way —
- *          it mints its own custom token via the Admin SDK and never goes
- *          through this provider at all.)
+ *          auth/operation-not-allowed. This is now the only sign-in
+ *          mechanic besides Google — the legacy 6-digit-email-OTP flow
+ *          (requestEmailOtp/verifyEmailOtp) has been removed entirely.
  *   2. Firebase Console -> Authentication -> Settings -> Authorized domains:
  *        add swimfit.online (and www.swimfit.online). Without
  *        this, Google popup sign-in fails with auth/unauthorized-domain for
- *        anyone on the live domain (the email-OTP flow isn't affected by this
- *        setting since it never calls a Firebase-hosted sign-in provider).
+ *        anyone on the live domain.
  *   3. Firebase Console -> Firestore Database: create the database if it
  *      doesn't exist yet (either starting mode is fine — step 7 below
  *      deploys and enforces the real firestore.rules regardless).
@@ -38,13 +36,11 @@
  *        firebase functions:secrets:set SMTP_USER
  *        firebase functions:secrets:set SMTP_PASS
  *        firebase functions:secrets:set ANTHROPIC_API_KEY
- *      (SMTP secrets power both the welcome email AND the email-OTP
- *      verification code — without them, onUserCreated still creates the
- *      Firestore profile/counter (just skips the welcome email), but
- *      requestEmailOtp will fail every request with a 502 until they're set,
- *      since there's no other way to deliver the code. ANTHROPIC_API_KEY is
- *      required for the aiSwimCoach function — get a key from
- *      https://console.anthropic.com and paste it in when prompted.)
+ *      (SMTP secrets power the welcome email sent by onUserCreated — without
+ *      them it still creates the Firestore profile/counter, just skips the
+ *      email. ANTHROPIC_API_KEY is required for the aiSwimCoach function —
+ *      get a key from https://console.anthropic.com and paste it in when
+ *      prompted.)
  *   6. firebase deploy --only functions
  *      Every onRequest function below declares `invoker: 'public'` so the
  *      Firebase CLI grants the underlying Cloud Run service's
@@ -69,22 +65,10 @@
  *      value step 5 already asked for; if you're registering the webhook for
  *      the first time, come back and update the secret with the same command
  *      and redeploy.
- *   9. aiSwimCoach, requestEmailOtp, and verifyEmailOtp need no separate
- *      webhook registration — index.html calls their HTTPS URLs directly
- *      once you paste them into the matching *_ENDPOINT constants near each
- *      feature's code.
- *
- * Known separate risk (Paddle Billing, not this file): PADDLE_PRICE_IDS in
- * index.html currently holds Paddle PRODUCT ids (pro_...); Paddle.Checkout.open()
- * needs the PRICE id (pri_...) under each product. Confirm/swap these in the
- * Paddle dashboard before real customers try to subscribe.
- *
- * Optional further hardening: requestEmailOtp already rate-limits by email
- * (cooldown + hourly cap) and verifyEmailOtp locks a code after 5 wrong
- * guesses, but neither is IP-aware — for real production traffic, enable
- * Firebase App Check (Console -> App Check -> register the web app with
- * reCAPTCHA v3/Enterprise) so these endpoints can't be scripted at volume
- * from a single source.
+ *   9. aiSwimCoach and the admin* functions need no separate webhook
+ *      registration — index.html calls their HTTPS URLs directly once you
+ *      paste them into the matching *_ENDPOINT constants near each feature's
+ *      code.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -380,25 +364,38 @@ exports.adminListUsers = onRequest(
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
 
+    // A malformed value on any single field (e.g. a stray non-Timestamp value
+    // from manual Firestore Console edits or old test data) must not 500 the
+    // whole list — one bad record shouldn't take down every admin's ability
+    // to see every other swimmer.
+    function safeMillis(value) {
+      return value && typeof value.toMillis === 'function' ? value.toMillis() : null;
+    }
+
     try {
       var usersSnap = await db.collection('users').orderBy('createdAt', 'desc').limit(ADMIN_LIST_USERS_LIMIT).get();
       var users = await Promise.all(usersSnap.docs.map(async function (userDoc) {
         var uid = userDoc.id;
-        var data = userDoc.data();
-        var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
-        var subData = subSnap.exists ? subSnap.data() : null;
-        var chatSnap = await db.collection('admin_chats').doc(uid).get();
-        var chatData = chatSnap.exists ? chatSnap.data() : null;
+        var data = userDoc.data() || {};
+        var subData = null, chatData = null;
+        try {
+          var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
+          subData = subSnap.exists ? subSnap.data() : null;
+        } catch (err) { logger.warn('adminListUsers: subscription lookup failed', { uid: uid, err: err }); }
+        try {
+          var chatSnap = await db.collection('admin_chats').doc(uid).get();
+          chatData = chatSnap.exists ? chatSnap.data() : null;
+        } catch (err) { logger.warn('adminListUsers: chat lookup failed', { uid: uid, err: err }); }
         return {
           uid: uid,
           email: data.email || null,
-          displayName: data.displayName || null,
-          createdAt: data.createdAt ? data.createdAt.toMillis() : null,
-          trialStartedAt: data.trialStartedAt ? data.trialStartedAt.toMillis() : null,
+          displayName: data.displayName || data.fullName || null,
+          createdAt: safeMillis(data.createdAt),
+          trialStartedAt: safeMillis(data.trialStartedAt),
           plan: subData && subData.plan ? subData.plan : null,
           status: subData && subData.status ? subData.status : null,
           lastMessageText: chatData ? chatData.lastMessageText || null : null,
-          lastMessageAt: chatData && chatData.lastMessageAt ? chatData.lastMessageAt.toMillis() : null,
+          lastMessageAt: safeMillis(chatData && chatData.lastMessageAt),
           unreadForAdmin: !!(chatData && chatData.unreadForAdmin)
         };
       }));
@@ -780,355 +777,5 @@ exports.onUserCreated = functionsV1
     } catch (err) {
       logger.error('onUserCreated: failed to send welcome email', err);
     }
-  }
-);
-
-// ============================================================================
-// Email OTP sign-in — a real 6-digit code, emailed through Swimfit's own SMTP,
-// that the swimmer types back in. Replaces Firebase's built-in email-link
-// method entirely: these two functions ARE the passwordless sign-in flow, so
-// (unlike aiSwimCoach) they run before any Firebase ID token exists and can't
-// require one. Callers unauthenticated by design; every other Firebase Auth
-// account (Google, or a previous OTP sign-in) resolves through the same
-// admin.auth().getUserByEmail lookup in verifyEmailOtp, so one email address
-// always maps to exactly one account no matter how it was created.
-const OTP_LENGTH = 6;
-const OTP_EXPIRY_MS = 10 * 60 * 1000;
-const OTP_MAX_VERIFY_ATTEMPTS = 5;
-const OTP_MAX_REQUESTS_PER_WINDOW = 5;
-const OTP_REQUEST_WINDOW_MS = 60 * 60 * 1000;
-const OTP_RESEND_COOLDOWN_MS = 45 * 1000;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizeEmail(raw) {
-  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-}
-function isValidEmail(email) {
-  return !!email && email.length <= 254 && EMAIL_RE.test(email);
-}
-function hashOtpCode(code, email) {
-  return crypto.createHash('sha256').update(code + ':' + email).digest('hex');
-}
-
-var ONBOARDING_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
-function normalizeUsername(raw) {
-  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-}
-function sanitizeFullName(raw) {
-  var name = typeof raw === 'string' ? raw.trim() : '';
-  return name.length > 0 && name.length <= 80 ? name : '';
-}
-
-// Best-effort capture of the swimmer's name/username at the moment their
-// account is verified/created — mirrors what the onboarding wizard would
-// otherwise write later, so a swimmer who fills out the upfront Create
-// Account fields shows up in Firestore immediately instead of depending on
-// them finishing the wizard. Never throws: any failure here must not block
-// sign-in, since the wizard remains the fallback path for this same data.
-async function captureUpfrontProfile(uid, email, fullNameRaw, usernameRaw) {
-  var fullName = sanitizeFullName(fullNameRaw);
-  var username = normalizeUsername(usernameRaw);
-  var validUsername = username && ONBOARDING_USERNAME_RE.test(username);
-
-  var result = { usernameClaimed: false };
-  try {
-    var userRef = db.collection('users').doc(uid);
-    var userSnap = await userRef.get();
-    var existing = userSnap.exists ? userSnap.data() : null;
-
-    var profileUpdate = { lastLoginAt: admin.firestore.FieldValue.serverTimestamp() };
-    if (!userSnap.exists) {
-      profileUpdate.email = email;
-      profileUpdate.createdAt = admin.firestore.FieldValue.serverTimestamp();
-      profileUpdate.trialStartedAt = admin.firestore.FieldValue.serverTimestamp();
-    }
-    if (fullName && !(existing && existing.fullName)) {
-      profileUpdate.fullName = fullName;
-    }
-    await userRef.set(profileUpdate, { merge: true });
-
-    if (validUsername && !(existing && existing.username)) {
-      var usernameRef = db.collection('usernames').doc(username);
-      try {
-        await db.runTransaction(async function (tx) {
-          var usernameSnap = await tx.get(usernameRef);
-          if (usernameSnap.exists) throw new Error('USERNAME_TAKEN');
-          tx.set(usernameRef, { uid: uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
-          tx.set(userRef, { username: username }, { merge: true });
-        });
-        result.usernameClaimed = true;
-      } catch (err) {
-        // Username already taken by someone else — non-fatal, the swimmer
-        // can still pick a different one later via the onboarding wizard.
-      }
-    }
-  } catch (err) {
-    logger.error('captureUpfrontProfile: failed to persist upfront profile data', err);
-  }
-  return result;
-}
-
-function otpEmailHtml(code) {
-  return (
-    '<div style="background:#070B0A;padding:40px 20px;font-family:Helvetica,Arial,sans-serif;">' +
-      '<div style="max-width:480px;margin:0 auto;background:#101A19;border:1px solid #1c2b29;border-radius:16px;overflow:hidden;">' +
-        '<div style="background:linear-gradient(135deg,#124a3d,#1f6b3a);padding:32px 32px 24px;">' +
-          '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:0.02em;">SWIM<span style="color:#22d3ee;">FIT</span></div>' +
-        '</div>' +
-        '<div style="padding:32px;color:#F3F7F5;">' +
-          '<h1 style="font-size:20px;margin:0 0 16px;color:#ffffff;">Your verification code</h1>' +
-          '<p style="font-size:15px;line-height:1.6;color:#97A9A3;margin:0 0 24px;">Enter this code on swimfit.online to finish signing in. It expires in 10 minutes.</p>' +
-          '<div style="font-family:Georgia,serif;font-size:36px;font-weight:700;letter-spacing:0.3em;color:#22d3ee;text-align:center;padding:16px;background:#0B1312;border-radius:12px;">' +
-            escapeHtml(code) +
-          '</div>' +
-          '<p style="font-size:12px;line-height:1.6;color:#5f7570;margin:28px 0 0;">' +
-            'If you didn’t request this code, you can safely ignore this email — nobody can sign in without it.' +
-          '</p>' +
-        '</div>' +
-      '</div>' +
-    '</div>'
-  );
-}
-
-async function sendOtpEmail(email, code) {
-  var host = SMTP_HOST.value(), port = SMTP_PORT.value(), smtpUser = SMTP_USER.value(), pass = SMTP_PASS.value();
-  if (!host || !smtpUser || !pass) {
-    throw new Error('SMTP not configured');
-  }
-  var transporter = nodemailer.createTransport({
-    host: host,
-    port: Number(port) || 587,
-    secure: Number(port) === 465,
-    auth: { user: smtpUser, pass: pass }
-  });
-  await transporter.sendMail({
-    from: 'Swimfit <' + smtpUser + '>',
-    to: email,
-    subject: 'Your Swimfit verification code',
-    html: otpEmailHtml(code)
-  });
-}
-
-exports.requestEmailOtp = onRequest(
-  { secrets: [SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
-  async function (req, res) {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method Not Allowed' });
-      return;
-    }
-
-    var email = normalizeEmail(req.body && req.body.email);
-    if (!isValidEmail(email)) {
-      res.status(400).json({ error: 'Please enter a valid email address.' });
-      return;
-    }
-
-    // Optional — only ever sent from the Create Account view. This is a
-    // read-only availability check, not a reservation: the actual atomic
-    // claim only ever happens in verifyEmailOtp, after the caller has proven
-    // they own this email by entering the code. Reserving a username here,
-    // before that proof, would let anyone squat usernames indefinitely just
-    // by calling this endpoint with no intention of ever verifying.
-    var username = normalizeUsername(req.body && req.body.username);
-    if (username) {
-      if (!ONBOARDING_USERNAME_RE.test(username)) {
-        res.status(400).json({ error: 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.' });
-        return;
-      }
-      var usernameSnap;
-      try {
-        usernameSnap = await db.collection('usernames').doc(username).get();
-      } catch (err) {
-        logger.error('requestEmailOtp: username availability check failed', err);
-        res.status(500).json({ error: 'Could not send a verification code — please try again.' });
-        return;
-      }
-      if (usernameSnap.exists) {
-        res.status(409).json({ error: 'That username is already taken — please choose another.' });
-        return;
-      }
-    }
-
-    // Informational only — never blocks the request. This system treats
-    // "sign in" and "create account" as the exact same OTP mechanic (one
-    // email always maps to one account, created transparently on first use),
-    // so an existing account is not an error; the frontend just uses this to
-    // tell a Create Account swimmer they're about to sign into an existing
-    // account rather than pretending a new one was made.
-    var accountExists = null;
-    try {
-      await admin.auth().getUserByEmail(email);
-      accountExists = true;
-    } catch (err) {
-      if (err && err.code === 'auth/user-not-found') {
-        accountExists = false;
-      } else {
-        logger.error('requestEmailOtp: account-exists lookup failed', err);
-      }
-    }
-
-    var ref = db.collection('email_otps').doc(email);
-    var now = Date.now();
-    var code = null;
-    var outcome;
-    try {
-      outcome = await db.runTransaction(async function (tx) {
-        var snap = await tx.get(ref);
-        var data = snap.exists ? snap.data() : null;
-
-        if (data && data.lastSentAt && now - data.lastSentAt < OTP_RESEND_COOLDOWN_MS) {
-          return { ok: false, reason: 'cooldown' };
-        }
-
-        var windowActive = data && data.windowStart && now - data.windowStart < OTP_REQUEST_WINDOW_MS;
-        var requestCount = windowActive ? (data.requestCount || 0) : 0;
-        if (requestCount >= OTP_MAX_REQUESTS_PER_WINDOW) {
-          return { ok: false, reason: 'rate_limited' };
-        }
-
-        code = String(crypto.randomInt(0, 1000000)).padStart(OTP_LENGTH, '0');
-        tx.set(ref, {
-          codeHash: hashOtpCode(code, email),
-          expiresAt: now + OTP_EXPIRY_MS,
-          attempts: 0,
-          lastSentAt: now,
-          windowStart: windowActive ? data.windowStart : now,
-          requestCount: requestCount + 1
-        });
-        return { ok: true };
-      });
-    } catch (err) {
-      logger.error('requestEmailOtp: transaction failed', err);
-      res.status(500).json({ error: 'Could not send a verification code — please try again.' });
-      return;
-    }
-
-    if (!outcome.ok) {
-      var msg = outcome.reason === 'cooldown'
-        ? 'Please wait a little before requesting another code.'
-        : 'Too many code requests for this email — please try again later.';
-      res.status(429).json({ error: msg });
-      return;
-    }
-
-    try {
-      await sendOtpEmail(email, code);
-    } catch (err) {
-      logger.error('requestEmailOtp: failed to send email', err);
-      res.status(502).json({ error: 'Could not send the verification email — please try again.' });
-      return;
-    }
-
-    res.status(200).json({ ok: true, accountExists: accountExists });
-  }
-);
-
-exports.verifyEmailOtp = onRequest(
-  { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
-  async function (req, res) {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method Not Allowed' });
-      return;
-    }
-
-    var email = normalizeEmail(req.body && req.body.email);
-    var code = typeof (req.body && req.body.code) === 'string' ? req.body.code.trim() : '';
-    // Optional — only ever sent from the Create Account view (the Sign In
-    // view has no such fields). Captured here, at the moment the account is
-    // actually verified/created, so a swimmer's name/username lands in
-    // Firestore immediately instead of depending on the onboarding wizard
-    // being completed afterward.
-    var fullNameInput = req.body && req.body.fullName;
-    var usernameInput = req.body && req.body.username;
-    if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
-      res.status(400).json({ error: 'Please enter the 6-digit code we sent you.' });
-      return;
-    }
-
-    var ref = db.collection('email_otps').doc(email);
-    var outcome;
-    try {
-      outcome = await db.runTransaction(async function (tx) {
-        var snap = await tx.get(ref);
-        if (!snap.exists) return { ok: false, reason: 'not_found' };
-
-        var data = snap.data();
-        var now = Date.now();
-        if (now > data.expiresAt) {
-          tx.delete(ref);
-          return { ok: false, reason: 'expired' };
-        }
-        if ((data.attempts || 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
-          tx.delete(ref);
-          return { ok: false, reason: 'too_many_attempts' };
-        }
-
-        var expectedHash = hashOtpCode(code, email);
-        var expectedBuf = Buffer.from(expectedHash, 'utf8');
-        var actualBuf = Buffer.from(String(data.codeHash || ''), 'utf8');
-        var matches = expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
-        if (!matches) {
-          tx.update(ref, { attempts: (data.attempts || 0) + 1 });
-          return { ok: false, reason: 'invalid_code' };
-        }
-
-        tx.delete(ref); // single-use: a verified code can never be replayed
-        return { ok: true };
-      });
-    } catch (err) {
-      logger.error('verifyEmailOtp: transaction failed', err);
-      res.status(500).json({ error: 'Could not verify that code — please try again.' });
-      return;
-    }
-
-    if (!outcome.ok) {
-      var reasonMessages = {
-        expired: 'That code expired — please request a new one.',
-        too_many_attempts: 'Too many incorrect attempts — please request a new code.',
-        not_found: 'Please request a new verification code.',
-        invalid_code: 'That code is incorrect — please try again.'
-      };
-      var status = outcome.reason === 'invalid_code' || outcome.reason === 'not_found' ? 400 : 429;
-      res.status(status).json({ error: reasonMessages[outcome.reason] });
-      return;
-    }
-
-    var userRecord;
-    try {
-      userRecord = await admin.auth().getUserByEmail(email);
-      if (!userRecord.emailVerified) {
-        await admin.auth().updateUser(userRecord.uid, { emailVerified: true });
-      }
-    } catch (err) {
-      if (err && err.code === 'auth/user-not-found') {
-        try {
-          userRecord = await admin.auth().createUser({ email: email, emailVerified: true });
-        } catch (createErr) {
-          logger.error('verifyEmailOtp: failed to create user', createErr);
-          res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
-          return;
-        }
-      } else {
-        logger.error('verifyEmailOtp: failed to look up user', err);
-        res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
-        return;
-      }
-    }
-
-    var customToken;
-    try {
-      customToken = await admin.auth().createCustomToken(userRecord.uid);
-    } catch (err) {
-      logger.error('verifyEmailOtp: failed to mint custom token', err);
-      res.status(500).json({ error: 'Could not complete sign-in — please try again.' });
-      return;
-    }
-
-    var captureResult = { usernameClaimed: false };
-    if (sanitizeFullName(fullNameInput) || normalizeUsername(usernameInput)) {
-      captureResult = await captureUpfrontProfile(userRecord.uid, email, fullNameInput, usernameInput);
-    }
-
-    res.status(200).json({ token: customToken, usernameClaimed: captureResult.usernameClaimed });
   }
 );
