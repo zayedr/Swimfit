@@ -278,17 +278,24 @@ function isAdminEmail(email) {
 
 const TRIAL_DAYS = 7;
 
-// Resolves what a signed-in swimmer can currently access: 'trial' during the
-// first TRIAL_DAYS after signup, whichever Paddle plan is actively paid for
-// after that ('pro' | 'elite' | 'ultra'), or 'locked' once the trial has
-// lapsed with no active subscription. Mirrors the client-side resolution in
-// index.html so the one call that actually costs money (aiSwimCoach) can't be
-// tricked by a client that simply hides its own paywall UI — this always
-// re-derives access from Firestore via the Admin SDK, never from anything the
-// request body claims. Fails open (returns 'trial') only when the user's
-// profile doc doesn't exist at all yet, to avoid a brand-new signup racing
-// its own first profile write into an incorrect instant lockout.
-async function getAccessLevel(uid) {
+// Resolves what a signed-in swimmer can currently access: 'admin' immediately
+// for the house account (see ADMIN_EMAILS — checked first, before any
+// Firestore read, so the admin override can never be defeated by a trial
+// date, a missing/malformed profile doc, or a paddle_subscriptions read
+// failing), 'trial' during the first TRIAL_DAYS after signup, whichever
+// Paddle plan is actively paid for after that ('pro' | 'elite' | 'ultra'), or
+// 'locked' once the trial has lapsed with no active subscription. Mirrors the
+// client-side resolution in index.html so the one call that actually costs
+// money (aiSwimCoach) can't be tricked by a client that simply hides its own
+// paywall UI — this always re-derives access from Firestore via the Admin
+// SDK, never from anything the request body claims. Fails open (returns
+// 'trial') only when the user's profile doc doesn't exist at all yet, to
+// avoid a brand-new signup racing its own first profile write into an
+// incorrect instant lockout. Takes email as well as uid specifically so the
+// admin check lives in this one place rather than being duplicated (and
+// potentially forgotten) at every call site.
+async function getAccessLevel(uid, email) {
+  if (isAdminEmail(email)) return 'admin';
   var userSnap = await db.collection('users').doc(uid).get();
   var userData = userSnap.exists ? userSnap.data() : null;
   var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
@@ -549,8 +556,8 @@ exports.aiSwimCoach = onRequest(
       return;
     }
     var uid = decoded.uid;
-    var isAdmin = isAdminEmail(decoded.email);
-    var accessLevel = isAdmin ? 'admin' : await getAccessLevel(uid);
+    var accessLevel = await getAccessLevel(uid, decoded.email);
+    var isAdmin = accessLevel === 'admin';
     if (accessLevel === 'locked') {
       res.status(402).json({ error: 'Your free trial has ended — subscribe to a plan to keep chatting with the AI Coach.' });
       return;
