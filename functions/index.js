@@ -19,7 +19,7 @@
  *          (admin.auth().createCustomToken), so it doesn't go through any
  *          Firebase-Console-configured sign-in provider at all.
  *   2. Firebase Console -> Authentication -> Settings -> Authorized domains:
- *        add swimfit.com (and www.swimfit.com if that resolves too). Without
+ *        add swimfit.online (and www.swimfit.online). Without
  *        this, Google popup sign-in fails with auth/unauthorized-domain for
  *        anyone on the live domain (the email-OTP flow isn't affected by this
  *        setting since it never calls a Firebase-hosted sign-in provider).
@@ -308,6 +308,8 @@ async function getAccessLevel(uid) {
 // here temporarily (e.g. 'http://localhost:8000') if testing against a
 // deployed function from a local static server.
 const ALLOWED_WEB_ORIGINS = [
+  'https://swimfit.online',
+  'https://www.swimfit.online',
   'https://swimfit.com',
   'https://www.swimfit.com',
   'https://zayedr.github.io',
@@ -686,7 +688,7 @@ function welcomeEmailHtml(name) {
             'a workout generator that adapts warm-up to cool-down around your discipline, distance, gear and goal, ' +
             'a dryland Gym focus for every swim day, and full technique breakdowns across all five disciplines.' +
           '</p>' +
-          '<a href="https://swimfit.com" style="display:inline-block;background:#22d3ee;color:#070B0A;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:999px;font-size:14px;">Start Training</a>' +
+          '<a href="https://swimfit.online" style="display:inline-block;background:#22d3ee;color:#070B0A;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:999px;font-size:14px;">Start Training</a>' +
           '<p style="font-size:12px;line-height:1.6;color:#5f7570;margin:28px 0 0;">' +
             'You’re receiving this because you created a Swimfit account. If this wasn’t you, you can safely ignore this email.' +
           '</p>' +
@@ -799,7 +801,7 @@ function otpEmailHtml(code) {
         '</div>' +
         '<div style="padding:32px;color:#F3F7F5;">' +
           '<h1 style="font-size:20px;margin:0 0 16px;color:#ffffff;">Your verification code</h1>' +
-          '<p style="font-size:15px;line-height:1.6;color:#97A9A3;margin:0 0 24px;">Enter this code on swimfit.com to finish signing in. It expires in 10 minutes.</p>' +
+          '<p style="font-size:15px;line-height:1.6;color:#97A9A3;margin:0 0 24px;">Enter this code on swimfit.online to finish signing in. It expires in 10 minutes.</p>' +
           '<div style="font-family:Georgia,serif;font-size:36px;font-weight:700;letter-spacing:0.3em;color:#22d3ee;text-align:center;padding:16px;background:#0B1312;border-radius:12px;">' +
             escapeHtml(code) +
           '</div>' +

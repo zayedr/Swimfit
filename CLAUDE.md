@@ -6,8 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains a single self-contained `index.html` — no build step, bundler, or
 package manager — styled and scripted inline. It is the live Swimfit site, deployed to
-`swimfit.com` via GitHub Pages from `main`. Development happens on the branch
-`claude/claude-md-docs-4sek0o`, merged to `main` only when explicitly requested.
+`swimfit.online` via GitHub Pages from `main` (custom domain set via the root `CNAME` file —
+DNS for `swimfit.online`/`www.swimfit.online` already points at GitHub Pages' IPs correctly;
+`swimfit.com` does not currently resolve to this site at all despite older docs/comments
+referencing it, so treat `swimfit.online` as the actual production domain going forward).
+Development happens on the branch `claude/claude-md-docs-4sek0o`, merged to `main` only when
+explicitly requested.
 
 The site is a marketing/training dashboard: a persistent Hero (with a looping background
 video generated via image-to-video, falling back gracefully to a static photo layer if it
