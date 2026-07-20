@@ -215,7 +215,11 @@
       // the prompt forever.
       var onboardingComplete = snap.exists() && snap.data().onboardingComplete === true;
       if (!onboardingComplete && typeof window.__openOnboardingIfNeeded === 'function') {
-        window.__openOnboardingIfNeeded(user);
+        // Pass along whatever's already in Firestore (e.g. fullName/username
+        // captured upfront in the Create Account form via verifyEmailOtp) so
+        // the wizard's Step 1 can prefill/lock those fields instead of
+        // presenting them as blank and re-asking.
+        window.__openOnboardingIfNeeded(user, snap.exists() ? snap.data() : null);
       }
     } catch (e) {
       // Non-fatal — the user stays signed in either way; this only affects
@@ -353,6 +357,10 @@
     var otpRequestForm = document.getElementById('otpRequestForm');
     var otpEmailInput = document.getElementById('otpEmailInput');
     var otpRequestBtn = document.getElementById('otpRequestBtn');
+    var otpSignupFields = document.getElementById('otpSignupFields');
+    var otpFullNameInput = document.getElementById('otpFullNameInput');
+    var otpUsernameInput = document.getElementById('otpUsernameInput');
+    var otpUsernameNote = document.getElementById('otpUsernameNote');
     var otpVerifyForm = document.getElementById('otpVerifyForm');
     var otpCodeInput = document.getElementById('otpCodeInput');
     var otpVerifyBtn = document.getElementById('otpVerifyBtn');
@@ -410,6 +418,43 @@
     var OTP_RESEND_COOLDOWN_SECONDS = 45;
     var otpCooldownUntil = 0;
     var otpEmailForVerification = '';
+    // Held between the request step and the verify step, only ever populated
+    // in Create Account mode — sent alongside the code on verify so
+    // verifyEmailOtp can persist them to Firestore the moment the account is
+    // actually created, instead of waiting on the onboarding wizard.
+    var otpPendingFullName = '';
+    var otpPendingUsername = '';
+    var SIGNUP_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+    function normalizeSignupUsername(raw) { return (raw || '').trim().toLowerCase(); }
+
+    var otpUsernameCheckTimer = null;
+    if (otpUsernameInput && otpUsernameNote) {
+      otpUsernameInput.addEventListener('input', function () {
+        var value = normalizeSignupUsername(otpUsernameInput.value);
+        clearTimeout(otpUsernameCheckTimer);
+        otpUsernameNote.style.color = '';
+        if (!value) { otpUsernameNote.textContent = ''; return; }
+        if (!SIGNUP_USERNAME_RE.test(value)) {
+          otpUsernameNote.style.color = '#e5484d';
+          otpUsernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
+          return;
+        }
+        otpUsernameNote.textContent = 'Checking availability…';
+        otpUsernameCheckTimer = setTimeout(function () {
+          window.__onboardingCheckUsernameTaken(value).then(function (taken) {
+            if (normalizeSignupUsername(otpUsernameInput.value) !== value) return; // stale response
+            if (taken) {
+              otpUsernameNote.style.color = '#e5484d';
+              otpUsernameNote.textContent = 'That username is already taken.';
+            } else {
+              otpUsernameNote.style.color = '#2ECC81';
+              otpUsernameNote.textContent = 'Username available.';
+            }
+          }).catch(function () { otpUsernameNote.textContent = ''; });
+        }, 450);
+      });
+    }
+
     function startOtpCooldown(btn, idleLabel) {
       otpCooldownUntil = Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000;
       btn.disabled = true;
@@ -432,6 +477,11 @@
     window.__resetAuthModalOtpUI = function () {
       showOtpStep('request');
       if (otpCodeInput) otpCodeInput.value = '';
+      otpPendingFullName = '';
+      otpPendingUsername = '';
+      if (otpFullNameInput) otpFullNameInput.value = '';
+      if (otpUsernameInput) otpUsernameInput.value = '';
+      if (otpUsernameNote) { otpUsernameNote.textContent = ''; otpUsernameNote.style.color = ''; }
     };
 
     function requestOtp(email) {
@@ -449,6 +499,28 @@
       if (Date.now() < otpCooldownUntil) return;
       var email = (otpEmailInput.value || '').trim();
       if (!email) return;
+
+      // Create Account mode captures Full Name + Username right here, before
+      // any code is sent — required client-side so a swimmer can't skip
+      // straight to a bare email, matching the "fill this out first" request.
+      var isSignup = otpSignupFields && otpSignupFields.style.display !== 'none';
+      var fullName = '';
+      var username = '';
+      if (isSignup) {
+        fullName = (otpFullNameInput && otpFullNameInput.value || '').trim();
+        username = normalizeSignupUsername(otpUsernameInput && otpUsernameInput.value);
+        if (!fullName) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Please enter your full name.';
+          return;
+        }
+        if (!SIGNUP_USERNAME_RE.test(username)) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
+          return;
+        }
+      }
+
       otpRequestBtn.disabled = true;
       statusNote.style.color = '';
       statusNote.textContent = 'Sending your verification code…';
@@ -460,6 +532,8 @@
           return;
         }
         otpEmailForVerification = email;
+        otpPendingFullName = fullName;
+        otpPendingUsername = username;
         statusNote.style.color = '';
         statusNote.textContent = 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
         showOtpStep('verify');
@@ -489,10 +563,13 @@
       otpVerifyBtn.disabled = true;
       statusNote.style.color = '';
       statusNote.textContent = 'Verifying…';
+      var verifyBody = { email: otpEmailForVerification, code: code };
+      if (otpPendingFullName) verifyBody.fullName = otpPendingFullName;
+      if (otpPendingUsername) verifyBody.username = otpPendingUsername;
       fetch(OTP_VERIFY_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: otpEmailForVerification, code: code })
+        body: JSON.stringify(verifyBody)
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
       }).then(function (result) {
@@ -509,6 +586,8 @@
           otpRequestForm.reset();
           otpVerifyForm.reset();
           showOtpStep('request');
+          otpPendingFullName = '';
+          otpPendingUsername = '';
         });
       }).catch(function (error) {
         otpVerifyBtn.disabled = false;
@@ -571,8 +650,14 @@
     var userRef = doc(db, 'users', user.uid);
     return runTransaction(db, function (tx) {
       return tx.get(usernameRef).then(function (existing) {
-        if (existing.exists()) throw new Error('USERNAME_TAKEN');
-        tx.set(usernameRef, { uid: user.uid, createdAt: serverTimestamp() });
+        // Already claimed by someone else -> hard stop. Already claimed by
+        // *this* uid (e.g. captured upfront via the Create Account form and
+        // verifyEmailOtp before the wizard ever ran) -> skip the doc write
+        // entirely, since firestore.rules only allows "create" on a
+        // usernames/{name} doc that doesn't exist yet; re-writing an
+        // already-existing one would be rejected as an update.
+        if (existing.exists() && existing.data().uid !== user.uid) throw new Error('USERNAME_TAKEN');
+        if (!existing.exists()) tx.set(usernameRef, { uid: user.uid, createdAt: serverTimestamp() });
         tx.set(userRef, Object.assign({}, profile, { onboardingComplete: true }), { merge: true });
       });
     });
@@ -1409,6 +1494,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .email-link-input:focus { border-color: var(--aqua); }
 .email-link-form .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
 .email-link-form .btn .icon { width: 16px; height: 16px; }
+.signup-only-fields { display: flex; flex-direction: column; gap: var(--space-3); }
 .otp-code-input { text-align: center; letter-spacing: 0.6em; font-size: 1.5rem; font-family: var(--font-display); padding-block: 0.8em; }
 .otp-secondary-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
 .otp-secondary-dot { color: var(--muted-2); font-size: 0.78rem; }
@@ -2854,6 +2940,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="auth-divider"><span>or</span></div>
 
     <form class="email-link-form" id="otpRequestForm">
+      <div class="signup-only-fields" id="otpSignupFields" style="display:none">
+        <label for="otpFullNameInput" class="sr-only">Full name</label>
+        <input type="text" id="otpFullNameInput" class="email-link-input" placeholder="Full name" maxlength="80" autocomplete="name">
+        <label for="otpUsernameInput" class="sr-only">Username</label>
+        <input type="text" id="otpUsernameInput" class="email-link-input" placeholder="Username" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <p class="onboarding-username-note" id="otpUsernameNote"></p>
+      </div>
       <label for="otpEmailInput" class="sr-only">Email address</label>
       <input type="email" id="otpEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
       <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpRequestBtn">
@@ -3312,6 +3405,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
       btn.setAttribute('aria-selected', btn.dataset.authMode === mode ? 'true' : 'false');
     });
+    var signupFields = document.getElementById('otpSignupFields');
+    if (signupFields) signupFields.style.display = mode === 'signup' ? 'flex' : 'none';
   }
   document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
     btn.addEventListener('click', function () { setAuthMode(btn.dataset.authMode); });
@@ -5376,8 +5471,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     }
 
     // Exposed for ensureUserProfile (module <script> in <head>) to call once
-    // it knows the signed-in user's onboardingComplete status.
-    window.__openOnboardingIfNeeded = function (user) {
+    // it knows the signed-in user's onboardingComplete status. existingProfileData
+    // is whatever's already in users/{uid} — e.g. fullName/username captured
+    // upfront in the Create Account form (via verifyEmailOtp) before this
+    // wizard ever ran — so Step 1 can prefill/lock those instead of asking
+    // again as if they were still blank.
+    window.__openOnboardingIfNeeded = function (user, existingProfileData) {
       if (dismissedUids[user.uid] || modal.classList.contains('open')) return;
       currentUser = user;
       // Reset every time: this modal can be re-triggered for a *different*
@@ -5385,9 +5484,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       // as someone else), and a prior run may have left the submit button
       // disabled (mid-save) or stale values/notes/step from the last account.
       form.reset();
-      if (nameInput) nameInput.value = user.displayName || '';
+      var existingFullName = existingProfileData && existingProfileData.fullName;
+      var existingUsername = existingProfileData && existingProfileData.username;
+      if (nameInput) nameInput.value = existingFullName || user.displayName || '';
       if (emailDisplay) emailDisplay.value = user.email || '';
-      if (usernameNote) { usernameNote.textContent = ''; usernameNote.style.color = ''; }
+      if (usernameInput) {
+        if (existingUsername) {
+          usernameInput.value = existingUsername;
+          usernameInput.disabled = true;
+        } else {
+          usernameInput.disabled = false;
+        }
+      }
+      if (usernameNote) {
+        usernameNote.style.color = '';
+        usernameNote.textContent = existingUsername ? 'Already set from sign-up.' : '';
+      }
       if (statusNote) { statusNote.textContent = ''; statusNote.style.color = ''; }
       if (submitBtn) submitBtn.disabled = false;
       wizardSelection = { disciplines: [DISCIPLINES[0].name], distance: 2000, goal: GOALS[0].key };
