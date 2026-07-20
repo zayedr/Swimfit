@@ -67,11 +67,13 @@
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
   import {
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-    signInWithCustomToken, setPersistence, browserLocalPersistence, browserSessionPersistence
+    signInWithCustomToken, setPersistence, browserLocalPersistence, browserSessionPersistence,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
+    sendEmailVerification, updateProfile
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
-    collection, addDoc, query, where, orderBy, getDocs, Timestamp
+    collection, addDoc, query, where, orderBy, getDocs, Timestamp, runTransaction
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
   // Your web app's Firebase configuration
@@ -322,7 +324,13 @@
     'auth/user-disabled': 'This account has been disabled — please contact support.',
     'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.',
     'auth/invalid-custom-token': 'That verification session has expired — please request a new code.',
-    'auth/custom-token-mismatch': 'That verification session is invalid — please request a new code.'
+    'auth/custom-token-mismatch': 'That verification session is invalid — please request a new code.',
+    'auth/email-already-in-use': 'An account already exists for this email — try signing in instead.',
+    'auth/weak-password': 'Password must be at least 8 characters, with at least one letter and one number.',
+    'auth/wrong-password': 'Incorrect email or password.',
+    'auth/invalid-credential': 'Incorrect email or password.',
+    'auth/user-not-found': 'No account found for that email — check the address or create an account.',
+    'auth/missing-password': 'Please enter your password.'
   };
   function describeAuthError(error, fallback) {
     return (error && AUTH_ERROR_MESSAGES[error.code]) || fallback;
@@ -347,14 +355,23 @@
     var statusNote = document.getElementById('authStatusNote');
     var authModal = document.getElementById('authModal');
     var logoutBtn = document.getElementById('navLogoutBtn');
+    var passwordAuthForm = document.getElementById('passwordAuthForm');
+    var passwordSignupFields = document.getElementById('passwordSignupFields');
+    var pwFullNameInput = document.getElementById('pwFullNameInput');
+    var pwUsernameInput = document.getElementById('pwUsernameInput');
+    var pwUsernameNote = document.getElementById('pwUsernameNote');
+    var pwEmailInput = document.getElementById('pwEmailInput');
+    var pwPasswordInput = document.getElementById('pwPasswordInput');
+    var pwConfirmInput = document.getElementById('pwConfirmInput');
+    var pwPasswordNote = document.getElementById('pwPasswordNote');
+    var passwordAuthBtn = document.getElementById('passwordAuthBtn');
+    var forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+    var useCodeInsteadBtn = document.getElementById('useCodeInsteadBtn');
+    var useCodeBackToPasswordBtn = document.getElementById('useCodeBackToPasswordBtn');
     var otpRequestForm = document.getElementById('otpRequestForm');
     var otpEmailInput = document.getElementById('otpEmailInput');
     var otpRequestBtn = document.getElementById('otpRequestBtn');
     var otpRequestBtnLabel = document.getElementById('otpRequestBtnLabel');
-    var otpSignupFields = document.getElementById('otpSignupFields');
-    var otpFullNameInput = document.getElementById('otpFullNameInput');
-    var otpUsernameInput = document.getElementById('otpUsernameInput');
-    var otpUsernameNote = document.getElementById('otpUsernameNote');
     var otpVerifyForm = document.getElementById('otpVerifyForm');
     var otpCodeInput = document.getElementById('otpCodeInput');
     var otpVerifyBtn = document.getElementById('otpVerifyBtn');
@@ -402,6 +419,177 @@
 
     if (!otpRequestForm || !otpVerifyForm) { wireRegisteredUsersCounter(); return; }
 
+    // ============================= PASSWORD AUTH (primary) =============================
+    // The mandatory registration path: Full Name + Username + Email + Password
+    // (+ confirm) in Create Account mode, Email + Password in Sign In mode.
+    // createUserWithEmailAndPassword/signInWithEmailAndPassword are real
+    // Firebase Auth SDK calls — the password is verified by Google's Identity
+    // Platform itself, this app never sees, hashes, or stores it anywhere.
+    var PASSWORD_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+    var PASSWORD_STRENGTH_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    function normalizePasswordUsername(raw) { return (raw || '').trim().toLowerCase(); }
+
+    var pwUsernameCheckTimer = null;
+    if (pwUsernameInput && pwUsernameNote) {
+      pwUsernameInput.addEventListener('input', function () {
+        var value = normalizePasswordUsername(pwUsernameInput.value);
+        clearTimeout(pwUsernameCheckTimer);
+        pwUsernameNote.style.color = '';
+        if (!value) { pwUsernameNote.textContent = ''; return; }
+        if (!PASSWORD_USERNAME_RE.test(value)) {
+          pwUsernameNote.style.color = '#e5484d';
+          pwUsernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
+          return;
+        }
+        pwUsernameNote.textContent = 'Checking availability…';
+        pwUsernameCheckTimer = setTimeout(function () {
+          window.__checkUsernameTaken(value).then(function (taken) {
+            if (normalizePasswordUsername(pwUsernameInput.value) !== value) return; // stale response
+            if (taken) {
+              pwUsernameNote.style.color = '#e5484d';
+              pwUsernameNote.textContent = 'That username is already taken.';
+            } else {
+              pwUsernameNote.style.color = '#2ECC81';
+              pwUsernameNote.textContent = 'Username available.';
+            }
+          }).catch(function () { pwUsernameNote.textContent = ''; });
+        }, 450);
+      });
+    }
+
+    // Atomic username claim + profile write, run right after a brand-new
+    // password account is created (mirrors the same usernames/{name}
+    // create-only guarantee firestore.rules already enforces for every other
+    // sign-up path in this app) — the swimmer is already authenticated by
+    // this point, so this needs no Cloud Function round-trip.
+    function claimUsernameAndProfile(uid, email, fullName, username) {
+      var usernameRef = doc(db, 'usernames', username);
+      var userRef = doc(db, 'users', uid);
+      return runTransaction(db, function (tx) {
+        return tx.get(usernameRef).then(function (existing) {
+          if (existing.exists()) throw new Error('USERNAME_TAKEN');
+          tx.set(usernameRef, { uid: uid, createdAt: serverTimestamp() });
+          tx.set(userRef, { fullName: fullName, username: username, email: email }, { merge: true });
+        });
+      });
+    }
+
+    function showAuthMethod(method) {
+      // method: 'password' | 'code'. Create Account never offers 'code' — see
+      // setAuthMode, which forces 'password' whenever signup mode is selected.
+      passwordAuthForm.style.display = method === 'password' ? '' : 'none';
+      otpRequestForm.style.display = method === 'code' ? '' : 'none';
+      otpVerifyForm.style.display = 'none';
+    }
+    window.__showAuthMethod = showAuthMethod;
+
+    passwordAuthForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var isSignup = passwordSignupFields && passwordSignupFields.style.display !== 'none';
+      var email = (pwEmailInput.value || '').trim();
+      var password = pwPasswordInput.value || '';
+      var fullName = '';
+      var username = '';
+
+      if (isSignup) {
+        fullName = (pwFullNameInput.value || '').trim();
+        username = normalizePasswordUsername(pwUsernameInput.value);
+        var confirm = pwConfirmInput.value || '';
+        if (!fullName) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Please enter your full name.';
+          return;
+        }
+        if (!PASSWORD_USERNAME_RE.test(username)) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
+          return;
+        }
+        if (!PASSWORD_STRENGTH_RE.test(password)) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Password must be at least 8 characters, with at least one letter and one number.';
+          return;
+        }
+        if (password !== confirm) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Passwords don’t match.';
+          return;
+        }
+      }
+
+      passwordAuthBtn.disabled = true;
+      statusNote.style.color = '';
+      statusNote.textContent = isSignup ? 'Creating your account…' : 'Signing in…';
+
+      var authPromise = isSignup
+        ? createUserWithEmailAndPassword(auth, email, password)
+        : signInWithEmailAndPassword(auth, email, password);
+
+      authPromise.then(function (cred) {
+        if (!isSignup) {
+          statusNote.style.color = '';
+          statusNote.textContent = 'Signed in as ' + (cred.user.email || email) + '.';
+          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
+          return;
+        }
+        // The account already exists and the swimmer is already signed in at
+        // this point — everything below is best-effort polish, never allowed
+        // to strand them mid-signup if one of these calls fails.
+        updateProfile(cred.user, { displayName: fullName }).catch(function () {});
+        sendEmailVerification(cred.user).catch(function () {});
+        claimUsernameAndProfile(cred.user.uid, email, fullName, username).then(function () {
+          statusNote.style.color = '';
+          statusNote.textContent = 'Account created — welcome to Swimfit!';
+        }).catch(function (err) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = (err && err.message === 'USERNAME_TAKEN')
+            ? 'Account created, but "' + username + '" was already taken — you can pick a different username later.'
+            : 'Account created! (Your name/username couldn’t be saved — please try again later.)';
+        });
+        setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
+      }).catch(function (error) {
+        passwordAuthBtn.disabled = false;
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = describeAuthError(error, isSignup ? 'Could not create your account — please try again.' : 'Could not sign in — please check your email and password.');
+      });
+    });
+
+    if (forgotPasswordBtn) {
+      forgotPasswordBtn.addEventListener('click', function () {
+        var email = (pwEmailInput.value || '').trim();
+        if (!email) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = 'Enter your email above first, then tap "Forgot password?".';
+          return;
+        }
+        statusNote.style.color = '';
+        statusNote.textContent = 'Sending a password reset link…';
+        sendPasswordResetEmail(auth, email).then(function () {
+          statusNote.style.color = '';
+          statusNote.textContent = 'Check your inbox for a link to reset your password.';
+        }).catch(function (error) {
+          statusNote.style.color = '#e5484d';
+          statusNote.textContent = describeAuthError(error, 'Could not send a reset email — please check the address and try again.');
+        });
+      });
+    }
+
+    if (useCodeInsteadBtn) {
+      useCodeInsteadBtn.addEventListener('click', function () {
+        showAuthMethod('code');
+        statusNote.style.color = '';
+        statusNote.textContent = 'We’ll email you a 6-digit code instead.';
+      });
+    }
+    if (useCodeBackToPasswordBtn) {
+      useCodeBackToPasswordBtn.addEventListener('click', function () {
+        showAuthMethod('password');
+        statusNote.style.color = '';
+        statusNote.textContent = 'Sign in with your email and password.';
+      });
+    }
+
+    // ============================= EMAIL-CODE SIGN-IN (fallback for existing passwordless accounts) =============================
     // A short client-side cooldown after each send. This is a UX speed bump,
     // not a real security boundary — someone could still call the endpoint
     // directly — but it stops the on-page form itself from being trivially
@@ -412,42 +600,6 @@
     var OTP_RESEND_COOLDOWN_SECONDS = 45;
     var otpCooldownUntil = 0;
     var otpEmailForVerification = '';
-    // Held between the request step and the verify step, only ever populated
-    // in Create Account mode — sent alongside the code on verify so
-    // verifyEmailOtp can persist them to Firestore the moment the account is
-    // actually created.
-    var otpPendingFullName = '';
-    var otpPendingUsername = '';
-    var SIGNUP_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
-    function normalizeSignupUsername(raw) { return (raw || '').trim().toLowerCase(); }
-
-    var otpUsernameCheckTimer = null;
-    if (otpUsernameInput && otpUsernameNote) {
-      otpUsernameInput.addEventListener('input', function () {
-        var value = normalizeSignupUsername(otpUsernameInput.value);
-        clearTimeout(otpUsernameCheckTimer);
-        otpUsernameNote.style.color = '';
-        if (!value) { otpUsernameNote.textContent = ''; return; }
-        if (!SIGNUP_USERNAME_RE.test(value)) {
-          otpUsernameNote.style.color = '#e5484d';
-          otpUsernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
-          return;
-        }
-        otpUsernameNote.textContent = 'Checking availability…';
-        otpUsernameCheckTimer = setTimeout(function () {
-          window.__checkUsernameTaken(value).then(function (taken) {
-            if (normalizeSignupUsername(otpUsernameInput.value) !== value) return; // stale response
-            if (taken) {
-              otpUsernameNote.style.color = '#e5484d';
-              otpUsernameNote.textContent = 'That username is already taken.';
-            } else {
-              otpUsernameNote.style.color = '#2ECC81';
-              otpUsernameNote.textContent = 'Username available.';
-            }
-          }).catch(function () { otpUsernameNote.textContent = ''; });
-        }, 450);
-      });
-    }
 
     function startOtpCooldown(btn, idleLabel, labelEl) {
       // Write the countdown text into labelEl (a child <span>) when given one,
@@ -472,25 +624,26 @@
     }
 
     // Exposed so openAuthModal (in the other <script>, at the bottom of the
-    // page) can reset this UI back to the email step whenever the modal is
-    // reopened, mirroring how it already resets googleBtn.
+    // page) can reset this UI back to the password-sign-in step whenever the
+    // modal is reopened, mirroring how it already resets googleBtn.
     window.__resetAuthModalOtpUI = function () {
+      showAuthMethod('password');
       showOtpStep('request');
       if (otpCodeInput) otpCodeInput.value = '';
-      otpPendingFullName = '';
-      otpPendingUsername = '';
-      if (otpFullNameInput) otpFullNameInput.value = '';
-      if (otpUsernameInput) otpUsernameInput.value = '';
-      if (otpUsernameNote) { otpUsernameNote.textContent = ''; otpUsernameNote.style.color = ''; }
+      if (passwordAuthBtn) passwordAuthBtn.disabled = false;
+      if (pwPasswordInput) pwPasswordInput.value = '';
+      if (pwConfirmInput) pwConfirmInput.value = '';
+      if (pwFullNameInput) pwFullNameInput.value = '';
+      if (pwUsernameInput) pwUsernameInput.value = '';
+      if (pwUsernameNote) { pwUsernameNote.textContent = ''; pwUsernameNote.style.color = ''; }
+      if (pwPasswordNote) { pwPasswordNote.textContent = ''; pwPasswordNote.style.color = ''; }
     };
 
-    function requestOtp(email, username) {
-      var body = { email: email };
-      if (username) body.username = username;
+    function requestOtp(email) {
       return fetch(OTP_REQUEST_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ email: email })
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
       });
@@ -502,52 +655,19 @@
       var email = (otpEmailInput.value || '').trim();
       if (!email) return;
 
-      // Create Account mode captures Full Name + Username right here, before
-      // any code is sent — required client-side so a swimmer can't skip
-      // straight to a bare email, matching the "fill this out first" request.
-      var isSignup = otpSignupFields && otpSignupFields.style.display !== 'none';
-      var fullName = '';
-      var username = '';
-      if (isSignup) {
-        fullName = (otpFullNameInput && otpFullNameInput.value || '').trim();
-        username = normalizeSignupUsername(otpUsernameInput && otpUsernameInput.value);
-        if (!fullName) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Please enter your full name.';
-          return;
-        }
-        if (!SIGNUP_USERNAME_RE.test(username)) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
-          return;
-        }
-      }
-
       otpRequestBtn.disabled = true;
       statusNote.style.color = '';
       statusNote.textContent = 'Sending your verification code…';
-      requestOtp(email, isSignup ? username : null).then(function (result) {
+      requestOtp(email).then(function (result) {
         if (!result.ok) {
           otpRequestBtn.disabled = false;
-          // Username-taken (409) and any other server-side rejection surface
-          // here with a clean, specific message from the response body —
-          // never the generic catch-all below, which only fires when the
-          // fetch itself never got a response at all.
           statusNote.style.color = '#e5484d';
           statusNote.textContent = (result.data && result.data.error) || 'Couldn’t send a code — please try again.';
           return;
         }
         otpEmailForVerification = email;
-        otpPendingFullName = fullName;
-        otpPendingUsername = username;
         statusNote.style.color = '';
-        // This system treats Sign In and Create Account as the exact same
-        // OTP mechanic (one email always maps to one account) — an existing
-        // account isn't an error, but a Create Account swimmer should still
-        // know they're about to sign into it rather than creating a new one.
-        statusNote.textContent = isSignup && result.data && result.data.accountExists === true
-          ? 'Looks like you already have a Swimfit account — enter the code below to sign in.'
-          : 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
+        statusNote.textContent = 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
         showOtpStep('verify');
         otpCodeInput.value = '';
         // Both buttons share the same cooldown window (one code send either
@@ -575,13 +695,10 @@
       otpVerifyBtn.disabled = true;
       statusNote.style.color = '';
       statusNote.textContent = 'Verifying…';
-      var verifyBody = { email: otpEmailForVerification, code: code };
-      if (otpPendingFullName) verifyBody.fullName = otpPendingFullName;
-      if (otpPendingUsername) verifyBody.username = otpPendingUsername;
       fetch(OTP_VERIFY_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(verifyBody)
+        body: JSON.stringify({ email: otpEmailForVerification, code: code })
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
       }).then(function (result) {
@@ -592,24 +709,12 @@
           return;
         }
         return signInWithCustomToken(auth, result.data.token).then(function (cred) {
-          // A username submitted at signup can lose a race to someone else
-          // claiming it between the request step's availability check and
-          // this verify step (or it may have already been set on an existing
-          // account this email maps to) — non-fatal to sign-in either way,
-          // but the swimmer should still be told rather than assuming it
-          // silently stuck. Give this case a bit longer on screen than the
-          // ordinary success message before the modal auto-closes.
-          var usernameDidNotStick = !!otpPendingUsername && result.data.usernameClaimed === false;
-          statusNote.style.color = usernameDidNotStick ? '#e5484d' : '';
-          statusNote.textContent = usernameDidNotStick
-            ? 'Signed in — but "' + otpPendingUsername + '" was already taken, so it wasn’t saved to your profile.'
-            : 'Signed in as ' + (cred.user.email || otpEmailForVerification) + '.';
-          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, usernameDidNotStick ? 2400 : 700);
+          statusNote.style.color = '';
+          statusNote.textContent = 'Signed in as ' + (cred.user.email || otpEmailForVerification) + '.';
+          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
           otpRequestForm.reset();
           otpVerifyForm.reset();
           showOtpStep('request');
-          otpPendingFullName = '';
-          otpPendingUsername = '';
         });
       }).catch(function (error) {
         otpVerifyBtn.disabled = false;
@@ -646,7 +751,7 @@
       otpChangeEmailBtn.addEventListener('click', function () {
         showOtpStep('request');
         statusNote.style.color = '';
-        statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
+        statusNote.textContent = 'Enter a different email to get a new code.';
         otpCodeInput.value = '';
       });
     }
@@ -1208,6 +1313,16 @@ section { position: relative; scroll-margin-top: 96px; }
 .profile-field input:focus { border-color: var(--aqua); }
 @media (max-width: 480px) { .profile-row { grid-template-columns: 1fr; } }
 
+.pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-2); }
+.pb-stroke-row { display: grid; grid-template-columns: 100px 1fr 1fr; gap: var(--space-2); align-items: center; }
+.pb-stroke-name { font-size: 0.82rem; color: var(--muted); }
+.pb-stroke-row input {
+  width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.55em 0.7em; color: var(--fg); font-size: 0.85rem; transition: border-color var(--dur) var(--ease);
+}
+.pb-stroke-row input:focus { border-color: var(--aqua); }
+@media (max-width: 480px) { .pb-stroke-row { grid-template-columns: 1fr; } }
+
 .equipment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
 .equip-check {
   display: flex; align-items: center; gap: var(--space-2); padding: 0.7em 0.9em; border-radius: var(--radius-sm);
@@ -1279,6 +1394,22 @@ section { position: relative; scroll-margin-top: 96px; }
 .result-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 280px; text-align: center; color: var(--muted); gap: var(--space-3); }
 .result-empty .icon { width: 44px; height: 44px; color: var(--muted-2); }
 
+.workout-ai-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.workout-ai-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-4) 0; }
+.workout-ai-head .icon { width: 18px; height: 18px; color: var(--aqua); }
+.workout-ai-head h4 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.workout-ai-messages { max-height: 260px; min-height: 60px; padding: var(--space-3) var(--space-4); }
+.workout-ai-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
+.workout-ai-signed-out {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-5); text-align: center; color: var(--muted); display: flex; flex-direction: column;
+  align-items: center; gap: var(--space-2);
+}
+.workout-ai-signed-out .icon { width: 26px; height: 26px; color: var(--muted-2); }
+
 .workout-block { animation: blockIn 460ms var(--ease) both; }
 .workout-block + .workout-block { margin-top: var(--space-5); }
 .workout-block:nth-of-type(1) { animation-delay: 0ms; }
@@ -1339,6 +1470,8 @@ section { position: relative; scroll-margin-top: 96px; }
 /* ============================= GYM SELECTOR ============================= */
 .gym-card h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: 4px; }
 .gym-card .cue { color: var(--muted); font-size: 0.9rem; margin-top: var(--space-2); }
+.gym-watch-btn { margin-top: var(--space-3); width: 100%; justify-content: center; }
+.gym-watch-btn .icon { width: 14px; height: 14px; }
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
 .gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 .gym-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--shadow-2); border-color: var(--green); }
@@ -1601,6 +1734,11 @@ body.paywall-locked { overflow: hidden; }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .coach-bubble.coach-typing { color: var(--muted); font-style: italic; }
 .coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); }
+/* Consecutive messages from the same sender sit closer together with a
+   softer inner corner, rather than reading as unrelated isolated bubbles. */
+.coach-msg-grouped { margin-top: calc(var(--space-3) * -0.6); }
+.coach-msg-user.coach-msg-grouped .coach-bubble { border-top-right-radius: 4px; }
+.coach-msg-assistant.coach-msg-grouped .coach-bubble { border-top-left-radius: 4px; }
 
 .coach-form { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
 .coach-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6em 0.9em; color: var(--fg); font-family: var(--font-body); font-size: 0.88rem; resize: none; max-height: 90px; }
@@ -1650,6 +1788,13 @@ body.paywall-locked { overflow: hidden; }
 .coach-page-locked h3 { color: var(--fg); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .coach-page-locked p { max-width: 40ch; }
 
+.coach-page-prompts { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-4) var(--space-5) 0; }
+.coach-prompt-chip {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; color: var(--fg);
+  font-size: 0.8rem; padding: 0.5em 1em; cursor: pointer; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.coach-prompt-chip:hover { border-color: var(--aqua); transform: translateY(-1px); }
+
 .coach-page-messages { padding: var(--space-5); }
 .coach-page-messages .coach-bubble { max-width: 74%; font-size: 0.95rem; }
 .coach-page-messages .coach-bubble-images { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
@@ -1694,6 +1839,18 @@ body.paywall-locked { overflow: hidden; }
 .tracker-stat-card .pill-tabs { justify-content: center; margin-bottom: var(--space-4); }
 .tracker-stat-value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--aqua); line-height: 1; }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
+
+.tracker-analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.tracker-analytics-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: 6px; text-align: center;
+}
+.tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
+.tracker-analytics-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--green); }
+.tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; }
+@media (max-width: 640px) {
+  .tracker-analytics-grid { grid-template-columns: 1fr; }
+}
 
 .tracker-entries-head { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--space-3); }
 .tracker-entries-list { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -2466,6 +2623,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
 
           <div class="config-group">
+            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Per-Stroke Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — sharpens pacing whenever that stroke is the primary discipline below)</span></div>
+            <div class="pb-stroke-grid">
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Backstroke</span>
+                <input type="text" id="pb50Backstroke" placeholder="50m — e.g. 0:31">
+                <input type="text" id="pb100Backstroke" placeholder="100m — e.g. 1:08">
+              </div>
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Butterfly</span>
+                <input type="text" id="pb50Butterfly" placeholder="50m — e.g. 0:29">
+                <input type="text" id="pb100Butterfly" placeholder="100m — e.g. 1:04">
+              </div>
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Breaststroke</span>
+                <input type="text" id="pb50Breaststroke" placeholder="50m — e.g. 0:35">
+                <input type="text" id="pb100Breaststroke" placeholder="100m — e.g. 1:16">
+              </div>
+            </div>
+          </div>
+
+          <div class="config-group">
             <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or several for a medley/transition set)</span></div>
             <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
           </div>
@@ -2519,6 +2697,30 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               </div>
             </div>
           </div>
+
+          <div class="workout-ai-panel" data-auth-signed-in style="display:none">
+            <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>Ask The Coach About This Workout</h4></div>
+            <div class="coach-messages workout-ai-messages" id="workoutAiMessages"></div>
+            <form class="coach-page-form" id="workoutAiForm">
+              <div class="workout-ai-chips" id="workoutAiChips">
+                <button type="button" class="coach-prompt-chip" data-action="refresh">Regenerate this workout</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Explain the target pace zones in this workout and why they matter.">Explain target zones</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it easier — reduce volume or intensity.">Make it easier</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it harder — add volume or intensity.">Make it harder</button>
+              </div>
+              <div class="coach-page-form-row">
+                <label for="workoutAiInput" class="sr-only">Ask the coach about this workout</label>
+                <textarea id="workoutAiInput" class="coach-input" rows="1" placeholder="Ask the coach to adjust this workout, explain pacing, or anything else…" maxlength="1000"></textarea>
+                <button type="submit" class="coach-send-btn" id="workoutAiSendBtn" aria-label="Send">
+                  <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+                </button>
+              </div>
+            </form>
+          </div>
+          <div class="workout-ai-signed-out" data-auth-signed-out>
+            <svg class="icon"><use href="#i-comment"/></svg>
+            <p>Sign in to ask the AI Coach about your generated workout — adjust sets, explain pacing, or refresh it entirely.</p>
+          </div>
         </div>
       </div>
      </div>
@@ -2564,6 +2766,30 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
       <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
       <div id="gymGrid"></div>
+
+      <div class="workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6);">
+        <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
+        <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
+        <form class="coach-page-form" id="gymAiForm">
+          <div class="workout-ai-chips" id="gymAiChips">
+            <button type="button" class="coach-prompt-chip" data-prompt="Generate a complete dryland routine for today, tailored to a competitive swimmer.">Generate today's routine</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Generate a full week (7 days) of dryland training, balancing strength, power and recovery for a competitive swimmer.">Generate this week's plan</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Make the routine you just gave me shorter — I have less time today.">Make it shorter</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Add more core and rotator-cuff / shoulder-health work to the routine.">Add more core work</button>
+          </div>
+          <div class="coach-page-form-row">
+            <label for="gymAiInput" class="sr-only">Ask the AI Gym Coach</label>
+            <textarea id="gymAiInput" class="coach-input" rows="1" placeholder="Ask for a routine, or refine the one above…" maxlength="1000"></textarea>
+            <button type="submit" class="coach-send-btn" id="gymAiSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="workout-ai-signed-out" data-auth-signed-out style="margin-top: var(--space-6);">
+        <svg class="icon"><use href="#i-comment"/></svg>
+        <p>Sign in to generate a personalized daily or weekly dryland routine with the AI Coach.</p>
+      </div>
     </div>
 
     <!-- ---------- GEAR ---------- -->
@@ -2605,6 +2831,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div class="coach-page-shell" data-auth-signed-in style="display:none">
+        <div class="coach-page-locked" id="coachPageLockedPrompt" hidden>
+          <svg class="icon"><use href="#i-lock"/></svg>
+          <h3>Your Trial Has Ended</h3>
+          <p>Subscribe to Pro to keep chatting with your AI Swim Coach — technique breakdowns, dryland guidance and training-log feedback, whenever you need it.</p>
+          <button type="button" class="btn btn-primary" data-plan="pro">Upgrade to Pro</button>
+        </div>
         <div class="coach-page-locked" id="coachPageTierLock" hidden>
           <svg class="icon"><use href="#i-lock"/></svg>
           <h3>Dedicated AI Page Is An Elite Benefit</h3>
@@ -2612,6 +2844,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <button type="button" class="btn btn-primary" data-tab="pricing">Upgrade to Elite</button>
         </div>
         <div id="coachPageChatWrap" style="display:none">
+          <div class="coach-page-prompts" id="coachPagePrompts">
+            <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Suggest a dryland recovery routine for a rest day.">Recovery day routine</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Review my last logged swim and suggest one improvement.">Review my last swim</button>
+          </div>
           <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
           <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
           <form class="coach-page-form" id="coachPageForm">
@@ -2686,6 +2924,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
           <div class="tracker-stat-value" id="trackerStatValue">0.00 km</div>
           <div class="tracker-stat-label" id="trackerStatLabel">Logged Today</div>
+        </div>
+
+        <div class="tracker-analytics-grid" id="trackerAnalyticsGrid">
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Weekly Total</span>
+            <span class="tracker-analytics-value" id="trackerWeeklyTotal">0.00 km</span>
+          </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Monthly Total</span>
+            <span class="tracker-analytics-value" id="trackerMonthlyTotal">0.00 km</span>
+          </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Most Swum Discipline</span>
+            <span class="tracker-analytics-value tracker-analytics-value-text" id="trackerTopDiscipline">—</span>
+          </div>
         </div>
 
         <h3 class="tracker-entries-head">Recent Swims</h3>
@@ -2906,19 +3159,39 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     <div class="auth-divider"><span>or</span></div>
 
-    <form class="email-link-form" id="otpRequestForm">
-      <div class="signup-only-fields" id="otpSignupFields" style="display:none">
-        <label for="otpFullNameInput" class="sr-only">Full name</label>
-        <input type="text" id="otpFullNameInput" class="email-link-input" placeholder="Full name" maxlength="80" autocomplete="name">
-        <label for="otpUsernameInput" class="sr-only">Username</label>
-        <input type="text" id="otpUsernameInput" class="email-link-input" placeholder="Username" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <p class="onboarding-username-note" id="otpUsernameNote"></p>
+    <form class="email-link-form" id="passwordAuthForm">
+      <div class="signup-only-fields" id="passwordSignupFields" style="display:none">
+        <label for="pwFullNameInput" class="sr-only">Full name</label>
+        <input type="text" id="pwFullNameInput" class="email-link-input" placeholder="Full name" maxlength="80" autocomplete="name">
+        <label for="pwUsernameInput" class="sr-only">Username</label>
+        <input type="text" id="pwUsernameInput" class="email-link-input" placeholder="Username" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <p class="onboarding-username-note" id="pwUsernameNote"></p>
       </div>
+      <label for="pwEmailInput" class="sr-only">Email address</label>
+      <input type="email" id="pwEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
+      <label for="pwPasswordInput" class="sr-only">Password</label>
+      <input type="password" id="pwPasswordInput" class="email-link-input" placeholder="Password" required autocomplete="current-password" minlength="8">
+      <input type="password" id="pwConfirmInput" class="email-link-input" placeholder="Confirm password" autocomplete="new-password" style="display:none">
+      <p class="onboarding-username-note" id="pwPasswordNote"></p>
+      <button type="submit" class="btn btn-outline-aqua btn-sm" id="passwordAuthBtn">
+        <svg class="icon"><use href="#i-comment"/></svg> <span id="passwordAuthBtnLabel">Sign In</span>
+      </button>
+      <div class="otp-secondary-row" id="passwordSecondaryRow">
+        <button type="button" class="otp-secondary-link" id="forgotPasswordBtn">Forgot password?</button>
+        <span class="otp-secondary-dot" aria-hidden="true">·</span>
+        <button type="button" class="otp-secondary-link" id="useCodeInsteadBtn">Sign in with a code instead</button>
+      </div>
+    </form>
+
+    <form class="email-link-form" id="otpRequestForm" style="display:none">
       <label for="otpEmailInput" class="sr-only">Email address</label>
       <input type="email" id="otpEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
       <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpRequestBtn">
         <svg class="icon"><use href="#i-comment"/></svg> <span id="otpRequestBtnLabel">Send Verification Code</span>
       </button>
+      <div class="otp-secondary-row">
+        <button type="button" class="otp-secondary-link" id="useCodeBackToPasswordBtn">Use password instead</button>
+      </div>
     </form>
 
     <form class="email-link-form" id="otpVerifyForm" style="display:none">
@@ -3249,20 +3522,20 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      handled by Firebase, see the <script type="module"> in <head>) ============================= */
   var authModal = document.getElementById('authModal');
 
-  // Sign In / Create Account share the exact same Google + email-OTP
-  // mechanics underneath — email-OTP sign-in already creates the Firebase
-  // account transparently on first use (see verifyEmailOtp). Create Account
-  // mode additionally reveals Full Name + Username fields (see
-  // otpSignupFields, wired in the module <script> in <head>) so that data
-  // reaches Firestore immediately, without any separate post-signup step.
+  // Sign In / Create Account share Google sign-in, but otherwise Create
+  // Account is password-only (Full Name + Username + Email + Password, all
+  // mandatory — see passwordSignupFields, wired in the module <script> in
+  // <head>) while Sign In defaults to password with a fallback link to the
+  // pre-existing email-OTP flow, since accounts created before this shipped
+  // (Google or OTP-only) have no password on file yet.
   var AUTH_MODE_COPY = {
     signin: {
       title: 'Sign In to Swimfit', subtitle: 'Quick access to your training dashboard.',
-      google: 'Continue with Google', otpRequest: 'Send Verification Code', otpVerify: 'Verify & Sign In'
+      google: 'Continue with Google', password: 'Sign In'
     },
     signup: {
       title: 'Create Your Swimfit Account', subtitle: 'Free to join — set up your training profile in a minute.',
-      google: 'Sign up with Google', otpRequest: 'Create Account & Send Code', otpVerify: 'Verify & Create Account'
+      google: 'Sign up with Google', password: 'Create Account'
     }
   };
   var currentAuthMode = 'signin';
@@ -3273,22 +3546,31 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     document.getElementById('authModalTitle').textContent = copy.title;
     document.getElementById('authModalSubtitle').textContent = copy.subtitle;
     document.getElementById('googleLoginBtnLabel').textContent = copy.google;
-    document.getElementById('otpRequestBtnLabel').textContent = copy.otpRequest;
-    document.getElementById('otpVerifyBtnLabel').textContent = copy.otpVerify;
+    document.getElementById('passwordAuthBtnLabel').textContent = copy.password;
     document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
       btn.setAttribute('aria-selected', btn.dataset.authMode === mode ? 'true' : 'false');
     });
-    var signupFields = document.getElementById('otpSignupFields');
-    if (signupFields) signupFields.style.display = mode === 'signup' ? 'flex' : 'none';
+    var isSignup = mode === 'signup';
+    var signupFields = document.getElementById('passwordSignupFields');
+    if (signupFields) signupFields.style.display = isSignup ? 'flex' : 'none';
     // required is only ever set while these fields are actually visible —
     // Chromium's native constraint validation still blocks a form's submit
     // event over a required field that's merely display:none, so toggling it
     // in lockstep with visibility is what keeps Sign In mode submittable.
-    var isSignup = mode === 'signup';
-    var fullNameEl = document.getElementById('otpFullNameInput');
-    var usernameEl = document.getElementById('otpUsernameInput');
+    var fullNameEl = document.getElementById('pwFullNameInput');
+    var usernameEl = document.getElementById('pwUsernameInput');
+    var confirmEl = document.getElementById('pwConfirmInput');
+    var passwordEl = document.getElementById('pwPasswordInput');
     if (fullNameEl) fullNameEl.required = isSignup;
     if (usernameEl) usernameEl.required = isSignup;
+    if (confirmEl) { confirmEl.style.display = isSignup ? '' : 'none'; confirmEl.required = isSignup; }
+    if (passwordEl) passwordEl.autocomplete = isSignup ? 'new-password' : 'current-password';
+    var secondaryRow = document.getElementById('passwordSecondaryRow');
+    if (secondaryRow) secondaryRow.style.display = isSignup ? 'none' : '';
+    // Create Account has no email-code option — force back to the password
+    // view if a Sign In visitor had switched to "sign in with a code" and
+    // then flipped to Create Account without closing the modal first.
+    if (isSignup && typeof window.__showAuthMethod === 'function') window.__showAuthMethod('password');
   }
   document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
     btn.addEventListener('click', function () { setAuthMode(btn.dataset.authMode); });
@@ -3387,6 +3669,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   // (the swimmer is already signed in by definition — locked is a post-signin
   // state), and Log Out just proxies the already-wired nav button.
   document.querySelectorAll('#paywallOverlay [data-plan]').forEach(function (btn) {
+    btn.addEventListener('click', function () { goToPaddleCheckout(btn.dataset.plan); });
+  });
+  // A locked (trial-expired, unsubscribed) swimmer can't actually reach this
+  // button in practice — the global paywall above already blocks the whole
+  // dashboard first — but the Coach page gates itself independently too, so
+  // this stays correct if that ever changes.
+  document.querySelectorAll('#coachPageLockedPrompt [data-plan]').forEach(function (btn) {
     btn.addEventListener('click', function () { goToPaddleCheckout(btn.dataset.plan); });
   });
   var paywallLogoutBtn = document.getElementById('paywallLogoutBtn');
@@ -3663,6 +3952,23 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (!str) return null;
     var m = str.match(/(\d+(\.\d+)?)/);
     return m ? parseFloat(m[1]) : null;
+  }
+
+  // Which pair of PB inputs feeds pace personalization depends on whichever
+  // discipline is primary (first-selected) in the chip group — a Backstroke
+  // swimmer's pace should come from their Backstroke PB, not always default
+  // to the Freestyle fields regardless of what's actually being trained.
+  // Individual Medley has no single-stroke PB to key off, so it falls back
+  // to Freestyle as the closest general-pace proxy.
+  var STROKE_PB_FIELD_IDS = {
+    'Freestyle': { pb50: 'pb50', pb100: 'pb100' },
+    'Backstroke': { pb50: 'pb50Backstroke', pb100: 'pb100Backstroke' },
+    'Butterfly': { pb50: 'pb50Butterfly', pb100: 'pb100Butterfly' },
+    'Breaststroke': { pb50: 'pb50Breaststroke', pb100: 'pb100Breaststroke' }
+  };
+  function activeStrokePbFieldIds() {
+    var primary = state.disciplines && state.disciplines[0];
+    return STROKE_PB_FIELD_IDS[primary] || STROKE_PB_FIELD_IDS.Freestyle;
   }
 
   function personalPaceFromPB(pb50Sec, pb100Sec, goalKey) {
@@ -4099,8 +4405,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
-    var pb50Sec = parseTimeToSeconds(document.getElementById('pb50').value);
-    var pb100Sec = parseTimeToSeconds(document.getElementById('pb100').value);
+    var pbFieldIds = activeStrokePbFieldIds();
+    var pb50Sec = parseTimeToSeconds(document.getElementById(pbFieldIds.pb50).value);
+    var pb100Sec = parseTimeToSeconds(document.getElementById(pbFieldIds.pb100).value);
     var personalPace = personalPaceFromPB(pb50Sec, pb100Sec, state.goal);
     var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goal, state.level);
 
@@ -4353,7 +4660,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       '<span class="tag tag-' + tone + '">' + focusLabel + '</span>' +
       '<h3 style="margin-top:12px">' + g.name + '</h3>' +
       '<p class="prescription">' + prescription + '</p>' + loadNote +
-      '<p class="cue">' + g.cue + '</p></article>';
+      '<p class="cue">' + g.cue + '</p>' +
+      '<button type="button" class="btn btn-outline-aqua btn-sm gym-watch-btn" data-exercise-name="' + g.name.replace(/"/g, '&quot;') + '">' +
+      icon('i-play') + ' Watch Technique</button></article>';
   }
 
   function renderGymPhase(phaseKey, exercises, tone, focusLabel, age, refMax) {
@@ -4395,6 +4704,20 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (io) document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { io.observe(el); });
     else document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
   }
+
+  // Delegated on the stable #gymGrid container rather than per-button — its
+  // innerHTML is fully replaced on every renderGym() call, which would
+  // otherwise silently drop a per-button listener. Reuses the same
+  // #videoModal "Coming Soon" placeholder the Academy tab already shows for
+  // videos still in production, rather than a second bespoke modal.
+  document.getElementById('gymGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('.gym-watch-btn');
+    if (!btn) return;
+    var name = btn.dataset.exerciseName;
+    document.getElementById('modalTitle').textContent = name;
+    document.getElementById('modalBody').textContent = 'A form walkthrough for ' + name + ' is in production — new technique videos are added every week.';
+    document.getElementById('videoModal').classList.add('open');
+  });
 
   document.getElementById('gymApplyBtn').addEventListener('click', function () { renderGym(currentGymFocus); });
 
@@ -4570,8 +4893,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var fileInput = document.getElementById('coachPageFileInput');
     var hint = document.getElementById('coachPageHint');
     var signInBtn = document.getElementById('coachPageSignInBtn');
+    var lockedPromptEl = document.getElementById('coachPageLockedPrompt');
     var tierLockEl = document.getElementById('coachPageTierLock');
     var chatWrapEl = document.getElementById('coachPageChatWrap');
+    var promptsEl = document.getElementById('coachPagePrompts');
     if (!messagesEl || !form || !input || !sendBtn || !attachBtn || !fileInput) return;
 
     var coachPageHistory = [];
@@ -4579,6 +4904,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var sending = false;
     var welcomed = false;
     var historyLoadedForUid = null;
+    var lastRenderedRole = null; // for message grouping — see appendMessage
 
     // Dedicated page + saved history + photo upload are an Elite/Ultra (or
     // trial, or admin) benefit — Pro stays on the floating widget only.
@@ -4589,9 +4915,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     window.renderCoachPageGate = function () {
       if (!tierLockEl || !chatWrapEl) return;
+      var access = window.__swimfitAccess;
+      var isLocked = !!access && access.level === 'locked';
       var allowed = coachPageTierAllowed();
-      tierLockEl.hidden = allowed;
-      chatWrapEl.style.display = allowed ? '' : 'none';
+      if (lockedPromptEl) lockedPromptEl.hidden = !isLocked;
+      tierLockEl.hidden = isLocked || allowed;
+      chatWrapEl.style.display = (!isLocked && allowed) ? '' : 'none';
       if (allowed) loadPersistedHistoryIfNeeded();
     };
 
@@ -4599,9 +4928,23 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       signInBtn.addEventListener('click', function () { if (typeof openAuthModal === 'function') openAuthModal(); });
     }
 
+    if (promptsEl) {
+      promptsEl.addEventListener('click', function (e) {
+        var chip = e.target.closest('.coach-prompt-chip');
+        if (!chip) return;
+        input.value = chip.dataset.prompt;
+        form.requestSubmit();
+      });
+    }
+
+    // Consecutive messages from the same sender group tighter together (no
+    // extra gap, softer inner corner) — a standard chat-app grouping cue
+    // rather than every single message reading as its own isolated block.
     function appendMessage(role, text, images) {
       var row = document.createElement('div');
       row.className = 'coach-msg coach-msg-' + role;
+      if (role === lastRenderedRole) row.classList.add('coach-msg-grouped');
+      lastRenderedRole = role;
       var bubble = document.createElement('div');
       bubble.className = 'coach-bubble';
       if (images && images.length) {
@@ -4715,6 +5058,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       if (!text && !images.length) return;
       if (!text) text = 'Please take a look at the attached photo(s) and give me your feedback.';
 
+      if (promptsEl) promptsEl.style.display = 'none';
       appendMessage('user', text, images.map(function (img) { return img.previewUrl; }));
       input.value = '';
       pendingImages = [];
@@ -4790,6 +5134,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         var messages = data && Array.isArray(data.messages) ? data.messages : [];
         if (!messages.length) { maybeWelcome(); return; }
         welcomed = true;
+        if (promptsEl) promptsEl.style.display = 'none';
         coachPageHistory = messages.slice(-AI_COACH_HISTORY_LIMIT);
         messages.forEach(function (m) { appendMessage(m.role, m.content); });
       }).catch(function () { maybeWelcome(); });
@@ -4805,7 +5150,230 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       btn.addEventListener('click', function () { setTimeout(loadPersistedHistoryIfNeeded, 0); });
     });
     document.addEventListener('swimfit:authchange', function (e) {
-      if (e.detail.user) { loadPersistedHistoryIfNeeded(); } else { historyLoadedForUid = null; welcomed = false; messagesEl.innerHTML = ''; coachPageHistory = []; }
+      if (e.detail.user) { loadPersistedHistoryIfNeeded(); } else {
+        historyLoadedForUid = null; welcomed = false; messagesEl.innerHTML = ''; coachPageHistory = []; lastRenderedRole = null;
+        if (promptsEl) promptsEl.style.display = '';
+      }
+    });
+  })();
+
+  /* ============================= WORKOUTS — INLINE AI ASSISTANT ============================= */
+  /* A lighter-weight companion to the full Coach page/floating widget, scoped
+     to the workout currently generated in this same tab: every message sends
+     the workout's plain-text summary as context alongside the swimmer's
+     question, so "make this easier"/"explain the pacing" are answered against
+     the actual set on screen rather than swim training in the abstract.
+     In-memory only (no persisted history) — reuses the identical aiSwimCoach
+     endpoint and .coach-msg/.coach-bubble styling as the other two surfaces. */
+  (function wireWorkoutAiAssistant() {
+    var messagesEl = document.getElementById('workoutAiMessages');
+    var form = document.getElementById('workoutAiForm');
+    var input = document.getElementById('workoutAiInput');
+    var sendBtn = document.getElementById('workoutAiSendBtn');
+    var chipsEl = document.getElementById('workoutAiChips');
+    if (!messagesEl || !form || !input || !sendBtn) return;
+
+    var history = [];
+    var sending = false;
+
+    function appendMsg(role, text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-' + role;
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return bubble;
+    }
+
+    function currentWorkoutContext() {
+      var resultEl = document.getElementById('workoutResult');
+      var text = resultEl ? resultEl.textContent.trim().replace(/\s+/g, ' ') : '';
+      return text.slice(0, 1500);
+    }
+
+    function sendToCoach(text) {
+      if (sending || !text) return;
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+      appendMsg('user', text);
+      sending = true;
+      sendBtn.disabled = true;
+      var contextualMessage = 'Here is my currently generated workout:\n"""\n' + currentWorkoutContext() + '\n"""\n\nMy request: ' + text;
+      var historyForRequest = history.slice(-8);
+      history.push({ role: 'user', content: text });
+      history = history.slice(-8);
+      var typingBubble = appendMsg('assistant', 'Thinking…');
+      typingBubble.classList.add('coach-typing');
+      window.__firebaseGetIdToken().then(function (idToken) {
+        return fetch(AI_COACH_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify({
+            message: contextualMessage, history: historyForRequest,
+            discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
+          })
+        });
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        typingBubble.classList.remove('coach-typing');
+        if (!result.ok || !result.data || !result.data.reply) {
+          typingBubble.classList.add('coach-error');
+          typingBubble.textContent = (result.data && result.data.error) || 'The coach couldn\'t process that — please try again.';
+          return;
+        }
+        typingBubble.textContent = result.data.reply;
+        history.push({ role: 'assistant', content: result.data.reply });
+        history = history.slice(-8);
+      }).catch(function () {
+        typingBubble.classList.remove('coach-typing');
+        typingBubble.classList.add('coach-error');
+        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+      }).finally(function () {
+        sending = false;
+        sendBtn.disabled = false;
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = (input.value || '').trim();
+      if (!text) return;
+      input.value = '';
+      sendToCoach(text);
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    if (chipsEl) {
+      chipsEl.addEventListener('click', function (e) {
+        var chip = e.target.closest('.coach-prompt-chip');
+        if (!chip) return;
+        if (chip.dataset.action === 'refresh') {
+          if (typeof generateWorkout === 'function') generateWorkout();
+          appendMsg('assistant', 'Generated a fresh workout for your current settings — scroll up to see it.');
+          return;
+        }
+        sendToCoach(chip.dataset.prompt);
+      });
+    }
+
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) { messagesEl.innerHTML = ''; history = []; }
+    });
+  })();
+
+  /* ============================= GYM — AI ROUTINE GENERATOR ============================= */
+  /* Same aiSwimCoach endpoint and chat-log presentation as the Workouts
+     assistant above, but scoped to dryland/gym programming — context sent
+     with every message is the swimmer's current Gym focus/orientation and
+     strength profile (age, working weight, strength limit) rather than a
+     generated swim set, so "generate today's routine" and follow-up
+     refinements ("make it shorter") land against what's actually on screen. */
+  (function wireGymAiAssistant() {
+    var messagesEl = document.getElementById('gymAiMessages');
+    var form = document.getElementById('gymAiForm');
+    var input = document.getElementById('gymAiInput');
+    var sendBtn = document.getElementById('gymAiSendBtn');
+    var chipsEl = document.getElementById('gymAiChips');
+    if (!messagesEl || !form || !input || !sendBtn) return;
+
+    var history = [];
+    var sending = false;
+
+    function appendMsg(role, text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-' + role;
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return bubble;
+    }
+
+    function gymProfileContext() {
+      var age = document.getElementById('gymAge').value;
+      var workingWeight = document.getElementById('gymWorkingWeight').value;
+      var strengthLimit = document.getElementById('gymStrengthLimit').value;
+      var parts = ['Gym focus: ' + GYM_LABEL[currentGymFocus]];
+      if (currentGymFocus === 'full') parts.push('Orientation: ' + gymOrientation());
+      if (age) parts.push('Age: ' + age);
+      if (workingWeight) parts.push('Working weight: ' + workingWeight);
+      if (strengthLimit) parts.push('Strength limit: ' + strengthLimit);
+      return parts.join(' · ');
+    }
+
+    function sendToCoach(text) {
+      if (sending || !text) return;
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+      appendMsg('user', text);
+      sending = true;
+      sendBtn.disabled = true;
+      var contextualMessage = 'This is for dryland/gym programming, not a pool set. My current profile:\n' + gymProfileContext() + '\n\nMy request: ' + text;
+      var historyForRequest = history.slice(-8);
+      history.push({ role: 'user', content: text });
+      history = history.slice(-8);
+      var typingBubble = appendMsg('assistant', 'Thinking…');
+      typingBubble.classList.add('coach-typing');
+      window.__firebaseGetIdToken().then(function (idToken) {
+        return fetch(AI_COACH_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify({
+            message: contextualMessage, history: historyForRequest,
+            discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
+          })
+        });
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (result) {
+        typingBubble.classList.remove('coach-typing');
+        if (!result.ok || !result.data || !result.data.reply) {
+          typingBubble.classList.add('coach-error');
+          typingBubble.textContent = (result.data && result.data.error) || 'The coach couldn\'t process that — please try again.';
+          return;
+        }
+        typingBubble.textContent = result.data.reply;
+        history.push({ role: 'assistant', content: result.data.reply });
+        history = history.slice(-8);
+      }).catch(function () {
+        typingBubble.classList.remove('coach-typing');
+        typingBubble.classList.add('coach-error');
+        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+      }).finally(function () {
+        sending = false;
+        sendBtn.disabled = false;
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = (input.value || '').trim();
+      if (!text) return;
+      input.value = '';
+      sendToCoach(text);
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    if (chipsEl) {
+      chipsEl.addEventListener('click', function (e) {
+        var chip = e.target.closest('.coach-prompt-chip');
+        if (!chip) return;
+        sendToCoach(chip.dataset.prompt);
+      });
+    }
+
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) { messagesEl.innerHTML = ''; history = []; }
     });
   })();
 
@@ -4822,6 +5390,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var viewButtons = document.querySelectorAll('#trackerViewTabs [data-tracker-view]');
     var statValue = document.getElementById('trackerStatValue');
     var statLabel = document.getElementById('trackerStatLabel');
+    var weeklyTotalEl = document.getElementById('trackerWeeklyTotal');
+    var monthlyTotalEl = document.getElementById('trackerMonthlyTotal');
+    var topDisciplineEl = document.getElementById('trackerTopDiscipline');
     var entriesList = document.getElementById('trackerEntriesList');
     var signInBtn = document.getElementById('trackerSignInBtn');
     if (!form || !dateInput || !kmInput || !entriesList) return;
@@ -4845,12 +5416,42 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     function startOfWeek(d) { var x = startOfDay(d); var day = x.getDay(); x.setDate(x.getDate() - (day === 0 ? 6 : day - 1)); return x; }
     function startOfMonth(d) { var x = startOfDay(d); x.setDate(1); return x; }
 
+    function sumDistance(entries) {
+      return entries.reduce(function (sum, e) { return sum + e.distanceMeters; }, 0);
+    }
+
+    // Ranked by total distance rather than entry count — two long swims of
+    // the same stroke says more about what's actually being trained than
+    // five short ones of another. Entries logged with no discipline (it's
+    // optional) simply don't count toward any stroke's total.
+    function computeTopDiscipline(entries) {
+      var totals = {};
+      entries.forEach(function (e) {
+        if (!e.discipline) return;
+        totals[e.discipline] = (totals[e.discipline] || 0) + e.distanceMeters;
+      });
+      var top = null, topMeters = 0;
+      Object.keys(totals).forEach(function (k) {
+        if (totals[k] > topMeters) { top = k; topMeters = totals[k]; }
+      });
+      return top;
+    }
+
     function renderStat() {
       var since = currentView === 'daily' ? startOfDay(new Date()) : currentView === 'weekly' ? startOfWeek(new Date()) : startOfMonth(new Date());
-      var totalM = cachedEntries.filter(function (e) { return e.loggedAt >= since; })
-        .reduce(function (sum, e) { return sum + e.distanceMeters; }, 0);
+      var totalM = sumDistance(cachedEntries.filter(function (e) { return e.loggedAt >= since; }));
       statValue.textContent = (totalM / 1000).toFixed(2) + ' km';
       statLabel.textContent = VIEW_LABELS[currentView];
+
+      // Automated analytics strip — always reflects Weekly/Monthly totals and
+      // the swimmer's most-swum discipline regardless of which pill tab above
+      // is currently selected, so this data is on screen at a glance rather
+      // than requiring a click through each view.
+      var weekEntries = cachedEntries.filter(function (e) { return e.loggedAt >= startOfWeek(new Date()); });
+      var monthEntries = cachedEntries.filter(function (e) { return e.loggedAt >= startOfMonth(new Date()); });
+      if (weeklyTotalEl) weeklyTotalEl.textContent = (sumDistance(weekEntries) / 1000).toFixed(2) + ' km';
+      if (monthlyTotalEl) monthlyTotalEl.textContent = (sumDistance(monthEntries) / 1000).toFixed(2) + ' km';
+      if (topDisciplineEl) topDisciplineEl.textContent = computeTopDiscipline(monthEntries) || '—';
     }
 
     function renderEntries() {
