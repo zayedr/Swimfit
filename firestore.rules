@@ -2,8 +2,10 @@ rules_version = '2';
 
 // Swimfit Firestore rules.
 //
-// users/{uid}       — a swimmer's own profile, including the onboarding fields
-//                      (fullName, country, age, dob, username, onboardingComplete).
+// users/{uid}       — a swimmer's own profile, including the onboarding wizard fields
+//                      (fullName, country, age, dob, username, onboardingComplete, plus the
+//                      training-specialization/fitness-metrics fields collected in Steps 2-3:
+//                      disciplines, distance, goal, pb50, pb100, workingWeight, strengthLimit).
 //                      Only that swimmer can ever read or write it — 100% private.
 // usernames/{name}  — a permanent uid reservation keyed by the (lowercase,
 //                      normalized) username itself. Its mere existence is the
@@ -51,7 +53,14 @@ service cloud.firestore {
       && (!('fullName' in data) || (data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 80))
       && (!('country' in data) || (data.country is string && data.country.size() > 0 && data.country.size() <= 60))
       && (!('onboardingComplete' in data) || data.onboardingComplete is bool)
-      && (!('trialStartedAt' in data) || data.trialStartedAt is timestamp);
+      && (!('trialStartedAt' in data) || data.trialStartedAt is timestamp)
+      && (!('disciplines' in data) || (data.disciplines is list && data.disciplines.size() >= 1 && data.disciplines.size() <= 5))
+      && (!('distance' in data) || (data.distance is number && data.distance >= 500 && data.distance <= 10000))
+      && (!('goal' in data) || (data.goal is string && data.goal.matches('^(endurance|speed|technique)$')))
+      && (!('pb50' in data) || (data.pb50 is string && data.pb50.size() <= 10))
+      && (!('pb100' in data) || (data.pb100 is string && data.pb100.size() <= 10))
+      && (!('workingWeight' in data) || (data.workingWeight is string && data.workingWeight.size() <= 20))
+      && (!('strengthLimit' in data) || (data.strengthLimit is string && data.strengthLimit.size() <= 20));
   }
 
   match /databases/{database}/documents {
@@ -67,12 +76,14 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
-                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt'])
+                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
+                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit'])
         && isValidProfileWrite(request.resource.data);
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
-                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt'])
+                       'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
+                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit'])
         && isValidProfileWrite(request.resource.data);
       allow delete: if false;
     }
