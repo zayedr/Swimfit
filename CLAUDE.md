@@ -26,16 +26,32 @@ links, or JS for either without being asked.
 
 Auth is **real Firebase Authentication** (project `swimfi-ae`), wired in the `<script
 type="module">` in `<head>`: Google Sign-In via `signInWithPopup`, plus a **real, typed
-6-digit email OTP** — not Firebase's built-in email-link method. `requestEmailOtp` (Cloud
-Function) generates the code, hashes+stores it in the server-only `email_otps/{email}`
-Firestore collection with an expiry/attempt-lock/rate-limit, and emails it through Swimfit's
-own SMTP; `verifyEmailOtp` checks the typed code against that hash, resolves the Firebase
-Auth user for that email (creating one via the Admin SDK on first sign-in, so one email
-always maps to exactly one account regardless of how it was created), and mints a custom
-token that the client exchanges for a real session via `signInWithCustomToken`. Every
-signed-in user gets a Firestore `users/{uid}` profile doc (client-written, merged on each
-login). The Firebase Cloud Function `onUserCreated` (`functions/index.js`, 1st-gen Auth
-trigger, fires for OTP-created accounts too) is the sole place that increments the public
+6-digit email OTP** — not Firebase's built-in email-link method, and **fully passwordless
+by design** (no password field exists anywhere, front or back end; re-litigated once already
+this project — see git history — and settled). `requestEmailOtp` (Cloud Function) generates
+the code, hashes+stores it in the server-only `email_otps/{email}` Firestore collection with
+an expiry/attempt-lock/rate-limit, and emails it through Swimfit's own SMTP; before any of
+that, it also runs two read-only, non-blocking checks: if the request carries a `username`
+(only ever sent from the Create Account view), it checks `usernames/{username}` and returns a
+clean 409 ("That username is already taken") without sending a code or touching the rate
+limit at all; separately, it always resolves whether `email` already has an account
+(`accountExists: true/false/null` in the response) purely as an informational flag — an
+existing account is never an error here (Sign In and Create Account are the same OTP
+mechanic underneath), it just lets the Create Account view tell a swimmer "you already have
+an account, this will sign you in" instead of implying a new one was made. Neither check ever
+*reserves* the username — that would let an unverified caller squat usernames indefinitely
+just by calling this endpoint; the only place a username is actually claimed is the atomic
+transaction inside `verifyEmailOtp`, after the caller has proven they own the email.
+`verifyEmailOtp` checks the typed code against the stored hash, resolves the Firebase Auth
+user for that email (creating one via the Admin SDK on first sign-in, so one email always
+maps to exactly one account regardless of how it was created), and mints a custom token that
+the client exchanges for a real session via `signInWithCustomToken` — persisted explicitly
+via `setPersistence(auth, browserLocalPersistence)` (falling back to
+`browserSessionPersistence` if IndexedDB is unavailable, e.g. Safari private browsing) so a
+signed-in swimmer stays signed in across a refresh or closed tab. Every signed-in user gets a
+Firestore `users/{uid}` profile doc (client-written, merged on each login). The Firebase
+Cloud Function `onUserCreated` (`functions/index.js`, 1st-gen Auth trigger, fires for
+OTP-created accounts too) is the sole place that increments the public
 `stats/counters.userCount` doc — exactly once per brand-new account — which the Hero's
 "Registered Swimmers" stat tile reads live via `onSnapshot` and hides gracefully if
 Firestore can't be reached; that same function sends a branded welcome email over SMTP
@@ -43,6 +59,17 @@ Firestore can't be reached; that same function sends a branded welcome email ove
 reused by requestEmailOtp for the verification-code email). Firestore access is locked down
 by `firestore.rules` (a user can only read/write their own profile; `stats/counters` is
 public-read/no-client-write; `email_otps` is fully server-only, no client access at all).
+Every `onRequest` Cloud Function declares `invoker: 'public'` so `firebase deploy` grants the
+underlying Cloud Run service's invoker role to `allUsers` automatically — 2nd-gen functions
+are private by default, and without this every call (including the CORS preflight) is
+rejected at the infrastructure layer before the function's own `cors`/auth checks ever run,
+which the browser reports as a bare failed fetch rather than a readable error. Signing out
+(`signOut(auth)`) fires `onAuthStateChanged(null)`, which every feature with its own local
+state (AI Coach widget/page, Distance Tracker, Admin Panel inbox) independently clears via a
+shared `swimfit:authchange` DOM event; a separate top-level listener on that same event
+additionally switches away from a signed-in-only tab (Coach/Tracker/Admin) back to Workouts
+if a swimmer signs out while on one, since the Admin Panel in particular has no in-place
+"please sign in" fallback of its own (unlike Coach/Tracker, whose panels do).
 "Join Pro/Elite/Ultra" on the Pricing tab still opens a `mailto:` instead of any checkout
 flow, aside from the Firebase-gated Paddle Billing checkout wired to the Subscribe buttons.
 A floating "AI Swim Coach" chat widget (gated behind sign-in) calls the `aiSwimCoach` Cloud

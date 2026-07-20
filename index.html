@@ -67,7 +67,7 @@
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
   import {
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-    signInWithCustomToken
+    signInWithCustomToken, setPersistence, browserLocalPersistence, browserSessionPersistence
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
@@ -92,6 +92,15 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
+
+  // Explicit rather than relying on the SDK default: sign-in survives a
+  // refresh or closed tab (IndexedDB-backed). Some browser contexts (Safari
+  // private browsing, third-party storage blocked) refuse IndexedDB entirely —
+  // fall back to sessionStorage-backed persistence there rather than leaving
+  // the swimmer stuck on an auth call that never resolves.
+  setPersistence(auth, browserLocalPersistence).catch(function () {
+    return setPersistence(auth, browserSessionPersistence);
+  });
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
   // Firebase ID token to its Cloud Function call without importing the SDK
@@ -475,11 +484,13 @@
       if (otpUsernameNote) { otpUsernameNote.textContent = ''; otpUsernameNote.style.color = ''; }
     };
 
-    function requestOtp(email) {
+    function requestOtp(email, username) {
+      var body = { email: email };
+      if (username) body.username = username;
       return fetch(OTP_REQUEST_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify(body)
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
       });
@@ -515,9 +526,13 @@
       otpRequestBtn.disabled = true;
       statusNote.style.color = '';
       statusNote.textContent = 'Sending your verification code…';
-      requestOtp(email).then(function (result) {
+      requestOtp(email, isSignup ? username : null).then(function (result) {
         if (!result.ok) {
           otpRequestBtn.disabled = false;
+          // Username-taken (409) and any other server-side rejection surface
+          // here with a clean, specific message from the response body —
+          // never the generic catch-all below, which only fires when the
+          // fetch itself never got a response at all.
           statusNote.style.color = '#e5484d';
           statusNote.textContent = (result.data && result.data.error) || 'Couldn’t send a code — please try again.';
           return;
@@ -526,7 +541,13 @@
         otpPendingFullName = fullName;
         otpPendingUsername = username;
         statusNote.style.color = '';
-        statusNote.textContent = 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
+        // This system treats Sign In and Create Account as the exact same
+        // OTP mechanic (one email always maps to one account) — an existing
+        // account isn't an error, but a Create Account swimmer should still
+        // know they're about to sign into it rather than creating a new one.
+        statusNote.textContent = isSignup && result.data && result.data.accountExists === true
+          ? 'Looks like you already have a Swimfit account — enter the code below to sign in.'
+          : 'Check your inbox — enter the 6-digit code we sent to ' + email + '.';
         showOtpStep('verify');
         otpCodeInput.value = '';
         // Both buttons share the same cooldown window (one code send either
@@ -571,9 +592,19 @@
           return;
         }
         return signInWithCustomToken(auth, result.data.token).then(function (cred) {
-          statusNote.style.color = '';
-          statusNote.textContent = 'Signed in as ' + (cred.user.email || otpEmailForVerification) + '.';
-          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
+          // A username submitted at signup can lose a race to someone else
+          // claiming it between the request step's availability check and
+          // this verify step (or it may have already been set on an existing
+          // account this email maps to) — non-fatal to sign-in either way,
+          // but the swimmer should still be told rather than assuming it
+          // silently stuck. Give this case a bit longer on screen than the
+          // ordinary success message before the modal auto-closes.
+          var usernameDidNotStick = !!otpPendingUsername && result.data.usernameClaimed === false;
+          statusNote.style.color = usernameDidNotStick ? '#e5484d' : '';
+          statusNote.textContent = usernameDidNotStick
+            ? 'Signed in — but "' + otpPendingUsername + '" was already taken, so it wasn’t saved to your profile.'
+            : 'Signed in as ' + (cred.user.email || otpEmailForVerification) + '.';
+          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, usernameDidNotStick ? 2400 : 700);
           otpRequestForm.reset();
           otpVerifyForm.reset();
           showOtpStep('request');
@@ -3120,6 +3151,20 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   tabButtons.forEach(function (btn) {
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+  });
+
+  // Signing out while parked on a tab that only makes sense signed in (AI
+  // Coach, Distance Tracker, or the admin-only Admin Panel — the last of
+  // which also loses its nav entry entirely on sign-out via [data-admin-only]
+  // above) would otherwise leave that tab showing a "please sign in" panel,
+  // or stale admin data, in place — send the swimmer back to a public tab
+  // instead, same as landing on the dashboard fresh.
+  var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin'];
+  document.addEventListener('swimfit:authchange', function (e) {
+    if (e.detail.user) return;
+    if (SIGNED_IN_ONLY_TABS.indexOf(dashboard.getAttribute('data-active-tab')) > -1) {
+      switchTab('workouts', { scroll: false });
+    }
   });
 
   /* ============================= DATA: DISCIPLINES ============================= */

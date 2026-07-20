@@ -919,6 +919,50 @@ exports.requestEmailOtp = onRequest(
       return;
     }
 
+    // Optional — only ever sent from the Create Account view. This is a
+    // read-only availability check, not a reservation: the actual atomic
+    // claim only ever happens in verifyEmailOtp, after the caller has proven
+    // they own this email by entering the code. Reserving a username here,
+    // before that proof, would let anyone squat usernames indefinitely just
+    // by calling this endpoint with no intention of ever verifying.
+    var username = normalizeUsername(req.body && req.body.username);
+    if (username) {
+      if (!ONBOARDING_USERNAME_RE.test(username)) {
+        res.status(400).json({ error: 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.' });
+        return;
+      }
+      var usernameSnap;
+      try {
+        usernameSnap = await db.collection('usernames').doc(username).get();
+      } catch (err) {
+        logger.error('requestEmailOtp: username availability check failed', err);
+        res.status(500).json({ error: 'Could not send a verification code — please try again.' });
+        return;
+      }
+      if (usernameSnap.exists) {
+        res.status(409).json({ error: 'That username is already taken — please choose another.' });
+        return;
+      }
+    }
+
+    // Informational only — never blocks the request. This system treats
+    // "sign in" and "create account" as the exact same OTP mechanic (one
+    // email always maps to one account, created transparently on first use),
+    // so an existing account is not an error; the frontend just uses this to
+    // tell a Create Account swimmer they're about to sign into an existing
+    // account rather than pretending a new one was made.
+    var accountExists = null;
+    try {
+      await admin.auth().getUserByEmail(email);
+      accountExists = true;
+    } catch (err) {
+      if (err && err.code === 'auth/user-not-found') {
+        accountExists = false;
+      } else {
+        logger.error('requestEmailOtp: account-exists lookup failed', err);
+      }
+    }
+
     var ref = db.collection('email_otps').doc(email);
     var now = Date.now();
     var code = null;
@@ -971,7 +1015,7 @@ exports.requestEmailOtp = onRequest(
       return;
     }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, accountExists: accountExists });
   }
 );
 
