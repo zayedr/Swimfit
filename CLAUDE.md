@@ -125,15 +125,30 @@ Daily/Weekly/Monthly aggregate totals plus a recent-entries list. There's no wor
 tracking anywhere else in the app, so this is deliberately a manual log, not derived from the
 Workout Generator's proposed sets.
 
+The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
+only swaps copy/button labels — both modes drive the exact same Google + email-OTP mechanics,
+since `verifyEmailOtp` already creates the Firebase account transparently on first use. There is
+still no password anywhere in this app by design.
+
 Right after a swimmer's first successful sign-in (Google or email-OTP — either path fires
-`onAuthStateChanged` the same way), an onboarding modal collects Full Name, Country, Age,
-Date of Birth, and a unique Username, gated on `users/{uid}.onboardingComplete` so it
-re-prompts on a later sign-in if closed before finishing rather than skipping it forever.
-Username uniqueness is enforced by a Firestore transaction claiming `usernames/{username}`
-(doc ID = the normalized username) alongside the `users/{uid}` write — `firestore.rules`
-only allows *creating* a `usernames/{username}` doc that doesn't already exist and forbids
-update/delete entirely, so a username reservation is permanent and race-safe without needing
-a Cloud Function.
+`onAuthStateChanged` the same way), a 3-step onboarding **wizard** (`#onboardingModal`, gated on
+`users/{uid}.onboardingComplete` so it re-prompts on a later sign-in if closed before finishing)
+walks a new swimmer through: **Step 1 (Account Info)** — Full Name, Country, a unique Username,
+and their already-verified Email shown read-only; **Step 2 (Training Specialization)** —
+discipline(s), target distance, and training focus, using the exact same chip/slider controls as
+the Workouts tab; **Step 3 (Fitness Metrics)** — Age, DOB, and optional 50m/100m PBs plus gym
+working weight/strength limit. All wizard inputs use custom JS validation per step, not the
+`required` HTML attribute — Chromium's native constraint validation still considers `required`
+fields inside a later, currently-`hidden` step and silently blocks the whole form's submit event,
+so relying on it breaks a multi-step form. Completing the wizard writes everything to
+`users/{uid}` in one transaction (`window.__onboardingSaveProfile`, module `<script>`) alongside
+the username claim, *and* immediately pushes Steps 2-3's answers into the live Workouts/Gym
+generator controls and regenerates both — so the swimmer's first look at either tab already
+reflects what they just told us, not the site defaults. Username uniqueness is enforced by a
+Firestore transaction claiming `usernames/{username}` (doc ID = the normalized username)
+alongside the `users/{uid}` write — `firestore.rules` only allows *creating* a
+`usernames/{username}` doc that doesn't already exist and forbids update/delete entirely, so a
+username reservation is permanent and race-safe without needing a Cloud Function.
 
 Between the persistent About section and the tabbed shell, the landing page carries five
 conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch

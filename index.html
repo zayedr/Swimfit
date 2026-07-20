@@ -553,195 +553,35 @@
     wireRegisteredUsersCounter();
   }
 
-  var COUNTRIES = [
-    'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria',
-    'Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan',
-    'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi',
-    'Cambodia','Cameroon','Canada','Cape Verde','Central African Republic','Chad','Chile','China','Colombia',
-    'Comoros','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica',
-    'Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini',
-    'Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada',
-    'Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hong Kong','Hungary','Iceland','India',
-    'Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan',
-    'Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya',
-    'Liechtenstein','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta',
-    'Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco','Mongolia',
-    'Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand',
-    'Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau',
-    'Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar',
-    'Romania','Russia','Rwanda','Saint Lucia','Samoa','San Marino','Saudi Arabia','Senegal','Serbia',
-    'Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa',
-    'South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria',
-    'Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia',
-    'Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom',
-    'United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia',
-    'Zimbabwe','Other'
-  ];
-
-  // ============================= ONBOARDING (profile completion) =============================
-  // Runs once per account, after Google or email-OTP sign-in, until the
-  // swimmer's users/{uid} doc has onboardingComplete: true. Usernames are
-  // claimed via a Firestore transaction against usernames/{normalizedName} —
-  // that document existing at all is the actual uniqueness guarantee
-  // (enforced by firestore.rules, which only allows "create" on a username
-  // doc that doesn't already exist), not just a client-side courtesy check.
-  var ONBOARDING_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
-  function normalizeUsername(raw) { return (raw || '').trim().toLowerCase(); }
-
-  function claimUsernameAndCompleteOnboarding(user, profile) {
+  // ============================= ONBOARDING DATA BRIDGES =============================
+  // The onboarding wizard's UI (rendering, step navigation, discipline/goal
+  // chips, live workout-generator hand-off) lives in the bottom plain
+  // <script>, alongside DISCIPLINES/GOALS/state — same "narrow Firestore
+  // bridge, UI stays in the bottom script" split as __swimLog*/__coachHistory*
+  // above. Usernames are claimed via a Firestore transaction against
+  // usernames/{normalizedName} — that document existing at all is the actual
+  // uniqueness guarantee (enforced by firestore.rules, which only allows
+  // "create" on a username doc that doesn't already exist), not just a
+  // client-side courtesy check.
+  window.__onboardingCheckUsernameTaken = function (username) {
+    return getDoc(doc(db, 'usernames', username)).then(function (snap) { return snap.exists(); });
+  };
+  window.__onboardingSaveProfile = function (user, profile) {
     var usernameRef = doc(db, 'usernames', profile.username);
     var userRef = doc(db, 'users', user.uid);
     return runTransaction(db, function (tx) {
       return tx.get(usernameRef).then(function (existing) {
-        if (existing.exists()) {
-          throw new Error('USERNAME_TAKEN');
-        }
+        if (existing.exists()) throw new Error('USERNAME_TAKEN');
         tx.set(usernameRef, { uid: user.uid, createdAt: serverTimestamp() });
-        tx.set(userRef, {
-          fullName: profile.fullName,
-          country: profile.country,
-          age: profile.age,
-          dob: profile.dob,
-          username: profile.username,
-          onboardingComplete: true
-        }, { merge: true });
+        tx.set(userRef, Object.assign({}, profile, { onboardingComplete: true }), { merge: true });
       });
     });
-  }
-
-  function wireOnboardingUI() {
-    var modal = document.getElementById('onboardingModal');
-    var closeBtn = document.getElementById('onboardingModalClose');
-    var form = document.getElementById('onboardingForm');
-    var nameInput = document.getElementById('onboardingFullName');
-    var countrySelect = document.getElementById('onboardingCountry');
-    var ageInput = document.getElementById('onboardingAge');
-    var dobInput = document.getElementById('onboardingDob');
-    var usernameInput = document.getElementById('onboardingUsername');
-    var usernameNote = document.getElementById('onboardingUsernameNote');
-    var statusNote = document.getElementById('onboardingStatusNote');
-    var submitBtn = document.getElementById('onboardingSubmitBtn');
-    if (!modal || !form || !countrySelect) return;
-
-    COUNTRIES.forEach(function (name) {
-      var opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      countrySelect.appendChild(opt);
-    });
-
-    // Keyed by uid rather than a single flag: a swimmer signing out and a
-    // *different* swimmer signing back in on the same tab (no page reload)
-    // must still get their own onboarding prompt even if the first swimmer
-    // dismissed theirs.
-    var dismissedUids = {};
-    var currentUser = null;
-
-    function closeModal() {
-      if (currentUser) dismissedUids[currentUser.uid] = true;
-      modal.classList.remove('open');
-    }
-
-    // Exposed for ensureUserProfile (in this same module) to call once it
-    // knows the signed-in user's onboardingComplete status.
-    window.__openOnboardingIfNeeded = function (user) {
-      if (dismissedUids[user.uid] || modal.classList.contains('open')) return;
-      currentUser = user;
-      // Reset every time: this modal can be re-triggered for a *different*
-      // signed-in account within the same page load (sign out, sign back in
-      // as someone else), and a prior run may have left the submit button
-      // disabled (mid-save) or stale values/notes from the last account.
-      form.reset();
-      if (nameInput) nameInput.value = user.displayName || '';
-      if (usernameNote) { usernameNote.textContent = ''; usernameNote.style.color = ''; }
-      if (statusNote) { statusNote.textContent = ''; statusNote.style.color = ''; }
-      if (submitBtn) submitBtn.disabled = false;
-      setTimeout(function () { modal.classList.add('open'); }, 850);
-    };
-
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
-
-    var usernameCheckTimer = null;
-    if (usernameInput) {
-      usernameInput.addEventListener('input', function () {
-        var value = normalizeUsername(usernameInput.value);
-        clearTimeout(usernameCheckTimer);
-        usernameNote.style.color = '';
-        if (!value) { usernameNote.textContent = ''; return; }
-        if (!ONBOARDING_USERNAME_RE.test(value)) {
-          usernameNote.style.color = '#e5484d';
-          usernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
-          return;
-        }
-        usernameNote.textContent = 'Checking availability…';
-        usernameCheckTimer = setTimeout(function () {
-          getDoc(doc(db, 'usernames', value)).then(function (snap) {
-            if (normalizeUsername(usernameInput.value) !== value) return; // stale response
-            if (snap.exists()) {
-              usernameNote.style.color = '#e5484d';
-              usernameNote.textContent = 'That username is already taken.';
-            } else {
-              usernameNote.style.color = '#2ECC81';
-              usernameNote.textContent = 'Username available.';
-            }
-          }).catch(function () {
-            usernameNote.textContent = '';
-          });
-        }, 450);
-      });
-    }
-
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (!currentUser) return;
-
-      var fullName = (nameInput.value || '').trim();
-      var country = countrySelect.value;
-      var age = parseInt(ageInput.value, 10);
-      var dob = dobInput.value;
-      var username = normalizeUsername(usernameInput.value);
-
-      statusNote.style.color = '';
-      if (!fullName) { statusNote.style.color = '#e5484d'; statusNote.textContent = 'Please enter your full name.'; return; }
-      if (!country) { statusNote.style.color = '#e5484d'; statusNote.textContent = 'Please select your country.'; return; }
-      if (!age || age < 5 || age > 120) { statusNote.style.color = '#e5484d'; statusNote.textContent = 'Please enter a valid age.'; return; }
-      if (!dob) { statusNote.style.color = '#e5484d'; statusNote.textContent = 'Please enter your date of birth.'; return; }
-      if (!ONBOARDING_USERNAME_RE.test(username)) {
-        statusNote.style.color = '#e5484d';
-        statusNote.textContent = 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
-        return;
-      }
-
-      submitBtn.disabled = true;
-      statusNote.style.color = '';
-      statusNote.textContent = 'Saving your profile…';
-
-      claimUsernameAndCompleteOnboarding(currentUser, {
-        fullName: fullName, country: country, age: age, dob: dob, username: username
-      }).then(function () {
-        statusNote.style.color = '#2ECC81';
-        statusNote.textContent = 'Profile complete — welcome to Swimfit!';
-        setTimeout(function () { modal.classList.remove('open'); }, 900);
-      }).catch(function (err) {
-        submitBtn.disabled = false;
-        statusNote.style.color = '#e5484d';
-        if (err && (err.message === 'USERNAME_TAKEN' || err.code === 'permission-denied')) {
-          statusNote.textContent = 'That username was just taken — please choose another.';
-        } else {
-          statusNote.textContent = 'Couldn’t save your profile — please try again.';
-        }
-      });
-    });
-  }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', wireFirebaseAuthUI);
-    document.addEventListener('DOMContentLoaded', wireOnboardingUI);
   } else {
     wireFirebaseAuthUI();
-    wireOnboardingUI();
   }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1543,6 +1383,16 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .modal-box p { color: var(--muted); }
 
 .auth-modal-box { max-width: 420px; }
+.auth-mode-toggle {
+  display: flex; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px; margin: 0 auto var(--space-4); width: fit-content;
+}
+.auth-mode-btn {
+  padding: 7px 18px; border-radius: 999px; font-family: var(--font-display); font-size: 0.82rem;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.auth-mode-btn[aria-selected="true"] { background: var(--aqua); color: var(--on-aqua); }
 .google-btn {
   display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
   background: #fff; color: #1f1f1f; border: 1px solid #dadce0; border-radius: 8px;
@@ -1587,8 +1437,31 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .onboarding-username-note, .onboarding-status-note { font-size: 0.78rem; min-height: 1.1em; color: var(--muted-2); }
 .onboarding-status-note { margin: 0; text-align: center; }
+.form-row-hint { text-transform: none; letter-spacing: 0; font-weight: 400; font-family: var(--font-body); color: var(--muted-2); }
 @media (max-width: 480px) {
   .form-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ============================= ONBOARDING WIZARD (3-step) ============================= */
+.onboarding-wizard-box { max-width: 540px; }
+.wizard-steps { display: flex; align-items: center; margin-bottom: var(--space-5); }
+.wizard-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+.wizard-step-num {
+  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--muted);
+  font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; transition: all var(--dur) var(--ease);
+}
+.wizard-step-label { font-size: 0.68rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.wizard-step.is-active .wizard-step-num { background: var(--aqua); border-color: var(--aqua); color: var(--on-aqua); }
+.wizard-step.is-active .wizard-step-label { color: var(--fg); }
+.wizard-step.is-done .wizard-step-num { background: var(--green); border-color: var(--green); color: var(--on-green); }
+.wizard-step-line { flex: 1; height: 2px; background: var(--border); margin: 0 6px 18px; }
+.wizard-panel { display: flex; flex-direction: column; gap: var(--space-3); }
+.wizard-panel[hidden] { display: none; }
+.wizard-nav-row { display: flex; gap: var(--space-3); }
+.wizard-nav-row .btn { flex: 1; }
+@media (max-width: 480px) {
+  .wizard-step-label { display: none; }
 }
 
 /* ============================= GLOBAL PAYWALL (post-trial lock) ============================= */
@@ -2960,9 +2833,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
 
+    <div class="auth-mode-toggle" id="authModeToggle" role="tablist" aria-label="Sign in or create an account">
+      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signin" aria-selected="true">Sign In</button>
+      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signup" aria-selected="false">Create Account</button>
+    </div>
+
     <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
     <h3 id="authModalTitle">Sign In to Swimfit</h3>
-    <p>Quick access to your training dashboard.</p>
+    <p id="authModalSubtitle">Quick access to your training dashboard.</p>
     <button type="button" class="google-btn" id="googleLoginBtn">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -2970,7 +2848,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
         <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
       </svg>
-      <span>Continue with Google</span>
+      <span id="googleLoginBtnLabel">Continue with Google</span>
     </button>
 
     <div class="auth-divider"><span>or</span></div>
@@ -2979,7 +2857,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <label for="otpEmailInput" class="sr-only">Email address</label>
       <input type="email" id="otpEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
       <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpRequestBtn">
-        <svg class="icon"><use href="#i-comment"/></svg> Send Verification Code
+        <svg class="icon"><use href="#i-comment"/></svg> <span id="otpRequestBtnLabel">Send Verification Code</span>
       </button>
     </form>
 
@@ -2987,7 +2865,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <label for="otpCodeInput" class="sr-only">6-digit verification code</label>
       <input type="text" id="otpCodeInput" class="email-link-input otp-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="123456" required autocomplete="one-time-code">
       <button type="submit" class="btn btn-outline-aqua btn-sm" id="otpVerifyBtn">
-        <svg class="icon"><use href="#i-check"/></svg> Verify &amp; Sign In
+        <svg class="icon"><use href="#i-check"/></svg> <span id="otpVerifyBtnLabel">Verify &amp; Sign In</span>
       </button>
       <div class="otp-secondary-row">
         <button type="button" class="otp-secondary-link" id="otpResendBtn">Resend code</button>
@@ -3002,46 +2880,106 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
 <!-- ============================= ONBOARDING MODAL ============================= -->
 <div class="modal-overlay" id="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="onboardingModalTitle">
-  <div class="modal-box onboarding-modal-box">
+  <div class="modal-box onboarding-modal-box onboarding-wizard-box">
     <button class="modal-close" id="onboardingModalClose" aria-label="Close">
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
 
     <div class="icon-tile green"><svg class="icon"><use href="#i-user"/></svg></div>
     <h3 id="onboardingModalTitle">Complete Your Swimmer Profile</h3>
-    <p>A few quick details so we can personalize your training.</p>
+    <p id="onboardingModalSubtitle">A few quick details so we can personalize your training.</p>
+
+    <div class="wizard-steps" id="wizardSteps">
+      <div class="wizard-step" data-wizard-step="1"><span class="wizard-step-num">1</span><span class="wizard-step-label">Account Info</span></div>
+      <div class="wizard-step-line"></div>
+      <div class="wizard-step" data-wizard-step="2"><span class="wizard-step-num">2</span><span class="wizard-step-label">Specialization</span></div>
+      <div class="wizard-step-line"></div>
+      <div class="wizard-step" data-wizard-step="3"><span class="wizard-step-num">3</span><span class="wizard-step-label">Fitness</span></div>
+    </div>
 
     <form class="onboarding-form" id="onboardingForm">
-      <div class="form-row">
-        <label for="onboardingFullName">Full Name</label>
-        <input type="text" id="onboardingFullName" class="form-input" placeholder="Jane Swimmer" required maxlength="80" autocomplete="name">
-      </div>
-
-      <div class="form-row">
-        <label for="onboardingCountry">Country / Location</label>
-        <select id="onboardingCountry" class="form-select" required>
-          <option value="" disabled selected>Select your country</option>
-        </select>
-      </div>
-
-      <div class="form-grid-2">
+      <!-- ---- Step 1: Account Info ---- -->
+      <div class="wizard-panel" data-panel="1">
         <div class="form-row">
-          <label for="onboardingAge">Age</label>
-          <input type="number" id="onboardingAge" class="form-input" min="5" max="120" placeholder="24" required>
+          <label for="onboardingFullName">Full Name</label>
+          <input type="text" id="onboardingFullName" class="form-input" placeholder="Jane Swimmer" maxlength="80" autocomplete="name">
         </div>
         <div class="form-row">
-          <label for="onboardingDob">Date of Birth</label>
-          <input type="date" id="onboardingDob" class="form-input" required>
+          <label for="onboardingCountry">Country / Location</label>
+          <select id="onboardingCountry" class="form-select">
+            <option value="" disabled selected>Select your country</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="onboardingUsername">Unique Username</label>
+          <input type="text" id="onboardingUsername" class="form-input" placeholder="jane_swims" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <p class="onboarding-username-note" id="onboardingUsernameNote"></p>
+        </div>
+        <div class="form-row">
+          <label for="onboardingEmailDisplay">Email</label>
+          <input type="text" id="onboardingEmailDisplay" class="form-input" disabled>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Next: Training Specialization</button>
+      </div>
+
+      <!-- ---- Step 2: Training Specialization ---- -->
+      <div class="wizard-panel" data-panel="2" hidden>
+        <div class="form-row">
+          <label>Swim Disciplines <span class="form-row-hint">(pick one or more)</span></label>
+          <div class="chip-group" id="onboardingDisciplineChips"></div>
+        </div>
+        <div class="form-row">
+          <label for="onboardingDistanceSlider">Target Distance <span id="onboardingDistanceValue" class="form-row-hint"></span></label>
+          <input type="range" id="onboardingDistanceSlider" min="1000" max="6000" step="500" value="2000">
+        </div>
+        <div class="form-row">
+          <label>Training Focus</label>
+          <div class="chip-group" id="onboardingGoalChips"></div>
+        </div>
+        <div class="wizard-nav-row">
+          <button type="button" class="btn btn-ghost" data-wizard-back>Back</button>
+          <button type="submit" class="btn btn-primary">Next: Fitness Metrics</button>
         </div>
       </div>
 
-      <div class="form-row">
-        <label for="onboardingUsername">Unique Username</label>
-        <input type="text" id="onboardingUsername" class="form-input" placeholder="jane_swims" required maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <p class="onboarding-username-note" id="onboardingUsernameNote"></p>
+      <!-- ---- Step 3: Fitness Metrics ---- -->
+      <div class="wizard-panel" data-panel="3" hidden>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label for="onboardingAge">Age</label>
+            <input type="number" id="onboardingAge" class="form-input" min="5" max="120" placeholder="24">
+          </div>
+          <div class="form-row">
+            <label for="onboardingDob">Date of Birth</label>
+            <input type="date" id="onboardingDob" class="form-input">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label for="onboardingPb50">50m PB <span class="form-row-hint">(optional)</span></label>
+            <input type="text" id="onboardingPb50" class="form-input" placeholder="e.g. 0:28">
+          </div>
+          <div class="form-row">
+            <label for="onboardingPb100">100m PB <span class="form-row-hint">(optional)</span></label>
+            <input type="text" id="onboardingPb100" class="form-input" placeholder="e.g. 1:05">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label for="onboardingWorkingWeight">Working Weight <span class="form-row-hint">(optional)</span></label>
+            <input type="text" id="onboardingWorkingWeight" class="form-input" placeholder="e.g. 40kg">
+          </div>
+          <div class="form-row">
+            <label for="onboardingStrengthLimit">Strength Limit <span class="form-row-hint">(optional)</span></label>
+            <input type="text" id="onboardingStrengthLimit" class="form-input" placeholder="e.g. 80kg 1RM">
+          </div>
+        </div>
+        <div class="wizard-nav-row">
+          <button type="button" class="btn btn-ghost" data-wizard-back>Back</button>
+          <button type="submit" class="btn btn-primary" id="onboardingSubmitBtn">Complete Profile</button>
+        </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block" id="onboardingSubmitBtn">Complete Profile</button>
       <p class="onboarding-status-note" id="onboardingStatusNote"></p>
     </form>
   </div>
@@ -3343,20 +3281,57 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   /* ============================= SIGN IN MODAL (open/close only — auth itself is
      handled by Firebase, see the <script type="module"> in <head>) ============================= */
   var authModal = document.getElementById('authModal');
-  function openAuthModal() {
+
+  // Sign In / Create Account are purely a copy/labeling toggle over the exact
+  // same Google + email-OTP mechanics — email-OTP sign-in already creates the
+  // Firebase account transparently on first use (see verifyEmailOtp), so
+  // there's nothing to branch server-side here. Only the post-verification
+  // experience actually differs: a brand-new account gets routed into the
+  // onboarding wizard (via ensureUserProfile's existing onboardingComplete
+  // check), same as before this toggle existed.
+  var AUTH_MODE_COPY = {
+    signin: {
+      title: 'Sign In to Swimfit', subtitle: 'Quick access to your training dashboard.',
+      google: 'Continue with Google', otpRequest: 'Send Verification Code', otpVerify: 'Verify & Sign In'
+    },
+    signup: {
+      title: 'Create Your Swimfit Account', subtitle: 'Free to join — set up your training profile in a minute.',
+      google: 'Sign up with Google', otpRequest: 'Create Account & Send Code', otpVerify: 'Verify & Create Account'
+    }
+  };
+  var currentAuthMode = 'signin';
+  function setAuthMode(mode) {
+    if (!AUTH_MODE_COPY[mode]) return;
+    currentAuthMode = mode;
+    var copy = AUTH_MODE_COPY[mode];
+    document.getElementById('authModalTitle').textContent = copy.title;
+    document.getElementById('authModalSubtitle').textContent = copy.subtitle;
+    document.getElementById('googleLoginBtnLabel').textContent = copy.google;
+    document.getElementById('otpRequestBtnLabel').textContent = copy.otpRequest;
+    document.getElementById('otpVerifyBtnLabel').textContent = copy.otpVerify;
+    document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
+      btn.setAttribute('aria-selected', btn.dataset.authMode === mode ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setAuthMode(btn.dataset.authMode); });
+  });
+
+  function openAuthModal(mode) {
     var statusNote = document.getElementById('authStatusNote');
     statusNote.style.color = '';
     statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
     document.getElementById('googleLoginBtn').disabled = false;
     if (typeof window.__resetAuthModalOtpUI === 'function') window.__resetAuthModalOtpUI();
+    setAuthMode(mode || 'signin');
     authModal.classList.add('open');
   }
   function closeAuthModal() { authModal.classList.remove('open'); }
 
-  document.getElementById('navSignInBtn').addEventListener('click', openAuthModal);
-  document.getElementById('navJoinNowBtn').addEventListener('click', openAuthModal);
+  document.getElementById('navSignInBtn').addEventListener('click', function () { openAuthModal('signin'); });
+  document.getElementById('navJoinNowBtn').addEventListener('click', function () { openAuthModal('signup'); });
   var offerTrialCtaBtn = document.getElementById('offerTrialCtaBtn');
-  if (offerTrialCtaBtn) offerTrialCtaBtn.addEventListener('click', openAuthModal);
+  if (offerTrialCtaBtn) offerTrialCtaBtn.addEventListener('click', function () { openAuthModal('signup'); });
   document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
@@ -5265,6 +5240,307 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         return;
       }
       if (!window.__isAdminAccount) subscribe();
+    });
+  })();
+
+  /* ============================= ONBOARDING WIZARD (3-step, post-signup) =============================
+     Runs once per account, after Google or email-OTP sign-in, until the
+     swimmer's users/{uid} doc has onboardingComplete: true. Steps 2 and 3
+     mirror the exact same discipline/goal/distance/age/PB/strength controls
+     already used by the Workouts and Gym generators (DISCIPLINES, GOALS,
+     state, icon() — all in scope in this same script) — completing the
+     wizard immediately re-renders both generators with the swimmer's own
+     answers instead of the site defaults. */
+  var COUNTRIES = [
+    'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria',
+    'Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan',
+    'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi',
+    'Cambodia','Cameroon','Canada','Cape Verde','Central African Republic','Chad','Chile','China','Colombia',
+    'Comoros','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica',
+    'Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini',
+    'Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada',
+    'Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hong Kong','Hungary','Iceland','India',
+    'Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan',
+    'Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya',
+    'Liechtenstein','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta',
+    'Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco','Mongolia',
+    'Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand',
+    'Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau',
+    'Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar',
+    'Romania','Russia','Rwanda','Saint Lucia','Samoa','San Marino','Saudi Arabia','Senegal','Serbia',
+    'Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa',
+    'South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria',
+    'Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia',
+    'Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom',
+    'United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia',
+    'Zimbabwe','Other'
+  ];
+  var ONBOARDING_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+  function normalizeUsername(raw) { return (raw || '').trim().toLowerCase(); }
+
+  (function wireOnboardingWizard() {
+    var modal = document.getElementById('onboardingModal');
+    var closeBtn = document.getElementById('onboardingModalClose');
+    var form = document.getElementById('onboardingForm');
+    var nameInput = document.getElementById('onboardingFullName');
+    var countrySelect = document.getElementById('onboardingCountry');
+    var usernameInput = document.getElementById('onboardingUsername');
+    var usernameNote = document.getElementById('onboardingUsernameNote');
+    var emailDisplay = document.getElementById('onboardingEmailDisplay');
+    var ageInput = document.getElementById('onboardingAge');
+    var dobInput = document.getElementById('onboardingDob');
+    var pb50Input = document.getElementById('onboardingPb50');
+    var pb100Input = document.getElementById('onboardingPb100');
+    var workingWeightInput = document.getElementById('onboardingWorkingWeight');
+    var strengthLimitInput = document.getElementById('onboardingStrengthLimit');
+    var statusNote = document.getElementById('onboardingStatusNote');
+    var submitBtn = document.getElementById('onboardingSubmitBtn');
+    var wizardDistanceSlider = document.getElementById('onboardingDistanceSlider');
+    var wizardDistanceValueEl = document.getElementById('onboardingDistanceValue');
+    var disciplineChipsEl = document.getElementById('onboardingDisciplineChips');
+    var goalChipsEl = document.getElementById('onboardingGoalChips');
+    var stepIndicators = document.querySelectorAll('#wizardSteps [data-wizard-step]');
+    var panels = document.querySelectorAll('.wizard-panel[data-panel]');
+    if (!modal || !form || !countrySelect) return;
+
+    countrySelect.querySelectorAll('option:not([value=""])').forEach(function (o) { o.remove(); });
+    COUNTRIES.forEach(function (name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      countrySelect.appendChild(opt);
+    });
+
+    var currentStep = 1;
+    var wizardSelection = { disciplines: [DISCIPLINES[0].name], distance: 2000, goal: GOALS[0].key };
+
+    function showStep(n) {
+      currentStep = n;
+      panels.forEach(function (p) { p.hidden = parseInt(p.dataset.panel, 10) !== n; });
+      stepIndicators.forEach(function (s) {
+        var stepNum = parseInt(s.dataset.wizardStep, 10);
+        s.classList.toggle('is-active', stepNum === n);
+        s.classList.toggle('is-done', stepNum < n);
+      });
+    }
+    document.querySelectorAll('[data-wizard-back]').forEach(function (btn) {
+      btn.addEventListener('click', function () { showStep(currentStep - 1); });
+    });
+
+    function renderWizardDisciplineChips() {
+      disciplineChipsEl.innerHTML = DISCIPLINES.map(function (d) {
+        return '<button type="button" class="chip" data-discipline="' + d.name + '" aria-pressed="' + (wizardSelection.disciplines.indexOf(d.name) > -1) + '">' + icon(d.icon) + d.name + '</button>';
+      }).join('');
+    }
+    disciplineChipsEl.addEventListener('click', function (e) {
+      var chip = e.target.closest('.chip');
+      if (!chip) return;
+      var idx = wizardSelection.disciplines.indexOf(chip.dataset.discipline);
+      if (idx > -1) {
+        if (wizardSelection.disciplines.length === 1) return; // keep at least one selected
+        wizardSelection.disciplines.splice(idx, 1);
+      } else {
+        wizardSelection.disciplines.push(chip.dataset.discipline);
+      }
+      renderWizardDisciplineChips();
+    });
+
+    function renderWizardGoalChips() {
+      goalChipsEl.innerHTML = GOALS.map(function (g) {
+        return '<button type="button" class="chip" data-goal="' + g.key + '" aria-pressed="' + (g.key === wizardSelection.goal) + '">' + icon(g.icon) + g.label + '</button>';
+      }).join('');
+    }
+    goalChipsEl.addEventListener('click', function (e) {
+      var chip = e.target.closest('.chip');
+      if (!chip) return;
+      wizardSelection.goal = chip.dataset.goal;
+      renderWizardGoalChips();
+    });
+
+    function updateWizardDistanceLabel() { wizardDistanceValueEl.textContent = '(' + wizardSelection.distance + 'm)'; }
+    wizardDistanceSlider.addEventListener('input', function () {
+      wizardSelection.distance = parseInt(wizardDistanceSlider.value, 10);
+      updateWizardDistanceLabel();
+    });
+
+    // Keyed by uid rather than a single flag: a swimmer signing out and a
+    // *different* swimmer signing back in on the same tab (no page reload)
+    // must still get their own onboarding prompt even if the first swimmer
+    // dismissed theirs.
+    var dismissedUids = {};
+    var currentUser = null;
+
+    function closeModal() {
+      if (currentUser) dismissedUids[currentUser.uid] = true;
+      modal.classList.remove('open');
+    }
+
+    // Exposed for ensureUserProfile (module <script> in <head>) to call once
+    // it knows the signed-in user's onboardingComplete status.
+    window.__openOnboardingIfNeeded = function (user) {
+      if (dismissedUids[user.uid] || modal.classList.contains('open')) return;
+      currentUser = user;
+      // Reset every time: this modal can be re-triggered for a *different*
+      // signed-in account within the same page load (sign out, sign back in
+      // as someone else), and a prior run may have left the submit button
+      // disabled (mid-save) or stale values/notes/step from the last account.
+      form.reset();
+      if (nameInput) nameInput.value = user.displayName || '';
+      if (emailDisplay) emailDisplay.value = user.email || '';
+      if (usernameNote) { usernameNote.textContent = ''; usernameNote.style.color = ''; }
+      if (statusNote) { statusNote.textContent = ''; statusNote.style.color = ''; }
+      if (submitBtn) submitBtn.disabled = false;
+      wizardSelection = { disciplines: [DISCIPLINES[0].name], distance: 2000, goal: GOALS[0].key };
+      renderWizardDisciplineChips();
+      renderWizardGoalChips();
+      updateWizardDistanceLabel();
+      showStep(1);
+      setTimeout(function () { modal.classList.add('open'); }, 850);
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+
+    var usernameCheckTimer = null;
+    if (usernameInput) {
+      usernameInput.addEventListener('input', function () {
+        var value = normalizeUsername(usernameInput.value);
+        clearTimeout(usernameCheckTimer);
+        usernameNote.style.color = '';
+        if (!value) { usernameNote.textContent = ''; return; }
+        if (!ONBOARDING_USERNAME_RE.test(value)) {
+          usernameNote.style.color = '#e5484d';
+          usernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
+          return;
+        }
+        usernameNote.textContent = 'Checking availability…';
+        usernameCheckTimer = setTimeout(function () {
+          if (typeof window.__onboardingCheckUsernameTaken !== 'function') return;
+          window.__onboardingCheckUsernameTaken(value).then(function (taken) {
+            if (normalizeUsername(usernameInput.value) !== value) return; // stale response
+            if (taken) {
+              usernameNote.style.color = '#e5484d';
+              usernameNote.textContent = 'That username is already taken.';
+            } else {
+              usernameNote.style.color = '#2ECC81';
+              usernameNote.textContent = 'Username available.';
+            }
+          }).catch(function () { usernameNote.textContent = ''; });
+        }, 450);
+      });
+    }
+
+    function validateStep1() {
+      var fullName = (nameInput.value || '').trim();
+      var country = countrySelect.value;
+      var username = normalizeUsername(usernameInput.value);
+      if (!fullName) return 'Please enter your full name.';
+      if (!country) return 'Please select your country.';
+      if (!ONBOARDING_USERNAME_RE.test(username)) return 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
+      return null;
+    }
+    function validateStep3() {
+      var age = parseInt(ageInput.value, 10);
+      var dob = dobInput.value;
+      if (!age || age < 5 || age > 120) return 'Please enter a valid age.';
+      if (!dob) return 'Please enter your date of birth.';
+      return null;
+    }
+
+    // Pushes the wizard's answers into the live Workouts/Gym generator
+    // controls and re-renders both, so the swimmer's first look at either
+    // tab already reflects what they just told us — not the site defaults.
+    function applyProfileToGenerators(profile) {
+      state.disciplines = profile.disciplines.slice();
+      state.distance = profile.distance;
+      state.goal = profile.goal;
+      document.querySelectorAll('#disciplineChips .chip').forEach(function (chip) {
+        chip.setAttribute('aria-pressed', state.disciplines.indexOf(chip.dataset.discipline) > -1 ? 'true' : 'false');
+      });
+      document.querySelectorAll('#goalChips .chip').forEach(function (chip) {
+        chip.setAttribute('aria-pressed', chip.dataset.goal === state.goal ? 'true' : 'false');
+      });
+      var distanceSliderEl = document.getElementById('distanceSlider');
+      if (distanceSliderEl) {
+        distanceSliderEl.value = state.distance;
+        if (typeof updateDistanceLabel === 'function') updateDistanceLabel();
+      }
+      var swimmerAgeInput = document.getElementById('swimmerAge');
+      if (swimmerAgeInput) swimmerAgeInput.value = profile.age;
+      var pb50El = document.getElementById('pb50');
+      var pb100El = document.getElementById('pb100');
+      if (pb50El && profile.pb50) pb50El.value = profile.pb50;
+      if (pb100El && profile.pb100) pb100El.value = profile.pb100;
+      if (typeof generateWorkout === 'function') generateWorkout();
+
+      var gymAgeInput = document.getElementById('gymAge');
+      var gymWorkingWeightInput = document.getElementById('gymWorkingWeight');
+      var gymStrengthLimitInput = document.getElementById('gymStrengthLimit');
+      if (gymAgeInput) gymAgeInput.value = profile.age;
+      if (gymWorkingWeightInput && profile.workingWeight) gymWorkingWeightInput.value = profile.workingWeight;
+      if (gymStrengthLimitInput && profile.strengthLimit) gymStrengthLimitInput.value = profile.strengthLimit;
+      if (typeof renderGym === 'function') renderGym(currentGymFocus);
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      statusNote.style.color = '';
+      statusNote.textContent = '';
+
+      if (currentStep === 1) {
+        var err1 = validateStep1();
+        if (err1) { statusNote.style.color = '#e5484d'; statusNote.textContent = err1; return; }
+        showStep(2);
+        return;
+      }
+      if (currentStep === 2) {
+        showStep(3);
+        return;
+      }
+
+      var err3 = validateStep3();
+      if (err3) { statusNote.style.color = '#e5484d'; statusNote.textContent = err3; return; }
+
+      var profile = {
+        fullName: (nameInput.value || '').trim(),
+        country: countrySelect.value,
+        username: normalizeUsername(usernameInput.value),
+        age: parseInt(ageInput.value, 10),
+        dob: dobInput.value,
+        disciplines: wizardSelection.disciplines.slice(),
+        distance: wizardSelection.distance,
+        goal: wizardSelection.goal
+      };
+      var pb50 = (pb50Input.value || '').trim();
+      var pb100 = (pb100Input.value || '').trim();
+      var workingWeight = (workingWeightInput.value || '').trim();
+      var strengthLimit = (strengthLimitInput.value || '').trim();
+      if (pb50) profile.pb50 = pb50;
+      if (pb100) profile.pb100 = pb100;
+      if (workingWeight) profile.workingWeight = workingWeight;
+      if (strengthLimit) profile.strengthLimit = strengthLimit;
+
+      submitBtn.disabled = true;
+      statusNote.style.color = '';
+      statusNote.textContent = 'Saving your profile…';
+
+      window.__onboardingSaveProfile(currentUser, profile).then(function () {
+        statusNote.style.color = '#2ECC81';
+        statusNote.textContent = 'Profile complete — welcome to Swimfit!';
+        applyProfileToGenerators(profile);
+        setTimeout(function () { modal.classList.remove('open'); }, 900);
+      }).catch(function (err) {
+        submitBtn.disabled = false;
+        statusNote.style.color = '#e5484d';
+        if (err && (err.message === 'USERNAME_TAKEN' || err.code === 'permission-denied')) {
+          statusNote.textContent = 'That username was just taken — please choose another.';
+          showStep(1);
+        } else {
+          statusNote.textContent = 'Couldn\'t save your profile — please try again.';
+        }
+      });
     });
   })();
 
