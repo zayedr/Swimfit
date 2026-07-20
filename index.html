@@ -1278,20 +1278,27 @@ section { position: relative; scroll-margin-top: 96px; }
 /* ============================= GYM SELECTOR ============================= */
 .gym-card h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: 4px; }
 .gym-card .cue { color: var(--muted); font-size: 0.9rem; margin-top: var(--space-2); }
-/* An inline video-frame-style placeholder (same visual language as the
-   Academy's .video-thumb/.play-btn video cards) rather than a plain button,
-   so "technique video coming soon" actually reads as a video embed. */
-.gym-video-frame {
-  margin-top: var(--space-3); width: 100%; aspect-ratio: 21/9; border: none; cursor: pointer;
+/* Live looping technique demo on every exercise card — a self-contained SVG
+   stick-figure flipbook (frames cycled by one global timer in the bottom
+   script, see advanceGymAnims) rather than an external GIF/video asset, so
+   every card animates instantly with zero network weight and one consistent
+   visual language. Honors prefers-reduced-motion (the timer never starts,
+   leaving the first frame as a static form diagram). */
+.gym-anim-frame {
+  margin-top: var(--space-3); width: 100%; aspect-ratio: 21/9; position: relative; overflow: hidden;
   background: linear-gradient(135deg, var(--surface-2), var(--bg-alt)); border-radius: var(--radius-sm);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  transition: border-color var(--dur) var(--ease); border: 1px solid var(--border);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
 }
-.gym-video-frame:hover { border-color: var(--aqua); }
-.gym-video-frame:hover .play-btn { transform: scale(1.1); background: var(--green); color: var(--on-green); }
-.gym-video-frame .play-btn { width: 40px; height: 40px; }
-.gym-video-frame .play-btn .icon { width: 16px; height: 16px; }
-.gym-video-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.gym-card:hover .gym-anim-frame { border-color: var(--aqua); }
+.gym-anim { height: 88%; width: auto; max-width: 100%; color: var(--aqua); }
+.gym-anim path, .gym-anim rect, .gym-anim line { fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.gym-anim circle { fill: currentColor; stroke: none; }
+.gym-anim .p { color: var(--muted-2); }
+.gym-anim .gym-anim-ground { stroke: var(--border); stroke-width: 2; }
+.gym-anim-label {
+  position: absolute; bottom: 5px; right: 10px; font-size: 0.6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em; pointer-events: none;
+}
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
 .gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 .gym-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--shadow-2); border-color: var(--green); }
@@ -1467,6 +1474,40 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .form-input:focus, .form-select:focus { border-color: var(--aqua); }
 .form-select { appearance: none; }
 .onboarding-username-note { font-size: 0.78rem; min-height: 1.1em; color: var(--muted-2); }
+
+/* ============================= ENTRANCE MARKETING POPUP ============================= */
+.promo-popup-overlay {
+  position: fixed; inset: 0; z-index: 190; display: flex; align-items: center; justify-content: center;
+  background: rgba(3,6,5,0.78); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  padding: var(--space-4); overflow-y: auto;
+}
+.promo-popup-overlay[hidden] { display: none; }
+.promo-popup {
+  position: relative; width: min(440px, 100%); background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 40px 32px 24px; text-align: center;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.5); animation: promoPop 480ms var(--ease) both;
+}
+@keyframes promoPop { from { opacity: 0; transform: translateY(18px) scale(0.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .promo-popup { animation: none; } }
+.promo-popup-close {
+  position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px; display: flex;
+}
+.promo-popup-close:hover { color: var(--fg); }
+.promo-popup-close .icon { width: 16px; height: 16px; }
+.promo-popup-badge {
+  display: inline-flex; align-items: center; gap: 6px; background: rgba(34,211,238,0.12); color: var(--aqua);
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 6px 14px; border-radius: 999px; margin-bottom: 14px;
+}
+.promo-popup-badge .icon { width: 13px; height: 13px; }
+.promo-popup h2 { font-size: 1.45rem; margin-bottom: 10px; }
+.promo-popup-copy { color: var(--muted); font-size: 0.92rem; line-height: 1.55; margin-bottom: 18px; }
+.promo-popup-perks { list-style: none; text-align: left; margin: 0 auto 22px; max-width: 330px; display: flex; flex-direction: column; gap: 9px; padding: 0; }
+.promo-popup-perks li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--fg); }
+.promo-popup-perks .icon { width: 14px; height: 14px; color: var(--green-bright); flex-shrink: 0; margin-top: 2px; }
+.promo-popup-later { background: none; border: none; color: var(--muted); font-size: 0.8rem; margin-top: 14px; cursor: pointer; text-decoration: underline; }
+.promo-popup-later:hover { color: var(--fg); }
 
 /* ============================= GLOBAL PAYWALL (post-trial lock) ============================= */
 .paywall-overlay {
@@ -2376,6 +2417,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p>Set your discipline, distance, gear and goal — Swimfit computes a full warm-up-to-cool-down set on the spot.</p>
       </div>
 
+      <div class="coach-page-locked" data-auth-signed-out>
+        <svg class="icon"><use href="#i-lock"/></svg>
+        <h3>Members-Only Training Area</h3>
+        <p>Register free to unlock the full Swim Workout Generator — 7 days of complete premium access across the entire platform, no card required.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 7-Day Trial</button>
+      </div>
+
+      <div data-auth-signed-in style="display:none">
       <div class="tab-banner" style="--photo: var(--pool-edge-photo)" data-reveal></div>
 
       <div class="services-strip">
@@ -2535,12 +2584,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               </div>
             </form>
           </div>
-          <div class="workout-ai-signed-out" data-auth-signed-out>
-            <svg class="icon"><use href="#i-comment"/></svg>
-            <p>Sign in to ask the AI Coach about your generated workout — adjust sets, explain pacing, or refresh it entirely.</p>
-          </div>
         </div>
       </div>
+      </div><!-- /data-auth-signed-in (guest gate wrapper) -->
      </div>
     </div>
 
@@ -2553,6 +2599,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p>Pick a focus and the exercise board updates instantly — built for swimmers, not bodybuilders.</p>
       </div>
 
+      <div class="coach-page-locked" data-auth-signed-out>
+        <svg class="icon"><use href="#i-lock"/></svg>
+        <h3>Members-Only Training Area</h3>
+        <p>Register free to unlock every dryland Gym plan with live technique demos — 7 days of complete premium access, no card required.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 7-Day Trial</button>
+      </div>
+
+      <div data-auth-signed-in style="display:none">
       <div class="config-card" data-reveal style="margin-bottom:32px;">
         <div class="config-group" style="margin-bottom:0;">
           <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — tailors load &amp; volume for aquatic power)</span></div>
@@ -2604,10 +2658,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
         </form>
       </div>
-      <div class="workout-ai-signed-out" data-auth-signed-out style="margin-top: var(--space-6);">
-        <svg class="icon"><use href="#i-comment"/></svg>
-        <p>Sign in to generate a personalized daily or weekly dryland routine with the AI Coach.</p>
-      </div>
+      </div><!-- /data-auth-signed-in (guest gate wrapper) -->
     </div>
 
     <!-- ---------- GEAR ---------- -->
@@ -3003,6 +3054,29 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </div>
 
+<!-- ============================= ENTRANCE MARKETING POPUP (signed-out visitors) =============================
+     Shown the moment the first Firebase auth resolution reports no signed-in
+     user — once per browser session (sessionStorage), never for signed-in
+     swimmers, never re-fired by a mid-session sign-out. Wired in the bottom
+     script next to the auth modal it hands off to. -->
+<div class="promo-popup-overlay" id="promoPopup" role="dialog" aria-modal="true" aria-labelledby="promoPopupTitle" hidden>
+  <div class="promo-popup">
+    <button type="button" class="promo-popup-close" id="promoPopupClose" aria-label="Close">
+      <svg class="icon"><use href="#i-close"/></svg>
+    </button>
+    <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 7-Day Free Trial</div>
+    <h2 id="promoPopupTitle">Train Like It&rsquo;s Race Season</h2>
+    <p class="promo-popup-copy">Register now to unlock a strict 7-Day Free Trial with complete premium access across the entire platform! After 7 days, a paid subscription is required to continue.</p>
+    <ul class="promo-popup-perks">
+      <li><svg class="icon"><use href="#i-check"/></svg> Adaptive Swim Workout Generator &amp; dryland Gym plans</li>
+      <li><svg class="icon"><use href="#i-check"/></svg> AI Swim Coach with photo technique analysis</li>
+      <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker &amp; full Technique Academy</li>
+    </ul>
+    <button type="button" class="btn btn-primary btn-block" id="promoPopupRegisterBtn">Register Now — Start Free Trial</button>
+    <button type="button" class="promo-popup-later" id="promoPopupLaterBtn">Maybe later</button>
+  </div>
+</div>
+
 <!-- ============================= GLOBAL PAYWALL (post-trial lock) ============================= -->
 <div class="paywall-overlay" id="paywallOverlay" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" hidden>
   <div class="paywall-card">
@@ -3385,6 +3459,44 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && authModal.classList.contains('open')) closeAuthModal(); });
 
+  // Any static "register / sign in to unlock" button (the guest gates on the
+  // Workouts and Gym panels) — data-open-auth's value picks the modal mode.
+  document.querySelectorAll('[data-open-auth]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openAuthModal(btn.getAttribute('data-open-auth') || 'signup'); });
+  });
+
+  /* ============================= ENTRANCE MARKETING POPUP ============================= */
+  // Fires the moment the FIRST auth resolution says the visitor is signed
+  // out — never for a signed-in swimmer (their persisted session resolves
+  // before the popup would show), never re-fired by a mid-session sign-out,
+  // and once per browser session so returning within the same tab isn't
+  // nagged twice. Hand-off: the register CTA closes the popup and opens the
+  // real auth modal already in Create Account mode.
+  (function () {
+    var overlay = document.getElementById('promoPopup');
+    if (!overlay) return;
+    var PROMO_SEEN_KEY = 'swimfit_promo_seen';
+    var authResolvedOnce = false;
+    function hidePromo() { overlay.hidden = true; }
+    function showPromo() {
+      try {
+        if (sessionStorage.getItem(PROMO_SEEN_KEY)) return;
+        sessionStorage.setItem(PROMO_SEEN_KEY, '1');
+      } catch (e) { /* storage blocked — still show, just without the once-per-session guard */ }
+      overlay.hidden = false;
+    }
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (e.detail.user) { hidePromo(); authResolvedOnce = true; return; }
+      if (!authResolvedOnce) showPromo();
+      authResolvedOnce = true;
+    });
+    document.getElementById('promoPopupRegisterBtn').addEventListener('click', function () { hidePromo(); openAuthModal('signup'); });
+    document.getElementById('promoPopupLaterBtn').addEventListener('click', hidePromo);
+    document.getElementById('promoPopupClose').addEventListener('click', hidePromo);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) hidePromo(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !overlay.hidden) hidePromo(); });
+  })();
+
   /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle Billing checkout) =============================
      Real Paddle PRICE ids (pri_...) as of 2026-07-19 — Paddle.Checkout.open()
      needs the price id, not the product id (pro_...) that used to live here;
@@ -3482,6 +3594,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (overlay) overlay.hidden = !locked;
     document.body.classList.toggle('paywall-locked', locked);
 
+    // The moment the trial hits zero, the dashboard underneath the paywall
+    // overlay is also switched to the Pricing layout — closing the overlay
+    // by subscribing lands the swimmer directly on the plans, and nothing
+    // premium is ever left rendered behind the blur.
+    if (locked && dashboard.getAttribute('data-active-tab') !== 'pricing') {
+      switchTab('pricing', { scroll: false });
+    }
+
     var fab = document.getElementById('coachFab');
     if (fab) fab.style.display = locked ? 'none' : '';
 
@@ -3501,7 +3621,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         var daysLeft = Math.floor(msLeft / 86400000);
         var hoursLeft = Math.floor((msLeft % 86400000) / 3600000);
         var minutesLeft = Math.floor((msLeft % 3600000) / 60000);
-        var countdownLabel = daysLeft > 0 ? (daysLeft + 'd ' + hoursLeft + 'h left')
+        var countdownLabel = daysLeft > 0 ? (daysLeft + 'd ' + hoursLeft + 'h ' + minutesLeft + 'm left')
           : hoursLeft > 0 ? (hoursLeft + 'h ' + minutesLeft + 'm left')
           : (minutesLeft + 'm left');
         badge.hidden = false;
@@ -4448,6 +4568,288 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   var GYM_PHASE_PHOTO = { warmup: 'var(--gym-warmup-photo)', core: 'var(--gym-core-photo)', main: 'none', cooldown: 'var(--gym-cooldown-photo)' };
 
+  /* ============================= GYM TECHNIQUE DEMOS =============================
+     Every exercise card carries a live, looping stick-figure demonstration of
+     the movement — a hand-drawn SVG flipbook (2-4 key poses per movement
+     archetype, cycled by one global timer) rather than external GIF/video
+     assets, so demos load instantly, stay on-brand, and never depend on a
+     third-party CDN. Coordinates live in a 120x80 viewBox with the ground at
+     y=74; `class="p"` marks props (bars, boxes, ropes, walls) drawn in the
+     muted color. `beats` slows a hold/stretch to a calmer cadence. */
+  var GYM_ANIMS = {
+    jack: { frames: [
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L50 44"/><path d="M60 31 L70 44"/><path d="M60 47 L56 73"/><path d="M60 47 L64 73"/>',
+      '<circle cx="60" cy="18" r="5"/><path d="M60 23 L60 44"/><path d="M60 29 L46 12"/><path d="M60 29 L74 12"/><path d="M60 44 L45 73"/><path d="M60 44 L75 73"/>'
+    ] },
+    armcircles: { frames: [
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 47 L54 73"/><path d="M60 47 L66 73"/><path d="M60 31 L52 15"/><path d="M60 31 L68 15"/>',
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 47 L54 73"/><path d="M60 47 L66 73"/><path d="M60 31 L44 30"/><path d="M60 31 L76 30"/>',
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 47 L54 73"/><path d="M60 47 L66 73"/><path d="M60 31 L52 46"/><path d="M60 31 L68 46"/>',
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 47 L54 73"/><path d="M60 47 L66 73"/><path d="M60 31 L44 30"/><path d="M60 31 L76 30"/>'
+    ] },
+    plank: { beats: 2, frames: [
+      '<circle cx="26" cy="52" r="5"/><path d="M34 56 L72 58 L98 71"/><path d="M36 57 L36 70 L24 70"/>',
+      '<circle cx="26" cy="50" r="5"/><path d="M34 54 L72 57 L98 71"/><path d="M36 55 L36 70 L24 70"/>'
+    ] },
+    sideplank: { beats: 2, frames: [
+      '<circle cx="32" cy="38" r="5"/><path d="M38 43 L96 70"/><path d="M40 44 L40 70"/><path d="M40 44 L34 24"/>',
+      '<circle cx="32" cy="38" r="5"/><path d="M38 43 L96 70"/><path d="M40 44 L40 70"/><path d="M40 44 L34 24"/><path d="M66 56 L90 46"/>'
+    ] },
+    deadbug: { beats: 2, frames: [
+      '<circle cx="22" cy="67" r="5"/><path d="M28 68 L58 68"/><path d="M36 68 L36 48"/><path d="M58 68 L70 54 L82 58"/>',
+      '<circle cx="22" cy="67" r="5"/><path d="M28 68 L58 68"/><path d="M44 68 L44 48"/><path d="M58 68 L74 62 L88 66"/>'
+    ] },
+    jumprope: { frames: [
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 46"/><path d="M60 31 L52 40"/><path d="M60 31 L68 40"/><path d="M60 46 L55 72"/><path d="M60 46 L65 72"/><path class="p" d="M52 40 Q60 2 68 40"/>',
+      '<circle cx="60" cy="16" r="5"/><path d="M60 21 L60 42"/><path d="M60 27 L52 36"/><path d="M60 27 L68 36"/><path d="M60 42 L55 66"/><path d="M60 42 L65 66"/><path class="p" d="M52 36 Q60 76 68 36"/>'
+    ] },
+    burpee: { frames: [
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L51 45"/><path d="M60 31 L69 45"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>',
+      '<circle cx="52" cy="43" r="5"/><path d="M56 47 L64 59"/><path d="M56 49 L48 72"/><path d="M64 59 L58 72"/><path d="M64 59 L70 72"/>',
+      '<circle cx="26" cy="49" r="5"/><path d="M36 53 L96 68"/><path d="M36 53 L36 72"/>',
+      '<circle cx="60" cy="12" r="5"/><path d="M60 17 L60 38"/><path d="M60 23 L48 6"/><path d="M60 23 L72 6"/><path d="M60 38 L54 60"/><path d="M60 38 L66 60"/>'
+    ] },
+    climber: { frames: [
+      '<circle cx="26" cy="48" r="5"/><path d="M36 52 L78 60"/><path d="M36 52 L36 72"/><path d="M78 60 L100 72"/><path d="M78 60 L52 60"/>',
+      '<circle cx="26" cy="48" r="5"/><path d="M36 52 L78 60"/><path d="M36 52 L36 72"/><path d="M78 60 L96 71"/><path d="M78 60 L62 69"/>'
+    ] },
+    rower: { frames: [
+      '<path class="p" d="M18 70 L102 70"/><circle cx="38" cy="45" r="5"/><path d="M56 64 L42 50"/><path d="M42 51 L28 55"/><path d="M56 64 L44 52 L40 68"/>',
+      '<path class="p" d="M18 70 L102 70"/><circle cx="82" cy="45" r="5"/><path d="M66 64 L78 50"/><path d="M78 52 L62 53"/><path d="M66 64 L46 66 L40 68"/>'
+    ] },
+    ropes: { frames: [
+      '<circle cx="72" cy="24" r="5"/><path d="M72 29 L72 48"/><path d="M72 48 L64 60 L62 72"/><path d="M72 48 L80 60 L82 72"/><path d="M72 34 L58 24"/><path d="M72 34 L60 44"/><path class="p" d="M58 24 Q42 14 36 34 Q30 54 18 68"/><path class="p" d="M60 44 Q44 56 36 46 Q26 36 18 68"/>',
+      '<circle cx="72" cy="24" r="5"/><path d="M72 29 L72 48"/><path d="M72 48 L64 60 L62 72"/><path d="M72 48 L80 60 L82 72"/><path d="M72 34 L58 44"/><path d="M72 34 L60 26"/><path class="p" d="M58 44 Q42 56 36 42 Q28 30 18 68"/><path class="p" d="M60 26 Q46 16 38 34 Q30 52 18 68"/>'
+    ] },
+    squat: { frames: [
+      '<circle cx="52" cy="20" r="5"/><path d="M54 25 L56 46"/><path d="M54 30 L36 32"/><path d="M56 46 L52 72"/><path d="M56 46 L60 72"/>',
+      '<circle cx="54" cy="33" r="5"/><path d="M56 38 L63 52"/><path d="M56 42 L38 42"/><path d="M63 52 L50 56 L52 72"/><path d="M63 52 L54 58 L58 72"/>'
+    ] },
+    bbsquat: { frames: [
+      '<path class="p" d="M40 25 L74 25"/><circle class="p" cx="40" cy="25" r="3"/><circle class="p" cx="74" cy="25" r="3"/><circle cx="57" cy="18" r="5"/><path d="M57 23 L58 46"/><path d="M57 27 L48 25"/><path d="M57 27 L68 25"/><path d="M58 46 L54 72"/><path d="M58 46 L62 72"/>',
+      '<path class="p" d="M42 39 L76 39"/><circle class="p" cx="42" cy="39" r="3"/><circle class="p" cx="76" cy="39" r="3"/><circle cx="58" cy="32" r="5"/><path d="M59 37 L64 52"/><path d="M59 41 L50 39"/><path d="M59 41 L70 39"/><path d="M64 52 L50 56 L52 72"/><path d="M64 52 L56 58 L60 72"/>'
+    ] },
+    hinge: { frames: [
+      '<circle cx="44" cy="34" r="5"/><path d="M48 38 L62 54"/><path d="M48 40 L46 60"/><circle class="p" cx="46" cy="64" r="6"/><path d="M62 54 L56 62 L58 72"/><path d="M62 54 L62 63 L64 72"/>',
+      '<circle cx="54" cy="20" r="5"/><path d="M56 25 L58 48"/><path d="M56 31 L54 50"/><circle class="p" cx="54" cy="55" r="6"/><path d="M58 48 L54 72"/><path d="M58 48 L62 72"/>'
+    ] },
+    slrdl: { frames: [
+      '<circle cx="56" cy="20" r="5"/><path d="M58 25 L58 47"/><path d="M58 31 L56 48"/><circle class="p" cx="56" cy="51" r="3"/><path d="M58 47 L56 72"/><path d="M58 47 L64 70"/>',
+      '<circle cx="40" cy="36" r="5"/><path d="M46 40 L62 50"/><path d="M48 42 L46 62"/><circle class="p" cx="46" cy="65" r="3"/><path d="M62 50 L88 44"/><path d="M62 50 L60 72"/>'
+    ] },
+    pullup: { frames: [
+      '<path class="p" d="M36 12 L84 12"/><circle cx="60" cy="26" r="5"/><path d="M60 31 L60 52"/><path d="M60 31 L50 13"/><path d="M60 31 L70 13"/><path d="M60 52 L56 70"/><path d="M60 52 L64 70"/>',
+      '<path class="p" d="M36 12 L84 12"/><circle cx="60" cy="14" r="5"/><path d="M60 19 L60 40"/><path d="M60 20 L50 14"/><path d="M60 20 L70 14"/><path d="M60 40 L54 56"/><path d="M60 40 L66 56"/>'
+    ] },
+    clean: { frames: [
+      '<circle cx="44" cy="34" r="5"/><path d="M48 38 L62 54"/><path d="M48 40 L46 60"/><circle class="p" cx="46" cy="64" r="6"/><path d="M62 54 L56 62 L58 72"/><path d="M62 54 L62 63 L64 72"/>',
+      '<circle cx="54" cy="16" r="5"/><path d="M56 21 L58 44"/><path d="M56 27 L54 46"/><circle class="p" cx="54" cy="50" r="6"/><path d="M58 44 L55 70"/><path d="M58 44 L61 70"/>',
+      '<circle cx="54" cy="24" r="5"/><path d="M56 29 L60 48"/><circle class="p" cx="49" cy="32" r="6"/><path d="M56 33 L48 32"/><path d="M60 48 L54 58 L56 72"/><path d="M60 48 L62 58 L64 72"/>'
+    ] },
+    swing: { frames: [
+      '<circle cx="46" cy="34" r="5"/><path d="M50 38 L62 52"/><path d="M50 40 L64 62"/><circle class="p" cx="66" cy="64" r="4"/><path d="M62 52 L58 62 L58 72"/><path d="M62 52 L66 62 L66 72"/>',
+      '<circle cx="56" cy="18" r="5"/><path d="M58 23 L60 46"/><path d="M58 29 L38 32"/><circle class="p" cx="36" cy="33" r="4"/><path d="M60 46 L56 72"/><path d="M60 46 L64 72"/>'
+    ] },
+    slam: { frames: [
+      '<circle cx="58" cy="16" r="5"/><path d="M60 21 L60 44"/><path d="M60 27 L52 8"/><path d="M60 27 L68 8"/><circle class="p" cx="60" cy="7" r="5"/><path d="M60 44 L56 70"/><path d="M60 44 L64 70"/>',
+      '<circle cx="52" cy="42" r="5"/><path d="M56 46 L62 58"/><path d="M56 48 L54 66"/><circle class="p" cx="54" cy="69" r="5"/><path d="M62 58 L58 72"/><path d="M62 58 L68 72"/>'
+    ] },
+    boxjump: { frames: [
+      '<rect class="p" x="72" y="52" width="30" height="22"/><circle cx="34" cy="40" r="5"/><path d="M36 45 L40 56"/><path d="M36 47 L26 56"/><path d="M40 56 L34 64 L38 72"/><path d="M40 56 L44 64 L46 72"/>',
+      '<rect class="p" x="72" y="52" width="30" height="22"/><circle cx="74" cy="18" r="5"/><path d="M76 23 L78 36"/><path d="M76 27 L66 20"/><path d="M76 27 L86 22"/><path d="M78 36 L72 44"/><path d="M78 36 L84 44"/>',
+      '<rect class="p" x="72" y="52" width="30" height="22"/><circle cx="86" cy="26" r="5"/><path d="M87 31 L87 42"/><path d="M87 34 L81 42"/><path d="M87 34 L93 42"/><path d="M87 42 L84 52"/><path d="M87 42 L90 52"/>'
+    ] },
+    broadjump: { frames: [
+      '<circle cx="30" cy="40" r="5"/><path d="M32 45 L36 56"/><path d="M32 47 L22 56"/><path d="M36 56 L30 64 L34 72"/><path d="M36 56 L40 64 L42 72"/>',
+      '<circle cx="58" cy="26" r="5"/><path d="M60 31 L64 44"/><path d="M60 34 L72 24"/><path d="M60 34 L70 30"/><path d="M64 44 L54 54"/><path d="M64 44 L58 58"/>',
+      '<circle cx="86" cy="40" r="5"/><path d="M88 45 L92 56"/><path d="M88 47 L78 56"/><path d="M92 56 L86 64 L90 72"/><path d="M92 56 L96 64 L98 72"/>'
+    ] },
+    getup: { beats: 2, frames: [
+      '<circle cx="26" cy="66" r="5"/><path d="M32 68 L60 68"/><path d="M40 66 L40 46"/><circle class="p" cx="40" cy="42" r="3"/><path d="M60 68 L66 58 L72 70"/><path d="M60 68 L84 70"/>',
+      '<circle cx="34" cy="50" r="5"/><path d="M38 54 L62 66"/><path d="M40 56 L46 70"/><path d="M40 52 L42 32"/><circle class="p" cx="42" cy="28" r="3"/><path d="M62 66 L70 56 L76 70"/>',
+      '<circle cx="58" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 29 L58 10"/><circle class="p" cx="58" cy="7" r="3"/><path d="M60 31 L68 44"/><path d="M60 47 L56 72"/><path d="M60 47 L64 72"/>'
+    ] },
+    pushup: { frames: [
+      '<circle cx="26" cy="45" r="5"/><path d="M36 50 L36 70"/><path d="M36 50 L96 66"/>',
+      '<circle cx="26" cy="57" r="5"/><path d="M36 61 L44 70"/><path d="M36 61 L96 70"/>'
+    ] },
+    birddog: { beats: 2, frames: [
+      '<circle cx="38" cy="46" r="5"/><path d="M44 52 L76 52"/><path d="M44 52 L44 70"/><path d="M76 52 L76 70"/><path d="M44 52 L24 42"/><path d="M76 52 L98 44"/>',
+      '<circle cx="38" cy="46" r="5"/><path d="M44 52 L76 52"/><path d="M44 52 L44 70"/><path d="M76 52 L76 70"/><path d="M44 52 L26 54"/><path d="M76 52 L96 56"/>'
+    ] },
+    ytw: { beats: 2, frames: [
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L48 16"/><path d="M60 31 L72 16"/>',
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L42 30"/><path d="M60 31 L78 30"/>',
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L50 40 L46 30"/><path d="M60 31 L70 40 L74 30"/>'
+    ] },
+    dips: { frames: [
+      '<path class="p" d="M24 58 L48 58"/><path class="p" d="M28 58 L28 74"/><path class="p" d="M44 58 L44 74"/><circle cx="56" cy="33" r="5"/><path d="M56 38 L56 54"/><path d="M56 40 L48 57"/><path d="M56 54 L80 68 L88 68"/>',
+      '<path class="p" d="M24 58 L48 58"/><path class="p" d="M28 58 L28 74"/><path class="p" d="M44 58 L44 74"/><circle cx="56" cy="43" r="5"/><path d="M56 48 L56 60"/><path d="M56 49 L48 57"/><path d="M56 60 L80 70 L88 70"/>'
+    ] },
+    lunge: { frames: [
+      '<circle cx="58" cy="20" r="5"/><path d="M60 25 L60 48"/><path d="M60 31 L54 45"/><path d="M60 31 L66 45"/><path d="M60 48 L72 60 L72 72"/><path d="M60 48 L48 60 L44 72"/>',
+      '<circle cx="58" cy="32" r="5"/><path d="M60 37 L60 56"/><path d="M60 42 L54 54"/><path d="M60 42 L66 54"/><path d="M60 56 L74 58 L74 72"/><path d="M60 56 L50 68 L42 71"/>'
+    ] },
+    bridge: { beats: 2, frames: [
+      '<circle cx="28" cy="67" r="5"/><path d="M34 68 L62 68"/><path d="M62 68 L72 56 L74 72"/>',
+      '<circle cx="28" cy="67" r="5"/><path d="M34 66 L70 52"/><path d="M70 52 L74 72"/>'
+    ] },
+    calfraise: { frames: [
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L52 45"/><path d="M60 31 L68 45"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>',
+      '<circle cx="60" cy="18" r="5"/><path d="M60 23 L60 44"/><path d="M60 28 L52 42"/><path d="M60 28 L68 42"/><path d="M60 44 L55 70"/><path d="M60 44 L65 70"/><path class="p" d="M53 73 L57 70"/><path class="p" d="M63 73 L67 70"/>'
+    ] },
+    legswing: { frames: [
+      '<path class="p" d="M22 26 L22 74"/><circle cx="52" cy="20" r="5"/><path d="M53 25 L54 47"/><path d="M53 31 L24 32"/><path d="M54 47 L52 72"/><path d="M54 47 L34 58"/>',
+      '<path class="p" d="M22 26 L22 74"/><circle cx="52" cy="20" r="5"/><path d="M53 25 L54 47"/><path d="M53 31 L24 32"/><path d="M54 47 L52 72"/><path d="M54 47 L74 58"/>'
+    ] },
+    quadstretch: { beats: 2, frames: [
+      '<circle cx="56" cy="20" r="5"/><path d="M57 25 L57 47"/><path d="M57 31 L44 36"/><path d="M57 31 L64 49"/><path d="M57 47 L55 72"/><path d="M57 47 L61 60 L65 50"/>',
+      '<circle cx="57" cy="20" r="5"/><path d="M58 25 L58 47"/><path d="M58 31 L45 36"/><path d="M58 31 L65 49"/><path d="M58 47 L56 72"/><path d="M58 47 L62 60 L66 50"/>'
+    ] },
+    childpose: { beats: 2, frames: [
+      '<circle cx="34" cy="62" r="5"/><path d="M64 56 Q52 50 40 60"/><path d="M64 56 L66 72"/><path d="M66 72 L88 72"/><path d="M38 66 L22 68"/>',
+      '<circle cx="34" cy="63" r="5"/><path d="M64 57 Q52 52 40 61"/><path d="M64 57 L66 72"/><path d="M66 72 L88 72"/><path d="M38 67 L22 69"/>'
+    ] },
+    pigeon: { beats: 2, frames: [
+      '<circle cx="44" cy="32" r="5"/><path d="M46 37 L50 56"/><path d="M46 42 L38 58"/><path d="M50 58 L36 62 L54 66"/><path d="M50 58 L88 68"/>',
+      '<circle cx="40" cy="40" r="5"/><path d="M43 45 L50 58"/><path d="M43 48 L30 62"/><path d="M50 58 L36 62 L54 66"/><path d="M50 58 L88 68"/>'
+    ] },
+    kneellunge: { beats: 2, frames: [
+      '<circle cx="54" cy="28" r="5"/><path d="M56 33 L58 52"/><path d="M56 38 L70 50"/><path d="M58 52 L74 54 L76 72"/><path d="M58 52 L46 70 L32 72"/>',
+      '<circle cx="57" cy="28" r="5"/><path d="M59 33 L61 52"/><path d="M59 38 L72 50"/><path d="M61 52 L76 54 L78 72"/><path d="M61 52 L47 70 L32 72"/>'
+    ] },
+    foamroll: { beats: 2, frames: [
+      '<circle class="p" cx="56" cy="66" r="5"/><circle cx="30" cy="57" r="5"/><path d="M36 60 L74 66"/><path d="M74 66 L84 58 L88 72"/>',
+      '<circle class="p" cx="56" cy="66" r="5"/><circle cx="34" cy="55" r="5"/><path d="M40 58 L78 66"/><path d="M78 66 L86 58 L90 72"/>'
+    ] },
+    hollow: { beats: 2, frames: [
+      '<circle cx="34" cy="60" r="5"/><path d="M38 58 L22 54"/><path d="M40 62 Q58 68 74 60"/><path d="M74 60 L92 54"/>',
+      '<circle cx="34" cy="58" r="5"/><path d="M38 56 L22 50"/><path d="M40 60 Q58 66 74 58"/><path d="M74 58 L92 50"/>'
+    ] },
+    bandpull: { frames: [
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L48 34"/><path d="M60 31 L72 34"/><path class="p" d="M48 34 L72 34"/>',
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L38 30"/><path d="M60 31 L82 30"/><path class="p" d="M38 30 L82 30"/>'
+    ] },
+    sidelean: { beats: 2, frames: [
+      '<circle cx="58" cy="21" r="5"/><path d="M59 26 L61 47"/><path d="M59 30 L54 14 L46 16"/><path d="M59 33 L68 44"/><path d="M61 47 L55 72"/><path d="M61 47 L67 72"/>',
+      '<circle cx="55" cy="22" r="5"/><path d="M57 27 L62 47"/><path d="M57 31 L50 15 L42 18"/><path d="M57 34 L67 44"/><path d="M62 47 L56 72"/><path d="M62 47 L68 72"/>'
+    ] },
+    armacross: { beats: 2, frames: [
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L44 34"/><path d="M60 31 L52 38"/>',
+      '<circle cx="60" cy="20" r="5"/><path d="M60 25 L60 47"/><path d="M60 47 L54 72"/><path d="M60 47 L66 72"/><path d="M60 31 L42 35"/><path d="M60 31 L50 39"/>'
+    ] },
+    cheststretch: { beats: 2, frames: [
+      '<path class="p" d="M78 20 L78 74"/><circle cx="58" cy="22" r="5"/><path d="M60 27 L60 48"/><path d="M62 32 L72 32 L72 22"/><path d="M60 48 L54 72"/><path d="M60 48 L66 70"/>',
+      '<path class="p" d="M78 20 L78 74"/><circle cx="60" cy="22" r="5"/><path d="M62 27 L62 48"/><path d="M64 32 L72 32 L72 22"/><path d="M62 48 L55 72"/><path d="M62 48 L68 70"/>'
+    ] },
+    calfstretch: { beats: 2, frames: [
+      '<path class="p" d="M96 22 L96 74"/><circle cx="58" cy="26" r="5"/><path d="M60 31 L66 50"/><path d="M62 34 L94 38"/><path d="M66 50 L76 62 L76 72"/><path d="M66 50 L48 72"/>',
+      '<path class="p" d="M96 22 L96 74"/><circle cx="60" cy="27" r="5"/><path d="M62 32 L68 50"/><path d="M64 35 L94 38"/><path d="M68 50 L78 62 L78 72"/><path d="M68 50 L50 72"/>'
+    ] },
+    walk: { frames: [
+      '<circle cx="56" cy="20" r="5"/><path d="M58 25 L58 47"/><path d="M58 31 L66 44"/><path d="M58 31 L50 44"/><path d="M58 47 L48 72"/><path d="M58 47 L68 72"/>',
+      '<circle cx="58" cy="20" r="5"/><path d="M59 25 L59 47"/><path d="M59 31 L54 45"/><path d="M59 31 L64 45"/><path d="M59 47 L55 72"/><path d="M59 47 L63 72"/>'
+    ] },
+    generic: { beats: 2, frames: [
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L51 45"/><path d="M60 31 L69 45"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>',
+      '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L48 42"/><path d="M60 31 L72 42"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>'
+    ] }
+  };
+
+  // Exact exercise-name → movement-archetype mapping for every entry in
+  // GYM_FOCUS above. Names are matched verbatim (including the typographic
+  // apostrophe/dash in Child's Pose and Foam Roll), so adding a new exercise
+  // means adding a row here too — unmapped names fall back to 'generic'.
+  var GYM_ANIM_MAP = {
+    'Arm Circles & Leg Swings': 'armcircles',
+    'Jumping Jacks': 'jack',
+    'Plank Hold': 'plank',
+    'Dead Bug': 'deadbug',
+    'Jump Rope Intervals': 'jumprope',
+    'Burpees': 'burpee',
+    'Mountain Climbers': 'climber',
+    'Rowing Machine Sprints': 'rower',
+    'Rowing Machine Intervals': 'rower',
+    'Battle Ropes': 'ropes',
+    'Standing Quad Stretch': 'quadstretch',
+    'Child’s Pose': 'childpose',
+    'Deep Breathing Walk': 'walk',
+    'Bodyweight Squats': 'squat',
+    'Band Pull-Aparts (light)': 'bandpull',
+    'Band Pull-Aparts': 'bandpull',
+    'Pallof Press': 'bandpull',
+    'Hollow Body Hold': 'hollow',
+    'Squats': 'bbsquat',
+    'Deadlifts': 'hinge',
+    'Weighted Pull-Ups': 'pullup',
+    'Pull-Ups': 'pullup',
+    'Power Cleans': 'clean',
+    'Box Jumps': 'boxjump',
+    'Broad Jumps': 'broadjump',
+    'Turkish Get-Up': 'getup',
+    'Kettlebell Swings': 'swing',
+    'Medicine Ball Slams': 'slam',
+    'Hip Flexor Stretch': 'kneellunge',
+    'Lat Stretch': 'sidelean',
+    'Foam Roll — Thoracic Spine': 'foamroll',
+    'Arm Circles': 'armcircles',
+    'Scapular Push-Ups': 'pushup',
+    'Push-Ups': 'pushup',
+    'Side Plank': 'sideplank',
+    'Side Plank with Leg Lift': 'sideplank',
+    'Bird Dog': 'birddog',
+    'Y-T-W Raises': 'ytw',
+    'Seated Cable Rows': 'rower',
+    'Tricep Dips': 'dips',
+    'Doorway Chest Stretch': 'cheststretch',
+    'Cross-Body Shoulder Stretch': 'armacross',
+    'Leg Swings': 'legswing',
+    'Walking Lunges (bodyweight)': 'lunge',
+    'Bulgarian Split Squats': 'lunge',
+    'Single-Leg RDL': 'slrdl',
+    'Glute Bridge Hold': 'bridge',
+    'Glute Bridges': 'bridge',
+    'Calf Raises': 'calfraise',
+    'Pigeon Pose': 'pigeon',
+    'Calf Stretch': 'calfstretch'
+  };
+
+  function renderGymAnim(exerciseName) {
+    var key = GYM_ANIM_MAP[exerciseName] || 'generic';
+    var anim = GYM_ANIMS[key];
+    var safeName = String(exerciseName).replace(/"/g, '&quot;');
+    var frames = anim.frames.map(function (f, i) {
+      return '<g data-frame="' + i + '"' + (i ? ' style="display:none"' : '') + '>' + f + '</g>';
+    }).join('');
+    return '<div class="gym-anim-frame" role="img" aria-label="Looping demonstration of ' + safeName + '">' +
+      '<svg class="gym-anim" viewBox="0 0 120 80" data-frames="' + anim.frames.length + '" data-beats="' + (anim.beats || 1) + '" aria-hidden="true">' +
+      '<line class="gym-anim-ground" x1="8" y1="74" x2="112" y2="74"/>' + frames + '</svg>' +
+      '<span class="gym-anim-label">Technique demo</span></div>';
+  }
+
+  // One global flipbook clock drives every demo on screen. The frame index is
+  // derived from the shared tick count (stateless per element), so a full
+  // renderGym() re-render never desyncs anything and there's exactly one
+  // timer no matter how many cards exist. Under prefers-reduced-motion the
+  // timer never starts and each card shows its first pose as a static
+  // form diagram.
+  var gymAnimTick = 0;
+  function advanceGymAnims() {
+    gymAnimTick++;
+    document.querySelectorAll('.gym-anim').forEach(function (svg) {
+      var frameCount = parseInt(svg.getAttribute('data-frames'), 10) || 1;
+      if (frameCount < 2) return;
+      var beats = parseInt(svg.getAttribute('data-beats'), 10) || 1;
+      var idx = Math.floor(gymAnimTick / beats) % frameCount;
+      svg.querySelectorAll('[data-frame]').forEach(function (g) {
+        g.style.display = parseInt(g.getAttribute('data-frame'), 10) === idx ? '' : 'none';
+      });
+    });
+  }
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setInterval(advanceGymAnims, 420);
+  }
+
   function renderGymCard(g, tone, focusLabel, age, refMax) {
     var prescription = (age && age < 12) ? scaleDownPrescription(g.prescription) : g.prescription;
     var loadNote = '';
@@ -4456,16 +4858,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       var suggested = Math.max(4, Math.round(refMax * pct / 2) * 2);
       loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (' + Math.round(pct * 100) + '% of your listed max)</p>';
     }
-    var safeName = g.name.replace(/"/g, '&quot;');
     return '<article class="card gym-card" data-reveal>' +
       '<span class="tag tag-' + tone + '">' + focusLabel + '</span>' +
       '<h3 style="margin-top:12px">' + g.name + '</h3>' +
       '<p class="prescription">' + prescription + '</p>' + loadNote +
       '<p class="cue">' + g.cue + '</p>' +
-      '<button type="button" class="gym-video-frame" data-exercise-name="' + safeName + '" aria-label="Watch technique video for ' + safeName + '">' +
-      '<span class="play-btn">' + icon('i-play') + '</span>' +
-      '<span class="gym-video-label">Watch Technique</span>' +
-      '</button></article>';
+      renderGymAnim(g.name) +
+      '</article>';
   }
 
   function renderGymPhase(phaseKey, exercises, tone, focusLabel, age, refMax) {
@@ -4507,20 +4906,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (io) document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { io.observe(el); });
     else document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
   }
-
-  // Delegated on the stable #gymGrid container rather than per-button — its
-  // innerHTML is fully replaced on every renderGym() call, which would
-  // otherwise silently drop a per-button listener. Reuses the same
-  // #videoModal "Coming Soon" placeholder the Academy tab already shows for
-  // videos still in production, rather than a second bespoke modal.
-  document.getElementById('gymGrid').addEventListener('click', function (e) {
-    var btn = e.target.closest('.gym-video-frame');
-    if (!btn) return;
-    var name = btn.dataset.exerciseName;
-    document.getElementById('modalTitle').textContent = name;
-    document.getElementById('modalBody').textContent = 'A form walkthrough for ' + name + ' is in production — new technique videos are added every week.';
-    document.getElementById('videoModal').classList.add('open');
-  });
 
   document.getElementById('gymApplyBtn').addEventListener('click', function () { renderGym(currentGymFocus); });
 
