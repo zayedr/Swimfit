@@ -136,9 +136,12 @@ a plan key (`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes `{
 resolved access level — `'trial' | 'pro' | 'elite' | 'ultra' | 'locked' | 'admin'` — is computed
 in two places that must stay in sync: client-side in index.html
 (`recomputeAccessLevel`/`window.__swimfitAccess`, reactive via an `onSnapshot` on
-`paddle_subscriptions/{uid}` plus a 5-minute re-check timer, broadcast as a
+`paddle_subscriptions/{uid}` plus the 30-second re-check timer noted above, broadcast as a
 `swimfit:accesschange` DOM event) and server-side in `functions/index.js`
-(`getAccessLevel(uid)`, Admin-SDK reads only — never trusts anything the client claims). A
+(`getAccessLevel(uid, email)`, Admin-SDK reads only — never trusts anything the client claims).
+`getAccessLevel` checks `isAdminEmail(email)` and returns `'admin'` immediately, before any
+Firestore read, so the admin override lives in exactly one place rather than being duplicated
+(and potentially forgotten) at each call site — `aiSwimCoach` is currently the only caller. A
 `'locked'` swimmer (trial expired, no active plan) sees a full-screen `#paywallOverlay` that
 blocks the whole dashboard; the one Cloud Function that actually costs money, `aiSwimCoach`,
 independently re-derives access level and rejects the call outright when locked, and rejects
