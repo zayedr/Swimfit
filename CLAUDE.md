@@ -123,13 +123,15 @@ message on a genuinely fresh conversation.
 
 **Trial + subscription tier system.** Every new account gets a strict 7-day free trial starting
 at signup (`users/{uid}.trialStartedAt`, see above). The nav's trial badge shows a real, live
-countdown rather than a static day count — days+hours while more than a day remains, then
-hours+minutes, then just minutes, computed from `access.trialEndsAt` on every
+countdown rather than a static day count — days+hours+minutes while more than a day remains,
+then hours+minutes, then just minutes, computed from `access.trialEndsAt` on every
 `swimfit:accesschange` and kept current by a 30-second recompute interval (`recomputeAccessLevel`
-was previously on a 5-minute timer; tightened this round so the displayed countdown never drifts
-far from real wall-clock time). The instant the countdown reaches zero, `recomputeAccessLevel`
-resolves the swimmer to `'locked'` and the full-screen `#paywallOverlay` takes over — there is no
-grace window. Once the trial lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
+was previously on a 5-minute timer; tightened so the displayed countdown never drifts far from
+real wall-clock time). The instant the countdown reaches zero, `recomputeAccessLevel` resolves
+the swimmer to `'locked'`, the full-screen `#paywallOverlay` takes over, and the tab shell
+underneath is simultaneously switched to the Pricing tab (in the paywall's
+`swimfit:accesschange` handler) so nothing premium stays rendered behind the blur and closing
+the overlay by subscribing lands directly on the plans — there is no grace window. Once the trial lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
 resolves each event's Paddle **product** id (not price id — see the Paddle risk note below) to
 a plan key (`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes `{plan, status,
 ...}` onto `paddle_subscriptions/{uid}`; an `active`/`trialing` status counts as paid. The
@@ -227,12 +229,17 @@ strength profile instead, framed explicitly as dryland/gym programming (not a po
 chips for generating a full day's or week's routine and for iterating on it ("make it shorter",
 "add more core work"). Neither panel persists history — in-memory only, cleared on sign-out,
 same tier/cost posture as the floating widget (no server-side enforcement beyond what
-`aiSwimCoach` already does for every caller). Every Gym exercise card also gained a "Watch
-Technique" block (`.gym-video-frame`, redesigned this round from a plain `.gym-watch-btn` text
-link into a full 21:9 video-frame placeholder with a centered play button and label) that opens
-the same `#videoModal` "Coming Soon" placeholder already used for in-production Academy videos,
-rather than a second bespoke modal — every exercise (Arm Circles, Jumping Jacks, Planks, etc.)
-gets one.
+`aiSwimCoach` already does for every caller). Every Gym exercise card carries a **live, looping
+technique demonstration** (`.gym-anim-frame`): a hand-drawn SVG stick-figure flipbook — 2-4 key
+poses per movement archetype in `GYM_ANIMS`, mapped per exact exercise name via `GYM_ANIM_MAP`
+(with a `generic` fallback; adding a new exercise to `GYM_FOCUS` means adding a map row too),
+cycled by one global 420ms timer (`advanceGymAnims`) that derives every frame index statelessly
+from a shared tick count so full `renderGym()` re-renders never desync anything, and
+`prefers-reduced-motion` simply never starts the timer, leaving each first pose as a static form
+diagram. Props (barbells, boxes, ropes, walls, benches) are marked `class="p"` and drawn muted.
+This replaced the earlier `.gym-video-frame` → `#videoModal` "Coming Soon" placeholder path
+entirely — the Gym tab no longer opens `#videoModal` at all (the Academy tab still does, for its
+own in-production videos).
 
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
 swaps copy/button labels *and* which fields are visible, driving the password-only mechanics
@@ -255,6 +262,21 @@ specialization / fitness metrics fields it used to collect (`disciplines`, `dist
 `firestore.rules` but no longer written by any client code). Create Account's password-form
 capture above is now the only signup-time data-capture surface; a Google-sign-in swimmer without
 a Username is a known gap, not yet addressed.
+
+**Signed-out visitors are hard-gated out of all four core training surfaces.** Workouts and Gym
+each open with a `.coach-page-locked` register prompt (`data-auth-signed-out`) while the panel's
+entire content sits in a `data-auth-signed-in` wrapper (`display:none` until sign-in) — Coach
+and Tracker already had equivalent in-panel gates, so Workouts/Gym/Coach/Tracker are all
+signed-in-only, while Disciplines, Gear, Academy and Pricing stay public. The gates' register
+buttons (any `[data-open-auth]` element) open `#authModal` in the mode named by the attribute's
+value; the old in-panel "sign in to use the AI panel" notes inside Workouts/Gym were removed as
+redundant, since guests can no longer see any of that panel content anyway. On top of the gates,
+an **entrance marketing popup** (`#promoPopup`) fires the moment the *first* Firebase auth
+resolution reports a signed-out visitor: 7-day-free-trial conversion copy, a "Register Now" CTA
+that hands off to `openAuthModal('signup')`, shown once per browser session
+(`sessionStorage['swimfit_promo_seen']`), never shown to a signed-in swimmer (a persisted
+session resolves before it would fire, and any signed-in resolution force-hides it), and never
+re-fired by a mid-session sign-out (only the first resolution can trigger it).
 
 Between the persistent About section and the tabbed shell, the landing page carries five
 conversion-focused sections: a dismissible top **announcement bar** (`#announceBar`, launch
