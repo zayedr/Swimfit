@@ -13,11 +13,15 @@
  *
  *   1. Firebase Console -> Authentication -> Sign-in method:
  *        - Google: confirm it's enabled (already done per prior setup).
- *        - Email/Password provider does NOT need to be enabled: email sign-in
- *          is a custom 6-digit-code flow (requestEmailOtp/verifyEmailOtp
- *          below) that mints its own custom token via the Admin SDK
- *          (admin.auth().createCustomToken), so it doesn't go through any
- *          Firebase-Console-configured sign-in provider at all.
+ *        - Email/Password: MUST be enabled — index.html's Create Account /
+ *          Sign In forms call createUserWithEmailAndPassword and
+ *          signInWithEmailAndPassword directly from the client, which go
+ *          through this Firebase-Console-configured provider. Without it
+ *          enabled, every password signup/sign-in fails with
+ *          auth/operation-not-allowed. (The legacy 6-digit-code fallback,
+ *          requestEmailOtp/verifyEmailOtp below, is unaffected either way —
+ *          it mints its own custom token via the Admin SDK and never goes
+ *          through this provider at all.)
  *   2. Firebase Console -> Authentication -> Settings -> Authorized domains:
  *        add swimfit.online (and www.swimfit.online). Without
  *        this, Google popup sign-in fails with auth/unauthorized-domain for
