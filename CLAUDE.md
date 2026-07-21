@@ -106,7 +106,8 @@ A floating "AI Swim Coach" chat widget (gated behind sign-in) calls the `aiSwimC
 Function, which proxies to the Claude API behind a strict swim-only system prompt and a
 per-user daily message cap. There is also a dedicated full-screen "AI Coach" tab
 (`data-tab="coach"`, `#panel-coach`) in the same tab shell — a richer, independent surface
-over the identical endpoint, with its own in-memory chat history. Both surfaces let a
+over the identical endpoint, now with a Gemini/ChatGPT-style multi-thread sidebar rather than one
+running conversation (see below). Both surfaces let a
 swimmer attach up to 3 photos per message (workout log pages, gear, technique/posture
 stills); images are downscaled client-side to a 1600px longest edge and re-encoded as JPEG
 on a canvas before upload. `aiSwimCoach` accepts an optional `images` array
@@ -137,6 +138,33 @@ in `wireAiCoachPage`), and an empty conversation shows four suggested-prompt chi
 (`#coachPagePrompts` — "Build a taper plan", "Explain lactate threshold", etc.) that hide the
 moment either a real message is sent or persisted history loads in, so they only ever appear
 alongside the canned welcome message on a genuinely fresh conversation.
+
+**The full-screen Coach page was redesigned around multiple parallel conversation threads**
+instead of one running history, mirroring Gemini/ChatGPT's sidebar-of-conversations pattern — a
+swimmer asking about butterfly technique in one thread and race nutrition in another no longer
+has both topics bleeding into the same context window. `#coachPageChatWrap` is now a two-pane
+layout: a `<aside class="coach-threads-sidebar">` (a `#coachNewThreadBtn` "+ New Thread" button,
+three quick-create chips seeded with common topics — "Butterfly Technique", "Freestyle Drills",
+"Nutrition" — and `#coachThreadsList`, one `.coach-thread-item` per thread with a hover-reveal
+delete button) beside the pre-existing `<div class="coach-threads-main">` wrapping the same
+prompts/messages/attachments/form markup as before. Each thread is its own document in
+`coach_threads/{uid}/threads/{threadId}` (rules-validated: title ≤80 chars, ≤60 messages per
+thread, owner-only read/write) rather than the old single flat `coach_history/{uid}` doc — the
+per-thread cap keeps any one document well inside Firestore's 1MiB limit, at the cost of a
+long-running single topic eventually needing a fresh thread, which matches how these tools are
+actually used in practice. A brand-new thread created via "+ New Thread" starts untitled and
+**auto-titles itself from its first message** (truncated to 40 chars + "…") the moment that
+message is sent, rather than forcing an upfront naming prompt — the three quick-create chips
+skip this by pre-supplying their topic as the title immediately. `wireAiCoachPage()`'s state
+changed from a single `coachPageHistory` array to `threads`/`activeThreadId`, with
+`switchThread()`/`createThread()`/`deleteThread()`/`persistActiveThread()` replacing the old
+single-document load/save pair; `loadThreadsIfNeeded()` runs a **one-time, read-only migration**
+on first load per swimmer — if a legacy `coach_history/{uid}` doc exists, its messages are copied
+into a new thread titled "General" (the old collection is never written to again afterward, only
+ever read once for this migration, so it's inert dead data going forward rather than actively
+maintained). Switching threads re-renders `#coachPageMessages` from the newly-active thread's own
+message array only — the message-grouping (`coach-msg-grouped`) and suggested-prompt-chips logic
+described above are unchanged, they just now operate per-thread instead of globally.
 
 **Trial badge + Paddle plan (informational only).** Every new account still gets a
 `trialStartedAt` timestamp on signup (see above), and the nav badge still shows a real, live
@@ -224,6 +252,26 @@ the team. A **"Message Coach / Company" quick-action button** on the Workouts ta
 (`#workoutsContactCoachBtn`, `data-auth-signed-in`) gives every signed-in non-admin swimmer an
 obvious, labeled entry point into that same floating inbox widget (`window.__openAdminMsgPanel`,
 exposed by the widget's own IIFE) rather than requiring them to notice the small corner FAB.
+
+**A real one-way delivery bug in this system was found and fixed**: `firestore.rules` allowed a
+swimmer to write their own reply into `admin_chats/{uid}/messages`, but blocked them from writing
+to the *parent* `admin_chats/{uid}` metadata doc at all — and the Admin Panel's inbox list
+(`window.__adminPanelSubscribeInbox`) reads unread-dot/last-message-preview state from exactly
+that metadata doc, not from the messages subcollection directly. The practical symptom: a
+swimmer's reply landed in Firestore and would render correctly if the admin already had that
+specific thread open, but never surfaced as a new/unread conversation in the inbox list
+otherwise — a swimmer replying was effectively invisible to the admin unless the admin was
+already looking at the right thread. Fixed with a narrowly-scoped second write branch (see the
+`firestore.rules` description in the Firestore-rules section) letting a swimmer's own write flag
+their own reply as unread-for-admin (`lastSender: 'user'`, `unreadForAdmin: true`) without ever
+letting them claim `lastSender: 'admin'` or clear `unreadForUser`, and `__adminChatReply` (the
+client function backing the swimmer's send button) was updated to write both the message and
+that metadata doc together, matching the two-write pattern `window.__adminPanelSendMessage`
+already used on the admin's side. The floating inbox widget plus the Workouts tab's "Message
+Coach / Company" button described above already serve as this platform's dedicated
+Support/Contact-Admin entry points for a signed-in swimmer — no separate tab or modal was added,
+since a second entry point into the identical widget would just be a second button doing the
+same thing.
 
 `PADDLE_PRICE_IDS` in index.html holds real Paddle **price** ids (`pri_...`, fixed 2026-07-19 —
 it previously held product ids, which `Paddle.Checkout.open()` rejects). The **product** ids
@@ -393,8 +441,9 @@ timestamp to compute from at all.
 **AI Coach got a visual pass and real persistence.** The floating widget's `.coach-bubble`
 styling picked up a gradient/shadow treatment and a subtle entrance animation so the chat reads
 like a finished product rather than a debug overlay. More substantively, both chat surfaces now
-survive a tab switch or refresh: the full-screen page already persisted to `coach_history/{uid}`
-(see the Auth/AI Coach sections above); the **floating widget** now does the same into its own
+survive a tab switch or refresh: the full-screen page already persisted its history (now to
+`coach_threads/{uid}/threads/{threadId}` per the multi-thread redesign above, `coach_history/{uid}`
+before that); the **floating widget** now does the same into its own
 `coach_widget_history/{uid}` document (identical shape/rules, kept separate so the widget and the
 full-screen page never clobber each other's saved conversation) via `window.__coachWidgetHistoryLoad`
 /`__coachWidgetHistorySave`, loaded once per sign-in (`loadHistoryIfNeeded()`) and persisted after
@@ -423,6 +472,37 @@ the pace chart/analytics possible at all; entries logged before this field exist
 without filling in Duration, simply have no pace contribution — there is no retroactive
 backfill.
 
+**Every generated swim workout now follows a strict 4-stage structure** — Warm-Up → Pre-Set →
+Main Set → Cool-Down — rather than the previous 3-stage Warm-Up/Main Set/Cool-Down, specifically
+to read like something a real head coach wrote on a whiteboard rather than a generic AI-flavored
+set list. `generateWorkout()`'s distance split changed from a straight warmup/main/cooldown
+percentage breakdown to `warmupM` (10% of total), the new `presetM` (15%), `mainM` (55%, down
+from the previous larger share to make room for the Pre-Set), and `cooldownM` (the ~20%
+remainder) — each rounded to the nearest 100m with a 200m/100m floor so short total-distance
+selections never produce a zero-length or oddly-fractional block. The Pre-Set stage's job is
+narrower than Warm-Up (which is just easing in) or Main Set (which is the session's actual work):
+it's a short, purposeful bridge that primes the specific energy system or stroke feel the Main
+Set is about to demand. Exactly one archetype fires per generated workout, chosen via
+`pickOne(PRESET_ARCHETYPES)` — so it draws from the same daily-seeded `workoutRng` as every other
+random choice in the generator, meaning the Pre-Set (like the rest of the workout) is stable for
+a given day and rotates at midnight, never reshuffling on every click. The six archetypes in
+`PRESET_ARCHETYPES` are deliberately named and worded the way a real coach would say them aloud,
+not just structurally different rep counts: **Descending 1-4** (four reps of the same distance,
+each swum faster than the last, teaching pace control since "there's nowhere left to hide by the
+fourth rep"); **Broken Build-Up** (a longer swim broken into short-rest segments that build in
+effort, bridging short-rep speed and true distance-per-effort swimming); **Negative Split Swim**
+(a controlled first half followed by a faster second half — the pacing discipline behind almost
+every well-executed race); **SWOLF Efficiency Set** (stroke-count-plus-time reps chasing a lower
+score rather than a faster clock); **Choice Drill Ladder** (a 25-50-75-100 ladder where the
+swimmer picks whichever drill needs the most work that day, making the set self-correcting); and
+**Heart-Rate Target Pace** (holding a named effort zone — "Zone 3, comfortably uncomfortable" —
+so the workload stays honest even on a day the stroke feels off or the water's choppy). Each
+archetype carries its own `intents` copy explaining *why* the set works physiologically, in the
+same "Coach's Technical Tips" voice as the rest of the generator, and renders as its own labeled
+block (`renderBlock('Pre-Set — ' + preset.name, ...)`) between Warm-Up and Main Set in the result
+panel — so a swimmer sees exactly which archetype today's Pre-Set is and why, not just an
+unlabeled extra set of reps.
+
 **Swim workouts and Gym focus now rotate automatically instead of only being click-random.**
 Previously every `Math.random()` call inside `generateWorkout()` (which archetypes get picked,
 how many rounds a Main Set circuit gets, which warm-up/cool-down intent line shows) reshuffled on
@@ -445,11 +525,20 @@ the existing `renderGym(focus)` and doesn't persist. There's no separate "Core" 
 of the classic Upper/Lower/Core split.
 
 **"Save as PDF" on both generated workouts.** `#workoutPdfBtn` (Workouts result panel) and
-`#gymPdfBtn` (Gym, below the exercise grid) both lazy-load jsPDF from a CDN
-(`cdnjs.cloudflare.com/.../jspdf.umd.min.js`, same "pull in a CDN script only when a feature
-genuinely needs it" precedent as the existing `cdn.paddle.com/paddle/v2/paddle.js` tag) on first
-click via `loadJsPDF()`, then read the **already-rendered** result panel/exercise grid's own DOM
-(`extractStructuredWorkout()` / `extractStructuredGym()`, walking `.workout-block`/`.set-row` or
+`#gymPdfBtn` (Gym, below the exercise grid) both build their PDF from jsPDF, which is now
+**bundled inline** — the full UMD-minified library source is spliced directly into its own
+`<script>` tag right after the Paddle `<script>` tag, rather than lazy-loaded from
+`cdnjs.cloudflare.com` on first click as it was originally. The previous "Could not generate the
+PDF right now" alert was masking exactly one failure mode: any ad-blocker, network filter, or
+transient CDN flakiness that blocked that lazy `<script>` fetch silently killed the feature for
+that visitor with no way to retry beyond a reload. Inlining the library removes that whole
+failure class at the cost of the file itself (single-file `index.html` grows by jsPDF's ~365KB,
+in keeping with this repo's "no build step, no bundler" posture — there's nothing to bundle
+*into*, so "bundling" here just means committing the source directly). `loadJsPDF()` is now a
+synchronous check against the already-present `window.jspdf.jsPDF` global instead of an
+async script-injection promise. Both buttons still read the **already-rendered** result
+panel/exercise grid's own DOM (`extractStructuredWorkout()` / `extractStructuredGym()`, walking
+`.workout-block`/`.set-row` or
 `.gym-phase`/`.gym-card` and their child text nodes) rather than recomputing the workout a second
 time — so the PDF always matches exactly what's on screen, never a second silently-different
 render. `buildWorkoutPdf()`/`buildGymPdf()` share a `pdfTitleBlock()`/`pdfFooterOnAllPages()`
@@ -465,11 +554,34 @@ PDF's own filename embeds today's date and (for Gym) the focus key.
 **New Settings tab** (`data-tab="settings"`, `#panel-settings`, signed-in-only — added to
 `SIGNED_IN_ONLY_TABS` alongside Coach/Tracker/Admin) holds four cards: **Swimmer Profile** (Full
 Name/Country/Age, editable and saved via `window.__userProfileUpdate` — a thin `setDoc(...,
-{merge:true})` bridge exposed alongside the existing `__userProfileGet`; **Username and Email are
-deliberately read-only** here, since a username change needs the same atomic
-`claimUsernameAndProfile` transaction signup uses to correctly free/reserve `usernames/{name}`
-docs, and a plain field overwrite on `users/{uid}.username` alone would silently break that
-collection's uniqueness guarantee); **Swimming Specialties** (the same `DISCIPLINES` chip picker
+{merge:true})` bridge exposed alongside the existing `__userProfileGet`. **Username is now
+editable** (a later round removed the original "read-only" restriction): renaming goes through
+`window.__renameUsername`, an atomic `runTransaction` mirroring signup's own
+`claimUsernameAndProfile` guarantee — read the swimmer's current `usernames/{old}` doc, no-op if
+the new name is unchanged, `get()` the target `usernames/{new}` doc to confirm it doesn't already
+exist, then in the same transaction `set()` the new reservation doc, `delete()` the old one, and
+`set(..., {merge:true})` the new username onto `users/{uid}` — so a rename can never leave two
+reservation docs pointing at the same swimmer, or free the old name without atomically claiming
+the new one. The username field also gets the same debounced live-availability check
+(`window.__checkUsernameTaken`) signup uses, so a swimmer sees "taken"/"available" before
+submitting rather than only on a failed transaction. `firestore.rules`' `usernames/{username}`
+collection was loosened from "no client update or delete, ever" to allow the *owner* to `delete`
+their own reservation doc (`update` stays `false` in all cases — a rename is always a
+delete-old+create-new pair via the transaction above, never an in-place field edit on the
+reservation doc itself). Email stays read-only — Firebase Auth's own email-change flow is a
+separate, unimplemented surface, not something this Settings card touches. A **real avatar
+upload** sits above the name/username/email fields: a client-side pipeline
+(`compressAvatarFile`) center-crops the chosen image to a square, downscales it to 200×200 on a
+canvas, and re-encodes as JPEG at quality 0.82, producing a `data:` URI stored directly on
+`users/{uid}.avatarDataUrl` (capped at 300,000 chars, enforced both client-side before upload and
+in `firestore.rules`' `isValidProfileWrite()`) — Firebase Storage was deliberately not used here,
+since this sandbox couldn't verify the `swimfi-ae` project's Storage bucket is enabled/configured,
+and a Base64-in-Firestore avatar needs no new infra at all. The nav bar's own avatar
+(`#navAvatar`) is kept in sync independently of whether the swimmer has ever opened Settings, via
+a small `wireNavAvatar()` IIFE that fetches the profile doc on every sign-in and exposes
+`window.__updateNavAvatar` for Settings to call immediately after a successful upload, so the nav
+reflects a new photo without waiting for a refresh; **Swimming Specialties** (the same
+`DISCIPLINES` chip picker
 as the Workout Generator, persisted to `users/{uid}.disciplines` and — on save — applied live to
 `state.disciplines` and `#disciplineChips`' own `aria-pressed` state, so the effect is visible
 immediately without a reload); **Appearance**, a Dark/Light pill-tab switch

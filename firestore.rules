@@ -37,6 +37,11 @@ rules_version = '2';
 // coach_widget_history/{uid} — identical shape/rules, but for the floating AI Coach widget's
 //                      own transcript, kept in a separate doc so it never collides with the
 //                      full-screen page's saved conversation above.
+// coach_threads/{uid}/threads/{threadId} — the full-screen Coach page's multi-thread redesign:
+//                      each named conversation (e.g. "Butterfly Technique") is its own doc,
+//                      owner-only read/list/write. coach_history/{uid} above is now legacy —
+//                      read once for a best-effort migration into a "General" thread, never
+//                      written to by the redesigned page.
 // admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
 //                      unreadForUser, etc) plus the /messages subcollection itself. Real-time
 //                      on both sides: the owning swimmer reads/writes their own thread (sender
@@ -71,7 +76,12 @@ service cloud.firestore {
       && (!('pb50' in data) || (data.pb50 is string && data.pb50.size() <= 10))
       && (!('pb100' in data) || (data.pb100 is string && data.pb100.size() <= 10))
       && (!('workingWeight' in data) || (data.workingWeight is string && data.workingWeight.size() <= 20))
-      && (!('strengthLimit' in data) || (data.strengthLimit is string && data.strengthLimit.size() <= 20));
+      && (!('strengthLimit' in data) || (data.strengthLimit is string && data.strengthLimit.size() <= 20))
+      // A client-downscaled (200x200 JPEG, ~10-30KB base64) avatar data: URI
+      // — capped at 300KB of string length as a sanity ceiling, not a tight
+      // fit, since Firestore's 1MiB document limit is shared with every
+      // other field on this same doc. Empty string clears the avatar.
+      && (!('avatarDataUrl' in data) || (data.avatarDataUrl is string && data.avatarDataUrl.size() <= 300000));
   }
 
   match /databases/{database}/documents {
@@ -88,13 +98,15 @@ service cloud.firestore {
         && request.resource.data.keys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
-                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit'])
+                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
+                       'avatarDataUrl'])
         && isValidProfileWrite(request.resource.data);
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
-                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit'])
+                       'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
+                       'avatarDataUrl'])
         && isValidProfileWrite(request.resource.data);
       allow delete: if false;
     }
@@ -149,6 +161,23 @@ service cloud.firestore {
         && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
     }
 
+    // Multi-thread AI Coach page — each named conversation is its own doc
+    // (list is needed so the sidebar can enumerate a swimmer's own threads;
+    // still owner-only, since Firestore's list rule can filter to exactly
+    // "under this uid's own subcollection" via the {uid} path segment).
+    match /coach_threads/{uid}/threads/{threadId} {
+      allow read, list: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['title', 'messages', 'createdAt', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'messages', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /admin_chats/{uid} {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdminAuth());
       // list is admin-only — a swimmer never lists across admin_chats (they
@@ -157,9 +186,37 @@ service cloud.firestore {
       // live onSnapshot(collection('admin_chats')) for real-time unread
       // badges across every swimmer instead of re-fetching per thread.
       allow list: if isAdminAuth();
-      allow write: if isAdminAuth()
-        && request.resource.data.keys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForUser', 'unreadForAdmin'])
-        && (!('lastMessageText' in request.resource.data) || (request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000));
+      // Two disjoint write paths, not one shared rule: the admin can set any
+      // of the five fields (including unreadForUser, to flag their own new
+      // message for the swimmer); a swimmer can only ever mark their own
+      // reply as unread-for-admin — never touch unreadForUser (that's the
+      // admin's exclusive signal to the swimmer) or claim lastSender:'admin'.
+      // Without this second branch a swimmer's reply had no path to update
+      // this doc at all, so the Admin Panel's inbox list (which reads this
+      // doc, not the messages subcollection, for its unread dot/preview)
+      // never reflected an incoming reply unless the admin already had that
+      // exact thread open. create/update are split because a swimmer's write
+      // is almost always a merge onto a doc the admin already wrote to —
+      // hasOnly() on .keys() reflects the FULL resulting document (including
+      // untouched pre-existing fields like unreadForUser), so the update
+      // branch must check .diff(resource.data).affectedKeys() instead, which
+      // only looks at keys this specific write actually changes.
+      allow create: if (isAdminAuth()
+          && request.resource.data.keys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForUser', 'unreadForAdmin'])
+          && (!('lastMessageText' in request.resource.data) || (request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000)))
+        || (request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForAdmin'])
+          && request.resource.data.lastSender == 'user'
+          && request.resource.data.unreadForAdmin == true
+          && request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000);
+      allow update: if (isAdminAuth()
+          && request.resource.data.keys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForUser', 'unreadForAdmin'])
+          && (!('lastMessageText' in request.resource.data) || (request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000)))
+        || (request.auth != null && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForAdmin'])
+          && request.resource.data.lastSender == 'user'
+          && request.resource.data.unreadForAdmin == true
+          && request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000);
 
       match /messages/{messageId} {
         allow read: if request.auth != null && (request.auth.uid == uid || isAdminAuth());
@@ -192,7 +249,13 @@ service cloud.firestore {
         && username.matches('^[a-z0-9_]{3,20}$')
         && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
         && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
+      // Lets a swimmer free their OWN old handle when renaming (see
+      // __renameUsername) — never anyone else's, so this can't be used to
+      // snipe/steal a username out from under its current owner. No update:
+      // a rename is always a delete-old + create-new pair, never an in-place
+      // edit, which is what actually enforces the uniqueness guarantee.
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     match /stats/counters {
