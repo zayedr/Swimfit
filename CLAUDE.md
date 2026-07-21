@@ -91,7 +91,7 @@ deleting `requestEmailOtp`/`verifyEmailOtp` from the live project, or run
 Signing out (`signOut(auth)`) fires `onAuthStateChanged(null)`, which every feature with its own
 local state (AI Coach widget/page, Distance Tracker, Admin Panel inbox) independently clears via
 a shared `swimfit:authchange` DOM event; a separate top-level listener on that same event
-(`SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings']`) additionally switches away from a
+(`SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings', 'support']`) additionally switches away from a
 signed-in-only tab back to Workouts if a swimmer signs out while on one — since the Admin Panel
 in particular has no in-place "please sign in" fallback of its own (unlike Coach/Tracker, whose
 panels do) — and then smooth-scrolls the page back to the Hero (`#top`) so signing out always
@@ -580,7 +580,9 @@ real content (`generateWorkout()`/`renderGym()` unhide them at the end of each r
 PDF's own filename embeds today's date and (for Gym) the focus key.
 
 **New Settings tab** (`data-tab="settings"`, `#panel-settings`, signed-in-only — added to
-`SIGNED_IN_ONLY_TABS` alongside Coach/Tracker/Admin) holds four cards: **Swimmer Profile** (Full
+`SIGNED_IN_ONLY_TABS` alongside Coach/Tracker/Admin) originally held four cards, since grown to
+seven (Units, Notifications, and Export Your Data were added in a later round — see below):
+**Swimmer Profile** (Full
 Name/Country/Age, editable and saved via `window.__userProfileUpdate` — a thin `setDoc(...,
 {merge:true})` bridge exposed alongside the existing `__userProfileGet`. **Username is now
 editable** (a later round removed the original "read-only" restriction): renaming goes through
@@ -649,6 +651,85 @@ horizontal page overflow in Arabic — fixed by switching it to the logical
 `margin-inline-start` (which does flip). Any other visual RTL rough edges most likely trace to
 this same class of issue (a physical property that should have been logical); the fix each time
 is the same targeted swap, not a full stylesheet rewrite.
+
+**Hero cleanup + a real nav bug fix.** The Hero's stat row dropped its weakest, most generic tile
+("24 Hour Access" — a cliché every SaaS claims, with no tie to any actual feature) while keeping
+the three that map directly to real product structure (Disciplines, Skill Tracks, Gym Focuses)
+plus the live Registered Swimmers counter — a deliberate trim toward signal over filler, not a
+wholesale redesign. Separately, `.nav-links button` was missing `white-space: nowrap`, so the
+two-word "AI Coach" label (uniquely, among otherwise one-word nav items) would wrap onto two
+lines at common viewport widths — a one-line CSS fix.
+
+**AI Coach: every fetch now has a client-side timeout.** A new shared `aiCoachFetch(idToken,
+body)` helper (`AI_COACH_TIMEOUT_MS = 30000`, `AbortController`-backed) replaces the raw `fetch()`
+call in all four AI Coach surfaces (the floating widget, the full-screen page, and the Workouts/
+Gym inline panels) — previously none of them had a timeout, so a hung request (a cold Cloud
+Function start, a network stall) left the "Thinking…" bubble on screen forever: the fetch promise
+never settled, so neither the success branch nor the existing `.catch()` ever fired. Every `.catch`
+now also distinguishes `err.name === 'AbortError'` to show "The coach took too long to respond"
+instead of the generic network-error message. Every other part of the AI Coach request/response
+pipeline (prompt chips, the aiSwimCoach Cloud Function itself) was audited and found already
+correct — verified via Playwright against a mocked backend for every surface — so if AI Coach
+replies are still silently failing in production after this ships, the most likely cause is the
+Cloud Function/CORS/redeploy caveat already documented above, not a client bug.
+
+**Chat `onSnapshot` calls fail loud instead of hanging.** `__adminChatSubscribeMeta`/
+`__adminChatSubscribeMessages` (swimmer side) and `__adminPanelSubscribeInbox`/
+`__adminPanelSubscribeThread` (admin side) now each accept an `onError` callback, and every call
+site wires one in — swapping a stuck "Loading…" placeholder for a plain "could not load, check
+your connection" message if the underlying Firestore query ever errors, instead of leaving the
+UI frozen indefinitely with zero feedback (the previous failure mode, since a query error meant
+the success callback simply never fired again).
+
+**Workout Generator: the Warm-Up's opening swim is unconditionally Freestyle.** The first
+`buildSet()` call in `generateWorkout()`'s `warmup` array no longer calls `nextStroke()` — it's
+hardcoded to `'Freestyle, easy — long smooth strokes'` regardless of which discipline(s) are
+selected, matching standard coaching practice for easing into the water even on a Butterfly- or
+Backstroke-focused day. Nothing else in the Warm-Up or any later stage changed. (The Workout
+Generator's daily rotation — one fixed set per calendar day, changing automatically at midnight,
+never on every click of Generate or every page refresh — was already shipped in a previous round;
+this round only verified it still holds across code changes. There is no LLM call inside
+`generateWorkout()` itself and none was added — "AI Coach" and "the daily-rotating Workout
+Generator" remain two separate systems, linked only by the Workouts tab's inline AI panel that
+lets a swimmer ask questions about whatever the deterministic generator just produced.)
+
+**Settings gained a real Units switcher, a data export, and a notification preference — not just
+cosmetic toggles.** `formatDistanceM(meters, decimals)` is a hoisted, top-of-file function (so
+it's callable from every feature regardless of source order, including code that runs
+synchronously at page load, before the Settings IIFE that owns the pill-tabs has even executed)
+that reads `localStorage['swimfit_units']` (`'m'` default, or `'yd'`) and returns either
+`"X.XX km"` or a whole-number `"X,XXX yd"`. Every pure-display distance total in the app —
+the Workouts distance slider's live label, the generated workout's "Coach's Plan" summary line,
+and the Distance Tracker's stat tiles, weekly/monthly analytics-strip totals, Weekly Volume
+Breakdown chart bar labels/tooltips, and recent-entries list — now reads through this one
+function, and switching units fires a `swimfit:unitschange` event so an already-open Tracker
+redraws immediately. **Deliberately out of scope**, the same "disclosed boundary" pattern used
+elsewhere in this file: the swim-log entry form's km input and the Weekly Volume Goal input (and
+its own progress-bar note) stay denominated in kilometers regardless of this toggle — converting
+an *input*'s bound unit live risks silently reinterpreting a value a swimmer already typed, a
+materially different and riskier problem than reformatting an already-computed, read-only number.
+**Export Your Data** is a genuine client-side CSV export (`window.__swimLogQuerySince(new
+Date(0))` + `window.__pbLogQueryAll()`, the same bridges the Tracker itself already uses) covering
+every logged swim and PB on record, built as a `Blob`/`URL.createObjectURL` download with no new
+Cloud Function needed. **Notifications** is one boolean, `users/{uid}.notifyWeeklyEmail`
+(persisted via the existing `__userProfileUpdate` bridge, added to `firestore.rules`'
+create/update field allowlists and `isValidProfileWrite()`), explicitly labeled as
+informational-only in its own copy — there is no email or push infrastructure in this app to act
+on it yet; it's saved for whenever that ships, the same "trial badge, informational only" honesty
+already established elsewhere in this file rather than building a toggle that implies a feature
+that doesn't exist.
+
+**A dedicated, full-screen Support tab** (`data-tab="support"`, `#panel-support`, added to
+`SIGNED_IN_ONLY_TABS`) gives a signed-in swimmer a proper page — not just the small corner FAB —
+for messaging the Swimfit team, reachable from both the main nav and the footer nav. Critically,
+it is **not a second, parallel chat system**: it reads and writes through the exact same
+`__adminChatSubscribeMessages`/`__adminChatReply` bridges the floating widget already used, which
+means a message sent from either surface appears in both instantly (and in the Admin Panel's live
+view) with nothing to keep in sync — there was no new Firestore collection, no new Cloud Function,
+and no new security rule needed. The floating widget was deliberately left in place rather than
+removed, mirroring the precedent AI Coach already set (a floating widget *and* a dedicated
+full-screen page, both real, both reading/writing the identical underlying data) — this is a
+second, more spacious entry point into the same conversation, not a replacement.
 
 ## History for context
 
