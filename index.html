@@ -2592,8 +2592,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
       </div>
 
+      <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
       <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs" style="margin-bottom:32px; width:fit-content;">
-        <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="true"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
+        <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
         <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
         <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
         <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
@@ -3727,6 +3728,28 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var start = new Date(now.getFullYear(), 0, 0);
     return Math.floor((now - start) / 86400000);
   }
+  // Year folded in so the seed doesn't repeat every 365/366 days like a bare
+  // dayIndex() would.
+  function dailySeed() { return new Date().getFullYear() * 1000 + dayIndex(); }
+  function weekIndex() { return Math.floor(dayIndex() / 7); }
+
+  // Deterministic PRNG (mulberry32) so a workout generated today always comes
+  // out the same for a given set of picks — refreshing automatically at
+  // midnight — instead of reshuffling on every single click of Generate.
+  // pickN/pickOne/roundCountFor below all draw from workoutRng rather than
+  // Math.random() directly; generateWorkout() reseeds it from dailySeed()
+  // at the top of every call.
+  function makeSeededRandom(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var workoutRng = Math.random;
 
   var GOALS = [
     { key: 'endurance', icon: 'i-wave', label: 'Endurance', quote: 'Every length is a deposit in the bank of race day.' },
@@ -3962,19 +3985,19 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   function pickN(arr, n) {
     var copy = arr.slice();
     for (var i = copy.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
+      var j = Math.floor(workoutRng() * (i + 1));
       var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
     }
     return copy.slice(0, Math.min(n, copy.length));
   }
-  function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function pickOne(arr) { return arr[Math.floor(workoutRng() * arr.length)]; }
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
-  // circuit from — randomized within the level's range so back-to-back
-  // generations at the same level don't always land on the same shape.
+  // circuit from — seeded per day (see workoutRng above) so the shape is
+  // stable across regenerations today and rotates automatically tomorrow.
   function roundCountFor(scaler) {
     var min = scaler.minRounds || 2, max = scaler.maxRounds || min;
-    return min + Math.floor(Math.random() * (max - min + 1));
+    return min + Math.floor(workoutRng() * (max - min + 1));
   }
   // Splits a Main Set archetype's total meterage evenly across n rounds,
   // rounded to a clean 50m so every round still lands on a swimmable rep scheme.
@@ -4311,6 +4334,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   }
 
   function generateWorkout() {
+    // Reseed from today's date first, so every archetype/round-count pick
+    // this function makes below comes from the same day-stable sequence —
+    // the swimmer's workout automatically rotates at midnight rather than
+    // reshuffling on every click of Generate.
+    workoutRng = makeSeededRandom(dailySeed());
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
@@ -4365,9 +4393,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
-      '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
+      '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
       GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note +
-      (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') + '</p>';
+      (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
+      ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
 
     scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.88rem; margin-bottom:24px;">' +
       (personalPace != null
@@ -4537,7 +4566,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     return sets + ' x ' + reps + m[3];
   }
 
-  var currentGymFocus = 'cardio';
+  // Every muscle-split focus (Cardio is a modality, not a split, so it stays
+  // manually-selected only) takes its turn as the auto-selected default once
+  // a week, rotating on the same weekIndex() used elsewhere — Full Body's
+  // own Core Activation phase covers the "Core" leg of the classic
+  // Upper/Lower/Core split, since there's no separate Core tab in GYM_FOCUS.
+  var GYM_WEEKLY_ROTATION = ['upper', 'lower', 'full'];
+  function thisWeeksGymFocus() { return GYM_WEEKLY_ROTATION[weekIndex() % GYM_WEEKLY_ROTATION.length]; }
+  var currentGymFocus = thisWeeksGymFocus();
 
   // Reads the Workout Generator's own state (same discipline/goal/distance the
   // swimmer already configured) so Full Body programming automatically leans
@@ -4895,6 +4931,15 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   function renderGym(focus) {
     currentGymFocus = focus;
+    document.querySelectorAll('#gymFocusTabs [data-focus]').forEach(function (btn) {
+      btn.setAttribute('aria-selected', btn.dataset.focus === focus ? 'true' : 'false');
+    });
+    var weeklyNote = document.getElementById('gymWeeklyFocusNote');
+    if (weeklyNote) {
+      weeklyNote.textContent = focus === thisWeeksGymFocus()
+        ? 'This Week’s Focus: ' + GYM_LABEL[focus] + ' — cycles automatically every week; pick any tab above to train something else today.'
+        : GYM_LABEL[focus] + ' (this week’s automatic focus is ' + GYM_LABEL[thisWeeksGymFocus()] + ').';
+    }
     var tone = GYM_TONE[focus];
     var focusLabel = GYM_LABEL[focus];
     var age = parseInt(document.getElementById('gymAge').value, 10);
@@ -6427,7 +6472,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   })();
 
   /* ============================= INIT ============================= */
-  renderGym('cardio');
+  renderGym(currentGymFocus);
   generateWorkout();
   switchTab('workouts', { scroll: false });
 })();
