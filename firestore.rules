@@ -31,13 +31,22 @@ rules_version = '2';
 //                      are never persisted here, only a placeholder, to stay well under the
 //                      1 MiB document size limit and to avoid ever storing image bytes twice.
 // admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
-//                      unreadForUser, etc). Never client-writable at all — only the
-//                      admin*  Cloud Functions (Admin SDK, admin-email-gated) ever write it;
-//                      the owning swimmer can read it (to know a message is waiting).
-//   /messages/{id}    — the actual thread. The swimmer can read the whole thing and post
-//                      their own replies (sender must be 'user'); admin messages are written
-//                      exclusively by adminSendMessage via the Admin SDK, never by this rule.
+//                      unreadForUser, etc) plus the /messages subcollection itself. Real-time
+//                      on both sides: the owning swimmer reads/writes their own thread (sender
+//                      must be 'user'), and the admin (matched directly on the verified ID
+//                      token's email claim via isAdminAuth() — no Cloud Function round-trip,
+//                      so both sides get instant onSnapshot delivery) can read every thread and
+//                      write messages with sender 'admin' plus the metadata doc. This is the one
+//                      deliberate exception to "privileged cross-user ops go through a Cloud
+//                      Function" (see functions/index.js) — a live chat can't be real-time
+//                      through a request/response endpoint, and the admin identity check here
+//                      is exactly as strong as isAdminEmail() server-side, just expressed in
+//                      rules syntax against the same hardcoded address.
 service cloud.firestore {
+  function isAdminAuth() {
+    return request.auth != null && request.auth.token.email == 'swimfit.ae@gmail.com';
+  }
+
   // Shared field-level validation for users/{uid} writes. Keeping this in one
   // function (rather than duplicating it across the create/update rules)
   // means the onboarding fields can only ever be tightened in one place.
@@ -104,16 +113,24 @@ service cloud.firestore {
     }
 
     match /admin_chats/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+      allow get: if request.auth != null && (request.auth.uid == uid || isAdminAuth());
+      // list is admin-only — a swimmer never lists across admin_chats (they
+      // only ever get() their own doc by uid), so this can't be used to
+      // enumerate other threads; it's what lets the Admin Panel run one
+      // live onSnapshot(collection('admin_chats')) for real-time unread
+      // badges across every swimmer instead of re-fetching per thread.
+      allow list: if isAdminAuth();
+      allow write: if isAdminAuth()
+        && request.resource.data.keys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForUser', 'unreadForAdmin'])
+        && (!('lastMessageText' in request.resource.data) || (request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000));
 
       match /messages/{messageId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow create: if request.auth != null && request.auth.uid == uid
-          && request.resource.data.keys().hasOnly(['sender', 'text', 'createdAt'])
-          && request.resource.data.sender == 'user'
+        allow read: if request.auth != null && (request.auth.uid == uid || isAdminAuth());
+        allow create: if request.resource.data.keys().hasOnly(['sender', 'text', 'createdAt'])
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && ((request.auth != null && request.auth.uid == uid && request.resource.data.sender == 'user')
+              || (isAdminAuth() && request.resource.data.sender == 'admin'));
         allow update, delete: if false;
       }
     }

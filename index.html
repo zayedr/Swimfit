@@ -177,6 +177,33 @@
     return addDoc(collection(db, 'admin_chats', auth.currentUser.uid, 'messages'), { sender: 'user', text: text, createdAt: serverTimestamp() });
   };
 
+  // Admin Panel direct-message thread — the admin's own side. Real-time on
+  // both directions via firestore.rules' isAdminAuth() (the admin's own
+  // verified ID token email claim, checked directly in rules — no Cloud
+  // Function round-trip), so a swimmer's reply and the admin's own message
+  // both land instantly via onSnapshot instead of a 20s poll.
+  window.__adminPanelSubscribeInbox = function (onNext) {
+    return onSnapshot(collection(db, 'admin_chats'), function (snap) {
+      var byUid = {};
+      snap.forEach(function (d) { byUid[d.id] = d.data(); });
+      onNext(byUid);
+    });
+  };
+  window.__adminPanelSubscribeThread = function (targetUid, onNext) {
+    var q = query(collection(db, 'admin_chats', targetUid, 'messages'), orderBy('createdAt', 'asc'));
+    return onSnapshot(q, function (snap) { onNext(snap.docs.map(function (d) { return d.data(); })); });
+  };
+  window.__adminPanelMarkRead = function (targetUid) {
+    return setDoc(doc(db, 'admin_chats', targetUid), { unreadForAdmin: false }, { merge: true });
+  };
+  window.__adminPanelSendMessage = function (targetUid, text) {
+    var now = serverTimestamp();
+    return Promise.all([
+      addDoc(collection(db, 'admin_chats', targetUid, 'messages'), { sender: 'admin', text: text, createdAt: now }),
+      setDoc(doc(db, 'admin_chats', targetUid), { lastMessageText: text, lastMessageAt: now, lastSender: 'admin', unreadForUser: true, unreadForAdmin: false }, { merge: true })
+    ]);
+  };
+
   // House account that always has full, unrestricted "Ultra" access sitewide —
   // client side this only ever drives cosmetic UI (badge, skipping upsell
   // copy, skipping real-money checkout); the one function call that actually
@@ -273,6 +300,8 @@
   var TRIAL_DAYS = 7;
   var latestSubscriptionDoc = null; // last paddle_subscriptions/{uid} snapshot data, or null
   var unsubscribeSubscriptionDoc = null;
+  var latestAccessDisabled = false; // live users/{uid}.accessDisabled — an admin-set manual suspension
+  var unsubscribeOwnProfileDoc = null;
 
   function recomputeAccessLevel() {
     var user = window.__firebaseUser;
@@ -281,6 +310,13 @@
       document.dispatchEvent(new CustomEvent('swimfit:accesschange', { detail: { access: null } }));
       return;
     }
+    // The admin override is checked FIRST, before anything else on this page,
+    // so nothing below — a trial date, a subscription doc, an accessDisabled
+    // flag someone fat-fingered in the Firestore console — can ever touch it.
+    // This is intentionally the one and only place a signed-in session
+    // resolves to 'admin': every other tier gate (Coach page, Workouts Elite
+    // lock, the global paywall) reads window.__swimfitAccess.level, never
+    // re-derives admin status itself.
     if (window.__isAdminAccount) {
       window.__swimfitAccess = { level: 'admin', trialEndsAt: null };
       document.dispatchEvent(new CustomEvent('swimfit:accesschange', { detail: { access: window.__swimfitAccess } }));
@@ -294,7 +330,11 @@
     var trialStart = window.__swimfitTrialStartedAt || new Date();
     var trialEndsAt = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     var level;
-    if (Date.now() < trialEndsAt.getTime()) {
+    if (latestAccessDisabled) {
+      // A manual admin suspension always wins over trial/plan status —
+      // mirrors getAccessLevel() server-side (functions/index.js).
+      level = 'locked';
+    } else if (Date.now() < trialEndsAt.getTime()) {
       level = 'trial';
     } else if (latestSubscriptionDoc && latestSubscriptionDoc.plan &&
                ['active', 'trialing'].indexOf(latestSubscriptionDoc.status) > -1) {
@@ -364,16 +404,24 @@
 
     onAuthStateChanged(auth, function (user) {
       window.__firebaseUser = user; // mirrored globally so the plain <script> (pricing Subscribe buttons) can read it
-      window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase() === SWIMFIT_ADMIN_EMAIL);
+      window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase().trim() === SWIMFIT_ADMIN_EMAIL);
       document.querySelectorAll('[data-admin-only]').forEach(function (el) { el.style.display = window.__isAdminAccount ? '' : 'none'; });
       window.__swimfitTrialStartedAt = null;
       latestSubscriptionDoc = null;
+      latestAccessDisabled = false;
       if (unsubscribeSubscriptionDoc) { unsubscribeSubscriptionDoc(); unsubscribeSubscriptionDoc = null; }
+      if (unsubscribeOwnProfileDoc) { unsubscribeOwnProfileDoc(); unsubscribeOwnProfileDoc = null; }
       if (user && !window.__isAdminAccount) {
         unsubscribeSubscriptionDoc = onSnapshot(doc(db, 'paddle_subscriptions', user.uid), function (snap) {
           latestSubscriptionDoc = snap.exists() ? snap.data() : null;
           recomputeAccessLevel();
         }, function () { latestSubscriptionDoc = null; recomputeAccessLevel(); });
+        // Live so an admin toggling accessDisabled (adminToggleAccess) takes
+        // effect immediately for an already-open tab, not just on next sign-in.
+        unsubscribeOwnProfileDoc = onSnapshot(doc(db, 'users', user.uid), function (snap) {
+          latestAccessDisabled = !!(snap.exists() && snap.data().accessDisabled);
+          recomputeAccessLevel();
+        }, function () { latestAccessDisabled = false; recomputeAccessLevel(); });
       }
       recomputeAccessLevel();
       document.querySelectorAll('[data-auth-signed-out]').forEach(function (el) { el.style.display = user ? 'none' : ''; });
@@ -1748,6 +1796,14 @@ body.paywall-locked { overflow: hidden; }
 .admin-msg-btn:hover { background: var(--surface-2); }
 .admin-msg-btn .icon { width: 16px; height: 16px; }
 .admin-unread-dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--maroon-bright); border: 2px solid var(--surface); }
+.admin-access-cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.admin-access-toggle {
+  border: 1px solid var(--border); background: var(--bg-alt); color: var(--fg); border-radius: 999px;
+  font-size: 0.72rem; padding: 3px 10px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.admin-access-toggle[data-disabled="true"] { border-color: var(--maroon-bright); color: var(--maroon-bright); }
+.admin-extend-btn { background: none; border: none; color: var(--aqua); font-size: 0.72rem; cursor: pointer; text-decoration: underline; white-space: nowrap; }
+.admin-extend-btn:hover { color: var(--fg); }
 .admin-chat-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
 .admin-chat-messages { flex: 1; }
 .admin-chat-form { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
@@ -2417,6 +2473,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p>Set your discipline, distance, gear and goal — Swimfit computes a full warm-up-to-cool-down set on the spot.</p>
       </div>
 
+      <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutsContactCoachBtn" data-auth-signed-in style="display:none; margin-bottom: var(--space-4);">
+        <svg class="icon"><use href="#i-comment"/></svg> Message Coach / Company
+      </button>
+
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Members-Only Training Area</h3>
@@ -2916,7 +2976,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="admin-users-table-wrap">
             <table class="admin-users-table">
               <thead>
-                <tr><th>Swimmer</th><th>Plan</th><th>Joined</th><th></th></tr>
+                <tr><th>Swimmer</th><th>Plan</th><th>Joined</th><th>Access</th><th></th></tr>
               </thead>
               <tbody id="adminUsersTbody"></tbody>
             </table>
@@ -3272,6 +3332,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
     if (id === 'workouts' || id === 'gym') loadDashBgVideo(id);
+    // Belt-and-suspenders: the Coach page gate is normally kept correct
+    // reactively (every swimfit:accesschange re-renders it), but re-asserting
+    // it here too means arriving at the tab can never show a stale gate state
+    // even in some future edge case where an accesschange event was missed.
+    if (id === 'coach' && typeof window.renderCoachPageGate === 'function') window.renderCoachPageGate();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { next.classList.add('in'); });
     });
@@ -5755,11 +5820,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     });
   })();
 
-  /* ============================= ADMIN PANEL (swimfit.ae@gmail.com only) ============================= */
+  /* ============================= ADMIN PANEL (swimfit.ae@gmail.com only) =============================
+     The user roster (name/email/plan/joined) still comes from adminListUsers
+     (Cloud Function, Admin SDK — needs a cross-collection join no Firestore
+     rule can express). The message thread and unread badges are fully
+     real-time instead: a live onSnapshot(collection('admin_chats')) feeds
+     unread dots/last-message previews for every swimmer at once, and opening
+     a thread subscribes directly to that swimmer's messages — see the
+     __adminPanel* bridges in the module <script> in <head>, and
+     firestore.rules' isAdminAuth() for how this is allowed without a Cloud
+     Function round-trip. There is deliberately no password column anywhere
+     in this table: Firebase Authentication never exposes a swimmer's
+     password to this app in any form (hashed or otherwise) — see CLAUDE.md. */
   var ADMIN_LIST_USERS_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminListUsers';
-  var ADMIN_GET_THREAD_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminGetThread';
-  var ADMIN_SEND_MESSAGE_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminSendMessage';
   var ADMIN_SET_PLAN_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminSetUserPlan';
+  var ADMIN_EXTEND_TRIAL_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminExtendTrial';
+  var ADMIN_TOGGLE_ACCESS_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/adminToggleAccess';
 
   (function wireAdminPanel() {
     var tbody = document.getElementById('adminUsersTbody');
@@ -5773,8 +5849,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     if (!tbody || !chatForm) return;
 
     var users = [];
+    var inboxByUid = {}; // live admin_chats/{uid} docs — lastMessageText/unreadForAdmin, keyed by uid
     var selectedUid = null;
-    var pollTimer = null;
+    var unsubscribeInbox = null;
+    var unsubscribeThread = null;
 
     function adminFetch(endpoint, body) {
       return window.__firebaseGetIdToken().then(function (idToken) {
@@ -5796,6 +5874,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       tbody.innerHTML = '';
       countEl.textContent = users.length + (users.length === 1 ? ' swimmer' : ' swimmers');
       users.forEach(function (u) {
+        var meta = inboxByUid[u.uid];
+        var unread = meta ? !!meta.unreadForAdmin : !!u.unreadForAdmin;
+        var disabled = !!u.accessDisabled;
+
         var tr = document.createElement('tr');
         tr.className = u.uid === selectedUid ? 'is-selected' : '';
 
@@ -5826,10 +5908,40 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             if (result.ok) u.plan = planSelect.value || null;
           }).finally(function () { planSelect.disabled = false; });
         });
+        var extendBtn = document.createElement('button');
+        extendBtn.type = 'button';
+        extendBtn.className = 'admin-extend-btn';
+        extendBtn.textContent = '+7 Day Trial';
+        extendBtn.title = 'Reset this swimmer’s trial to a fresh 7 days starting now';
+        extendBtn.addEventListener('click', function () {
+          extendBtn.disabled = true;
+          adminFetch(ADMIN_EXTEND_TRIAL_ENDPOINT, { targetUid: u.uid }).finally(function () { extendBtn.disabled = false; });
+        });
         planTd.appendChild(planSelect);
+        planTd.appendChild(document.createElement('br'));
+        planTd.appendChild(extendBtn);
 
         var joinedTd = document.createElement('td');
         joinedTd.textContent = formatDate(u.createdAt);
+
+        var accessTd = document.createElement('td');
+        var accessCell = document.createElement('div');
+        accessCell.className = 'admin-access-cell';
+        var accessToggle = document.createElement('button');
+        accessToggle.type = 'button';
+        accessToggle.className = 'admin-access-toggle';
+        accessToggle.dataset.disabled = String(disabled);
+        accessToggle.textContent = disabled ? 'Disabled' : 'Enabled';
+        accessToggle.title = disabled ? 'Access is manually suspended — click to restore' : 'Click to suspend this swimmer’s access';
+        accessToggle.addEventListener('click', function () {
+          var nextDisabled = !disabled;
+          accessToggle.disabled = true;
+          adminFetch(ADMIN_TOGGLE_ACCESS_ENDPOINT, { targetUid: u.uid, disabled: nextDisabled }).then(function (result) {
+            if (result.ok) { u.accessDisabled = nextDisabled; renderUsers(); }
+          }).finally(function () { accessToggle.disabled = false; });
+        });
+        accessCell.appendChild(accessToggle);
+        accessTd.appendChild(accessCell);
 
         var msgTd = document.createElement('td');
         var msgBtn = document.createElement('button');
@@ -5837,7 +5949,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         msgBtn.className = 'admin-msg-btn';
         msgBtn.setAttribute('aria-label', 'Message ' + (u.displayName || u.email || 'this swimmer'));
         msgBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg>';
-        if (u.unreadForAdmin) {
+        if (unread) {
           var dot = document.createElement('span');
           dot.className = 'admin-unread-dot';
           msgBtn.appendChild(dot);
@@ -5848,6 +5960,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         tr.appendChild(nameTd);
         tr.appendChild(planTd);
         tr.appendChild(joinedTd);
+        tr.appendChild(accessTd);
         tr.appendChild(msgTd);
         tbody.appendChild(tr);
       });
@@ -5865,14 +5978,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       }).catch(function () { countEl.textContent = 'Could not load the user list.'; });
     }
 
-    function appendChatBubble(sender, text) {
-      var row = document.createElement('div');
-      row.className = 'coach-msg ' + (sender === 'admin' ? 'coach-msg-user' : 'coach-msg-assistant');
-      var bubble = document.createElement('div');
-      bubble.className = 'coach-bubble';
-      bubble.textContent = text;
-      row.appendChild(bubble);
-      chatMessages.appendChild(row);
+    function renderThreadMessages(messages) {
+      chatMessages.innerHTML = '';
+      if (!messages.length) {
+        chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">No messages yet — say hello!</p>';
+        return;
+      }
+      messages.forEach(function (m) {
+        var row = document.createElement('div');
+        row.className = 'coach-msg ' + (m.sender === 'admin' ? 'coach-msg-user' : 'coach-msg-assistant');
+        var bubble = document.createElement('div');
+        bubble.className = 'coach-bubble';
+        bubble.textContent = m.text;
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+      });
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
@@ -5882,32 +6002,23 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       chatHeader.textContent = 'Chatting with ' + (u.displayName || u.email || u.uid);
       chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Loading…</p>';
       chatForm.style.display = '';
-      adminFetch(ADMIN_GET_THREAD_ENDPOINT, { targetUid: u.uid }).then(function (result) {
-        chatMessages.innerHTML = '';
-        if (!result.ok || !result.data || !Array.isArray(result.data.messages)) {
-          chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Couldn\'t load this conversation.</p>';
-          return;
-        }
-        if (!result.data.messages.length) {
-          chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">No messages yet — say hello!</p>';
-        } else {
-          result.data.messages.forEach(function (m) { appendChatBubble(m.sender, m.text); });
-        }
-        u.unreadForAdmin = false;
-      });
+      if (unsubscribeThread) { unsubscribeThread(); unsubscribeThread = null; }
+      if (typeof window.__adminPanelSubscribeThread === 'function') {
+        unsubscribeThread = window.__adminPanelSubscribeThread(u.uid, renderThreadMessages);
+      }
+      if (typeof window.__adminPanelMarkRead === 'function') window.__adminPanelMarkRead(u.uid);
     }
 
     chatForm.addEventListener('submit', function (e) {
       e.preventDefault();
       if (!selectedUid) return;
       var text = (chatInput.value || '').trim();
-      if (!text) return;
+      if (!text || typeof window.__adminPanelSendMessage !== 'function') return;
       chatSendBtn.disabled = true;
-      adminFetch(ADMIN_SEND_MESSAGE_ENDPOINT, { targetUid: selectedUid, text: text }).then(function (result) {
-        if (result.ok) {
-          appendChatBubble('admin', text);
-          chatInput.value = '';
-        }
+      // No optimistic append needed — the live thread subscription above
+      // renders this message the instant it lands in Firestore.
+      window.__adminPanelSendMessage(selectedUid, text).then(function () {
+        chatInput.value = '';
       }).finally(function () { chatSendBtn.disabled = false; });
     });
     chatInput.addEventListener('keydown', function (e) {
@@ -5919,8 +6030,19 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       btn.addEventListener('click', function () {
         if (!window.__isAdminAccount) return;
         loadUsers();
-        if (!pollTimer) pollTimer = setInterval(function () { if (window.__isAdminAccount) loadUsers(); }, 20000);
+        if (!unsubscribeInbox && typeof window.__adminPanelSubscribeInbox === 'function') {
+          unsubscribeInbox = window.__adminPanelSubscribeInbox(function (byUid) {
+            inboxByUid = byUid;
+            renderUsers();
+          });
+        }
       });
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (e.detail.user && window.__isAdminAccount) return;
+      if (unsubscribeInbox) { unsubscribeInbox(); unsubscribeInbox = null; }
+      if (unsubscribeThread) { unsubscribeThread(); unsubscribeThread = null; }
+      selectedUid = null;
     });
   })();
 
@@ -5971,6 +6093,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     fab.addEventListener('click', function () { if (panel.classList.contains('open')) closePanel(); else openPanel(); });
     if (closeBtn) closeBtn.addEventListener('click', closePanel);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('open')) closePanel(); });
+    // Exposed so any other "Contact Coach/Company" quick-action button
+    // elsewhere on the page (e.g. the Workouts tab) can open this same
+    // widget instead of duplicating a second inbox UI.
+    window.__openAdminMsgPanel = openPanel;
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -6006,6 +6132,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         return;
       }
       if (!window.__isAdminAccount) subscribe();
+    });
+  })();
+
+  // "Message Coach / Company" quick action on the Workouts tab — just opens
+  // the same floating inbox widget above rather than a second bespoke panel.
+  // Hidden for the admin account itself (data-auth-signed-in already shows
+  // it for any signed-in user; admin manages threads from the Admin Panel
+  // instead, same exclusion the floating widget's own fab already applies).
+  (function wireWorkoutsContactCoachBtn() {
+    var btn = document.getElementById('workoutsContactCoachBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (typeof window.__openAdminMsgPanel === 'function') window.__openAdminMsgPanel();
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      btn.style.display = (e.detail.user && !window.__isAdminAccount) ? '' : 'none';
     });
   })();
 
