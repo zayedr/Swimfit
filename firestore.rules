@@ -37,6 +37,11 @@ rules_version = '2';
 // coach_widget_history/{uid} — identical shape/rules, but for the floating AI Coach widget's
 //                      own transcript, kept in a separate doc so it never collides with the
 //                      full-screen page's saved conversation above.
+// coach_threads/{uid}/threads/{threadId} — the full-screen Coach page's multi-thread redesign:
+//                      each named conversation (e.g. "Butterfly Technique") is its own doc,
+//                      owner-only read/list/write. coach_history/{uid} above is now legacy —
+//                      read once for a best-effort migration into a "General" thread, never
+//                      written to by the redesigned page.
 // admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
 //                      unreadForUser, etc) plus the /messages subcollection itself. Real-time
 //                      on both sides: the owning swimmer reads/writes their own thread (sender
@@ -154,6 +159,23 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['messages', 'updatedAt'])
         && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+    }
+
+    // Multi-thread AI Coach page — each named conversation is its own doc
+    // (list is needed so the sidebar can enumerate a swimmer's own threads;
+    // still owner-only, since Firestore's list rule can filter to exactly
+    // "under this uid's own subcollection" via the {uid} path segment).
+    match /coach_threads/{uid}/threads/{threadId} {
+      allow read, list: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['title', 'messages', 'createdAt', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'messages', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /admin_chats/{uid} {

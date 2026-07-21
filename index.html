@@ -148,6 +148,29 @@
     return setDoc(doc(db, 'coach_widget_history', uid), { messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
   };
 
+  // Multi-thread AI Coach page (Gemini/ChatGPT-style topic sidebar) — each
+  // thread is its own coach_threads/{uid}/threads/{threadId} doc, kept
+  // separate from coach_history/{uid} above (that single-thread doc is now
+  // legacy: still readable for a one-time migration into a "General" thread
+  // the first time a returning swimmer with old history opens the redesigned
+  // page, but no longer written to).
+  window.__coachThreadsList = function (uid) {
+    var q = query(collection(db, 'coach_threads', uid, 'threads'), orderBy('updatedAt', 'desc'));
+    return getDocs(q).then(function (snap) {
+      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    });
+  };
+  window.__coachThreadCreate = function (uid, title, messages) {
+    var now = serverTimestamp();
+    return addDoc(collection(db, 'coach_threads', uid, 'threads'), { title: title, messages: messages || [], createdAt: now, updatedAt: now });
+  };
+  window.__coachThreadSave = function (uid, threadId, title, messages) {
+    return setDoc(doc(db, 'coach_threads', uid, 'threads', threadId), { title: title, messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
+  };
+  window.__coachThreadDelete = function (uid, threadId) {
+    return deleteDoc(doc(db, 'coach_threads', uid, 'threads', threadId));
+  };
+
   // Distance Tracker data-access bridges — same "expose a narrow function on
   // window" pattern as __firebaseGetIdToken above, so the plain <script>
   // (which owns all of this feature's DOM/UI logic) never needs its own
@@ -1808,6 +1831,46 @@ body.paywall-locked { overflow: hidden; }
 .coach-page-locked h3 { color: var(--fg); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .coach-page-locked p { max-width: 40ch; }
 
+/* Multi-thread layout: a fixed sidebar of named conversations beside the
+   existing chat pane, both scrolling independently within the same
+   .coach-page-shell height. */
+#coachPageChatWrap { flex: 1; display: flex; overflow: hidden; }
+.coach-threads-sidebar {
+  width: 240px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto;
+  background: var(--bg-alt); border-right: 1px solid var(--border); padding: var(--space-3);
+}
+.coach-threads-quickstart { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }
+.coach-thread-quick-btn {
+  text-align: left; font-size: 0.78rem; padding: 0.55em 0.8em; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.coach-thread-quick-btn:hover { border-color: var(--aqua); color: var(--fg); }
+.coach-threads-list { display: flex; flex-direction: column; gap: var(--space-1); flex: 1; overflow-y: auto; }
+.coach-thread-item {
+  display: flex; align-items: center; gap: var(--space-2); padding: 0.6em 0.7em; border-radius: var(--radius-sm);
+  cursor: pointer; border: 1px solid transparent; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.coach-thread-item:hover { background: var(--surface); }
+.coach-thread-item.is-active { background: var(--surface-2); border-color: var(--aqua); }
+.coach-thread-item-body { flex: 1; min-width: 0; }
+.coach-thread-item-title { font-size: 0.86rem; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coach-thread-item-preview { font-size: 0.74rem; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coach-thread-item-delete {
+  width: 22px; height: 22px; border-radius: 50%; display: none; align-items: center; justify-content: center;
+  color: var(--muted-2); flex-shrink: 0;
+}
+.coach-thread-item-delete .icon { width: 13px; height: 13px; }
+.coach-thread-item:hover .coach-thread-item-delete { display: flex; }
+.coach-thread-item-delete:hover { background: var(--maroon); color: var(--fg); }
+.coach-threads-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+@media (max-width: 780px) {
+  #coachPageChatWrap { flex-direction: column; }
+  .coach-threads-sidebar { width: auto; max-height: 160px; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; }
+  .coach-threads-quickstart { flex-direction: row; flex-wrap: wrap; margin-bottom: 0; margin-right: var(--space-2); }
+  .coach-threads-list { flex-direction: row; flex-wrap: wrap; }
+}
+
 .coach-page-prompts { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-4) var(--space-5) 0; }
 .coach-prompt-chip {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; color: var(--fg);
@@ -2795,28 +2858,39 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
       <div class="coach-page-shell" data-auth-signed-in style="display:none">
         <div id="coachPageChatWrap" style="display:none">
-          <div class="coach-page-prompts" id="coachPagePrompts">
-            <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Suggest a dryland recovery routine for a rest day.">Recovery day routine</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Review my last logged swim and suggest one improvement.">Review my last swim</button>
-          </div>
-          <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
-          <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
-          <form class="coach-page-form" id="coachPageForm">
-            <div class="coach-page-form-row">
-              <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach or take a photo">
-                <svg class="icon"><use href="#i-camera"/></svg>
-              </button>
-              <input type="file" id="coachPageFileInput" accept="image/*" multiple capture="environment" hidden>
-              <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
-              <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo…" maxlength="2000"></textarea>
-              <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
-                <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
-              </button>
+          <aside class="coach-threads-sidebar">
+            <div class="coach-threads-quickstart">
+              <button type="button" class="coach-thread-quick-btn" data-new-thread-title="Butterfly Technique">+ Butterfly Technique</button>
+              <button type="button" class="coach-thread-quick-btn" data-new-thread-title="Freestyle Drills">+ Freestyle Drills</button>
+              <button type="button" class="coach-thread-quick-btn" data-new-thread-title="Nutrition">+ Nutrition</button>
+              <button type="button" class="btn btn-outline-aqua btn-sm" id="coachNewThreadBtn">+ New Thread</button>
             </div>
-            <p class="coach-page-hint" id="coachPageHint">Up to 3 photos per message · JPEG, PNG, WEBP or GIF</p>
-          </form>
+            <div class="coach-threads-list" id="coachThreadsList"></div>
+          </aside>
+          <div class="coach-threads-main">
+            <div class="coach-page-prompts" id="coachPagePrompts">
+              <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
+              <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
+              <button type="button" class="coach-prompt-chip" data-prompt="Suggest a dryland recovery routine for a rest day.">Recovery day routine</button>
+              <button type="button" class="coach-prompt-chip" data-prompt="Review my last logged swim and suggest one improvement.">Review my last swim</button>
+            </div>
+            <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
+            <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
+            <form class="coach-page-form" id="coachPageForm">
+              <div class="coach-page-form-row">
+                <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach or take a photo">
+                  <svg class="icon"><use href="#i-camera"/></svg>
+                </button>
+                <input type="file" id="coachPageFileInput" accept="image/*" multiple capture="environment" hidden>
+                <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
+                <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo…" maxlength="2000"></textarea>
+                <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
+                  <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+                </button>
+              </div>
+              <p class="coach-page-hint" id="coachPageHint">Up to 3 photos per message · JPEG, PNG, WEBP or GIF</p>
+            </form>
+          </div>
         </div>
       </div>
      </div>
@@ -6443,13 +6517,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var signInBtn = document.getElementById('coachPageSignInBtn');
     var chatWrapEl = document.getElementById('coachPageChatWrap');
     var promptsEl = document.getElementById('coachPagePrompts');
+    var threadsListEl = document.getElementById('coachThreadsList');
+    var newThreadBtn = document.getElementById('coachNewThreadBtn');
+    var sidebarEl = document.querySelector('.coach-threads-sidebar');
     if (!messagesEl || !form || !input || !sendBtn || !attachBtn || !fileInput) return;
 
-    var coachPageHistory = [];
+    var DEFAULT_THREAD_TITLE = 'New Thread';
+    var threads = []; // [{ id, title, messages, updatedAt }], newest-updated first
+    var activeThreadId = null;
     var pendingImages = []; // { mediaType, data (base64, no prefix), previewUrl }
     var sending = false;
-    var welcomed = false;
-    var historyLoadedForUid = null;
+    var threadsLoadedForUid = null;
     var lastRenderedRole = null; // for message grouping — see appendMessage
 
     // No tier gate here — the dedicated page, saved history and photo upload
@@ -6459,11 +6537,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return !!access && access.level !== 'locked';
     }
 
+    function activeThread() {
+      return threads.find(function (t) { return t.id === activeThreadId; }) || null;
+    }
+
     window.renderCoachPageGate = function () {
       if (!chatWrapEl) return;
       var allowed = coachPageTierAllowed();
       chatWrapEl.style.display = allowed ? '' : 'none';
-      if (allowed) loadPersistedHistoryIfNeeded();
+      if (allowed) loadThreadsIfNeeded();
     };
 
     if (signInBtn) {
@@ -6477,6 +6559,103 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         input.value = chip.dataset.prompt;
         form.requestSubmit();
       });
+    }
+
+    // ============================= THREAD SIDEBAR =============================
+    function renderThreadsList() {
+      if (!threadsListEl) return;
+      threadsListEl.innerHTML = '';
+      threads.forEach(function (t) {
+        var item = document.createElement('div');
+        item.className = 'coach-thread-item' + (t.id === activeThreadId ? ' is-active' : '');
+        item.dataset.threadId = t.id;
+        var body = document.createElement('div');
+        body.className = 'coach-thread-item-body';
+        var titleEl = document.createElement('div');
+        titleEl.className = 'coach-thread-item-title';
+        titleEl.textContent = t.title || DEFAULT_THREAD_TITLE;
+        var lastMsg = t.messages && t.messages.length ? t.messages[t.messages.length - 1] : null;
+        var previewEl = document.createElement('div');
+        previewEl.className = 'coach-thread-item-preview';
+        previewEl.textContent = lastMsg ? lastMsg.content : 'No messages yet';
+        body.appendChild(titleEl);
+        body.appendChild(previewEl);
+        var delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'coach-thread-item-delete';
+        delBtn.setAttribute('aria-label', 'Delete this thread');
+        delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>';
+        item.appendChild(body);
+        item.appendChild(delBtn);
+        threadsListEl.appendChild(item);
+      });
+    }
+
+    if (threadsListEl) {
+      threadsListEl.addEventListener('click', function (e) {
+        var item = e.target.closest('.coach-thread-item');
+        if (!item) return;
+        var id = item.dataset.threadId;
+        if (e.target.closest('.coach-thread-item-delete')) { deleteThread(id); return; }
+        switchThread(id);
+      });
+    }
+    if (newThreadBtn) {
+      newThreadBtn.addEventListener('click', function () { createThread(DEFAULT_THREAD_TITLE); });
+    }
+    if (sidebarEl) {
+      sidebarEl.addEventListener('click', function (e) {
+        var quickBtn = e.target.closest('.coach-thread-quick-btn');
+        if (!quickBtn) return;
+        createThread(quickBtn.dataset.newThreadTitle);
+      });
+    }
+
+    function renderActiveThreadMessages() {
+      messagesEl.innerHTML = '';
+      lastRenderedRole = null;
+      var thread = activeThread();
+      var messages = thread ? thread.messages : [];
+      if (!messages.length) {
+        if (promptsEl) promptsEl.style.display = '';
+        if (window.__firebaseUser) {
+          appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
+        }
+        return;
+      }
+      if (promptsEl) promptsEl.style.display = 'none';
+      messages.forEach(function (m) { appendMessage(m.role, m.content); });
+    }
+
+    function switchThread(id) {
+      if (id === activeThreadId) return;
+      activeThreadId = id;
+      renderThreadsList();
+      renderActiveThreadMessages();
+    }
+
+    function createThread(title) {
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__coachThreadCreate !== 'function') return;
+      window.__coachThreadCreate(user.uid, title).then(function (ref) {
+        threads.unshift({ id: ref.id, title: title, messages: [], updatedAt: Date.now() });
+        activeThreadId = ref.id;
+        renderThreadsList();
+        renderActiveThreadMessages();
+      }).catch(function () {});
+    }
+
+    function deleteThread(id) {
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__coachThreadDelete !== 'function') return;
+      window.__coachThreadDelete(user.uid, id).then(function () {
+        threads = threads.filter(function (t) { return t.id !== id; });
+        if (activeThreadId === id) {
+          if (threads.length) { activeThreadId = threads[0].id; renderActiveThreadMessages(); }
+          else { createThread(DEFAULT_THREAD_TITLE); return; }
+        }
+        renderThreadsList();
+      }).catch(function () {});
     }
 
     // Consecutive messages from the same sender group tighter together (no
@@ -6607,12 +6786,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       renderAttachments();
       resetHint();
 
+      var thread = activeThread();
+      if (!thread) return;
+
       sending = true;
       sendBtn.disabled = true;
       attachBtn.disabled = true;
-      var historyForRequest = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
-      coachPageHistory.push({ role: 'user', content: text });
-      coachPageHistory = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
+      var historyForRequest = thread.messages.slice(-AI_COACH_HISTORY_LIMIT);
+      var isFirstMessageInThread = thread.messages.length === 0;
+      thread.messages.push({ role: 'user', content: text });
+      thread.messages = thread.messages.slice(-AI_COACH_HISTORY_LIMIT);
+      // Auto-titles an untouched "New Thread" from its first message — the
+      // same "title the conversation from what was actually asked" pattern
+      // Gemini/ChatGPT use, rather than forcing a name upfront.
+      if (isFirstMessageInThread && (!thread.title || thread.title === DEFAULT_THREAD_TITLE)) {
+        thread.title = text.length > 40 ? text.slice(0, 40).trim() + '…' : text;
+      }
+      renderThreadsList();
 
       var typingBubble = appendMessage('assistant', 'Thinking…');
       typingBubble.classList.add('coach-typing');
@@ -6640,9 +6830,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           return;
         }
         typingBubble.textContent = result.data.reply;
-        coachPageHistory.push({ role: 'assistant', content: result.data.reply });
-        coachPageHistory = coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT);
-        persistHistoryIfAllowed();
+        thread.messages.push({ role: 'assistant', content: result.data.reply });
+        thread.messages = thread.messages.slice(-AI_COACH_HISTORY_LIMIT);
+        persistActiveThread(thread);
       }).catch(function () {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
@@ -6658,43 +6848,58 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
     });
 
-    function maybeWelcome() {
-      if (welcomed || !window.__firebaseUser || messagesEl.children.length) return;
-      welcomed = true;
-      appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
+    function persistActiveThread(thread) {
+      var user = window.__firebaseUser;
+      if (!user || !coachPageTierAllowed() || typeof window.__coachThreadSave !== 'function') return;
+      thread.updatedAt = Date.now();
+      window.__coachThreadSave(user.uid, thread.id, thread.title, thread.messages);
+      renderThreadsList();
     }
 
-    // Any signed-in, non-suspended account (see coachPageTierAllowed) —
-    // restores the saved transcript from coach_history/{uid} on first reach
-    // each sign-in, falling back to the canned welcome message if there's no
-    // history yet.
-    function loadPersistedHistoryIfNeeded() {
+    // Any signed-in, non-suspended account (see coachPageTierAllowed) — lists
+    // this swimmer's own threads on first reach each sign-in. A returning
+    // swimmer with old single-thread history (coach_history/{uid}, from
+    // before this redesign) but zero threads yet gets it migrated into a
+    // one-time "General" thread rather than silently losing it; a swimmer
+    // with neither gets a single fresh empty thread so the page never opens
+    // to "nothing selected."
+    function loadThreadsIfNeeded() {
       var user = window.__firebaseUser;
-      if (!user || !coachPageTierAllowed() || historyLoadedForUid === user.uid) return;
-      historyLoadedForUid = user.uid;
-      if (typeof window.__coachHistoryLoad !== 'function') { maybeWelcome(); return; }
-      window.__coachHistoryLoad(user.uid).then(function (data) {
-        var messages = data && Array.isArray(data.messages) ? data.messages : [];
-        if (!messages.length) { maybeWelcome(); return; }
-        welcomed = true;
-        if (promptsEl) promptsEl.style.display = 'none';
-        coachPageHistory = messages.slice(-AI_COACH_HISTORY_LIMIT);
-        messages.forEach(function (m) { appendMessage(m.role, m.content); });
-      }).catch(function () { maybeWelcome(); });
-    }
-
-    function persistHistoryIfAllowed() {
-      var user = window.__firebaseUser;
-      if (!user || !coachPageTierAllowed() || typeof window.__coachHistorySave !== 'function') return;
-      window.__coachHistorySave(user.uid, coachPageHistory.slice(-AI_COACH_HISTORY_LIMIT));
+      if (!user || !coachPageTierAllowed() || threadsLoadedForUid === user.uid) return;
+      threadsLoadedForUid = user.uid;
+      if (typeof window.__coachThreadsList !== 'function') return;
+      window.__coachThreadsList(user.uid).then(function (list) {
+        if (list.length) {
+          threads = list;
+          activeThreadId = threads[0].id;
+          renderThreadsList();
+          renderActiveThreadMessages();
+          return;
+        }
+        // No threads yet — check for legacy single-thread history to migrate.
+        var legacy = (typeof window.__coachHistoryLoad === 'function')
+          ? window.__coachHistoryLoad(user.uid)
+          : Promise.resolve(null);
+        legacy.then(function (data) {
+          var messages = data && Array.isArray(data.messages) ? data.messages : [];
+          if (!messages.length || typeof window.__coachThreadCreate !== 'function') { createThread(DEFAULT_THREAD_TITLE); return; }
+          window.__coachThreadCreate(user.uid, 'General', messages).then(function (ref) {
+            threads = [{ id: ref.id, title: 'General', messages: messages, updatedAt: Date.now() }];
+            activeThreadId = ref.id;
+            renderThreadsList();
+            renderActiveThreadMessages();
+          }).catch(function () { createThread(DEFAULT_THREAD_TITLE); });
+        }).catch(function () { createThread(DEFAULT_THREAD_TITLE); });
+      }).catch(function () {});
     }
 
     document.querySelectorAll('[data-tab="coach"]').forEach(function (btn) {
-      btn.addEventListener('click', function () { setTimeout(loadPersistedHistoryIfNeeded, 0); });
+      btn.addEventListener('click', function () { setTimeout(loadThreadsIfNeeded, 0); });
     });
     document.addEventListener('swimfit:authchange', function (e) {
-      if (e.detail.user) { loadPersistedHistoryIfNeeded(); } else {
-        historyLoadedForUid = null; welcomed = false; messagesEl.innerHTML = ''; coachPageHistory = []; lastRenderedRole = null;
+      if (e.detail.user) { loadThreadsIfNeeded(); } else {
+        threadsLoadedForUid = null; threads = []; activeThreadId = null; messagesEl.innerHTML = ''; lastRenderedRole = null;
+        if (threadsListEl) threadsListEl.innerHTML = '';
         if (promptsEl) promptsEl.style.display = '';
       }
     });
