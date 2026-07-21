@@ -992,7 +992,7 @@ section { position: relative; scroll-margin-top: 96px; }
   font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
   font-size: 0.92rem; color: var(--muted); position: relative; padding: 4px 0;
   transition: color var(--dur) var(--ease); cursor: pointer;
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 7px; white-space: nowrap;
 }
 .nav-links button::after { content: ''; position: absolute; left: 0; right: 100%; bottom: -6px; height: 2px; background: var(--aqua); transition: right var(--dur) var(--ease); border-radius: 2px; }
 .nav-links button:hover { color: var(--fg); }
@@ -1329,6 +1329,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .settings-username-hint.is-taken { color: #e5484d; }
 .settings-username-hint.is-available { color: var(--green-bright); }
 .nav-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-strong); }
+.settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.settings-toggle-row label:first-child { font-size: 0.92rem; color: var(--fg); }
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch-track { position: absolute; inset: 0; background: var(--border-strong); border-radius: 999px; transition: background var(--dur) var(--ease); }
+.switch-track::before { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg); transition: transform var(--dur) var(--ease); }
+.switch input:checked + .switch-track { background: var(--green); }
+.switch input:checked + .switch-track::before { transform: translateX(18px); background: var(--on-green); }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--aqua); outline-offset: 2px; }
 @media (max-width: 860px) { .settings-grid { grid-template-columns: 1fr; } }
 
 .pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -2276,6 +2285,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
 <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
 <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c0.5-1 2-2.5 2-6.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
 </defs>
 </svg>
 
@@ -2293,6 +2303,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><button type="button" data-tab="academy"><svg class="icon nav-icon nav-icon-target" aria-hidden="true"><use href="#i-target"/></svg><span data-i18n="nav.academy">Academy</span></button></li>
       <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span data-i18n="nav.coach">AI Coach</span></button></li>
       <li><button type="button" data-tab="tracker"><svg class="icon nav-icon nav-icon-droplet" aria-hidden="true"><use href="#i-droplet"/></svg><span data-i18n="nav.tracker">Tracker</span></button></li>
+      <li><button type="button" data-tab="support"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-quote"/></svg><span data-i18n="nav.support">Support</span></button></li>
       <li><button type="button" data-tab="settings"><svg class="icon nav-icon nav-icon-settings" aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="nav.settings">Settings</span></button></li>
       <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span data-i18n="nav.pricing">Pricing</span></button></li>
       <li data-admin-only style="display:none"><button type="button" data-tab="admin"><svg class="icon nav-icon nav-icon-admin" aria-hidden="true"><use href="#i-user"/></svg><span>Admin</span></button></li>
@@ -2377,7 +2388,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="stat"><strong data-count="5">0</strong><span>Disciplines</span></div>
       <div class="stat"><strong data-count="3">0</strong><span>Skill Tracks</span></div>
       <div class="stat"><strong data-count="4">0</strong><span>Gym Focuses</span></div>
-      <div class="stat"><strong data-count="24">0</strong><span>Hour Access</span></div>
       <div class="stat" id="registeredUsersStat" style="display:none"><strong id="registeredUsersCount">0</strong><span>Registered Swimmers</span></div>
     </div>
   </div>
@@ -3034,6 +3044,37 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      </div>
     </div>
 
+    <!-- ---------- SUPPORT ---------- -->
+    <div class="tab-panel panel-wide" id="panel-support">
+     <div class="panel-wide-inner">
+      <div class="section-head">
+        <p class="eyebrow"><svg class="icon"><use href="#i-quote"/></svg> <span data-i18n="support.eyebrow">Support</span></p>
+        <h2 data-i18n="support.heading">Talk To The Swimfit Team</h2>
+        <p data-i18n="support.sub">Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.</p>
+      </div>
+
+      <div class="coach-page-locked" data-auth-signed-out>
+        <svg class="icon"><use href="#i-lock"/></svg>
+        <h3>Sign In To Contact Support</h3>
+        <p>Creating a free account takes seconds and unlocks direct messaging with the Swimfit team.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Sign In</button>
+      </div>
+
+      <div class="coach-page-shell support-page-shell" data-auth-signed-in style="display:none">
+        <div class="coach-messages coach-page-messages" id="supportPageMessages"></div>
+        <form class="coach-page-form" id="supportPageForm">
+          <div class="coach-page-form-row">
+            <label for="supportPageInput" class="sr-only">Message the Swimfit team</label>
+            <textarea id="supportPageInput" class="coach-input coach-page-input" rows="1" placeholder="Message the Swimfit team…" maxlength="2000"></textarea>
+            <button type="submit" class="coach-send-btn" id="supportPageSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+     </div>
+    </div>
+
     <!-- ---------- SETTINGS ---------- -->
     <div class="tab-panel panel-wide" id="panel-settings">
      <div class="panel-wide-inner">
@@ -3119,6 +3160,32 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <button type="button" class="pill-tab" role="tab" data-lang-choice="en" aria-selected="true">English</button>
               <button type="button" class="pill-tab" role="tab" data-lang-choice="ar" aria-selected="false">العربية</button>
             </div>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-lane"/></svg> Units</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Choose how total distances are displayed across the Workout Generator and Distance Tracker. Manual log entry and your weekly goal always stay in kilometers.</p>
+            <div class="pill-tabs" role="tablist" aria-label="Units" id="settingsUnitsTabs">
+              <button type="button" class="pill-tab" role="tab" data-units-choice="m" aria-selected="true">Meters</button>
+              <button type="button" class="pill-tab" role="tab" data-units-choice="yd" aria-selected="false">Yards</button>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-bell"/></svg> Notifications</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">An informational preference only — Swimfit has no email or push infrastructure yet, so this doesn’t send anything today; it’s saved for when that ships.</p>
+            <div class="settings-toggle-row">
+              <label for="settingsNotifyToggle">Email me a weekly training summary</label>
+              <label class="switch"><input type="checkbox" id="settingsNotifyToggle"><span class="switch-track"></span></label>
+            </div>
+            <p class="settings-save-status" id="settingsNotifyStatus"></p>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-download"/></svg> Export Your Data</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Download every swim you’ve logged and every Personal Best on record as a CSV file, for your own records or to import elsewhere.</p>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="settingsExportBtn">Export My Data (CSV)</button>
+            <p class="settings-save-status" id="settingsExportStatus"></p>
           </div>
         </div>
       </div>
@@ -3295,6 +3362,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <li><button type="button" data-tab="academy">Technique Academy</button></li>
           <li><button type="button" data-tab="coach">AI Swim Coach</button></li>
           <li><button type="button" data-tab="tracker">Distance Tracker</button></li>
+          <li><button type="button" data-tab="support">Support</button></li>
           <li><button type="button" data-tab="settings">Settings</button></li>
         </ul>
       </div>
@@ -3883,6 +3951,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function icon(id) { return '<svg class="icon"><use href="#' + id + '"/></svg>'; }
 
+  // Shared distance-display formatter for the Units (Meters/Yards) Settings
+  // preference — a function declaration (not an expression) so it's hoisted
+  // to the top of this outer IIFE and callable from every feature below
+  // regardless of source order, since several call sites (the Workouts
+  // distance slider) run synchronously at page load, before the Settings
+  // IIFE further down the file that owns the pill-tabs has even executed.
+  var METERS_PER_YARD = 0.9144;
+  function formatDistanceM(meters, decimals) {
+    var yd = false;
+    try { yd = localStorage.getItem('swimfit_units') === 'yd'; } catch (e) { /* private browsing etc. */ }
+    if (yd) return Math.round(meters / METERS_PER_YARD).toLocaleString() + ' yd';
+    var km = meters / 1000;
+    return km.toFixed(decimals != null ? decimals : 2) + ' km';
+  }
+  window.__formatDistanceM = formatDistanceM;
+
   /* ============================= UI SOUND (synthesized, no audio file needed) ============================= */
   var audioCtx = null;
   function playPop() {
@@ -4027,7 +4111,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // nav entry entirely via [data-admin-only] above) would otherwise be left
   // showing a "please sign in" panel or stale admin data underneath — switch
   // back to a public tab first if that's where they were.
-  var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings'];
+  var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings', 'support'];
   document.addEventListener('swimfit:authchange', function (e) {
     if (e.detail.user) return;
     if (SIGNED_IN_ONLY_TABS.indexOf(dashboard.getAttribute('data-active-tab')) > -1) {
@@ -4528,7 +4612,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   distanceSlider.value = state.distance;
   function updateDistanceLabel() {
     var v = +distanceSlider.value;
-    distanceValue.textContent = v >= 6000 ? '6km+' : (v / 1000) + 'km';
+    distanceValue.textContent = formatDistanceM(v, 1) + (v >= 6000 ? '+' : '');
     state.distance = v;
     distanceValue.classList.remove('value-pulse');
     void distanceValue.offsetWidth;
@@ -4536,6 +4620,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   updateDistanceLabel();
   distanceSlider.addEventListener('input', updateDistanceLabel);
+  document.addEventListener('swimfit:unitschange', updateDistanceLabel);
 
   document.getElementById('levelTabs').addEventListener('click', function (e) {
     var btn = e.target.closest('.pill-tab');
@@ -5206,7 +5291,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
-      '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
+      '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
       GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note +
       (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
       ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
@@ -6080,6 +6165,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var avatarPreview = document.getElementById('settingsAvatarPreview');
     var avatarPlaceholder = document.getElementById('settingsAvatarPlaceholder');
     var avatarRemoveBtn = document.getElementById('settingsAvatarRemoveBtn');
+    var notifyToggle = document.getElementById('settingsNotifyToggle');
+    var notifyStatus = document.getElementById('settingsNotifyStatus');
+    var exportBtn = document.getElementById('settingsExportBtn');
+    var exportStatus = document.getElementById('settingsExportStatus');
     if (!form || !disciplineChipsEl) return;
 
     var selectedDisciplines = [];
@@ -6200,6 +6289,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (usernameHint) { usernameHint.textContent = ''; usernameHint.className = 'settings-username-hint'; }
       selectedDisciplines = [];
       renderDisciplineChips();
+      if (notifyToggle) notifyToggle.checked = false;
     }
 
     function loadProfileIfNeeded() {
@@ -6219,7 +6309,64 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         if (typeof window.__updateNavAvatar === 'function') window.__updateNavAvatar(data.avatarDataUrl || null);
         selectedDisciplines = (data.disciplines && data.disciplines.length) ? data.disciplines.slice() : state.disciplines.slice();
         renderDisciplineChips();
+        if (notifyToggle) notifyToggle.checked = !!data.notifyWeeklyEmail;
       }).catch(function () {});
+    }
+
+    if (notifyToggle) {
+      notifyToggle.addEventListener('change', function () {
+        var user = window.__firebaseUser;
+        if (!user || typeof window.__userProfileUpdate !== 'function') return;
+        var checked = notifyToggle.checked;
+        notifyToggle.disabled = true;
+        window.__userProfileUpdate(user.uid, { notifyWeeklyEmail: checked }).then(function () {
+          if (notifyStatus) { notifyStatus.textContent = 'Saved.'; notifyStatus.classList.remove('is-error'); }
+        }).catch(function () {
+          notifyToggle.checked = !checked; // revert on failure
+          if (notifyStatus) { notifyStatus.textContent = 'Could not save — please try again.'; notifyStatus.classList.add('is-error'); }
+        }).finally(function () { notifyToggle.disabled = false; });
+      });
+    }
+
+    // Client-side CSV export of everything a swimmer has logged — reads
+    // straight from Firestore via the same bridges the Distance Tracker and
+    // its PB log already use, so no new backend endpoint was needed. Two
+    // sections (logged swims, then personal bests) in one file rather than
+    // two separate downloads, since both are small and most swimmers would
+    // want both together anyway.
+    function csvEscape(value) {
+      var s = value == null ? '' : String(value);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    if (exportBtn) {
+      exportBtn.addEventListener('click', function () {
+        var user = window.__firebaseUser;
+        if (!user || typeof window.__swimLogQuerySince !== 'function' || typeof window.__pbLogQueryAll !== 'function') return;
+        exportBtn.disabled = true;
+        if (exportStatus) { exportStatus.textContent = 'Preparing your export…'; exportStatus.classList.remove('is-error'); }
+        Promise.all([window.__swimLogQuerySince(new Date(0)), window.__pbLogQueryAll()]).then(function (results) {
+          var logs = results[0] || [], pbs = results[1] || [];
+          var lines = ['Type,Date,Discipline,Distance,DurationSeconds,TimeSeconds'];
+          logs.forEach(function (e) {
+            lines.push(['Swim Log', e.loggedAt.toISOString().slice(0, 10), csvEscape(e.discipline || ''), e.distanceMeters + 'm', e.durationSeconds || '', ''].join(','));
+          });
+          pbs.forEach(function (e) {
+            lines.push(['Personal Best', e.loggedAt.toISOString().slice(0, 10), csvEscape(e.discipline || ''), csvEscape(e.distanceLabel || ''), '', e.timeSeconds || ''].join(','));
+          });
+          var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'swimfit-export-' + new Date().toISOString().slice(0, 10) + '.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          if (exportStatus) { exportStatus.textContent = 'Downloaded.'; exportStatus.classList.remove('is-error'); }
+        }).catch(function () {
+          if (exportStatus) { exportStatus.textContent = 'Could not export — please try again.'; exportStatus.classList.add('is-error'); }
+        }).finally(function () { exportBtn.disabled = false; });
+      });
     }
 
     form.addEventListener('submit', function (e) {
@@ -6323,6 +6470,48 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     });
   })();
 
+  /* ============================= SETTINGS: UNITS (METERS/YARDS) =============================
+     A real, working preference — not just cosmetic — but deliberately scoped
+     to pure-display distance totals (Workouts' distance slider label + the
+     generated workout's "Coach's Plan" summary line, and every Distance
+     Tracker stat/chart total), the same "disclosed scope boundary" pattern
+     already used for Language above. Data-entry fields (the swim-log form's
+     km input, the Weekly Volume Goal input) deliberately stay in kilometers
+     regardless of this toggle — converting an *input*'s bound unit live
+     risks silently reinterpreting a value a swimmer already typed (was "10"
+     10 km or 10 miles-of-yards a moment ago?), which is a materially
+     different, riskier problem than reformatting an already-computed,
+     read-only number. window.__formatDistanceM(meters) is the single shared
+     conversion point every display call site below reads through, and
+     switching units fires 'swimfit:unitschange' so the Tracker (if already
+     loaded) redraws its stats/charts immediately without needing a tab
+     revisit or reload. formatDistanceM() itself is defined near the top of
+     this file's outer IIFE (hoisted, so it's callable from anywhere) —
+     this IIFE only owns the pill-tabs themselves. */
+  (function wireUnitsToggle() {
+    var STORAGE_KEY = 'swimfit_units';
+    var tabs = document.getElementById('settingsUnitsTabs');
+    function currentUnits() {
+      try { return localStorage.getItem(STORAGE_KEY) === 'yd' ? 'yd' : 'm'; } catch (e) { return 'm'; }
+    }
+    function syncTabs(units) {
+      document.querySelectorAll('#settingsUnitsTabs [data-units-choice]').forEach(function (b) {
+        b.setAttribute('aria-selected', b.dataset.unitsChoice === units ? 'true' : 'false');
+      });
+    }
+    syncTabs(currentUnits());
+    if (tabs) {
+      tabs.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-units-choice]');
+        if (!btn) return;
+        var units = btn.dataset.unitsChoice;
+        try { localStorage.setItem(STORAGE_KEY, units); } catch (e) { /* private browsing etc. */ }
+        syncTabs(units);
+        document.dispatchEvent(new CustomEvent('swimfit:unitschange', { detail: { units: units } }));
+      });
+    }
+  })();
+
   /* ============================= SETTINGS: APPEARANCE (DARK/LIGHT) =============================
      The actual theme switch (data-theme attribute + localStorage) already
      runs synchronously in <head>, before first paint, to avoid a flash of
@@ -6365,7 +6554,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var I18N = {
       en: {
         'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
-        'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
+        'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
         'nav.signin': 'Sign In',
         'hero.eyebrow': 'Performance Swim Training · UAE',
         'hero.headline': 'Command the Water.<br>Own the <span class="accent">Race.</span>',
@@ -6377,6 +6566,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'academy.eyebrow': 'Technique Academy', 'academy.heading': 'Watch. Break Down. Improve.',
         'coach.eyebrow': 'AI Swim Coach', 'coach.heading': 'Your Coach, On Call',
         'tracker.eyebrow': 'Distance Tracker', 'tracker.heading': 'Log Your Swims, Watch The Volume Add Up',
+        'support.eyebrow': 'Support', 'support.heading': 'Talk To The Swimfit Team',
+        'support.sub': 'Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.',
         'settings.eyebrow': 'Settings', 'settings.heading': 'Your Profile, Your Preferences',
         'settings.sub': 'Update your details, set your training focus, and tune how Swimfit looks and reads for you.',
         'pricing.eyebrow': 'Membership', 'pricing.heading': 'Simple Pricing, Serious Results',
@@ -6384,7 +6575,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       },
       ar: {
         'nav.workouts': 'التمارين', 'nav.gym': 'الجيم', 'nav.gear': 'المعدات', 'nav.academy': 'الأكاديمية',
-        'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
+        'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.support': 'الدعم', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
         'nav.signin': 'تسجيل الدخول',
         'hero.eyebrow': 'تدريب السباحة الاحترافي · الإمارات',
         'hero.headline': 'تحكّم بالماء.<br>املك <span class="accent">السباق.</span>',
@@ -6396,6 +6587,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'academy.eyebrow': 'أكاديمية التقنية', 'academy.heading': 'شاهد. حلّل. تحسّن.',
         'coach.eyebrow': 'مدرب السباحة الذكي', 'coach.heading': 'مدربك، على استعداد دائم',
         'tracker.eyebrow': 'متتبع المسافة', 'tracker.heading': 'سجّل سباحاتك وشاهد حجمها يتراكم',
+        'support.eyebrow': 'الدعم', 'support.heading': 'تحدّث مع فريق Swimfit',
+        'support.sub': 'أسئلة حول حسابك أو اشتراكك أو أي شيء آخر — راسلنا مباشرة وسنرد هنا.',
         'settings.eyebrow': 'الإعدادات', 'settings.heading': 'ملفك الشخصي وتفضيلاتك',
         'settings.sub': 'حدّث بياناتك، اضبط تركيز تدريبك، واختر كيف يبدو Swimfit ويُقرأ بالنسبة لك.',
         'pricing.eyebrow': 'العضوية', 'pricing.heading': 'أسعار بسيطة، نتائج جادة',
@@ -6470,6 +6663,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      crafted prompt tries to smuggle in — can ever execute as markup. */
   var AI_COACH_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/aiSwimCoach';
   var AI_COACH_HISTORY_LIMIT = 12;
+  var AI_COACH_TIMEOUT_MS = 30000;
+
+  // Every AI Coach surface (floating widget, full-screen page, Workouts/Gym
+  // inline panels) fetches this same endpoint the same way. Without a
+  // client-side timeout, a hung request (a cold Cloud Function start, a
+  // network stall) leaves the "Thinking…" bubble stuck forever with no
+  // feedback — the fetch promise just never settles, so neither the
+  // success nor the .catch() branch below it ever fires. Wrapping every
+  // call in this timeout guarantees the promise always settles one way or
+  // another within a bounded time, turning a silent, indefinite hang into
+  // a visible, honest failure message.
+  function aiCoachFetch(idToken, body) {
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, AI_COACH_TIMEOUT_MS) : null;
+    return fetch(AI_COACH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify(body),
+      signal: controller ? controller.signal : undefined
+    }).finally(function () { if (timer) clearTimeout(timer); });
+  }
 
   (function wireAiCoach() {
     var fab = document.getElementById('coachFab');
@@ -6560,16 +6774,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       typingBubble.classList.add('coach-typing');
 
       window.__firebaseGetIdToken().then(function (idToken) {
-        return fetch(AI_COACH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-          body: JSON.stringify({
-            message: text,
-            history: historyForRequest,
-            discipline: state.disciplines.join(', '),
-            level: state.level,
-            goal: state.goal
-          })
+        return aiCoachFetch(idToken, {
+          message: text,
+          history: historyForRequest,
+          discipline: state.disciplines.join(', '),
+          level: state.level,
+          goal: state.goal
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -6584,10 +6794,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         coachHistory.push({ role: 'assistant', content: result.data.reply });
         coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
         persistHistory();
-      }).catch(function () {
+      }).catch(function (err) {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
-        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+        typingBubble.textContent = (err && err.name === 'AbortError')
+          ? 'The coach took too long to respond — please try again.'
+          : 'Network error reaching the coach — please try again.';
       }).finally(function () {
         sending = false;
         sendBtn.disabled = false;
@@ -6922,17 +7134,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       typingBubble.classList.add('coach-typing');
 
       window.__firebaseGetIdToken().then(function (idToken) {
-        return fetch(AI_COACH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-          body: JSON.stringify({
-            message: text,
-            history: historyForRequest,
-            discipline: state.disciplines.join(', '),
-            level: state.level,
-            goal: state.goal,
-            images: images.map(function (img) { return { mediaType: img.mediaType, data: img.data }; })
-          })
+        return aiCoachFetch(idToken, {
+          message: text,
+          history: historyForRequest,
+          discipline: state.disciplines.join(', '),
+          level: state.level,
+          goal: state.goal,
+          images: images.map(function (img) { return { mediaType: img.mediaType, data: img.data }; })
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -6947,10 +7155,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         thread.messages.push({ role: 'assistant', content: result.data.reply });
         thread.messages = thread.messages.slice(-AI_COACH_HISTORY_LIMIT);
         persistActiveThread(thread);
-      }).catch(function () {
+      }).catch(function (err) {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
-        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+        typingBubble.textContent = (err && err.name === 'AbortError')
+          ? 'The coach took too long to respond — please try again.'
+          : 'Network error reaching the coach — please try again.';
       }).finally(function () {
         sending = false;
         sendBtn.disabled = false;
@@ -7069,13 +7279,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var typingBubble = appendMsg('assistant', 'Thinking…');
       typingBubble.classList.add('coach-typing');
       window.__firebaseGetIdToken().then(function (idToken) {
-        return fetch(AI_COACH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-          body: JSON.stringify({
-            message: contextualMessage, history: historyForRequest,
-            discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
-          })
+        return aiCoachFetch(idToken, {
+          message: contextualMessage, history: historyForRequest,
+          discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -7089,10 +7295,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         typingBubble.textContent = result.data.reply;
         history.push({ role: 'assistant', content: result.data.reply });
         history = history.slice(-8);
-      }).catch(function () {
+      }).catch(function (err) {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
-        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+        typingBubble.textContent = (err && err.name === 'AbortError')
+          ? 'The coach took too long to respond — please try again.'
+          : 'Network error reaching the coach — please try again.';
       }).finally(function () {
         sending = false;
         sendBtn.disabled = false;
@@ -7184,13 +7392,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var typingBubble = appendMsg('assistant', 'Thinking…');
       typingBubble.classList.add('coach-typing');
       window.__firebaseGetIdToken().then(function (idToken) {
-        return fetch(AI_COACH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-          body: JSON.stringify({
-            message: contextualMessage, history: historyForRequest,
-            discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
-          })
+        return aiCoachFetch(idToken, {
+          message: contextualMessage, history: historyForRequest,
+          discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -7204,10 +7408,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         typingBubble.textContent = result.data.reply;
         history.push({ role: 'assistant', content: result.data.reply });
         history = history.slice(-8);
-      }).catch(function () {
+      }).catch(function (err) {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
-        typingBubble.textContent = 'Network error reaching the coach — please try again.';
+        typingBubble.textContent = (err && err.name === 'AbortError')
+          ? 'The coach took too long to respond — please try again.'
+          : 'Network error reaching the coach — please try again.';
       }).finally(function () {
         sending = false;
         sendBtn.disabled = false;
@@ -7343,7 +7549,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     function renderStat() {
       var since = currentView === 'daily' ? startOfDay(new Date()) : currentView === 'weekly' ? startOfWeek(new Date()) : startOfMonth(new Date());
       var totalM = sumDistance(cachedEntries.filter(function (e) { return e.loggedAt >= since; }));
-      statValue.textContent = (totalM / 1000).toFixed(2) + ' km';
+      statValue.textContent = formatDistanceM(totalM);
       statLabel.textContent = VIEW_LABELS[currentView];
 
       // Automated analytics strip — always reflects Weekly/Monthly totals and
@@ -7352,8 +7558,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       // than requiring a click through each view.
       var weekEntries = cachedEntries.filter(function (e) { return e.loggedAt >= startOfWeek(new Date()); });
       var monthEntries = cachedEntries.filter(function (e) { return e.loggedAt >= startOfMonth(new Date()); });
-      if (weeklyTotalEl) weeklyTotalEl.textContent = (sumDistance(weekEntries) / 1000).toFixed(2) + ' km';
-      if (monthlyTotalEl) monthlyTotalEl.textContent = (sumDistance(monthEntries) / 1000).toFixed(2) + ' km';
+      if (weeklyTotalEl) weeklyTotalEl.textContent = formatDistanceM(sumDistance(weekEntries));
+      if (monthlyTotalEl) monthlyTotalEl.textContent = formatDistanceM(sumDistance(monthEntries));
       if (topDisciplineEl) topDisciplineEl.textContent = computeTopDiscipline(monthEntries) || '—';
       if (caloriesEl) caloriesEl.textContent = Math.round(sumDistance(monthEntries) * CALORIES_PER_METER).toLocaleString();
       if (avgPaceEl) {
@@ -7400,17 +7606,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return '<svg class="tracker-svg-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + label + '">' + innerMarkup + '</svg>';
     }
 
-    // Last 7 calendar days (today inclusive), one bar each — distance in km.
+    // Last 7 calendar days (today inclusive), one bar each — distance in km
+    // internally for the height ratio (an arbitrary common unit works fine
+    // for scaling), but every displayed label/tooltip reads through the
+    // shared unit-aware formatDistanceM() so this respects the swimmer's
+    // Meters/Yards preference.
     function renderVolumeChart() {
       var container = document.getElementById('trackerVolumeChart');
       if (!container) return;
+      var isYards = false;
+      try { isYards = localStorage.getItem('swimfit_units') === 'yd'; } catch (e) { /* private browsing etc. */ }
       var W = 460, H = 170, padL = 6, padR = 6, padT = 20, padB = 22;
       var chartW = W - padL - padR, chartH = H - padT - padB;
       var days = [];
       for (var i = 6; i >= 0; i--) {
         var d = daysAgo(i);
         var dayTotal = sumDistance(cachedEntries.filter(function (e) { return startOfDay(e.loggedAt).getTime() === d.getTime(); }));
-        days.push({ date: d, km: dayTotal / 1000 });
+        days.push({ date: d, m: dayTotal, km: dayTotal / 1000 });
       }
       var maxKm = Math.max.apply(null, days.map(function (d) { return d.km; }).concat([0.1]));
       var barGap = 10;
@@ -7424,13 +7636,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var x = padL + idx * (barW + barGap);
         var y = padT + chartH - barH;
         var dayLabel = d.date.toLocaleDateString(undefined, { weekday: 'short' });
+        var barLabelText = isYards ? Math.round(d.m / METERS_PER_YARD).toLocaleString() : d.km.toFixed(1);
         var out = '<rect class="chart-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(barH, 1).toFixed(1) + '" rx="3">' +
-          '<title>' + dayLabel + ': ' + d.km.toFixed(2) + ' km</title></rect>';
-        if (d.km > 0) out += '<text class="chart-bar-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '">' + d.km.toFixed(1) + '</text>';
+          '<title>' + dayLabel + ': ' + formatDistanceM(d.m) + '</title></rect>';
+        if (d.km > 0) out += '<text class="chart-bar-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '">' + barLabelText + '</text>';
         out += '<text class="chart-axis-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + dayLabel + '</text>';
         return out;
       }).join('');
-      container.innerHTML = svgChart(gridLines + bars, W, H, 'Weekly volume in kilometers per day');
+      container.innerHTML = svgChart(gridLines + bars, W, H, 'Weekly volume in ' + (isYards ? 'yards' : 'kilometers') + ' per day');
     }
 
     // Average pace (seconds per 100m) for the last 10 logged swims that
@@ -7533,7 +7746,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         dateEl.textContent = entry.loggedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         var kmEl = document.createElement('span');
         kmEl.className = 'tracker-entry-km';
-        kmEl.textContent = (entry.distanceMeters / 1000).toFixed(2) + ' km';
+        kmEl.textContent = formatDistanceM(entry.distanceMeters);
         meta.appendChild(dateEl);
         meta.appendChild(kmEl);
         if (entry.discipline) {
@@ -7682,6 +7895,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         cachedEntries = []; cachedPbEntries = [];
         renderStat(); renderEntries(); renderPbChart();
       }
+    });
+    // Switching Meters/Yards in Settings redraws every distance already on
+    // screen immediately, rather than only taking effect on the next tab
+    // visit or reload.
+    document.addEventListener('swimfit:unitschange', function () {
+      renderStat();
+      renderEntries();
     });
   })();
 
@@ -8050,6 +8270,84 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         return;
       }
       if (!window.__isAdminAccount) subscribe();
+    });
+  })();
+
+  /* ============================= SUPPORT — FULL PAGE =============================
+     A dedicated, full-screen view over the exact same admin_chats/{uid} data
+     the floating widget above already reads/writes — same __adminChat*
+     bridges, so a message sent from either surface appears instantly in
+     both (and in the Admin Panel's live view) with nothing to keep in
+     sync manually. This doesn't replace the floating widget (that stays,
+     same as AI Coach keeps both its floating widget and full-screen page)
+     — it's simply a second, more spacious entry point for a swimmer who'd
+     rather not use the small corner FAB. */
+  (function wireSupportPage() {
+    var messagesEl = document.getElementById('supportPageMessages');
+    var form = document.getElementById('supportPageForm');
+    var input = document.getElementById('supportPageInput');
+    var sendBtn = document.getElementById('supportPageSendBtn');
+    if (!messagesEl || !form || !input || !sendBtn) return;
+
+    var unsubscribeMessages = null;
+    var loadedForUid = null;
+
+    function renderMessages(messages) {
+      messagesEl.innerHTML = '';
+      if (!messages.length) {
+        var row = document.createElement('div');
+        row.className = 'coach-msg coach-msg-assistant';
+        var bubble = document.createElement('div');
+        bubble.className = 'coach-bubble';
+        bubble.textContent = 'Hey! Send us a message about your account, billing, or anything else, and the Swimfit team will reply right here.';
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        return;
+      }
+      messages.forEach(function (m) {
+        var r = document.createElement('div');
+        r.className = 'coach-msg ' + (m.sender === 'admin' ? 'coach-msg-assistant' : 'coach-msg-user');
+        var b = document.createElement('div');
+        b.className = 'coach-bubble';
+        b.textContent = m.text;
+        r.appendChild(b);
+        messagesEl.appendChild(r);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function subscribeIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || loadedForUid === user.uid || typeof window.__adminChatSubscribeMessages !== 'function') return;
+      loadedForUid = user.uid;
+      if (unsubscribeMessages) unsubscribeMessages();
+      unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); }, function () {
+        messagesEl.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Could not load your messages — check your connection and try again.</p>';
+      });
+    }
+
+    document.querySelectorAll('[data-tab="support"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { setTimeout(subscribeIfNeeded, 0); });
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (e.detail.user) {
+        subscribeIfNeeded();
+      } else {
+        loadedForUid = null;
+        if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+        messagesEl.innerHTML = '';
+      }
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = (input.value || '').trim();
+      if (!text || typeof window.__adminChatReply !== 'function') return;
+      sendBtn.disabled = true;
+      window.__adminChatReply(text).then(function () { input.value = ''; }).finally(function () { sendBtn.disabled = false; });
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
     });
   })();
 
