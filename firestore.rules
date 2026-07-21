@@ -23,7 +23,11 @@ rules_version = '2';
 //                      (matched by the firebaseUid the checkout attached), never write.
 // swim_logs/{uid}/entries/{entryId} — a swimmer's manually-logged distance entries for
 //                      the Distance Tracker page. Owner-only; deletable (to fix a mislog)
-//                      but never editable in place — delete and re-log instead.
+//                      but never editable in place — delete and re-log instead. An optional
+//                      durationSeconds field feeds the Tracker's average-pace chart.
+// personal_bests/{uid}/entries/{entryId} — a swimmer's manually-logged PB times, for the
+//                      Tracker's PB progression chart. Same owner-only, create+delete,
+//                      no-edit-in-place shape as swim_logs.
 // coach_history/{uid} — persisted AI Coach chat transcript for the full-screen page. Available
 //                      to any signed-in, non-suspended swimmer — there is no paywall/tier gate
 //                      anywhere in this app anymore (see aiSwimCoach in functions/index.js).
@@ -98,12 +102,32 @@ service cloud.firestore {
     match /swim_logs/{uid}/entries/{entryId} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['distanceMeters', 'loggedAt', 'discipline', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['distanceMeters', 'loggedAt', 'discipline', 'durationSeconds', 'createdAt'])
         && request.resource.data.distanceMeters is number
         && request.resource.data.distanceMeters > 0 && request.resource.data.distanceMeters <= 100000
         && request.resource.data.loggedAt is timestamp
         && (!('discipline' in request.resource.data)
-            || (request.resource.data.discipline is string && request.resource.data.discipline.size() <= 40));
+            || (request.resource.data.discipline is string && request.resource.data.discipline.size() <= 40))
+        && (!('durationSeconds' in request.resource.data)
+            || (request.resource.data.durationSeconds is number
+                && request.resource.data.durationSeconds > 0 && request.resource.data.durationSeconds <= 36000));
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // A swimmer's manually-logged Personal Best times, for the Distance
+    // Tracker's PB progression chart — owner-only, create+delete (no
+    // in-place edit, same "fix a mislog by deleting and re-logging"
+    // pattern as swim_logs above).
+    match /personal_bests/{uid}/entries/{entryId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['discipline', 'distanceLabel', 'timeSeconds', 'loggedAt', 'createdAt'])
+        && request.resource.data.discipline is string && request.resource.data.discipline.size() <= 40
+        && request.resource.data.distanceLabel is string && request.resource.data.distanceLabel.size() <= 10
+        && request.resource.data.timeSeconds is number
+        && request.resource.data.timeSeconds > 0 && request.resource.data.timeSeconds <= 36000
+        && request.resource.data.loggedAt is timestamp;
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == uid;
     }

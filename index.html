@@ -139,13 +139,14 @@
   // (which owns all of this feature's DOM/UI logic) never needs its own
   // Firestore SDK imports.
   window.__swimLogAdd = function (entry) {
-    // entry: { distanceMeters: number, loggedAt: JS Date, discipline?: string }
+    // entry: { distanceMeters: number, loggedAt: JS Date, discipline?: string, durationSeconds?: number }
     // — plain JS values only, since the caller (the bottom <script>) has no
     // Firestore SDK imports of its own; the Timestamp/serverTimestamp
     // conversion happens here, inside the module that actually imported them.
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
     var payload = { distanceMeters: entry.distanceMeters, loggedAt: Timestamp.fromDate(entry.loggedAt), createdAt: serverTimestamp() };
     if (entry.discipline) payload.discipline = entry.discipline;
+    if (entry.durationSeconds) payload.durationSeconds = entry.durationSeconds;
     return addDoc(collection(db, 'swim_logs', auth.currentUser.uid, 'entries'), payload);
   };
   window.__swimLogQuerySince = function (sinceDate) {
@@ -158,13 +159,42 @@
     return getDocs(q).then(function (snap) {
       return snap.docs.map(function (d) {
         var data = d.data();
-        return { id: d.id, distanceMeters: data.distanceMeters, loggedAt: data.loggedAt.toDate(), discipline: data.discipline || '' };
+        return { id: d.id, distanceMeters: data.distanceMeters, loggedAt: data.loggedAt.toDate(), discipline: data.discipline || '', durationSeconds: data.durationSeconds || null };
       });
     });
   };
   window.__swimLogDelete = function (entryId) {
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
     return deleteDoc(doc(db, 'swim_logs', auth.currentUser.uid, 'entries', entryId));
+  };
+
+  // Personal Best log entries — feeds the Distance Tracker's PB progression
+  // chart. Same owner-only, create+delete (no in-place edit) shape as the
+  // swim log above.
+  window.__pbLogAdd = function (entry) {
+    // entry: { discipline: string, distanceLabel: string, timeSeconds: number, loggedAt: JS Date }
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    return addDoc(collection(db, 'personal_bests', auth.currentUser.uid, 'entries'), {
+      discipline: entry.discipline,
+      distanceLabel: entry.distanceLabel,
+      timeSeconds: entry.timeSeconds,
+      loggedAt: Timestamp.fromDate(entry.loggedAt),
+      createdAt: serverTimestamp()
+    });
+  };
+  window.__pbLogQueryAll = function () {
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    var q = query(collection(db, 'personal_bests', auth.currentUser.uid, 'entries'), orderBy('loggedAt', 'asc'));
+    return getDocs(q).then(function (snap) {
+      return snap.docs.map(function (d) {
+        var data = d.data();
+        return { id: d.id, discipline: data.discipline, distanceLabel: data.distanceLabel, timeSeconds: data.timeSeconds, loggedAt: data.loggedAt.toDate() };
+      });
+    });
+  };
+  window.__pbLogDelete = function (entryId) {
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    return deleteDoc(doc(db, 'personal_bests', auth.currentUser.uid, 'entries', entryId));
   };
 
   // Admin Panel direct-message thread — the swimmer's own side. Reading is
@@ -1710,7 +1740,7 @@ body.paywall-locked { overflow: hidden; }
 .tracker-stat-value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--aqua); line-height: 1; }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
 
-.tracker-analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
 .tracker-analytics-tile {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4);
   display: flex; flex-direction: column; gap: 6px; text-align: center;
@@ -1718,8 +1748,38 @@ body.paywall-locked { overflow: hidden; }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
 .tracker-analytics-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--green); }
 .tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; }
-@media (max-width: 640px) {
-  .tracker-analytics-grid { grid-template-columns: 1fr; }
+@media (max-width: 900px) {
+  .tracker-analytics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================= TRACKER: GOAL PROGRESS ============================= */
+.tracker-goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); }
+.tracker-goal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tracker-goal-input-row { display: flex; align-items: center; gap: 6px; }
+.tracker-goal-input-row .form-input { width: 80px; padding: 6px 10px; text-align: right; }
+.tracker-goal-unit { color: var(--muted-2); font-size: 0.85rem; }
+.tracker-progress-bar { height: 10px; border-radius: 999px; background: var(--bg-alt); overflow: hidden; border: 1px solid var(--border); }
+.tracker-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--aqua), var(--green-bright)); transition: width 500ms var(--ease); }
+.tracker-goal-note { margin-top: var(--space-2); font-size: 0.82rem; color: var(--muted-2); text-align: right; }
+
+/* ============================= TRACKER: CHARTS ============================= */
+.tracker-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); }
+.tracker-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
+.tracker-chart-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: var(--space-4); }
+.tracker-chart-empty { color: var(--muted-2); font-size: 0.85rem; text-align: center; padding: var(--space-4) 0; }
+.tracker-svg-chart { width: 100%; height: auto; overflow: visible; }
+.tracker-svg-chart .chart-grid-line { stroke: var(--border); stroke-width: 1; }
+.tracker-svg-chart .chart-axis-label { fill: var(--muted-2); font-size: 9px; font-family: var(--font-body); }
+.tracker-svg-chart .chart-bar { fill: var(--aqua); }
+.tracker-svg-chart .chart-bar:hover { fill: var(--green-bright); }
+.tracker-svg-chart .chart-bar-label { fill: var(--fg); font-size: 9px; font-family: var(--font-display); text-anchor: middle; }
+.tracker-svg-chart .chart-line { fill: none; stroke: var(--aqua); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tracker-svg-chart .chart-dot { fill: var(--surface); stroke: var(--aqua); stroke-width: 2; }
+.tracker-svg-chart .chart-dot:hover, .tracker-svg-chart .chart-dot.pb-latest { fill: var(--aqua); }
+.tracker-pb-form { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); align-items: center; }
+.tracker-pb-form .form-select, .tracker-pb-form .form-input { padding: 8px 10px; font-size: 0.85rem; width: auto; }
+@media (max-width: 900px) {
+  .tracker-charts-grid { grid-template-columns: 1fr; }
 }
 
 .tracker-entries-head { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--space-3); }
@@ -2660,6 +2720,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <input type="number" id="trackerLogKm" class="form-input" min="0.05" max="100" step="0.05" placeholder="2.5" required>
             </div>
             <div class="form-row">
+              <label for="trackerLogDuration">Duration (mm:ss) <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400;">(optional — enables pace)</span></label>
+              <input type="text" id="trackerLogDuration" class="form-input" placeholder="e.g. 45:00" pattern="^[0-9]{1,3}:[0-5][0-9]$">
+            </div>
+            <div class="form-row">
               <label for="trackerLogDiscipline">Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400;">(optional)</span></label>
               <select id="trackerLogDiscipline" class="form-select">
                 <option value="">Mixed / Unspecified</option>
@@ -2698,6 +2762,64 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <span class="tracker-analytics-label">Most Swum Discipline</span>
             <span class="tracker-analytics-value tracker-analytics-value-text" id="trackerTopDiscipline">—</span>
           </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Est. Calories (Month)</span>
+            <span class="tracker-analytics-value" id="trackerCalories">0</span>
+          </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Avg Pace / 100m</span>
+            <span class="tracker-analytics-value tracker-analytics-value-text" id="trackerAvgPace">—</span>
+          </div>
+        </div>
+
+        <div class="tracker-goal-card">
+          <div class="tracker-goal-head">
+            <span>Weekly Volume Goal</span>
+            <div class="tracker-goal-input-row">
+              <input type="number" id="trackerGoalInput" class="form-input" min="1" max="200" step="0.5">
+              <span class="tracker-goal-unit">km</span>
+            </div>
+          </div>
+          <div class="tracker-progress-bar"><div class="tracker-progress-fill" id="trackerGoalFill"></div></div>
+          <p class="tracker-goal-note" id="trackerGoalNote">0.00 / 0.00 km this week</p>
+        </div>
+
+        <div class="tracker-charts-grid">
+          <div class="tracker-chart-card">
+            <h3 class="tracker-chart-title">Weekly Volume Breakdown</h3>
+            <div id="trackerVolumeChart"></div>
+          </div>
+          <div class="tracker-chart-card">
+            <h3 class="tracker-chart-title">Average Pace Trend</h3>
+            <div id="trackerPaceChart"></div>
+            <p class="tracker-chart-empty" id="trackerPaceEmpty">Log a swim with a duration to start tracking pace.</p>
+          </div>
+        </div>
+
+        <div class="tracker-chart-card tracker-pb-card">
+          <h3 class="tracker-chart-title">Personal Best Progression</h3>
+          <form class="tracker-pb-form" id="trackerPbForm">
+            <select id="trackerPbDiscipline" class="form-select" aria-label="Discipline">
+              <option value="Freestyle">Freestyle</option>
+              <option value="Backstroke">Backstroke</option>
+              <option value="Breaststroke">Breaststroke</option>
+              <option value="Butterfly">Butterfly</option>
+              <option value="Medley">Medley</option>
+            </select>
+            <select id="trackerPbDistance" class="form-select" aria-label="Distance">
+              <option value="50m">50m</option>
+              <option value="100m">100m</option>
+              <option value="200m">200m</option>
+              <option value="400m">400m</option>
+            </select>
+            <label for="trackerPbTime" class="sr-only">Time</label>
+            <input type="text" id="trackerPbTime" class="form-input" placeholder="Time — e.g. 0:32 or 1:05" required>
+            <label for="trackerPbDate" class="sr-only">Date</label>
+            <input type="date" id="trackerPbDate" class="form-input" required>
+            <button type="submit" class="btn btn-outline-aqua btn-sm">Log PB</button>
+          </form>
+          <div id="trackerPbChart"></div>
+          <p class="tracker-chart-empty" id="trackerPbEmpty">Log at least two times for the same discipline + distance to see a progression trend.</p>
         </div>
 
         <h3 class="tracker-entries-head">Recent Swims</h3>
@@ -5492,6 +5614,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var form = document.getElementById('trackerLogForm');
     var dateInput = document.getElementById('trackerLogDate');
     var kmInput = document.getElementById('trackerLogKm');
+    var durationInput = document.getElementById('trackerLogDuration');
     var disciplineSelect = document.getElementById('trackerLogDiscipline');
     var statusNote = document.getElementById('trackerLogStatus');
     var viewButtons = document.querySelectorAll('#trackerViewTabs [data-tracker-view]');
@@ -5500,14 +5623,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var weeklyTotalEl = document.getElementById('trackerWeeklyTotal');
     var monthlyTotalEl = document.getElementById('trackerMonthlyTotal');
     var topDisciplineEl = document.getElementById('trackerTopDiscipline');
+    var caloriesEl = document.getElementById('trackerCalories');
+    var avgPaceEl = document.getElementById('trackerAvgPace');
     var entriesList = document.getElementById('trackerEntriesList');
     var signInBtn = document.getElementById('trackerSignInBtn');
+    var goalInput = document.getElementById('trackerGoalInput');
+    var goalFill = document.getElementById('trackerGoalFill');
+    var goalNote = document.getElementById('trackerGoalNote');
+    var pbForm = document.getElementById('trackerPbForm');
+    var pbDisciplineSelect = document.getElementById('trackerPbDiscipline');
+    var pbDistanceSelect = document.getElementById('trackerPbDistance');
+    var pbTimeInput = document.getElementById('trackerPbTime');
+    var pbDateInput = document.getElementById('trackerPbDate');
     if (!form || !dateInput || !kmInput || !entriesList) return;
 
     var currentView = 'daily';
-    var cachedEntries = []; // { id, distanceMeters, loggedAt: Date, discipline }
+    var cachedEntries = []; // { id, distanceMeters, loggedAt: Date, discipline, durationSeconds }
+    var cachedPbEntries = []; // { id, discipline, distanceLabel, timeSeconds, loggedAt: Date }
     var loadedForUid = null;
+    var pbLoadedForUid = null;
     var VIEW_LABELS = { daily: 'Logged Today', weekly: 'This Week', monthly: 'This Month' };
+    var CALORIES_PER_METER = 0.2; // rough estimate for moderate-intensity swimming — not medical advice
 
     if (signInBtn) signInBtn.addEventListener('click', function () { if (typeof openAuthModal === 'function') openAuthModal(); });
 
@@ -5518,13 +5654,40 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     }
     dateInput.value = todayIsoDate();
     dateInput.max = todayIsoDate();
+    if (pbDateInput) { pbDateInput.value = todayIsoDate(); pbDateInput.max = todayIsoDate(); }
 
     function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
     function startOfWeek(d) { var x = startOfDay(d); var day = x.getDay(); x.setDate(x.getDate() - (day === 0 ? 6 : day - 1)); return x; }
     function startOfMonth(d) { var x = startOfDay(d); x.setDate(1); return x; }
+    function daysAgo(n) { var d = startOfDay(new Date()); d.setDate(d.getDate() - n); return d; }
+
+    // mm:ss (or h:mm:ss for a very long swim) — a stricter, purpose-built
+    // parser than parseTimeToSeconds's forgiving "1m 5s" grammar, since this
+    // field's placeholder promises an exact mm:ss shape.
+    function parseDurationToSeconds(str) {
+      if (!str) return null;
+      var parts = str.trim().split(':').map(function (p) { return parseInt(p, 10); });
+      if (parts.some(function (p) { return isNaN(p) || p < 0; })) return null;
+      var seconds = 0;
+      parts.forEach(function (p) { seconds = seconds * 60 + p; });
+      return seconds > 0 ? seconds : null;
+    }
 
     function sumDistance(entries) {
       return entries.reduce(function (sum, e) { return sum + e.distanceMeters; }, 0);
+    }
+
+    function computePace100(entry) {
+      if (!entry.durationSeconds) return null;
+      return entry.durationSeconds / (entry.distanceMeters / 100);
+    }
+
+    function computeAvgPace(entries) {
+      var withPace = entries.filter(function (e) { return !!e.durationSeconds; });
+      if (!withPace.length) return null;
+      var totalSec = withPace.reduce(function (s, e) { return s + e.durationSeconds; }, 0);
+      var totalM = withPace.reduce(function (s, e) { return s + e.distanceMeters; }, 0);
+      return totalSec / (totalM / 100);
     }
 
     // Ranked by total distance rather than entry count — two long swims of
@@ -5559,6 +5722,163 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       if (weeklyTotalEl) weeklyTotalEl.textContent = (sumDistance(weekEntries) / 1000).toFixed(2) + ' km';
       if (monthlyTotalEl) monthlyTotalEl.textContent = (sumDistance(monthEntries) / 1000).toFixed(2) + ' km';
       if (topDisciplineEl) topDisciplineEl.textContent = computeTopDiscipline(monthEntries) || '—';
+      if (caloriesEl) caloriesEl.textContent = Math.round(sumDistance(monthEntries) * CALORIES_PER_METER).toLocaleString();
+      if (avgPaceEl) {
+        var avgPace = computeAvgPace(monthEntries);
+        avgPaceEl.textContent = avgPace != null ? formatTime(avgPace) : '—';
+      }
+      renderGoalProgress();
+      renderVolumeChart();
+      renderPaceChart();
+    }
+
+    // ============================= ANALYTICS-DASHBOARD CHARTS =============================
+    // Every chart here is a hand-rolled inline SVG (no external chart
+    // library) — a single accent hue, recessive grid lines, and a native
+    // <title> per mark for a zero-JS hover tooltip, consistent with the
+    // rest of this file's "no build step, no dependencies" approach.
+    var GOAL_STORAGE_KEY = 'swimfit_weekly_goal_km';
+    function loadWeeklyGoalKm() {
+      try {
+        var v = parseFloat(localStorage.getItem(GOAL_STORAGE_KEY));
+        return v > 0 ? v : 10;
+      } catch (e) { return 10; }
+    }
+    function saveWeeklyGoalKm(v) {
+      try { localStorage.setItem(GOAL_STORAGE_KEY, String(v)); } catch (e) { /* private browsing etc. */ }
+    }
+    if (goalInput) {
+      goalInput.value = loadWeeklyGoalKm();
+      goalInput.addEventListener('change', function () {
+        var v = parseFloat(goalInput.value);
+        if (v > 0) { saveWeeklyGoalKm(v); renderGoalProgress(); }
+      });
+    }
+    function renderGoalProgress() {
+      if (!goalFill) return;
+      var goal = loadWeeklyGoalKm();
+      var weekKm = sumDistance(cachedEntries.filter(function (e) { return e.loggedAt >= startOfWeek(new Date()); })) / 1000;
+      var pct = goal > 0 ? Math.min(100, (weekKm / goal) * 100) : 0;
+      goalFill.style.width = pct + '%';
+      if (goalNote) goalNote.textContent = weekKm.toFixed(2) + ' / ' + goal.toFixed(2) + ' km this week';
+    }
+
+    function svgChart(innerMarkup, w, h, label) {
+      return '<svg class="tracker-svg-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + label + '">' + innerMarkup + '</svg>';
+    }
+
+    // Last 7 calendar days (today inclusive), one bar each — distance in km.
+    function renderVolumeChart() {
+      var container = document.getElementById('trackerVolumeChart');
+      if (!container) return;
+      var W = 460, H = 170, padL = 6, padR = 6, padT = 20, padB = 22;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var days = [];
+      for (var i = 6; i >= 0; i--) {
+        var d = daysAgo(i);
+        var dayTotal = sumDistance(cachedEntries.filter(function (e) { return startOfDay(e.loggedAt).getTime() === d.getTime(); }));
+        days.push({ date: d, km: dayTotal / 1000 });
+      }
+      var maxKm = Math.max.apply(null, days.map(function (d) { return d.km; }).concat([0.1]));
+      var barGap = 10;
+      var barW = (chartW - barGap * (days.length - 1)) / days.length;
+      var gridLines = [0, 0.5, 1].map(function (f) {
+        var y = padT + chartH * (1 - f);
+        return '<line class="chart-grid-line" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '"/>';
+      }).join('');
+      var bars = days.map(function (d, idx) {
+        var barH = maxKm > 0 ? (d.km / maxKm) * chartH : 0;
+        var x = padL + idx * (barW + barGap);
+        var y = padT + chartH - barH;
+        var dayLabel = d.date.toLocaleDateString(undefined, { weekday: 'short' });
+        var out = '<rect class="chart-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(barH, 1).toFixed(1) + '" rx="3">' +
+          '<title>' + dayLabel + ': ' + d.km.toFixed(2) + ' km</title></rect>';
+        if (d.km > 0) out += '<text class="chart-bar-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '">' + d.km.toFixed(1) + '</text>';
+        out += '<text class="chart-axis-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + dayLabel + '</text>';
+        return out;
+      }).join('');
+      container.innerHTML = svgChart(gridLines + bars, W, H, 'Weekly volume in kilometers per day');
+    }
+
+    // Average pace (seconds per 100m) for the last 10 logged swims that
+    // included a duration — only entries with a duration carry a pace at
+    // all, so a swimmer who never logs one simply never sees this chart.
+    function renderPaceChart() {
+      var container = document.getElementById('trackerPaceChart');
+      var emptyEl = document.getElementById('trackerPaceEmpty');
+      if (!container) return;
+      var withPace = cachedEntries.filter(function (e) { return !!e.durationSeconds; })
+        .slice().sort(function (a, b) { return a.loggedAt - b.loggedAt; }).slice(-10);
+      if (withPace.length < 2) {
+        container.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      var W = 460, H = 170, padL = 12, padR = 12, padT = 16, padB = 22;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var paces = withPace.map(computePace100);
+      var minP = Math.min.apply(null, paces), maxP = Math.max.apply(null, paces);
+      var range = Math.max(maxP - minP, 1);
+      var pts = withPace.map(function (e, idx) {
+        var x = padL + (idx / (withPace.length - 1)) * chartW;
+        var y = padT + ((computePace100(e) - minP) / range) * chartH;
+        return { x: x, y: y, e: e };
+      });
+      var pathD = pts.map(function (p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ');
+      var dots = pts.map(function (p, idx) {
+        return '<circle class="chart-dot' + (idx === pts.length - 1 ? ' pb-latest' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4">' +
+          '<title>' + p.e.loggedAt.toLocaleDateString() + ': ' + formatTime(computePace100(p.e)) + '/100m</title></circle>';
+      }).join('');
+      container.innerHTML = svgChart('<path class="chart-line" d="' + pathD + '"/>' + dots, W, H, 'Average pace per 100 meters trend');
+    }
+
+    // Charts whichever discipline+distance combo has the most logged PB
+    // entries (the one with real trend data), rather than asking the
+    // swimmer to pick — with only one PB series shown at a time, per this
+    // file's "one axis, no dual-scale" chart convention elsewhere.
+    function bestPbGroup() {
+      var groups = {};
+      cachedPbEntries.forEach(function (e) {
+        var key = e.discipline + '|' + e.distanceLabel;
+        (groups[key] = groups[key] || []).push(e);
+      });
+      var bestKey = null, bestCount = 1;
+      Object.keys(groups).forEach(function (k) {
+        if (groups[k].length > bestCount) { bestKey = k; bestCount = groups[k].length; }
+      });
+      return bestKey ? { key: bestKey, entries: groups[bestKey].slice().sort(function (a, b) { return a.loggedAt - b.loggedAt; }) } : null;
+    }
+    function renderPbChart() {
+      var container = document.getElementById('trackerPbChart');
+      var emptyEl = document.getElementById('trackerPbEmpty');
+      if (!container) return;
+      var group = bestPbGroup();
+      if (!group) {
+        container.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      var entries = group.entries;
+      var W = 460, H = 170, padL = 12, padR = 12, padT = 30, padB = 12;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var times = entries.map(function (e) { return e.timeSeconds; });
+      var minT = Math.min.apply(null, times), maxT = Math.max.apply(null, times);
+      var range = Math.max(maxT - minT, 1);
+      var pts = entries.map(function (e, idx) {
+        var x = padL + (entries.length === 1 ? 0 : (idx / (entries.length - 1)) * chartW);
+        var y = padT + ((e.timeSeconds - minT) / range) * chartH;
+        return { x: x, y: y, e: e };
+      });
+      var pathD = pts.map(function (p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ');
+      var dots = pts.map(function (p, idx) {
+        return '<circle class="chart-dot' + (idx === pts.length - 1 ? ' pb-latest' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4">' +
+          '<title>' + p.e.loggedAt.toLocaleDateString() + ': ' + formatTime(p.e.timeSeconds) + '</title></circle>';
+      }).join('');
+      var parts = group.key.split('|');
+      var caption = '<text class="chart-axis-label" x="' + padL + '" y="14" style="font-size:11px; fill:var(--aqua);">' + parts[0] + ' — ' + parts[1] + '</text>';
+      container.innerHTML = svgChart(caption + '<path class="chart-line" d="' + pathD + '"/>' + dots, W, H, 'Personal best time progression for ' + parts[0] + ' ' + parts[1]);
     }
 
     function renderEntries() {
@@ -5610,20 +5930,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       }).catch(function () {});
     }
 
-    // Bounded to the current month's start — that already covers all three
-    // views (daily/weekly/monthly), so there's no need to fetch older history
-    // just for this page's aggregates.
+    // Bounded to the current month's start for the Daily/Weekly/Monthly
+    // views and analytics strip — but never any narrower than 7 days back,
+    // so the Weekly Volume chart always has full 7-day coverage even during
+    // the first few days of a new month.
     function loadEntriesIfNeeded() {
       var user = window.__firebaseUser;
       if (!user || loadedForUid === user.uid || typeof window.__swimLogQuerySince !== 'function') return;
       loadedForUid = user.uid;
-      window.__swimLogQuerySince(startOfMonth(new Date())).then(function (entries) {
+      var since = startOfMonth(new Date());
+      var sevenDaysBack = daysAgo(6);
+      if (sevenDaysBack < since) since = sevenDaysBack;
+      window.__swimLogQuerySince(since).then(function (entries) {
         cachedEntries = entries;
         renderStat();
         renderEntries();
       }).catch(function () {
         entriesList.innerHTML = '<p class="tracker-empty">Couldn\'t load your log — please try again.</p>';
       });
+    }
+
+    function loadPbEntriesIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || pbLoadedForUid === user.uid || typeof window.__pbLogQueryAll !== 'function') return;
+      pbLoadedForUid = user.uid;
+      window.__pbLogQueryAll().then(function (entries) {
+        cachedPbEntries = entries;
+        renderPbChart();
+      }).catch(function () {});
     }
 
     viewButtons.forEach(function (btn) {
@@ -5644,18 +5978,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         statusNote.textContent = 'Enter a distance between 0 and 100 km.';
         return;
       }
+      var durationSeconds = durationInput ? parseDurationToSeconds(durationInput.value) : null;
+      if (durationInput && durationInput.value && !durationSeconds) {
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = 'Enter duration as mm:ss, e.g. 45:00.';
+        return;
+      }
       var loggedDate = dateInput.value ? new Date(dateInput.value + 'T12:00:00') : new Date();
       var distanceMeters = Math.round(km * 1000);
       var discipline = (disciplineSelect && disciplineSelect.value) || '';
 
       var submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
-      window.__swimLogAdd({ distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline }).then(function (ref) {
-        cachedEntries.unshift({ id: ref.id, distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline });
+      var payload = { distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline };
+      if (durationSeconds) payload.durationSeconds = durationSeconds;
+      window.__swimLogAdd(payload).then(function (ref) {
+        cachedEntries.unshift({ id: ref.id, distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline, durationSeconds: durationSeconds });
         cachedEntries.sort(function (a, b) { return b.loggedAt - a.loggedAt; });
         renderStat();
         renderEntries();
         kmInput.value = '';
+        if (durationInput) durationInput.value = '';
         statusNote.style.color = '';
         statusNote.textContent = 'Logged ' + km.toFixed(2) + ' km.';
       }).catch(function () {
@@ -5666,11 +6009,46 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       });
     });
 
+    if (pbForm) {
+      pbForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!window.__firebaseUser || typeof window.__pbLogAdd !== 'function') return;
+        var timeSeconds = parseTimeToSeconds(pbTimeInput.value);
+        if (!timeSeconds) return;
+        var loggedDate = pbDateInput && pbDateInput.value ? new Date(pbDateInput.value + 'T12:00:00') : new Date();
+        var entry = {
+          discipline: pbDisciplineSelect.value,
+          distanceLabel: pbDistanceSelect.value,
+          timeSeconds: timeSeconds,
+          loggedAt: loggedDate
+        };
+        var submitBtn = pbForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        window.__pbLogAdd(entry).then(function (ref) {
+          cachedPbEntries.push({ id: ref.id, discipline: entry.discipline, distanceLabel: entry.distanceLabel, timeSeconds: timeSeconds, loggedAt: loggedDate });
+          renderPbChart();
+          pbTimeInput.value = '';
+        }).catch(function () {}).finally(function () {
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
     document.querySelectorAll('[data-tab="tracker"]').forEach(function (btn) {
-      btn.addEventListener('click', function () { setTimeout(loadEntriesIfNeeded, 0); });
+      btn.addEventListener('click', function () {
+        setTimeout(loadEntriesIfNeeded, 0);
+        setTimeout(loadPbEntriesIfNeeded, 0);
+      });
     });
     document.addEventListener('swimfit:authchange', function (e) {
-      if (e.detail.user) { loadEntriesIfNeeded(); } else { loadedForUid = null; cachedEntries = []; renderStat(); renderEntries(); }
+      if (e.detail.user) {
+        loadEntriesIfNeeded();
+        loadPbEntriesIfNeeded();
+      } else {
+        loadedForUid = null; pbLoadedForUid = null;
+        cachedEntries = []; cachedPbEntries = [];
+        renderStat(); renderEntries(); renderPbChart();
+      }
     });
   })();
 
