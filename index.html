@@ -5007,6 +5007,102 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   var ARCHETYPE_POOLS = { speed: SPEED_ARCHETYPES, endurance: ENDURANCE_ARCHETYPES, technique: TECHNIQUE_ARCHETYPES };
 
+  // Pre-Set archetypes: the second of four stages in every generated workout
+  // (Warm-Up → Pre-Set → Main Set → Cool-Down), always exactly one per
+  // session — a short, purposeful bridge that primes the specific energy
+  // system/stroke feel the Main Set is about to demand, using the kind of
+  // set-type vocabulary a real head coach actually writes on a whiteboard
+  // rather than a generic "medium effort swim."
+  var PRESET_ARCHETYPES = [
+    {
+      name: 'Descending 1-4',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var repDist = Math.max(50, Math.round((shareM / 4) / 50) * 50);
+        var stroke = nextStroke();
+        var offsets = [10, 6, 2, -2];
+        var sets = offsets.map(function (off, idx) {
+          var tail = idx === 3 ? 'fastest of the four' : 'faster than the last';
+          return buildSet(1, repDist, stroke + ', Descend ' + (idx + 1) + ' of 4 — ' + tail, [], pace100 + off, 15, scaler, idx === 3 ? '200 Pace' : null);
+        });
+        return [{ label: 'Descending 1-4', sets: sets }];
+      },
+      intents: [
+        'A classic descending set — each rep lands faster than the one before it, which only works if you deliberately hold something back on Descend 1. It teaches pace control better than any flat repeat set, since there\'s nowhere left to hide by the fourth rep.'
+      ]
+    },
+    {
+      name: 'Broken Build-Up',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var n = 4;
+        var repDist = Math.max(50, Math.round((shareM / n) / 50) * 50);
+        var stroke = nextStroke();
+        var totalDist = repDist * n;
+        var sets = [];
+        for (var i = 0; i < n; i++) {
+          var off = 8 - i * 2;
+          sets.push(buildSet(1, repDist, stroke + ', broken ' + totalDist + 'm — segment ' + (i + 1) + ' of ' + n + ', build the effort each one', [], pace100 + off, 8, scaler, null));
+        }
+        return [{ label: 'Broken ' + totalDist + ' Build', sets: sets }];
+      },
+      intents: [
+        'Breaking a longer swim into short-rest segments lets you hold a faster overall pace than swimming it continuously would allow — the 8-second rest is just enough to keep the effort honest without turning into a real recovery. It bridges short-rep speed and true distance-per-effort swimming.'
+      ]
+    },
+    {
+      name: 'Negative Split Swim',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var half = Math.max(50, Math.round((shareM / 2) / 50) * 50);
+        var stroke = nextStroke();
+        var sets = [
+          buildSet(1, half, stroke + ', negative split — first half, controlled and relaxed', [], pace100 + 6, 15, scaler, null),
+          buildSet(1, half, stroke + ', negative split — second half, faster than the first', [], pace100, 15, scaler, '200 Pace')
+        ];
+        return [{ label: 'Negative Split ' + (half * 2) + 'm', sets: sets }];
+      },
+      intents: [
+        'Negative splitting — swimming the second half faster than the first — is the pacing discipline behind almost every well-executed race. Practicing it here builds the habit of holding back early rather than paying for it at the finish.'
+      ]
+    },
+    {
+      name: 'SWOLF Efficiency Set',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(6, Math.round(shareM / 50));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 50, stroke + ', SWOLF focus — add your stroke count and time for each length, aim to lower that total every couple of reps', [], pace100 + 8, 20, scaler, 'Drill Pace')];
+        return [{ label: null, sets: sets }];
+      },
+      intents: [
+        'SWOLF — stroke count plus time, added together — is the single best number for tracking efficiency, since a lower score means covering the same water with less wasted effort rather than just swimming harder. This set asks you to chase a lower number, not a faster clock.'
+      ]
+    },
+    {
+      name: 'Choice Drill Ladder',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var stroke = nextStroke();
+        var rungs = [25, 50, 75, 100];
+        var sets = rungs.map(function (d) {
+          return buildSet(1, d, stroke + ', choice drill — pick whichever drill needs the most work today', [], pace100 + 10, 15, scaler, 'Drill Pace');
+        });
+        return [{ label: 'Choice Drill Ladder 25-50-75-100', sets: sets }];
+      },
+      intents: [
+        'Letting you choose the drill at every rung keeps this set self-correcting — you\'ll naturally gravitate toward whatever flaw is bothering you most that day, exactly the kind of targeted work a fixed drill list can\'t offer.'
+      ]
+    },
+    {
+      name: 'Heart-Rate Target Pace',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var n = roundCountFor(scaler);
+        var stroke = nextStroke();
+        var sets = [buildSet(n, 100, stroke + ', hold Zone 3 effort — moderate-hard, "comfortably uncomfortable," not a sprint', [], pace100 + 4, 20, scaler, '200 Pace')];
+        return [{ label: null, sets: sets }];
+      },
+      intents: [
+        'Training by effort zone rather than pure pace keeps the workload honest on a day your stroke feels off or the water\'s choppy — "Zone 3, comfortably uncomfortable" always means the same physiological demand, even when the clock doesn\'t cooperate.'
+      ]
+    }
+  ];
+
   var TIPS_BY_DISCIPLINE = {
     'Freestyle': 'Keep a high-elbow catch and rotate through the hips, not just the shoulders.',
     'Backstroke': 'Keep your head still and level — just a slight ripple at the crown, eyes on the ceiling.',
@@ -5053,9 +5149,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     var nextStroke = makeStrokeRotator(state.disciplines);
     var disciplinesLabel = state.disciplines.map(strokeLabelSingle).join(' + ');
-    var warmupM = Math.round((totalM * 0.12) / 100) * 100 || 200;
-    var mainM = Math.round((totalM * 0.68) / 100) * 100;
-    var cooldownM = Math.max(100, totalM - warmupM - mainM);
+    var warmupM = Math.round((totalM * 0.10) / 100) * 100 || 200;
+    var presetM = Math.round((totalM * 0.15) / 100) * 100 || 200;
+    var mainM = Math.round((totalM * 0.55) / 100) * 100;
+    var cooldownM = Math.max(100, totalM - warmupM - presetM - mainM);
     var noScale = { intervalMult: 1, restAdd: 0 };
 
     var warmup = [
@@ -5066,6 +5163,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       warmup.push(buildSet(4, 25, nextStroke() + ', quick build — rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
     }
     var warmupIntent = pickOne(WARMUP_INTENTS[state.level]);
+
+    // Pre-Set: always exactly one archetype — a short, purposeful bridge
+    // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
+    // second of this generator's four fixed stages.
+    var presetArchetype = pickOne(PRESET_ARCHETYPES);
+    var preset = {
+      name: presetArchetype.name,
+      rounds: presetArchetype.build(presetM, pace100, scaler, nextStroke),
+      intent: pickOne(presetArchetype.intents)
+    };
 
     var pool = ARCHETYPE_POOLS[state.goal];
     var chosenArchetypes = pickN(pool, Math.min(scaler.blocks, pool.length));
@@ -5088,6 +5195,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var cooldownIntent = pickOne(COOLDOWN_INTENTS[state.level]);
 
     var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], warmupIntent) +
+      renderBlock('Pre-Set — ' + preset.name, preset.rounds, preset.intent) +
       main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, block.intent); }).join('') +
       renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
 
