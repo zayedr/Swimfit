@@ -6178,19 +6178,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var SETTINGS_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
     var usernameCheckToken = 0;
 
-    // A stored avatarDataUrl that fails to decode for any reason (corrupted
-    // in transit, an unexpected non-image value) must never leave the
-    // browser's broken-image glyph on screen — fall back to the same empty
-    // state a swimmer with no avatar at all sees.
+    // Load-then-reveal, never show-then-hide-on-error: the <img> stays
+    // hidden behind the placeholder until it has actually finished
+    // decoding successfully, so a bad/corrupted avatarDataUrl (or one that
+    // simply fails to load) can never flash the browser's broken-image
+    // glyph on screen even for an instant — the previous approach (show
+    // immediately, hide on 'error') left exactly that gap.
+    avatarPreview.addEventListener('load', function () {
+      if (!avatarPreview.getAttribute('src')) return;
+      avatarPreview.hidden = false;
+      if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
+    });
     avatarPreview.addEventListener('error', function () { showAvatar(null); });
     function showAvatar(dataUrl) {
       if (dataUrl) {
-        avatarPreview.src = dataUrl;
-        avatarPreview.hidden = false;
-        if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
+        avatarPreview.hidden = true;
+        if (avatarPlaceholder) avatarPlaceholder.style.display = '';
+        avatarPreview.src = dataUrl; // reveals itself via the 'load' handler above once decoded
       } else {
         avatarPreview.hidden = true;
-        avatarPreview.src = '';
+        avatarPreview.removeAttribute('src');
         if (avatarPlaceholder) avatarPlaceholder.style.display = '';
       }
     }
@@ -6469,14 +6476,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   (function wireNavAvatar() {
     var img = document.getElementById('navAvatar');
     if (!img) return;
-    window.__updateNavAvatar = function (dataUrl) {
-      if (dataUrl) { img.src = dataUrl; img.hidden = false; }
-      else { img.hidden = true; img.src = ''; }
-    };
-    // Same "never show a broken-image glyph" guarantee as the Settings
-    // avatar preview — a stored value that fails to decode just hides the
-    // image instead of leaving the browser's broken-icon placeholder.
+    // Same load-then-reveal guarantee as the Settings avatar preview: stay
+    // hidden until the image has actually finished decoding successfully,
+    // so a bad/corrupted value can never flash the browser's broken-image
+    // glyph in the nav even for an instant.
+    img.addEventListener('load', function () {
+      if (!img.getAttribute('src')) return;
+      img.hidden = false;
+    });
     img.addEventListener('error', function () { window.__updateNavAvatar(null); });
+    window.__updateNavAvatar = function (dataUrl) {
+      if (dataUrl) { img.hidden = true; img.src = dataUrl; }
+      else { img.hidden = true; img.removeAttribute('src'); }
+    };
     document.addEventListener('swimfit:authchange', function (e) {
       if (!e.detail.user) { window.__updateNavAvatar(null); return; }
       if (typeof window.__userProfileGet !== 'function') return;
@@ -6888,6 +6900,34 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return threads.find(function (t) { return t.id === activeThreadId; }) || null;
     }
 
+    // A real, previously-live bug: loadThreadsIfNeeded() loads/creates a
+    // thread asynchronously the moment the Coach tab is clicked, but a
+    // swimmer can easily submit a message before that network round-trip
+    // resolves (any real latency at all is enough — this was never caught
+    // by earlier tests, which always waited for the load first). When that
+    // happened, the submit handler's `if (!thread) return;` silently
+    // dropped the message before ever calling the AI backend — the
+    // swimmer's text still rendered (looked sent), but no request was ever
+    // made and no error ever shown. The floating widget never hit this
+    // because it has no thread concept at all, just one in-memory array
+    // that's always ready — which is exactly why "the widget works but the
+    // full page doesn't", despite both calling the identical aiCoachFetch()
+    // helper against the identical endpoint. ensureActiveThread() closes
+    // that gap: a locally-synthesized thread (a client-chosen id is a
+    // perfectly valid Firestore document id via the setDoc-based
+    // __coachThreadSave, so no round-trip is needed before the first
+    // message can go out) is available the instant the input has focus.
+    function ensureActiveThread() {
+      var thread = activeThread();
+      if (thread) return thread;
+      var id = 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      thread = { id: id, title: DEFAULT_THREAD_TITLE, messages: [], updatedAt: Date.now() };
+      threads.unshift(thread);
+      activeThreadId = id;
+      renderThreadsList();
+      return thread;
+    }
+
     window.renderCoachPageGate = function () {
       if (!chatWrapEl) return;
       var allowed = coachPageTierAllowed();
@@ -7133,8 +7173,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       renderAttachments();
       resetHint();
 
-      var thread = activeThread();
-      if (!thread) return;
+      var thread = ensureActiveThread();
 
       sending = true;
       sendBtn.disabled = true;
@@ -7214,6 +7253,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       threadsLoadedForUid = user.uid;
       if (typeof window.__coachThreadsList !== 'function') return;
       window.__coachThreadsList(user.uid).then(function (list) {
+        // If the swimmer already started chatting before this network
+        // round-trip resolved — see ensureActiveThread(), which exists
+        // precisely because a message must never wait on this — leave that
+        // thread alone. Overwriting `threads` here would silently discard
+        // whatever was just sent and switch away to a stale/different one.
+        var alreadyActive = threads.find(function (t) { return t.id === activeThreadId; });
+        if (alreadyActive && alreadyActive.messages.length) return;
         if (list.length) {
           threads = list;
           activeThreadId = threads[0].id;
