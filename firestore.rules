@@ -30,6 +30,9 @@ rules_version = '2';
 //                      Text only — image attachments are never persisted here, only a
 //                      placeholder, to stay well under the 1 MiB document size limit and to
 //                      avoid ever storing image bytes twice.
+// coach_widget_history/{uid} — identical shape/rules, but for the floating AI Coach widget's
+//                      own transcript, kept in a separate doc so it never collides with the
+//                      full-screen page's saved conversation above.
 // admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
 //                      unreadForUser, etc) plus the /messages subcollection itself. Real-time
 //                      on both sides: the owning swimmer reads/writes their own thread (sender
@@ -106,6 +109,16 @@ service cloud.firestore {
     }
 
     match /coach_history/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['messages', 'updatedAt'])
+        && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+    }
+
+    // Same shape as coach_history, but for the floating AI Coach widget's
+    // own transcript — kept in a separate document so the widget and the
+    // full-screen page never overwrite each other's saved conversation.
+    match /coach_widget_history/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['messages', 'updatedAt'])

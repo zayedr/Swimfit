@@ -112,14 +112,26 @@
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
   };
 
-  // Persisted AI Coach chat history (Elite/Ultra/trial only — see coach_history
-  // rules in firestore.rules) for the full-screen Coach page. Text only, never
-  // image bytes — kept well under Firestore's 1 MiB document limit.
+  // Persisted AI Coach chat history for the full-screen Coach page — any
+  // signed-in, non-suspended swimmer (no tier gate; see coach_history rules
+  // in firestore.rules). Text only, never image bytes — kept well under
+  // Firestore's 1 MiB document limit.
   window.__coachHistoryLoad = function (uid) {
     return getDoc(doc(db, 'coach_history', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
   };
   window.__coachHistorySave = function (uid, messages) {
     return setDoc(doc(db, 'coach_history', uid), { messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
+  };
+
+  // Same persistence, separate document, for the floating AI Coach widget —
+  // a distinct surface/context from the full-screen page, so its transcript
+  // is kept in its own coach_widget_history/{uid} doc rather than merging
+  // (and confusing) the two conversations.
+  window.__coachWidgetHistoryLoad = function (uid) {
+    return getDoc(doc(db, 'coach_widget_history', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
+  };
+  window.__coachWidgetHistorySave = function (uid, messages) {
+    return setDoc(doc(db, 'coach_widget_history', uid), { messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
   };
 
   // Distance Tracker data-access bridges — same "expose a narrow function on
@@ -705,11 +717,6 @@ input, textarea, select { font: inherit; color: inherit; }
      to match the brand automatically. Left empty, a photographic-style gradient
      (light rays + vignette) fills the same role. */
   --hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135528_43b7492d-7223-413c-94ce-79f00f825a00.png');
-  --disc-photo-freestyle: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135529_588ca873-6981-47c1-9714-77a9c038161f.png');
-  --disc-photo-backstroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135538_f4fc383d-d889-4812-80cb-adb065ed9d72.png');
-  --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
-  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_171031_b11e81b1-a255-4ada-817e-c991e150623a.png');
-  --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
   --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
   --generator-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_151012_319bc69c-7a93-4fdd-ac93-63192ace37be.png');
   --gym-warmup-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161741_abe52edd-63e1-44fb-ac98-74437559fb4a.png');
@@ -845,7 +852,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav-icon-wave path:last-child { animation: navWaveRipple 2.6s ease-in-out infinite 0.5s; transform-origin: center; }
 .nav-icon-fin { animation: navFinSway 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
 .nav-icon-target { animation: navTargetPulse 2.2s ease-in-out infinite; transform-origin: center; }
-.nav-icon-lane { animation: navLaneShift 2.8s ease-in-out infinite; }
 .nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out infinite; transform-origin: bottom center; }
 .nav-icon-comment { animation: navCommentPulse 2s ease-in-out infinite; transform-origin: center; }
 .nav-icon-droplet { animation: navDropletBob 2.2s ease-in-out infinite; transform-origin: center; }
@@ -854,7 +860,6 @@ section { position: relative; scroll-margin-top: 96px; }
 @keyframes navWaveRipple { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes navFinSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 @keyframes navTargetPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
-@keyframes navLaneShift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
 @keyframes navTrophyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes navCommentPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @keyframes navDropletBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
@@ -991,12 +996,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .about-pillar h3 { font-size: 1.2rem; text-transform: uppercase; margin: var(--space-1) 0 var(--space-2); }
 .about-pillar p { color: var(--muted); font-size: 0.94rem; }
 
-/* Pool-lane motif */
-.lane-strip { display: flex; align-items: center; gap: var(--space-2); color: var(--aqua); margin-bottom: var(--space-2); }
-.lane-strip .icon { width: 20px; height: 20px; flex-shrink: 0; }
-.lane-strip span { font-family: var(--font-display); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap; }
-.lane-strip::after { content: ''; flex: 1; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--aqua) 0 22px, transparent 22px 40px); opacity: 0.35; }
-
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
@@ -1103,21 +1102,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .icon-tile.green { background: rgba(31,163,90,0.14); color: var(--green-bright); }
 .icon-tile.maroon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
 .icon-tile.aqua { background: rgba(34,211,238,0.12); color: var(--aqua); }
-
-/* ============================= DISCIPLINES ============================= */
-.discipline-card { text-align: left; padding: 0; overflow: hidden; }
-.discipline-photo {
-  position: relative; height: 108px;
-  background-image: linear-gradient(160deg, rgba(7,11,10,0.15), rgba(7,11,10,0.75)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
-  background-size: cover; background-position: center;
-  transition: transform 550ms var(--ease);
-  display: flex; align-items: flex-end; padding: var(--space-3);
-}
-.discipline-card:hover .discipline-photo { transform: scale(1.08); }
-.discipline-photo .icon { width: 26px; height: 26px; color: var(--aqua); opacity: 0.9; }
-.discipline-body { padding: var(--space-4) var(--space-5) var(--space-5); }
-.discipline-card h3 { font-size: 1.3rem; text-transform: uppercase; margin-bottom: var(--space-1); }
-.discipline-card p { color: var(--muted); font-size: 0.94rem; }
 
 /* Reusable photo banner for tab headers */
 .tab-banner {
@@ -1609,16 +1593,20 @@ body.paywall-locked { overflow: hidden; }
 .coach-msg-user { justify-content: flex-end; }
 .coach-msg-assistant { justify-content: flex-start; }
 .coach-bubble {
-  max-width: 84%; padding: 0.65em 0.9em; border-radius: var(--radius-sm); font-size: 0.88rem; line-height: 1.5;
-  white-space: pre-wrap; word-break: break-word;
+  max-width: 84%; padding: 0.7em 1em; border-radius: 16px; font-size: 0.88rem; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; box-shadow: 0 2px 10px rgba(0,0,0,0.16);
+  animation: coachBubbleIn 260ms var(--ease) both;
 }
-.coach-msg-user .coach-bubble { background: var(--green); color: var(--on-green); border-bottom-right-radius: 4px; }
+@keyframes coachBubbleIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .coach-bubble { animation: none; } }
+.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(19,168,102,0.22); }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.coach-bubble.coach-typing { color: var(--muted); font-style: italic; }
-.coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); }
+.coach-bubble.coach-typing { color: var(--muted); font-style: italic; box-shadow: none; }
+.coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); box-shadow: none; }
 /* Consecutive messages from the same sender sit closer together with a
    softer inner corner, rather than reading as unrelated isolated bubbles. */
 .coach-msg-grouped { margin-top: calc(var(--space-3) * -0.6); }
+.coach-msg-grouped .coach-bubble { animation: none; }
 .coach-msg-user.coach-msg-grouped .coach-bubble { border-top-right-radius: 4px; }
 .coach-msg-assistant.coach-msg-grouped .coach-bubble { border-top-left-radius: 4px; }
 
@@ -1754,6 +1742,18 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= ADMIN PANEL ============================= */
+.admin-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.admin-stat-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; text-align: center;
+}
+.admin-stat-value { font-family: var(--font-display); font-size: 1.7rem; color: var(--aqua); }
+.admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-time-remaining { font-size: 0.8rem; white-space: nowrap; }
+.admin-time-remaining.is-trial { color: var(--aqua); }
+.admin-time-remaining.is-active { color: var(--green-bright); }
+.admin-time-remaining.is-expired { color: var(--muted-2); }
+@media (max-width: 900px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
 .admin-users-col, .admin-chat-col { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
@@ -1918,29 +1918,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   .app-preview-body { grid-template-columns: 1fr; padding: var(--space-4); }
 }
 
-/* ============================= SOCIAL PROOF: TESTIMONIALS + FOLLOW ============================= */
-.testimonial-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-.testimonial-track { display: flex; gap: var(--space-4); width: max-content; animation: testimonialScroll 42s linear infinite; }
-.testimonial-marquee:hover .testimonial-track { animation-play-state: paused; }
-@keyframes testimonialScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.testimonial-card {
-  width: 320px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3);
-}
-.testimonial-quote-icon { color: var(--aqua); opacity: 0.5; width: 26px; height: 26px; }
-.testimonial-stars { display: flex; gap: 3px; color: var(--gold); }
-.testimonial-stars .icon { width: 14px; height: 14px; fill: currentColor; }
-.testimonial-body { color: var(--fg); font-size: 0.92rem; line-height: 1.6; flex: 1; }
-.testimonial-person { display: flex; align-items: center; gap: var(--space-3); }
-.testimonial-avatar {
-  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700; color: var(--on-green); background: linear-gradient(135deg, var(--green), var(--aqua));
-  flex-shrink: 0;
-}
-.testimonial-name { font-weight: 700; font-size: 0.9rem; }
-.testimonial-meta { font-size: 0.76rem; color: var(--muted-2); }
-
-.follow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-6); }
+/* ============================= SOCIAL: FOLLOW CARDS ============================= */
+.follow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .follow-card {
   position: relative; overflow: hidden; border-radius: var(--radius); padding: var(--space-5);
   display: flex; align-items: center; gap: var(--space-4); border: 1px solid var(--border);
@@ -1965,7 +1944,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 .follow-card:hover .follow-card-arrow { transform: translateX(4px); color: var(--fg); }
 @media (max-width: 780px) {
   .follow-grid { grid-template-columns: 1fr; }
-  .testimonial-card { width: 270px; }
 }
 
 /* ============================= PLAN SNEAK PEEK (pricing switcher teaser) ============================= */
@@ -2063,7 +2041,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </a>
 
     <ul class="nav-links" id="navLinks" role="tablist" aria-label="Dashboard sections">
-      <li><button type="button" data-tab="disciplines"><svg class="icon nav-icon nav-icon-lane" aria-hidden="true"><use href="#i-lane"/></svg><span>Disciplines</span></button></li>
       <li><button type="button" data-tab="workouts"><svg class="icon nav-icon nav-icon-wave" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/><path d="M2 15c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/></svg><span>Workouts</span></button></li>
       <li><button type="button" data-tab="gym"><svg class="icon nav-icon nav-icon-dumbbell" aria-hidden="true"><use href="#i-dumbbell"/></svg><span>Gym</span></button></li>
       <li><button type="button" data-tab="gear"><svg class="icon nav-icon nav-icon-fin" aria-hidden="true"><use href="#i-fin"/></svg><span>Gear</span></button></li>
@@ -2100,7 +2077,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   Photography note: this sandbox's network policy blocks every stock-photo host
   (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and refused), so no
   licensed stock photo could be fetched or verified from here. The images wired
-  into --hero-photo / --disc-photo-* below are AI-generated (photorealistic
+  into --hero-photo below are AI-generated (photorealistic
   swimmer/pool action shots), not licensed photography — swap them for real
   photos anytime by editing the same custom properties in the :root block above,
   e.g. --hero-photo: url('https://your-image-url.jpg'). The duotone overlay is
@@ -2262,108 +2239,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </section>
 
-<!-- ============================= SOCIAL PROOF: TESTIMONIALS + FOLLOW ============================= -->
+<!-- ============================= SOCIAL: FOLLOW CARDS ============================= -->
 <section class="section-alt" id="socialProof">
-  <div class="wrap">
-    <div class="section-head center">
-      <p class="eyebrow" style="justify-content:center">Trusted By Swimmers</p>
-      <h2>Swimmers Are Already Talking</h2>
-      <p>Real training results from beginners through elite athletes already on the platform.</p>
-    </div>
-  </div>
-  <div class="testimonial-marquee" data-reveal>
-    <div class="testimonial-track">
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Shaved 4 seconds off my 100m free in six weeks. The workout generator actually adapts instead of repeating the same set on loop.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">L</div>
-          <div><div class="testimonial-name">Layla H.</div><div class="testimonial-meta">Competitive · Dubai</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Started as a total beginner terrified of the deep end. The Beginner-level sets scaled everything down and I'm doing 1km sets now.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">O</div>
-          <div><div class="testimonial-name">Omar K.</div><div class="testimonial-meta">Beginner · Abu Dhabi</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">The dryland Gym Focus paired with swim days is the missing piece every other app ignores. My shoulders have never felt stronger.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">S</div>
-          <div><div class="testimonial-name">Sara M.</div><div class="testimonial-meta">Masters · Sharjah</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Elite unlocked the full Technique Academy library for my IM turns — worth the upgrade for the video breakdowns alone.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">Y</div>
-          <div><div class="testimonial-name">Yusuf A.</div><div class="testimonial-meta">Elite · Dubai</div></div>
-        </div>
-      </div>
-      <!-- Duplicated for a seamless infinite loop (translateX -50%, see .testimonial-track) -->
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Shaved 4 seconds off my 100m free in six weeks. The workout generator actually adapts instead of repeating the same set on loop.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">L</div>
-          <div><div class="testimonial-name">Layla H.</div><div class="testimonial-meta">Competitive · Dubai</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Started as a total beginner terrified of the deep end. The Beginner-level sets scaled everything down and I'm doing 1km sets now.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">O</div>
-          <div><div class="testimonial-name">Omar K.</div><div class="testimonial-meta">Beginner · Abu Dhabi</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">The dryland Gym Focus paired with swim days is the missing piece every other app ignores. My shoulders have never felt stronger.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">S</div>
-          <div><div class="testimonial-name">Sara M.</div><div class="testimonial-meta">Masters · Sharjah</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Elite unlocked the full Technique Academy library for my IM turns — worth the upgrade for the video breakdowns alone.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">Y</div>
-          <div><div class="testimonial-name">Yusuf A.</div><div class="testimonial-meta">Elite · Dubai</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="wrap">
     <div class="follow-grid">
       <a class="follow-card follow-instagram" href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" data-reveal>
@@ -2428,16 +2305,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <video class="dash-bg-video" id="gymBgVideo" data-for="gym" muted loop playsinline preload="none" aria-hidden="true"></video>
   <div class="dash-bg-overlay" aria-hidden="true"></div>
   <div class="wrap dash-panels">
-
-    <!-- ---------- DISCIPLINES ---------- -->
-    <div class="tab-panel" id="panel-disciplines">
-      <div class="section-head">
-        <div class="lane-strip"><svg class="icon"><use href="#i-lane"/></svg><span>The Five Disciplines</span></div>
-        <h2>Master Every Stroke</h2>
-        <p>Technique breakdowns and focus cues for each competitive swimming discipline.</p>
-      </div>
-      <div class="grid grid-5" id="disciplineGrid"></div>
-    </div>
 
     <!-- ---------- WORKOUTS (interactive generator) ---------- -->
     <div class="tab-panel panel-wide" id="panel-workouts">
@@ -2929,6 +2796,29 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p>Every registered account, their plan, and a direct line to message any one of them.</p>
       </div>
 
+      <div class="admin-stats-grid" id="adminStatsGrid">
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatTotal">—</span>
+          <span class="admin-stat-label">Total Registered</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatSubscribers">—</span>
+          <span class="admin-stat-label">Total Subscribers</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatActive">—</span>
+          <span class="admin-stat-label">Active Memberships</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatTrial">—</span>
+          <span class="admin-stat-label">On Free Trial</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatSuspended">—</span>
+          <span class="admin-stat-label">Suspended</span>
+        </div>
+      </div>
+
       <div class="admin-panel-shell">
         <div class="admin-users-col">
           <div class="admin-users-toolbar">
@@ -2938,7 +2828,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="admin-users-table-wrap">
             <table class="admin-users-table">
               <thead>
-                <tr><th>Swimmer</th><th>Plan</th><th>Joined</th><th>Access</th><th></th></tr>
+                <tr><th>Swimmer</th><th>Plan</th><th>Time Remaining</th><th>Joined</th><th>Access</th><th></th></tr>
               </thead>
               <tbody id="adminUsersTbody"></tbody>
             </table>
@@ -2980,7 +2870,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="footer-col">
         <h4>Dashboard</h4>
         <ul>
-          <li><button type="button" data-tab="disciplines">Disciplines</button></li>
           <li><button type="button" data-tab="workouts">Workout Generator</button></li>
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
           <li><button type="button" data-tab="gear">Gear</button></li>
@@ -3325,21 +3214,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var topEl = document.getElementById('top');
     if (topEl) topEl.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
   });
-
-  /* ============================= DATA: DISCIPLINES ============================= */
-  var DISCIPLINES = [
-    { key: 'freestyle', icon: 'i-wave', name: 'Freestyle', focus: 'Bilateral breathing & high-elbow catch' },
-    { key: 'backstroke', icon: 'i-back', name: 'Backstroke', focus: 'Body roll & consistent head position' },
-    { key: 'butterfly', icon: 'i-fly', name: 'Butterfly', focus: 'Undulation, timing & two-beat kick' },
-    { key: 'breaststroke', icon: 'i-breast', name: 'Breaststroke', focus: 'Pullout timing & whip-kick snap' },
-    { key: 'medley', icon: 'i-medley', name: 'Individual Medley', focus: 'Seamless stroke-to-stroke transitions' }
-  ];
-  document.getElementById('disciplineGrid').innerHTML = DISCIPLINES.map(function (d) {
-    return '<article class="card discipline-card" data-reveal>' +
-      '<div class="discipline-photo" style="--photo: var(--disc-photo-' + d.key + ')">' + icon(d.icon) + '</div>' +
-      '<div class="discipline-body"><h3>' + d.name + '</h3><p>Key Focus: ' + d.focus + '</p></div>' +
-      '</article>';
-  }).join('');
 
   /* ============================= DATA: GEAR ============================= */
   var GEAR = [
@@ -3736,6 +3610,18 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     { key: 'endurance', icon: 'i-wave', label: 'Endurance', quote: 'Every length is a deposit in the bank of race day.' },
     { key: 'speed', icon: 'i-bolt', label: 'Speed', quote: 'Speed is a decision you make before you dive in.' },
     { key: 'technique', icon: 'i-target', label: 'Technique', quote: 'Perfect the stroke, and the clock takes care of itself.' }
+  ];
+
+  // Feeds the Workout Generator's #disciplineChips picker (name/icon per
+  // stroke) — the standalone Disciplines showcase tab that used to render a
+  // matching grid from this same array has been removed, but the generator
+  // still needs the stroke names/icons themselves.
+  var DISCIPLINES = [
+    { key: 'freestyle', icon: 'i-wave', name: 'Freestyle' },
+    { key: 'backstroke', icon: 'i-back', name: 'Backstroke' },
+    { key: 'butterfly', icon: 'i-fly', name: 'Butterfly' },
+    { key: 'breaststroke', icon: 'i-breast', name: 'Breaststroke' },
+    { key: 'medley', icon: 'i-medley', name: 'Individual Medley' }
   ];
 
   var state = {
@@ -4973,6 +4859,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     var coachHistory = [];
     var sending = false;
+    var historyLoadedForUid = null;
 
     function appendMessage(role, text) {
       var row = document.createElement('div');
@@ -4986,10 +4873,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       return bubble;
     }
 
+    // Persisted in coach_widget_history/{uid} — a separate document from the
+    // full-screen page's coach_history/{uid}, so the two surfaces never
+    // overwrite each other's saved conversation. Loaded once per sign-in the
+    // first time the panel is opened, so a refresh or tab switch never loses
+    // the conversation.
+    function persistHistory() {
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__coachWidgetHistorySave !== 'function') return;
+      window.__coachWidgetHistorySave(user.uid, coachHistory.slice(-AI_COACH_HISTORY_LIMIT));
+    }
+    function loadHistoryIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || historyLoadedForUid === user.uid || typeof window.__coachWidgetHistoryLoad !== 'function') return;
+      historyLoadedForUid = user.uid;
+      window.__coachWidgetHistoryLoad(user.uid).then(function (data) {
+        var messages = data && Array.isArray(data.messages) ? data.messages : [];
+        if (!messages.length) return;
+        coachHistory = messages.slice(-AI_COACH_HISTORY_LIMIT);
+        messagesEl.innerHTML = '';
+        coachHistory.forEach(function (m) { appendMessage(m.role, m.content); });
+      }).catch(function () {});
+    }
+
     function openPanel() {
       if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
       panel.classList.add('open');
       fab.setAttribute('aria-expanded', 'true');
+      loadHistoryIfNeeded();
       if (!messagesEl.children.length) {
         appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach — ask me about stroke technique, dryland training, or how to read your workout log. What\'s up?');
       }
@@ -5048,6 +4959,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         typingBubble.textContent = result.data.reply;
         coachHistory.push({ role: 'assistant', content: result.data.reply });
         coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
+        persistHistory();
       }).catch(function () {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
@@ -5063,7 +4975,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     });
 
     document.addEventListener('swimfit:authchange', function (e) {
-      if (!e.detail.user) closePanel();
+      if (e.detail.user) return;
+      closePanel();
+      coachHistory = [];
+      historyLoadedForUid = null;
+      messagesEl.innerHTML = '';
     });
   })();
 
@@ -5808,9 +5724,44 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       return ms ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     }
 
+    var ADMIN_TRIAL_DAYS = 7;
+    function timeRemainingInfo(u) {
+      if (u.accessDisabled) return { text: 'Suspended', cls: 'is-expired' };
+      if (u.plan) {
+        var isActive = u.status === 'active' || u.status === 'trialing';
+        return { text: isActive ? 'Active plan' : 'Inactive', cls: isActive ? 'is-active' : 'is-expired' };
+      }
+      if (!u.trialStartedAt) return { text: '—', cls: 'is-expired' };
+      var endsAt = u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      var msLeft = endsAt - Date.now();
+      if (msLeft <= 0) return { text: 'Trial ended', cls: 'is-expired' };
+      var d = Math.floor(msLeft / 86400000), h = Math.floor((msLeft % 86400000) / 3600000);
+      return { text: (d > 0 ? d + 'd ' + h + 'h left' : h + 'h left'), cls: 'is-trial' };
+    }
+
+    function renderAdminStats() {
+      var subscribers = users.filter(function (u) { return !!u.plan; }).length;
+      var active = users.filter(function (u) { return u.plan && (u.status === 'active' || u.status === 'trialing') && !u.accessDisabled; }).length;
+      var onTrial = users.filter(function (u) {
+        return !u.plan && !u.accessDisabled && u.trialStartedAt && Date.now() < u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      }).length;
+      var suspended = users.filter(function (u) { return u.accessDisabled; }).length;
+      var totalEl = document.getElementById('adminStatTotal');
+      var subsEl = document.getElementById('adminStatSubscribers');
+      var activeEl = document.getElementById('adminStatActive');
+      var trialEl = document.getElementById('adminStatTrial');
+      var suspendedEl = document.getElementById('adminStatSuspended');
+      if (totalEl) totalEl.textContent = users.length;
+      if (subsEl) subsEl.textContent = subscribers;
+      if (activeEl) activeEl.textContent = active;
+      if (trialEl) trialEl.textContent = onTrial;
+      if (suspendedEl) suspendedEl.textContent = suspended;
+    }
+
     function renderUsers() {
       tbody.innerHTML = '';
       countEl.textContent = users.length + (users.length === 1 ? ' swimmer' : ' swimmers');
+      renderAdminStats();
       users.forEach(function (u) {
         var meta = inboxByUid[u.uid];
         var unread = meta ? !!meta.unreadForAdmin : !!u.unreadForAdmin;
@@ -5859,6 +5810,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         planTd.appendChild(document.createElement('br'));
         planTd.appendChild(extendBtn);
 
+        var timeTd = document.createElement('td');
+        var timeInfo = timeRemainingInfo(u);
+        var timeSpan = document.createElement('span');
+        timeSpan.className = 'admin-time-remaining ' + timeInfo.cls;
+        timeSpan.textContent = timeInfo.text;
+        timeTd.appendChild(timeSpan);
+
         var joinedTd = document.createElement('td');
         joinedTd.textContent = formatDate(u.createdAt);
 
@@ -5897,6 +5855,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
         tr.appendChild(nameTd);
         tr.appendChild(planTd);
+        tr.appendChild(timeTd);
         tr.appendChild(joinedTd);
         tr.appendChild(accessTd);
         tr.appendChild(msgTd);
