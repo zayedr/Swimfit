@@ -772,6 +772,41 @@ helper internally that already delays its own `revokeObjectURL` by 40 seconds fo
 reason. Fixed by wrapping the revoke call in a short `setTimeout` (4s) instead of calling it
 synchronously.
 
+**A real, previously-live race condition in the full-screen Coach page was found and fixed**: it
+was possible to send a message that silently never reached the AI at all, while the floating
+widget (calling the identical `aiCoachFetch()`/`aiSwimCoach` endpoint) never had this problem —
+looking, from the outside, exactly like "two different backend paths" even though both surfaces
+always hit the same one. The actual cause: `loadThreadsIfNeeded()` loads (or, for a brand-new
+swimmer, creates) a thread asynchronously the moment the Coach tab is opened, and the form
+submit handler's old guard — `var thread = activeThread(); if (!thread) return;` — silently
+bailed out if that network round-trip hadn't resolved yet. A swimmer typing and sending a message
+quickly (trivially easy on any real production network latency, but never caught by this
+project's own Playwright tests, which always `waitForTimeout()`'d before sending) would see their
+own message render normally and then simply never get a reply, with no error either, because the
+`aiSwimCoach` call was never made. The floating widget has no thread concept at all — just one
+always-ready in-memory array — which is exactly why it never exhibited this. Fixed with
+`ensureActiveThread()`: if no thread is active yet, it synthesizes one immediately with a
+client-chosen id (a perfectly valid Firestore document id via the existing `setDoc`-based
+`__coachThreadSave` — no `addDoc()` round-trip required before the first message can go out) so a
+send can never be silently dropped, regardless of how slow the network is. A second, related race
+was closed alongside it: if `loadThreadsIfNeeded()`'s query finally resolves *after* a message was
+already sent against a synthesized thread, its callback now checks whether the currently-active
+thread already has messages before overwriting `threads` wholesale — otherwise a swimmer's
+just-sent conversation could be silently replaced by a different (older) thread the instant the
+slow network call finally landed. Verified with a dedicated Playwright test that artificially
+delays the thread-list query and confirms a message sent immediately (well before that delay
+elapses) still reaches the AI and still renders correctly once the delayed query resolves.
+
+**Avatar rendering was rewritten from show-then-hide-on-error to load-then-reveal.** The previous
+fix (an `error` listener that fell back to the placeholder) still allowed one frame of the
+browser's broken-image glyph before JS could react, since the `<img>` was made visible
+immediately and only hidden *after* a failed decode. Both `#settingsAvatarPreview` and `#navAvatar`
+now stay hidden behind their placeholder until a `load` event confirms the image actually decoded
+successfully — so a bad, corrupted, or slow-to-fail `avatarDataUrl` can never flash a broken icon
+on screen at all, not just briefly. The `error` listener still exists as the fallback path for a
+value that fails outright. A real, valid upload is unaffected — it now just becomes visible the
+instant it finishes decoding instead of instantly-but-optimistically.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
