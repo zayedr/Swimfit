@@ -18,6 +18,20 @@
         document.documentElement.classList.add('announce-dismissed');
       }
     } catch (e) { /* localStorage unavailable (privacy mode etc.) — just show the bar */ }
+    // Same "apply before first paint" reasoning as the announcement-bar flash
+    // guard above — a saved Light theme or Arabic language preference (see
+    // the Settings tab) must never flash in as Dark/English first.
+    try {
+      var theme = localStorage.getItem('swimfit_theme');
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) { /* localStorage unavailable — defaults to dark */ }
+    try {
+      var lang = localStorage.getItem('swimfit_lang');
+      if (lang === 'ar') {
+        document.documentElement.setAttribute('lang', 'ar');
+        document.documentElement.setAttribute('dir', 'rtl');
+      }
+    } catch (e) { /* localStorage unavailable — defaults to English */ }
   })();
 </script>
 <!--
@@ -112,9 +126,10 @@
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
   };
 
-  // Persisted AI Coach chat history (Elite/Ultra/trial only — see coach_history
-  // rules in firestore.rules) for the full-screen Coach page. Text only, never
-  // image bytes — kept well under Firestore's 1 MiB document limit.
+  // Persisted AI Coach chat history for the full-screen Coach page — any
+  // signed-in, non-suspended swimmer (no tier gate; see coach_history rules
+  // in firestore.rules). Text only, never image bytes — kept well under
+  // Firestore's 1 MiB document limit.
   window.__coachHistoryLoad = function (uid) {
     return getDoc(doc(db, 'coach_history', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
   };
@@ -122,18 +137,30 @@
     return setDoc(doc(db, 'coach_history', uid), { messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
   };
 
+  // Same persistence, separate document, for the floating AI Coach widget —
+  // a distinct surface/context from the full-screen page, so its transcript
+  // is kept in its own coach_widget_history/{uid} doc rather than merging
+  // (and confusing) the two conversations.
+  window.__coachWidgetHistoryLoad = function (uid) {
+    return getDoc(doc(db, 'coach_widget_history', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
+  };
+  window.__coachWidgetHistorySave = function (uid, messages) {
+    return setDoc(doc(db, 'coach_widget_history', uid), { messages: messages, updatedAt: serverTimestamp() }, { merge: true }).catch(function () {});
+  };
+
   // Distance Tracker data-access bridges — same "expose a narrow function on
   // window" pattern as __firebaseGetIdToken above, so the plain <script>
   // (which owns all of this feature's DOM/UI logic) never needs its own
   // Firestore SDK imports.
   window.__swimLogAdd = function (entry) {
-    // entry: { distanceMeters: number, loggedAt: JS Date, discipline?: string }
+    // entry: { distanceMeters: number, loggedAt: JS Date, discipline?: string, durationSeconds?: number }
     // — plain JS values only, since the caller (the bottom <script>) has no
     // Firestore SDK imports of its own; the Timestamp/serverTimestamp
     // conversion happens here, inside the module that actually imported them.
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
     var payload = { distanceMeters: entry.distanceMeters, loggedAt: Timestamp.fromDate(entry.loggedAt), createdAt: serverTimestamp() };
     if (entry.discipline) payload.discipline = entry.discipline;
+    if (entry.durationSeconds) payload.durationSeconds = entry.durationSeconds;
     return addDoc(collection(db, 'swim_logs', auth.currentUser.uid, 'entries'), payload);
   };
   window.__swimLogQuerySince = function (sinceDate) {
@@ -146,13 +173,42 @@
     return getDocs(q).then(function (snap) {
       return snap.docs.map(function (d) {
         var data = d.data();
-        return { id: d.id, distanceMeters: data.distanceMeters, loggedAt: data.loggedAt.toDate(), discipline: data.discipline || '' };
+        return { id: d.id, distanceMeters: data.distanceMeters, loggedAt: data.loggedAt.toDate(), discipline: data.discipline || '', durationSeconds: data.durationSeconds || null };
       });
     });
   };
   window.__swimLogDelete = function (entryId) {
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
     return deleteDoc(doc(db, 'swim_logs', auth.currentUser.uid, 'entries', entryId));
+  };
+
+  // Personal Best log entries — feeds the Distance Tracker's PB progression
+  // chart. Same owner-only, create+delete (no in-place edit) shape as the
+  // swim log above.
+  window.__pbLogAdd = function (entry) {
+    // entry: { discipline: string, distanceLabel: string, timeSeconds: number, loggedAt: JS Date }
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    return addDoc(collection(db, 'personal_bests', auth.currentUser.uid, 'entries'), {
+      discipline: entry.discipline,
+      distanceLabel: entry.distanceLabel,
+      timeSeconds: entry.timeSeconds,
+      loggedAt: Timestamp.fromDate(entry.loggedAt),
+      createdAt: serverTimestamp()
+    });
+  };
+  window.__pbLogQueryAll = function () {
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    var q = query(collection(db, 'personal_bests', auth.currentUser.uid, 'entries'), orderBy('loggedAt', 'asc'));
+    return getDocs(q).then(function (snap) {
+      return snap.docs.map(function (d) {
+        var data = d.data();
+        return { id: d.id, discipline: data.discipline, distanceLabel: data.distanceLabel, timeSeconds: data.timeSeconds, loggedAt: data.loggedAt.toDate() };
+      });
+    });
+  };
+  window.__pbLogDelete = function (entryId) {
+    if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
+    return deleteDoc(doc(db, 'personal_bests', auth.currentUser.uid, 'entries', entryId));
   };
 
   // Admin Panel direct-message thread — the swimmer's own side. Reading is
@@ -629,6 +685,20 @@
     return getDoc(doc(db, 'usernames', username)).then(function (snap) { return snap.exists(); });
   };
 
+  // Settings tab: read the swimmer's own profile doc, and write back only
+  // the safe subset of fields (fullName, country, age, disciplines).
+  // Username/email are deliberately never routed through this updater — a
+  // username change needs the same atomic claimUsernameAndProfile
+  // transaction signup uses (to free/reserve usernames/{name} docs
+  // correctly), not a plain field overwrite, so Settings surfaces it
+  // read-only instead.
+  window.__userProfileGet = function (uid) {
+    return getDoc(doc(db, 'users', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
+  };
+  window.__userProfileUpdate = function (uid, fields) {
+    return setDoc(doc(db, 'users', uid), fields, { merge: true });
+  };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', wireFirebaseAuthUI);
   } else {
@@ -705,21 +775,58 @@ input, textarea, select { font: inherit; color: inherit; }
      to match the brand automatically. Left empty, a photographic-style gradient
      (light rays + vignette) fills the same role. */
   --hero-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135528_43b7492d-7223-413c-94ce-79f00f825a00.png');
-  --disc-photo-freestyle: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135529_588ca873-6981-47c1-9714-77a9c038161f.png');
-  --disc-photo-backstroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135538_f4fc383d-d889-4812-80cb-adb065ed9d72.png');
-  --disc-photo-butterfly: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135539_ef730b2b-442a-4d7f-936d-aba785cbae49.png');
-  --disc-photo-breaststroke: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_171031_b11e81b1-a255-4ada-817e-c991e150623a.png');
-  --disc-photo-medley: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_135542_39c19e7a-2b15-4b3b-9320-c2f6fca294a5.png');
   --gym-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_141434_2c5b600e-678d-4481-8b3d-f21fa316d058.png');
-  --generator-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_151012_319bc69c-7a93-4fdd-ac93-63192ace37be.png');
+  --generator-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_084859_31e7322f-66a7-477a-b41e-5801d41b2698.png');
   --gym-warmup-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161741_abe52edd-63e1-44fb-ac98-74437559fb4a.png');
   --gym-core-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161742_c0a04275-f91a-438d-8cf1-27605d521390.png');
   --gym-cooldown-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161743_023e6007-9516-41ce-ac6b-a7c49426e258.png');
-  --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161746_8c193427-24e0-4d2a-883e-ddbf0e4ec7cd.png');
-  --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_161747_02c58bbf-1f7e-4abb-bc0a-83c3585b591a.png');
+  --coach-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_084855_c9d25f36-08fd-47cb-88aa-b48ec08b07c0.png');
+  --pool-edge-photo: url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_084847_f37cff3d-f4e0-46b0-aa32-1429380890db.png');
 }
 
 html.announce-dismissed { --announce-h: 0px; }
+
+/* ============================= LIGHT THEME (Settings → Appearance) =============================
+   Overrides only the surface/text/accent tokens above — every rule in this
+   file already reads color through var(--...), so swapping this block is
+   enough to re-skin the whole site without a second parallel stylesheet.
+   Ambient/duotone background effects (Hero water, tab background photos)
+   were designed against the dark palette and are left as-is; they still
+   read fine over the lighter chrome but aren't independently re-tuned. */
+:root[data-theme="light"] {
+  --bg:        #F4F8F7;
+  --bg-alt:    #FFFFFF;
+  --surface:   #FFFFFF;
+  --surface-2: #EEF4F2;
+  --border:    rgba(10,20,18,0.10);
+  --border-strong: rgba(10,20,18,0.20);
+
+  --fg:      #0B1312;
+  --muted:   #4B5D58;
+  --muted-2: #6D827B;
+
+  --maroon:        #9C2A44;
+  --maroon-bright: #B22D4E;
+  --green:         #157A42;
+  --green-bright:  #189A57;
+  --aqua:          #0E7C90;
+  --gold:          #A8791F;
+
+  --on-green:  #FFFFFF;
+  --on-aqua:   #FFFFFF;
+  --on-maroon: #FFFFFF;
+
+  --shadow-1: 0 8px 24px rgba(10,20,18,0.10);
+  --shadow-2: 0 20px 60px rgba(10,20,18,0.14);
+}
+
+/* ============================= RTL (Settings → Language) =============================
+   direction:rtl mirrors flex/inline layout automatically for the vast
+   majority of this file's flex-based components. A handful of rules that
+   use physical margin-left/padding-right (rather than logical properties)
+   may keep a slightly asymmetric gap in Arabic — a known, scoped limitation
+   rather than a full logical-properties rewrite. */
+:root[dir="rtl"] { direction: rtl; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -845,7 +952,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav-icon-wave path:last-child { animation: navWaveRipple 2.6s ease-in-out infinite 0.5s; transform-origin: center; }
 .nav-icon-fin { animation: navFinSway 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
 .nav-icon-target { animation: navTargetPulse 2.2s ease-in-out infinite; transform-origin: center; }
-.nav-icon-lane { animation: navLaneShift 2.8s ease-in-out infinite; }
 .nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out infinite; transform-origin: bottom center; }
 .nav-icon-comment { animation: navCommentPulse 2s ease-in-out infinite; transform-origin: center; }
 .nav-icon-droplet { animation: navDropletBob 2.2s ease-in-out infinite; transform-origin: center; }
@@ -854,7 +960,6 @@ section { position: relative; scroll-margin-top: 96px; }
 @keyframes navWaveRipple { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes navFinSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 @keyframes navTargetPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
-@keyframes navLaneShift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
 @keyframes navTrophyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes navCommentPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @keyframes navDropletBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
@@ -991,12 +1096,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .about-pillar h3 { font-size: 1.2rem; text-transform: uppercase; margin: var(--space-1) 0 var(--space-2); }
 .about-pillar p { color: var(--muted); font-size: 0.94rem; }
 
-/* Pool-lane motif */
-.lane-strip { display: flex; align-items: center; gap: var(--space-2); color: var(--aqua); margin-bottom: var(--space-2); }
-.lane-strip .icon { width: 20px; height: 20px; flex-shrink: 0; }
-.lane-strip span { font-family: var(--font-display); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap; }
-.lane-strip::after { content: ''; flex: 1; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--aqua) 0 22px, transparent 22px 40px); opacity: 0.35; }
-
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
@@ -1059,7 +1158,7 @@ section { position: relative; scroll-margin-top: 96px; }
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
    more expansive — a deliberate "flagship feature" width, wider than the
    other tabs. */
-.panel-wide { width: 100vw; margin-left: calc(50% - 50vw); }
+.panel-wide { width: 100vw; margin-inline-start: calc(50% - 50vw); }
 .panel-wide-inner { max-width: 1560px; margin-inline: auto; padding-inline: var(--space-4); }
 
 .services-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-3); margin-bottom: var(--space-6); }
@@ -1103,21 +1202,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .icon-tile.green { background: rgba(31,163,90,0.14); color: var(--green-bright); }
 .icon-tile.maroon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
 .icon-tile.aqua { background: rgba(34,211,238,0.12); color: var(--aqua); }
-
-/* ============================= DISCIPLINES ============================= */
-.discipline-card { text-align: left; padding: 0; overflow: hidden; }
-.discipline-photo {
-  position: relative; height: 108px;
-  background-image: linear-gradient(160deg, rgba(7,11,10,0.15), rgba(7,11,10,0.75)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
-  background-size: cover; background-position: center;
-  transition: transform 550ms var(--ease);
-  display: flex; align-items: flex-end; padding: var(--space-3);
-}
-.discipline-card:hover .discipline-photo { transform: scale(1.08); }
-.discipline-photo .icon { width: 26px; height: 26px; color: var(--aqua); opacity: 0.9; }
-.discipline-body { padding: var(--space-4) var(--space-5) var(--space-5); }
-.discipline-card h3 { font-size: 1.3rem; text-transform: uppercase; margin-bottom: var(--space-1); }
-.discipline-card p { color: var(--muted); font-size: 0.94rem; }
 
 /* Reusable photo banner for tab headers */
 .tab-banner {
@@ -1173,6 +1257,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .profile-field input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65em 0.8em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
 .profile-field input:focus { border-color: var(--aqua); }
 @media (max-width: 480px) { .profile-row { grid-template-columns: 1fr; } }
+.profile-field input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
+.settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; margin-bottom: var(--space-3); }
+.settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
+.settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
+.settings-save-status.is-error { color: #e5484d; }
+@media (max-width: 860px) { .settings-grid { grid-template-columns: 1fr; } }
 
 .pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-2); }
 .pb-stroke-row { display: grid; grid-template-columns: 100px 1fr 1fr; gap: var(--space-2); align-items: center; }
@@ -1609,16 +1702,20 @@ body.paywall-locked { overflow: hidden; }
 .coach-msg-user { justify-content: flex-end; }
 .coach-msg-assistant { justify-content: flex-start; }
 .coach-bubble {
-  max-width: 84%; padding: 0.65em 0.9em; border-radius: var(--radius-sm); font-size: 0.88rem; line-height: 1.5;
-  white-space: pre-wrap; word-break: break-word;
+  max-width: 84%; padding: 0.7em 1em; border-radius: 16px; font-size: 0.88rem; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; box-shadow: 0 2px 10px rgba(0,0,0,0.16);
+  animation: coachBubbleIn 260ms var(--ease) both;
 }
-.coach-msg-user .coach-bubble { background: var(--green); color: var(--on-green); border-bottom-right-radius: 4px; }
+@keyframes coachBubbleIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .coach-bubble { animation: none; } }
+.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(19,168,102,0.22); }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.coach-bubble.coach-typing { color: var(--muted); font-style: italic; }
-.coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); }
+.coach-bubble.coach-typing { color: var(--muted); font-style: italic; box-shadow: none; }
+.coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); box-shadow: none; }
 /* Consecutive messages from the same sender sit closer together with a
    softer inner corner, rather than reading as unrelated isolated bubbles. */
 .coach-msg-grouped { margin-top: calc(var(--space-3) * -0.6); }
+.coach-msg-grouped .coach-bubble { animation: none; }
 .coach-msg-user.coach-msg-grouped .coach-bubble { border-top-right-radius: 4px; }
 .coach-msg-assistant.coach-msg-grouped .coach-bubble { border-top-left-radius: 4px; }
 
@@ -1722,7 +1819,7 @@ body.paywall-locked { overflow: hidden; }
 .tracker-stat-value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--aqua); line-height: 1; }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
 
-.tracker-analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
 .tracker-analytics-tile {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4);
   display: flex; flex-direction: column; gap: 6px; text-align: center;
@@ -1730,8 +1827,38 @@ body.paywall-locked { overflow: hidden; }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
 .tracker-analytics-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--green); }
 .tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; }
-@media (max-width: 640px) {
-  .tracker-analytics-grid { grid-template-columns: 1fr; }
+@media (max-width: 900px) {
+  .tracker-analytics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================= TRACKER: GOAL PROGRESS ============================= */
+.tracker-goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); }
+.tracker-goal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tracker-goal-input-row { display: flex; align-items: center; gap: 6px; }
+.tracker-goal-input-row .form-input { width: 80px; padding: 6px 10px; text-align: right; }
+.tracker-goal-unit { color: var(--muted-2); font-size: 0.85rem; }
+.tracker-progress-bar { height: 10px; border-radius: 999px; background: var(--bg-alt); overflow: hidden; border: 1px solid var(--border); }
+.tracker-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--aqua), var(--green-bright)); transition: width 500ms var(--ease); }
+.tracker-goal-note { margin-top: var(--space-2); font-size: 0.82rem; color: var(--muted-2); text-align: right; }
+
+/* ============================= TRACKER: CHARTS ============================= */
+.tracker-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); }
+.tracker-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
+.tracker-chart-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: var(--space-4); }
+.tracker-chart-empty { color: var(--muted-2); font-size: 0.85rem; text-align: center; padding: var(--space-4) 0; }
+.tracker-svg-chart { width: 100%; height: auto; overflow: visible; }
+.tracker-svg-chart .chart-grid-line { stroke: var(--border); stroke-width: 1; }
+.tracker-svg-chart .chart-axis-label { fill: var(--muted-2); font-size: 9px; font-family: var(--font-body); }
+.tracker-svg-chart .chart-bar { fill: var(--aqua); }
+.tracker-svg-chart .chart-bar:hover { fill: var(--green-bright); }
+.tracker-svg-chart .chart-bar-label { fill: var(--fg); font-size: 9px; font-family: var(--font-display); text-anchor: middle; }
+.tracker-svg-chart .chart-line { fill: none; stroke: var(--aqua); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tracker-svg-chart .chart-dot { fill: var(--surface); stroke: var(--aqua); stroke-width: 2; }
+.tracker-svg-chart .chart-dot:hover, .tracker-svg-chart .chart-dot.pb-latest { fill: var(--aqua); }
+.tracker-pb-form { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); align-items: center; }
+.tracker-pb-form .form-select, .tracker-pb-form .form-input { padding: 8px 10px; font-size: 0.85rem; width: auto; }
+@media (max-width: 900px) {
+  .tracker-charts-grid { grid-template-columns: 1fr; }
 }
 
 .tracker-entries-head { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--space-3); }
@@ -1754,6 +1881,18 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= ADMIN PANEL ============================= */
+.admin-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.admin-stat-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; text-align: center;
+}
+.admin-stat-value { font-family: var(--font-display); font-size: 1.7rem; color: var(--aqua); }
+.admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-time-remaining { font-size: 0.8rem; white-space: nowrap; }
+.admin-time-remaining.is-trial { color: var(--aqua); }
+.admin-time-remaining.is-active { color: var(--green-bright); }
+.admin-time-remaining.is-expired { color: var(--muted-2); }
+@media (max-width: 900px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
 .admin-users-col, .admin-chat-col { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
@@ -1918,29 +2057,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   .app-preview-body { grid-template-columns: 1fr; padding: var(--space-4); }
 }
 
-/* ============================= SOCIAL PROOF: TESTIMONIALS + FOLLOW ============================= */
-.testimonial-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-.testimonial-track { display: flex; gap: var(--space-4); width: max-content; animation: testimonialScroll 42s linear infinite; }
-.testimonial-marquee:hover .testimonial-track { animation-play-state: paused; }
-@keyframes testimonialScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.testimonial-card {
-  width: 320px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3);
-}
-.testimonial-quote-icon { color: var(--aqua); opacity: 0.5; width: 26px; height: 26px; }
-.testimonial-stars { display: flex; gap: 3px; color: var(--gold); }
-.testimonial-stars .icon { width: 14px; height: 14px; fill: currentColor; }
-.testimonial-body { color: var(--fg); font-size: 0.92rem; line-height: 1.6; flex: 1; }
-.testimonial-person { display: flex; align-items: center; gap: var(--space-3); }
-.testimonial-avatar {
-  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700; color: var(--on-green); background: linear-gradient(135deg, var(--green), var(--aqua));
-  flex-shrink: 0;
-}
-.testimonial-name { font-weight: 700; font-size: 0.9rem; }
-.testimonial-meta { font-size: 0.76rem; color: var(--muted-2); }
-
-.follow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-6); }
+/* ============================= SOCIAL: FOLLOW CARDS ============================= */
+.follow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .follow-card {
   position: relative; overflow: hidden; border-radius: var(--radius); padding: var(--space-5);
   display: flex; align-items: center; gap: var(--space-4); border: 1px solid var(--border);
@@ -1965,7 +2083,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 .follow-card:hover .follow-card-arrow { transform: translateX(4px); color: var(--fg); }
 @media (max-width: 780px) {
   .follow-grid { grid-template-columns: 1fr; }
-  .testimonial-card { width: 270px; }
 }
 
 /* ============================= PLAN SNEAK PEEK (pricing switcher teaser) ============================= */
@@ -2052,6 +2169,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-yt" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5c.35 0 .68.04 1 .12"/><path d="M14 3c.3 2.3 2 4 4.5 4.2"/></symbol>
 <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4V8z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 </defs>
 </svg>
 
@@ -2063,14 +2183,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </a>
 
     <ul class="nav-links" id="navLinks" role="tablist" aria-label="Dashboard sections">
-      <li><button type="button" data-tab="disciplines"><svg class="icon nav-icon nav-icon-lane" aria-hidden="true"><use href="#i-lane"/></svg><span>Disciplines</span></button></li>
-      <li><button type="button" data-tab="workouts"><svg class="icon nav-icon nav-icon-wave" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/><path d="M2 15c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/></svg><span>Workouts</span></button></li>
-      <li><button type="button" data-tab="gym"><svg class="icon nav-icon nav-icon-dumbbell" aria-hidden="true"><use href="#i-dumbbell"/></svg><span>Gym</span></button></li>
-      <li><button type="button" data-tab="gear"><svg class="icon nav-icon nav-icon-fin" aria-hidden="true"><use href="#i-fin"/></svg><span>Gear</span></button></li>
-      <li><button type="button" data-tab="academy"><svg class="icon nav-icon nav-icon-target" aria-hidden="true"><use href="#i-target"/></svg><span>Academy</span></button></li>
-      <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span>AI Coach</span></button></li>
-      <li><button type="button" data-tab="tracker"><svg class="icon nav-icon nav-icon-droplet" aria-hidden="true"><use href="#i-droplet"/></svg><span>Tracker</span></button></li>
-      <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span>Pricing</span></button></li>
+      <li><button type="button" data-tab="workouts"><svg class="icon nav-icon nav-icon-wave" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/><path d="M2 15c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/></svg><span data-i18n="nav.workouts">Workouts</span></button></li>
+      <li><button type="button" data-tab="gym"><svg class="icon nav-icon nav-icon-dumbbell" aria-hidden="true"><use href="#i-dumbbell"/></svg><span data-i18n="nav.gym">Gym</span></button></li>
+      <li><button type="button" data-tab="gear"><svg class="icon nav-icon nav-icon-fin" aria-hidden="true"><use href="#i-fin"/></svg><span data-i18n="nav.gear">Gear</span></button></li>
+      <li><button type="button" data-tab="academy"><svg class="icon nav-icon nav-icon-target" aria-hidden="true"><use href="#i-target"/></svg><span data-i18n="nav.academy">Academy</span></button></li>
+      <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span data-i18n="nav.coach">AI Coach</span></button></li>
+      <li><button type="button" data-tab="tracker"><svg class="icon nav-icon nav-icon-droplet" aria-hidden="true"><use href="#i-droplet"/></svg><span data-i18n="nav.tracker">Tracker</span></button></li>
+      <li><button type="button" data-tab="settings"><svg class="icon nav-icon nav-icon-settings" aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="nav.settings">Settings</span></button></li>
+      <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span data-i18n="nav.pricing">Pricing</span></button></li>
       <li data-admin-only style="display:none"><button type="button" data-tab="admin"><svg class="icon nav-icon nav-icon-admin" aria-hidden="true"><use href="#i-user"/></svg><span>Admin</span></button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
@@ -2084,7 +2204,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </div>
 
     <div class="nav-cta">
-      <button type="button" class="btn btn-ghost btn-sm" id="navSignInBtn" data-auth-signed-out>Sign In</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="navSignInBtn" data-auth-signed-out data-i18n="nav.signin">Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" id="navJoinNowBtn" data-welcome-trigger data-auth-signed-out>Join Now</button>
       <span class="nav-status-badge" id="navStatusBadge" hidden></span>
       <button type="button" class="btn btn-outline-maroon btn-sm" id="navLogoutBtn" data-auth-signed-in style="display:none">Log Out</button>
@@ -2100,7 +2220,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   Photography note: this sandbox's network policy blocks every stock-photo host
   (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and refused), so no
   licensed stock photo could be fetched or verified from here. The images wired
-  into --hero-photo / --disc-photo-* below are AI-generated (photorealistic
+  into --hero-photo below are AI-generated (photorealistic
   swimmer/pool action shots), not licensed photography — swap them for real
   photos anytime by editing the same custom properties in the :root block above,
   e.g. --hero-photo: url('https://your-image-url.jpg'). The duotone overlay is
@@ -2141,12 +2261,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
 
   <div class="wrap hero-content">
-    <p class="eyebrow">Performance Swim Training · UAE</p>
-    <h1 data-reveal="scale">Command the Water.<br>Own the <span class="accent">Race.</span></h1>
-    <p data-reveal>A live training dashboard — build your own swim set, pick tonight's gym focus, and manage your membership, all without a single long scroll.</p>
+    <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training · UAE</p>
+    <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Command the Water.<br>Own the <span class="accent">Race.</span></h1>
+    <p data-reveal data-i18n="hero.sub">A live training dashboard — build your own swim set, pick tonight's gym focus, and manage your membership, all without a single long scroll.</p>
     <div class="hero-actions" data-reveal>
-      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger>Build My Workout</button>
-      <button type="button" class="btn btn-ghost" data-tab="gym">Today's Gym Focus</button>
+      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1">Build My Workout</button>
+      <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
     </div>
     <div class="hero-stats" data-reveal>
       <div class="stat"><strong data-count="5">0</strong><span>Disciplines</span></div>
@@ -2262,108 +2382,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </section>
 
-<!-- ============================= SOCIAL PROOF: TESTIMONIALS + FOLLOW ============================= -->
+<!-- ============================= SOCIAL: FOLLOW CARDS ============================= -->
 <section class="section-alt" id="socialProof">
-  <div class="wrap">
-    <div class="section-head center">
-      <p class="eyebrow" style="justify-content:center">Trusted By Swimmers</p>
-      <h2>Swimmers Are Already Talking</h2>
-      <p>Real training results from beginners through elite athletes already on the platform.</p>
-    </div>
-  </div>
-  <div class="testimonial-marquee" data-reveal>
-    <div class="testimonial-track">
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Shaved 4 seconds off my 100m free in six weeks. The workout generator actually adapts instead of repeating the same set on loop.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">L</div>
-          <div><div class="testimonial-name">Layla H.</div><div class="testimonial-meta">Competitive · Dubai</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Started as a total beginner terrified of the deep end. The Beginner-level sets scaled everything down and I'm doing 1km sets now.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">O</div>
-          <div><div class="testimonial-name">Omar K.</div><div class="testimonial-meta">Beginner · Abu Dhabi</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">The dryland Gym Focus paired with swim days is the missing piece every other app ignores. My shoulders have never felt stronger.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">S</div>
-          <div><div class="testimonial-name">Sara M.</div><div class="testimonial-meta">Masters · Sharjah</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Elite unlocked the full Technique Academy library for my IM turns — worth the upgrade for the video breakdowns alone.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">Y</div>
-          <div><div class="testimonial-name">Yusuf A.</div><div class="testimonial-meta">Elite · Dubai</div></div>
-        </div>
-      </div>
-      <!-- Duplicated for a seamless infinite loop (translateX -50%, see .testimonial-track) -->
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Shaved 4 seconds off my 100m free in six weeks. The workout generator actually adapts instead of repeating the same set on loop.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">L</div>
-          <div><div class="testimonial-name">Layla H.</div><div class="testimonial-meta">Competitive · Dubai</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Started as a total beginner terrified of the deep end. The Beginner-level sets scaled everything down and I'm doing 1km sets now.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">O</div>
-          <div><div class="testimonial-name">Omar K.</div><div class="testimonial-meta">Beginner · Abu Dhabi</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">The dryland Gym Focus paired with swim days is the missing piece every other app ignores. My shoulders have never felt stronger.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">S</div>
-          <div><div class="testimonial-name">Sara M.</div><div class="testimonial-meta">Masters · Sharjah</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card" aria-hidden="true">
-        <svg class="testimonial-quote-icon"><use href="#i-quote"/></svg>
-        <div class="testimonial-stars">
-          <svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg><svg class="icon"><use href="#i-target"/></svg>
-        </div>
-        <p class="testimonial-body">Elite unlocked the full Technique Academy library for my IM turns — worth the upgrade for the video breakdowns alone.</p>
-        <div class="testimonial-person">
-          <div class="testimonial-avatar">Y</div>
-          <div><div class="testimonial-name">Yusuf A.</div><div class="testimonial-meta">Elite · Dubai</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="wrap">
     <div class="follow-grid">
       <a class="follow-card follow-instagram" href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" data-reveal>
@@ -2429,22 +2449,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="dash-bg-overlay" aria-hidden="true"></div>
   <div class="wrap dash-panels">
 
-    <!-- ---------- DISCIPLINES ---------- -->
-    <div class="tab-panel" id="panel-disciplines">
-      <div class="section-head">
-        <div class="lane-strip"><svg class="icon"><use href="#i-lane"/></svg><span>The Five Disciplines</span></div>
-        <h2>Master Every Stroke</h2>
-        <p>Technique breakdowns and focus cues for each competitive swimming discipline.</p>
-      </div>
-      <div class="grid grid-5" id="disciplineGrid"></div>
-    </div>
-
     <!-- ---------- WORKOUTS (interactive generator) ---------- -->
     <div class="tab-panel panel-wide" id="panel-workouts">
      <div class="panel-wide-inner">
       <div class="section-head">
-        <p class="eyebrow"><svg class="icon"><use href="#i-stopwatch"/></svg> Build Your Own</p>
-        <h2>Swim Workout Generator</h2>
+        <p class="eyebrow"><svg class="icon"><use href="#i-stopwatch"/></svg> <span data-i18n="workouts.eyebrow">Build Your Own</span></p>
+        <h2 data-i18n="workouts.heading">Swim Workout Generator</h2>
         <p>Set your discipline, distance, gear and goal — Swimfit computes a full warm-up-to-cool-down set on the spot.</p>
       </div>
 
@@ -2598,6 +2608,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 <p>Configure your set on the left, then hit <strong>Generate Swim Workout</strong>.</p>
               </div>
             </div>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutPdfBtn" style="display:none; margin-top:20px;">
+              <svg class="icon"><use href="#i-download"/></svg> Save Workout as PDF
+            </button>
           </div>
 
           <div class="workout-ai-panel" data-auth-signed-in style="display:none">
@@ -2629,8 +2642,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="tab-panel" id="panel-gym">
       <div class="tab-banner" style="--photo: var(--gym-photo)" data-reveal></div>
       <div class="section-head">
-        <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> Dryland &amp; Strength</p>
-        <h2>What Are You Training Today?</h2>
+        <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> <span data-i18n="gym.eyebrow">Dryland &amp; Strength</span></p>
+        <h2 data-i18n="gym.heading">What Are You Training Today?</h2>
         <p>Pick a focus and the exercise board updates instantly — built for swimmers, not bodybuilders.</p>
       </div>
 
@@ -2665,14 +2678,18 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
       </div>
 
+      <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
       <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs" style="margin-bottom:32px; width:fit-content;">
-        <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="true"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
+        <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
         <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
         <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
         <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
       </div>
       <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
       <div id="gymGrid"></div>
+      <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
+        <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
+      </button>
 
       <div class="workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6);">
         <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
@@ -2699,8 +2716,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <!-- ---------- GEAR ---------- -->
     <div class="tab-panel" id="panel-gear">
       <div class="section-head center">
-        <p class="eyebrow" style="justify-content:center">Equipment Integration</p>
-        <h2>Gear That Powers Every Set</h2>
+        <p class="eyebrow" style="justify-content:center" data-i18n="gear.eyebrow">Equipment Integration</p>
+        <h2 data-i18n="gear.heading">Gear That Powers Every Set</h2>
         <p>Check off what you own in the Workout Generator — every set tells you exactly what to grab.</p>
       </div>
       <div class="grid grid-5" id="gearGrid"></div>
@@ -2709,8 +2726,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <!-- ---------- ACADEMY ---------- -->
     <div class="tab-panel" id="panel-academy">
       <div class="section-head">
-        <p class="eyebrow">Technique Academy</p>
-        <h2>Watch. Break Down. Improve.</h2>
+        <p class="eyebrow" data-i18n="academy.eyebrow">Technique Academy</p>
+        <h2 data-i18n="academy.heading">Watch. Break Down. Improve.</h2>
         <p>Stroke-by-stroke video breakdowns, turns, starts and race-transition drills.</p>
       </div>
       <div class="grid grid-3" id="videoGrid"></div>
@@ -2720,8 +2737,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="tab-panel panel-wide" id="panel-coach">
      <div class="panel-wide-inner">
       <div class="section-head">
-        <p class="eyebrow"><svg class="icon"><use href="#i-comment"/></svg> AI Swim Coach</p>
-        <h2>Your Coach, On Call</h2>
+        <p class="eyebrow"><svg class="icon"><use href="#i-comment"/></svg> <span data-i18n="coach.eyebrow">AI Swim Coach</span></p>
+        <h2 data-i18n="coach.heading">Your Coach, On Call</h2>
         <p>Ask about technique, dryland or your training log — attach a photo of a workout page, your gear, or your stroke for specific, coach-level feedback.</p>
       </div>
 
@@ -2767,8 +2784,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="tab-panel panel-wide" id="panel-tracker">
      <div class="panel-wide-inner">
       <div class="section-head">
-        <p class="eyebrow"><svg class="icon"><use href="#i-droplet"/></svg> Distance Tracker</p>
-        <h2>Log Your Swims, Watch The Volume Add Up</h2>
+        <p class="eyebrow"><svg class="icon"><use href="#i-droplet"/></svg> <span data-i18n="tracker.eyebrow">Distance Tracker</span></p>
+        <h2 data-i18n="tracker.heading">Log Your Swims, Watch The Volume Add Up</h2>
         <p>Quick-log every swim and see your distance broken down by day, week and month.</p>
       </div>
 
@@ -2791,6 +2808,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <div class="form-row">
               <label for="trackerLogKm">Distance (km)</label>
               <input type="number" id="trackerLogKm" class="form-input" min="0.05" max="100" step="0.05" placeholder="2.5" required>
+            </div>
+            <div class="form-row">
+              <label for="trackerLogDuration">Duration (mm:ss) <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400;">(optional — enables pace)</span></label>
+              <input type="text" id="trackerLogDuration" class="form-input" placeholder="e.g. 45:00" pattern="^[0-9]{1,3}:[0-5][0-9]$">
             </div>
             <div class="form-row">
               <label for="trackerLogDiscipline">Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400;">(optional)</span></label>
@@ -2831,6 +2852,64 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <span class="tracker-analytics-label">Most Swum Discipline</span>
             <span class="tracker-analytics-value tracker-analytics-value-text" id="trackerTopDiscipline">—</span>
           </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Est. Calories (Month)</span>
+            <span class="tracker-analytics-value" id="trackerCalories">0</span>
+          </div>
+          <div class="tracker-analytics-tile">
+            <span class="tracker-analytics-label">Avg Pace / 100m</span>
+            <span class="tracker-analytics-value tracker-analytics-value-text" id="trackerAvgPace">—</span>
+          </div>
+        </div>
+
+        <div class="tracker-goal-card">
+          <div class="tracker-goal-head">
+            <span>Weekly Volume Goal</span>
+            <div class="tracker-goal-input-row">
+              <input type="number" id="trackerGoalInput" class="form-input" min="1" max="200" step="0.5">
+              <span class="tracker-goal-unit">km</span>
+            </div>
+          </div>
+          <div class="tracker-progress-bar"><div class="tracker-progress-fill" id="trackerGoalFill"></div></div>
+          <p class="tracker-goal-note" id="trackerGoalNote">0.00 / 0.00 km this week</p>
+        </div>
+
+        <div class="tracker-charts-grid">
+          <div class="tracker-chart-card">
+            <h3 class="tracker-chart-title">Weekly Volume Breakdown</h3>
+            <div id="trackerVolumeChart"></div>
+          </div>
+          <div class="tracker-chart-card">
+            <h3 class="tracker-chart-title">Average Pace Trend</h3>
+            <div id="trackerPaceChart"></div>
+            <p class="tracker-chart-empty" id="trackerPaceEmpty">Log a swim with a duration to start tracking pace.</p>
+          </div>
+        </div>
+
+        <div class="tracker-chart-card tracker-pb-card">
+          <h3 class="tracker-chart-title">Personal Best Progression</h3>
+          <form class="tracker-pb-form" id="trackerPbForm">
+            <select id="trackerPbDiscipline" class="form-select" aria-label="Discipline">
+              <option value="Freestyle">Freestyle</option>
+              <option value="Backstroke">Backstroke</option>
+              <option value="Breaststroke">Breaststroke</option>
+              <option value="Butterfly">Butterfly</option>
+              <option value="Medley">Medley</option>
+            </select>
+            <select id="trackerPbDistance" class="form-select" aria-label="Distance">
+              <option value="50m">50m</option>
+              <option value="100m">100m</option>
+              <option value="200m">200m</option>
+              <option value="400m">400m</option>
+            </select>
+            <label for="trackerPbTime" class="sr-only">Time</label>
+            <input type="text" id="trackerPbTime" class="form-input" placeholder="Time — e.g. 0:32 or 1:05" required>
+            <label for="trackerPbDate" class="sr-only">Date</label>
+            <input type="date" id="trackerPbDate" class="form-input" required>
+            <button type="submit" class="btn btn-outline-aqua btn-sm">Log PB</button>
+          </form>
+          <div id="trackerPbChart"></div>
+          <p class="tracker-chart-empty" id="trackerPbEmpty">Log at least two times for the same discipline + distance to see a progression trend.</p>
         </div>
 
         <h3 class="tracker-entries-head">Recent Swims</h3>
@@ -2839,11 +2918,92 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      </div>
     </div>
 
+    <!-- ---------- SETTINGS ---------- -->
+    <div class="tab-panel panel-wide" id="panel-settings">
+     <div class="panel-wide-inner">
+      <div class="section-head">
+        <p class="eyebrow"><svg class="icon"><use href="#i-settings"/></svg> <span data-i18n="settings.eyebrow">Settings</span></p>
+        <h2 data-i18n="settings.heading">Your Profile, Your Preferences</h2>
+        <p data-i18n="settings.sub">Update your details, set your training focus, and tune how Swimfit looks and reads for you.</p>
+      </div>
+
+      <div class="settings-shell" data-auth-signed-out>
+        <div class="coach-page-locked">
+          <svg class="icon"><use href="#i-lock"/></svg>
+          <h3>Sign In To Manage Settings</h3>
+          <p>Creating a free account takes seconds and unlocks your Swimfit settings.</p>
+          <button type="button" class="btn btn-primary" data-open-auth="signup">Sign In</button>
+        </div>
+      </div>
+
+      <div class="settings-shell" data-auth-signed-in style="display:none">
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile</h3>
+            <form id="settingsProfileForm">
+              <div class="profile-row">
+                <div class="profile-field">
+                  <label for="settingsFullName">Full Name</label>
+                  <input type="text" id="settingsFullName" maxlength="80" placeholder="e.g. Alex Morgan">
+                </div>
+                <div class="profile-field">
+                  <label for="settingsUsername">Username</label>
+                  <input type="text" id="settingsUsername" disabled>
+                </div>
+                <div class="profile-field">
+                  <label for="settingsEmail">Email</label>
+                  <input type="text" id="settingsEmail" disabled>
+                </div>
+                <div class="profile-field">
+                  <label for="settingsCountry">Country</label>
+                  <input type="text" id="settingsCountry" maxlength="60" placeholder="e.g. United Arab Emirates">
+                </div>
+                <div class="profile-field">
+                  <label for="settingsAge">Age</label>
+                  <input type="number" id="settingsAge" min="5" max="120" placeholder="e.g. 24">
+                </div>
+              </div>
+              <p style="color:var(--muted-2); font-size:0.8rem; margin-top:10px;">Username and email can’t be changed here — email is managed by your sign-in method, and usernames are permanent once claimed.</p>
+              <button type="submit" class="btn btn-primary btn-sm" style="margin-top:16px">Save Profile</button>
+              <p class="settings-save-status" id="settingsProfileStatus"></p>
+            </form>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-wave"/></svg> Swimming Specialties</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Pick the stroke(s) you train most — this becomes your default in the Workout Generator’s Discipline picker.</p>
+            <div class="chip-group" id="settingsDisciplineChips" role="group" aria-label="Swimming specialties — multiple selectable"></div>
+            <button type="button" class="btn btn-primary btn-sm" id="settingsDisciplinesSaveBtn" style="margin-top:16px">Save Specialties</button>
+            <p class="settings-save-status" id="settingsDisciplinesStatus"></p>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-target"/></svg> Appearance</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Choose a Dark or Light look for the whole site. Saved to this browser.</p>
+            <div class="pill-tabs" role="tablist" aria-label="Theme" id="settingsThemeTabs">
+              <button type="button" class="pill-tab" role="tab" data-theme-choice="dark" aria-selected="true">Dark</button>
+              <button type="button" class="pill-tab" role="tab" data-theme-choice="light" aria-selected="false">Light</button>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-globe"/></svg> Language</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Switch the site’s menus and headings between English and Arabic. Generated workouts, AI Coach replies, and PDFs stay in English for now.</p>
+            <div class="pill-tabs" role="tablist" aria-label="Language" id="settingsLangTabs">
+              <button type="button" class="pill-tab" role="tab" data-lang-choice="en" aria-selected="true">English</button>
+              <button type="button" class="pill-tab" role="tab" data-lang-choice="ar" aria-selected="false">العربية</button>
+            </div>
+          </div>
+        </div>
+      </div>
+     </div>
+    </div>
+
     <!-- ---------- PRICING ---------- -->
     <div class="tab-panel" id="panel-pricing">
       <div class="section-head center">
-        <p class="eyebrow" style="justify-content:center">Membership</p>
-        <h2>Simple Pricing, Serious Results</h2>
+        <p class="eyebrow" style="justify-content:center" data-i18n="pricing.eyebrow">Membership</p>
+        <h2 data-i18n="pricing.heading">Simple Pricing, Serious Results</h2>
         <p>Every new account starts with a <strong style="color:var(--fg)">free 7-day trial</strong> of full platform access. Billed in AED after that. Cancel anytime.</p>
       </div>
       <div class="pricing-grid">
@@ -2929,6 +3089,29 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p>Every registered account, their plan, and a direct line to message any one of them.</p>
       </div>
 
+      <div class="admin-stats-grid" id="adminStatsGrid">
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatTotal">—</span>
+          <span class="admin-stat-label">Total Registered</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatSubscribers">—</span>
+          <span class="admin-stat-label">Total Subscribers</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatActive">—</span>
+          <span class="admin-stat-label">Active Memberships</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatTrial">—</span>
+          <span class="admin-stat-label">On Free Trial</span>
+        </div>
+        <div class="admin-stat-tile">
+          <span class="admin-stat-value" id="adminStatSuspended">—</span>
+          <span class="admin-stat-label">Suspended</span>
+        </div>
+      </div>
+
       <div class="admin-panel-shell">
         <div class="admin-users-col">
           <div class="admin-users-toolbar">
@@ -2938,7 +3121,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="admin-users-table-wrap">
             <table class="admin-users-table">
               <thead>
-                <tr><th>Swimmer</th><th>Plan</th><th>Joined</th><th>Access</th><th></th></tr>
+                <tr><th>Swimmer</th><th>Plan</th><th>Time Remaining</th><th>Joined</th><th>Access</th><th></th></tr>
               </thead>
               <tbody id="adminUsersTbody"></tbody>
             </table>
@@ -2980,13 +3163,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="footer-col">
         <h4>Dashboard</h4>
         <ul>
-          <li><button type="button" data-tab="disciplines">Disciplines</button></li>
           <li><button type="button" data-tab="workouts">Workout Generator</button></li>
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
           <li><button type="button" data-tab="gear">Gear</button></li>
           <li><button type="button" data-tab="academy">Technique Academy</button></li>
           <li><button type="button" data-tab="coach">AI Swim Coach</button></li>
           <li><button type="button" data-tab="tracker">Distance Tracker</button></li>
+          <li><button type="button" data-tab="settings">Settings</button></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -3031,8 +3214,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </button>
 
     <div class="auth-mode-toggle" id="authModeToggle" role="tablist" aria-label="Sign in or create an account">
-      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signin" aria-selected="true">Sign In</button>
-      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signup" aria-selected="false">Create Account</button>
+      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signin" aria-selected="true" data-i18n="auth.signin">Sign In</button>
+      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signup" aria-selected="false" data-i18n="auth.signup">Create Account</button>
     </div>
 
     <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
@@ -3316,7 +3499,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   // nav entry entirely via [data-admin-only] above) would otherwise be left
   // showing a "please sign in" panel or stale admin data underneath — switch
   // back to a public tab first if that's where they were.
-  var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin'];
+  var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings'];
   document.addEventListener('swimfit:authchange', function (e) {
     if (e.detail.user) return;
     if (SIGNED_IN_ONLY_TABS.indexOf(dashboard.getAttribute('data-active-tab')) > -1) {
@@ -3325,21 +3508,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var topEl = document.getElementById('top');
     if (topEl) topEl.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
   });
-
-  /* ============================= DATA: DISCIPLINES ============================= */
-  var DISCIPLINES = [
-    { key: 'freestyle', icon: 'i-wave', name: 'Freestyle', focus: 'Bilateral breathing & high-elbow catch' },
-    { key: 'backstroke', icon: 'i-back', name: 'Backstroke', focus: 'Body roll & consistent head position' },
-    { key: 'butterfly', icon: 'i-fly', name: 'Butterfly', focus: 'Undulation, timing & two-beat kick' },
-    { key: 'breaststroke', icon: 'i-breast', name: 'Breaststroke', focus: 'Pullout timing & whip-kick snap' },
-    { key: 'medley', icon: 'i-medley', name: 'Individual Medley', focus: 'Seamless stroke-to-stroke transitions' }
-  ];
-  document.getElementById('disciplineGrid').innerHTML = DISCIPLINES.map(function (d) {
-    return '<article class="card discipline-card" data-reveal>' +
-      '<div class="discipline-photo" style="--photo: var(--disc-photo-' + d.key + ')">' + icon(d.icon) + '</div>' +
-      '<div class="discipline-body"><h3>' + d.name + '</h3><p>Key Focus: ' + d.focus + '</p></div>' +
-      '</article>';
-  }).join('');
 
   /* ============================= DATA: GEAR ============================= */
   var GEAR = [
@@ -3364,7 +3532,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     { title: 'How to Swim Back Stroke', level: 'Beginner', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070540_c47f3edf-efda-46a2-b7db-396fe258c584.png', youtubeId: 'MrFt6JHii8w' },
     { title: 'How to Swim Fly', level: 'Competitive', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070543_2fd47a45-ff46-45de-b8cb-946796a68033.png', youtubeId: 'x-CB6aD4S2s' },
     { title: 'How to Swim Breaststroke', level: 'All Levels', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070545_60a19432-ed95-416f-814a-4267474c813a.png', youtubeId: 'EElzlIMjk_c' },
-    { title: 'How to Flip Turn', level: 'Competitive', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070550_33190240-e756-4d07-861b-ad26065bc523.png', youtubeId: 'GoyXk3xMfKY' },
+    { title: 'How to Flip Turn', level: 'Competitive', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_084835_b4c98699-cb6b-441f-ae72-503d73830e4a.png', youtubeId: 'GoyXk3xMfKY' },
     { title: 'How to Swim Underwater', level: 'Elite', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070551_c78a504f-1d18-44cb-8a35-3d592a28a0a9.png', youtubeId: '5hwv4HFpHTA' }
   ];
   var FEATURED_VIDEO = { title: 'How to Swim All Four Strokes', level: 'Masterclass', photo: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260721_070553_203130d9-c020-40ba-9b56-a35d5140a0ca.png', youtubeId: '8c_lt66Yvn4' };
@@ -3731,11 +3899,45 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var start = new Date(now.getFullYear(), 0, 0);
     return Math.floor((now - start) / 86400000);
   }
+  // Year folded in so the seed doesn't repeat every 365/366 days like a bare
+  // dayIndex() would.
+  function dailySeed() { return new Date().getFullYear() * 1000 + dayIndex(); }
+  function weekIndex() { return Math.floor(dayIndex() / 7); }
+
+  // Deterministic PRNG (mulberry32) so a workout generated today always comes
+  // out the same for a given set of picks — refreshing automatically at
+  // midnight — instead of reshuffling on every single click of Generate.
+  // pickN/pickOne/roundCountFor below all draw from workoutRng rather than
+  // Math.random() directly; generateWorkout() reseeds it from dailySeed()
+  // at the top of every call.
+  function makeSeededRandom(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var workoutRng = Math.random;
 
   var GOALS = [
     { key: 'endurance', icon: 'i-wave', label: 'Endurance', quote: 'Every length is a deposit in the bank of race day.' },
     { key: 'speed', icon: 'i-bolt', label: 'Speed', quote: 'Speed is a decision you make before you dive in.' },
     { key: 'technique', icon: 'i-target', label: 'Technique', quote: 'Perfect the stroke, and the clock takes care of itself.' }
+  ];
+
+  // Feeds the Workout Generator's #disciplineChips picker (name/icon per
+  // stroke) — the standalone Disciplines showcase tab that used to render a
+  // matching grid from this same array has been removed, but the generator
+  // still needs the stroke names/icons themselves.
+  var DISCIPLINES = [
+    { key: 'freestyle', icon: 'i-wave', name: 'Freestyle' },
+    { key: 'backstroke', icon: 'i-back', name: 'Backstroke' },
+    { key: 'butterfly', icon: 'i-fly', name: 'Butterfly' },
+    { key: 'breaststroke', icon: 'i-breast', name: 'Breaststroke' },
+    { key: 'medley', icon: 'i-medley', name: 'Individual Medley' }
   ];
 
   var state = {
@@ -3954,19 +4156,19 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   function pickN(arr, n) {
     var copy = arr.slice();
     for (var i = copy.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
+      var j = Math.floor(workoutRng() * (i + 1));
       var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
     }
     return copy.slice(0, Math.min(n, copy.length));
   }
-  function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function pickOne(arr) { return arr[Math.floor(workoutRng() * arr.length)]; }
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
-  // circuit from — randomized within the level's range so back-to-back
-  // generations at the same level don't always land on the same shape.
+  // circuit from — seeded per day (see workoutRng above) so the shape is
+  // stable across regenerations today and rotates automatically tomorrow.
   function roundCountFor(scaler) {
     var min = scaler.minRounds || 2, max = scaler.maxRounds || min;
-    return min + Math.floor(Math.random() * (max - min + 1));
+    return min + Math.floor(workoutRng() * (max - min + 1));
   }
   // Splits a Main Set archetype's total meterage evenly across n rounds,
   // rounded to a clean 50m so every round still lands on a swimmable rep scheme.
@@ -4303,6 +4505,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   }
 
   function generateWorkout() {
+    // Reseed from today's date first, so every archetype/round-count pick
+    // this function makes below comes from the same day-stable sequence —
+    // the swimmer's workout automatically rotates at midnight rather than
+    // reshuffling on every click of Generate.
+    workoutRng = makeSeededRandom(dailySeed());
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
@@ -4357,9 +4564,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
-      '<strong style="color:var(--fg)">Coach’s Plan:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
+      '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + (totalM >= 6000 ? '6km+' : (totalM / 1000) + 'km') + ' · ' +
       GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note +
-      (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') + '</p>';
+      (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
+      ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
 
     scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.88rem; margin-bottom:24px;">' +
       (personalPace != null
@@ -4373,6 +4581,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     document.getElementById('workoutResult').querySelectorAll('[data-tab]').forEach(function (btn) {
       btn.addEventListener('click', function (e) { e.preventDefault(); switchTab(btn.dataset.tab); });
     });
+    var pdfBtn = document.getElementById('workoutPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = '';
   }
 
   document.getElementById('generateBtn').addEventListener('click', generateWorkout);
@@ -4529,7 +4739,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     return sets + ' x ' + reps + m[3];
   }
 
-  var currentGymFocus = 'cardio';
+  // Every muscle-split focus (Cardio is a modality, not a split, so it stays
+  // manually-selected only) takes its turn as the auto-selected default once
+  // a week, rotating on the same weekIndex() used elsewhere — Full Body's
+  // own Core Activation phase covers the "Core" leg of the classic
+  // Upper/Lower/Core split, since there's no separate Core tab in GYM_FOCUS.
+  var GYM_WEEKLY_ROTATION = ['upper', 'lower', 'full'];
+  function thisWeeksGymFocus() { return GYM_WEEKLY_ROTATION[weekIndex() % GYM_WEEKLY_ROTATION.length]; }
+  var currentGymFocus = thisWeeksGymFocus();
 
   // Reads the Workout Generator's own state (same discipline/goal/distance the
   // swimmer already configured) so Full Body programming automatically leans
@@ -4887,6 +5104,15 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   function renderGym(focus) {
     currentGymFocus = focus;
+    document.querySelectorAll('#gymFocusTabs [data-focus]').forEach(function (btn) {
+      btn.setAttribute('aria-selected', btn.dataset.focus === focus ? 'true' : 'false');
+    });
+    var weeklyNote = document.getElementById('gymWeeklyFocusNote');
+    if (weeklyNote) {
+      weeklyNote.textContent = focus === thisWeeksGymFocus()
+        ? 'This Week’s Focus: ' + GYM_LABEL[focus] + ' — cycles automatically every week; pick any tab above to train something else today.'
+        : GYM_LABEL[focus] + ' (this week’s automatic focus is ' + GYM_LABEL[thisWeeksGymFocus()] + ').';
+    }
     var tone = GYM_TONE[focus];
     var focusLabel = GYM_LABEL[focus];
     var age = parseInt(document.getElementById('gymAge').value, 10);
@@ -4913,6 +5139,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     if (io) document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { io.observe(el); });
     else document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
+
+    var pdfBtn = document.getElementById('gymPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = '';
   }
 
   document.getElementById('gymApplyBtn').addEventListener('click', function () { renderGym(currentGymFocus); });
@@ -4923,6 +5152,506 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     renderGym(btn.dataset.focus);
   });
+
+  /* ============================= PDF WORKOUT EXPORT ============================= */
+  // jsPDF is loaded lazily from a CDN on first click of either "Save as PDF"
+  // button — same "only pull in a dependency when it's actually needed"
+  // posture as the rest of this no-build-step file — rather than up front on
+  // every page load.
+  (function wirePdfExport() {
+    var JSPDF_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
+    var jsPdfLoadPromise = null;
+    function loadJsPDF() {
+      if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+      if (jsPdfLoadPromise) return jsPdfLoadPromise;
+      jsPdfLoadPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = JSPDF_SRC;
+        script.onload = function () {
+          if (window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
+          else reject(new Error('jsPDF failed to initialize'));
+        };
+        script.onerror = function () { jsPdfLoadPromise = null; reject(new Error('Could not load the PDF library')); };
+        document.head.appendChild(script);
+      });
+      return jsPdfLoadPromise;
+    }
+
+    function todayFileStamp() { return new Date().toISOString().slice(0, 10); }
+
+    // Reads the already-rendered result panel's own DOM (rather than
+    // recomputing the workout a second time) so the PDF always matches
+    // exactly what's on screen.
+    function extractStructuredWorkout(rootEl) {
+      var planNotes = Array.prototype.filter.call(rootEl.children, function (el) { return el.tagName === 'P'; })
+        .map(function (p) { return p.textContent.trim(); });
+      var blocks = Array.prototype.map.call(rootEl.querySelectorAll('.workout-block'), function (block) {
+        var titleEl = block.querySelector('.workout-block-title');
+        var intentEl = block.querySelector('.coach-intent-body');
+        var rows = [];
+        var currentRound = null;
+        Array.prototype.forEach.call(block.children, function (child) {
+          if (child.classList.contains('round-label')) currentRound = child.textContent.trim();
+          else if (child.classList.contains('set-row')) {
+            rows.push({
+              round: currentRound,
+              title: child.querySelector('.set-title').textContent.trim(),
+              pace: child.querySelector('.set-pace').textContent.trim(),
+              interval: child.querySelector('.set-interval strong').textContent.trim(),
+              rest: child.querySelector('.set-rest strong').textContent.trim()
+            });
+          }
+        });
+        return { title: titleEl ? titleEl.textContent.trim() : '', intent: intentEl ? intentEl.textContent.trim() : null, rows: rows };
+      });
+      var tips = Array.prototype.map.call(rootEl.querySelectorAll('.coach-tips li'), function (li) { return li.textContent.trim(); });
+      return { planNotes: planNotes, blocks: blocks, tips: tips };
+    }
+
+    function extractStructuredGym(rootEl) {
+      var phases = Array.prototype.map.call(rootEl.querySelectorAll('.gym-phase'), function (phase) {
+        var titleEl = phase.querySelector('.gym-phase-title');
+        var exercises = Array.prototype.map.call(phase.querySelectorAll('.gym-card'), function (card) {
+          var extraP = Array.prototype.find.call(card.querySelectorAll('p'), function (p) {
+            return !p.classList.contains('prescription') && !p.classList.contains('cue');
+          });
+          return {
+            name: card.querySelector('h3').textContent.trim(),
+            prescription: card.querySelector('.prescription').textContent.trim(),
+            load: extraP ? extraP.textContent.trim() : null,
+            cue: card.querySelector('.cue').textContent.trim()
+          };
+        });
+        return { title: titleEl ? titleEl.textContent.trim() : '', exercises: exercises };
+      });
+      return { phases: phases };
+    }
+
+    // Shared branded header/footer so both PDFs (swim workout + gym
+    // routine) look like the same product, not two one-off exports.
+    function pdfHeaderBand(doc) {
+      var pageW = doc.internal.pageSize.getWidth();
+      doc.setFillColor(34, 211, 238); // --aqua
+      doc.rect(0, 0, pageW, 6, 'F');
+    }
+    function pdfTitleBlock(doc, pageTitle) {
+      var pageW = doc.internal.pageSize.getWidth();
+      pdfHeaderBand(doc);
+      var y = 42;
+      var logoImg = document.querySelector('.brand img');
+      if (logoImg && logoImg.src) {
+        try { doc.addImage(logoImg.src, 'PNG', 40, y - 14, 105, 18); } catch (e) { /* logo optional */ }
+      }
+      y += 34;
+      doc.setTextColor(20, 20, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text(pageTitle, 40, y);
+      y += 10;
+      doc.setDrawColor(156, 42, 68); // --maroon
+      doc.setLineWidth(1.2);
+      doc.line(40, y, pageW - 40, y);
+      return y + 20;
+    }
+    function pdfFooterOnAllPages(doc) {
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var pageCount = doc.internal.getNumberOfPages();
+      for (var p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Generated by Swimfit — swimfit.online', 40, pageH - 20);
+        doc.text(String(p) + ' / ' + pageCount, pageW - 70, pageH - 20);
+      }
+    }
+
+    function buildWorkoutPdf(jsPDFCtor, data) {
+      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 40;
+      var y = pdfTitleBlock(doc, 'Swim Workout');
+
+      function ensureSpace(need) {
+        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(90, 90, 90);
+      data.planNotes.forEach(function (line) {
+        doc.splitTextToSize(line, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
+        y += 4;
+      });
+      y += 8;
+
+      data.blocks.forEach(function (block) {
+        ensureSpace(28);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(21, 137, 153);
+        doc.text(block.title.toUpperCase(), marginX, y);
+        y += 15;
+
+        if (block.intent) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(9);
+          doc.setTextColor(110, 110, 110);
+          doc.splitTextToSize('Coach’s Intent: ' + block.intent, pageW - marginX * 2).forEach(function (l) { ensureSpace(12); doc.text(l, marginX, y); y += 11; });
+          y += 4;
+        }
+
+        var lastRound = null;
+        block.rows.forEach(function (row) {
+          if (row.round && row.round !== lastRound) {
+            ensureSpace(15);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(156, 42, 68);
+            doc.text(row.round, marginX, y);
+            y += 13;
+            lastRound = row.round;
+          }
+          ensureSpace(26);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setTextColor(20, 20, 20);
+          var titleLines = doc.splitTextToSize(row.title, pageW - marginX * 2 - 130);
+          titleLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 11); });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(90, 90, 90);
+          doc.text(row.interval + '  ·  ' + row.rest, pageW - marginX - 120, y);
+          y += Math.max(titleLines.length * 11, 11) + 3;
+          doc.setFontSize(8.5);
+          doc.setTextColor(21, 137, 153);
+          doc.splitTextToSize(row.pace, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          y += 6;
+        });
+        y += 6;
+      });
+
+      if (data.tips.length) {
+        ensureSpace(24);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(196, 59, 92);
+        doc.text('COACH’S TECHNICAL TIPS', marginX, y);
+        y += 16;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(40, 40, 40);
+        data.tips.forEach(function (tip) {
+          doc.splitTextToSize('• ' + tip, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
+          y += 2;
+        });
+      }
+
+      pdfFooterOnAllPages(doc);
+      return doc;
+    }
+
+    function buildGymPdf(jsPDFCtor, data, focusLabel) {
+      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 40;
+      var y = pdfTitleBlock(doc, 'Gym Routine — ' + focusLabel);
+
+      function ensureSpace(need) {
+        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+      }
+
+      data.phases.forEach(function (phase) {
+        ensureSpace(28);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(21, 137, 153);
+        doc.text(phase.title.toUpperCase(), marginX, y);
+        y += 16;
+
+        phase.exercises.forEach(function (ex) {
+          ensureSpace(34);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.setTextColor(20, 20, 20);
+          var nameLines = doc.splitTextToSize(ex.name, pageW - marginX * 2 - 110);
+          nameLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 12); });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9.5);
+          doc.setTextColor(21, 137, 153);
+          doc.text(ex.prescription, pageW - marginX - 100, y);
+          y += Math.max(nameLines.length * 12, 12) + 2;
+          if (ex.load) {
+            doc.setFontSize(8.5);
+            doc.setTextColor(46, 160, 90);
+            doc.splitTextToSize(ex.load, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          }
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8.5);
+          doc.setTextColor(110, 110, 110);
+          doc.splitTextToSize(ex.cue, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          y += 6;
+        });
+        y += 6;
+      });
+
+      pdfFooterOnAllPages(doc);
+      return doc;
+    }
+
+    function wireButton(btn, buildFn) {
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = 'Preparing PDF…';
+        loadJsPDF().then(function (jsPDFCtor) {
+          buildFn(jsPDFCtor);
+        }).catch(function () {
+          alert('Could not generate the PDF right now — please try again.');
+        }).finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = original;
+        });
+      });
+    }
+
+    wireButton(document.getElementById('workoutPdfBtn'), function (jsPDFCtor) {
+      var data = extractStructuredWorkout(document.getElementById('workoutResult'));
+      buildWorkoutPdf(jsPDFCtor, data).save('swimfit-swim-workout-' + todayFileStamp() + '.pdf');
+    });
+    wireButton(document.getElementById('gymPdfBtn'), function (jsPDFCtor) {
+      var data = extractStructuredGym(document.getElementById('gymGrid'));
+      buildGymPdf(jsPDFCtor, data, GYM_LABEL[currentGymFocus]).save('swimfit-gym-' + currentGymFocus + '-' + todayFileStamp() + '.pdf');
+    });
+  })();
+
+  /* ============================= SETTINGS: PROFILE + SPECIALTIES ============================= */
+  (function wireSettingsPanel() {
+    var form = document.getElementById('settingsProfileForm');
+    var fullNameInput = document.getElementById('settingsFullName');
+    var usernameInput = document.getElementById('settingsUsername');
+    var emailInput = document.getElementById('settingsEmail');
+    var countryInput = document.getElementById('settingsCountry');
+    var ageInput = document.getElementById('settingsAge');
+    var profileStatus = document.getElementById('settingsProfileStatus');
+    var disciplineChipsEl = document.getElementById('settingsDisciplineChips');
+    var disciplinesSaveBtn = document.getElementById('settingsDisciplinesSaveBtn');
+    var disciplinesStatus = document.getElementById('settingsDisciplinesStatus');
+    if (!form || !disciplineChipsEl) return;
+
+    var selectedDisciplines = [];
+    var loadedForUid = null;
+
+    function renderDisciplineChips() {
+      disciplineChipsEl.innerHTML = DISCIPLINES.map(function (d) {
+        return '<button type="button" class="chip" data-discipline="' + d.name + '" aria-pressed="' + (selectedDisciplines.indexOf(d.name) > -1) + '">' + icon(d.icon) + d.name + '</button>';
+      }).join('');
+    }
+    disciplineChipsEl.addEventListener('click', function (e) {
+      var chip = e.target.closest('.chip');
+      if (!chip) return;
+      var name = chip.dataset.discipline;
+      var idx = selectedDisciplines.indexOf(name);
+      if (idx > -1) {
+        if (selectedDisciplines.length === 1) return; // keep at least one selected
+        selectedDisciplines.splice(idx, 1);
+        chip.setAttribute('aria-pressed', 'false');
+      } else {
+        selectedDisciplines.push(name);
+        chip.setAttribute('aria-pressed', 'true');
+      }
+    });
+
+    function resetFields() {
+      fullNameInput.value = ''; usernameInput.value = ''; emailInput.value = '';
+      countryInput.value = ''; ageInput.value = '';
+      selectedDisciplines = [];
+      renderDisciplineChips();
+    }
+
+    function loadProfileIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || loadedForUid === user.uid || typeof window.__userProfileGet !== 'function') return;
+      loadedForUid = user.uid;
+      emailInput.value = user.email || '';
+      window.__userProfileGet(user.uid).then(function (data) {
+        data = data || {};
+        fullNameInput.value = data.fullName || user.displayName || '';
+        usernameInput.value = data.username || '(none set)';
+        countryInput.value = data.country || '';
+        ageInput.value = data.age || '';
+        selectedDisciplines = (data.disciplines && data.disciplines.length) ? data.disciplines.slice() : state.disciplines.slice();
+        renderDisciplineChips();
+      }).catch(function () {});
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__userProfileUpdate !== 'function') return;
+      var fields = { fullName: fullNameInput.value.trim() };
+      if (countryInput.value.trim()) fields.country = countryInput.value.trim();
+      var ageVal = parseInt(ageInput.value, 10);
+      if (ageVal) fields.age = ageVal;
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      window.__userProfileUpdate(user.uid, fields).then(function () {
+        profileStatus.textContent = 'Saved.';
+        profileStatus.classList.remove('is-error');
+      }).catch(function () {
+        profileStatus.textContent = 'Could not save — please try again.';
+        profileStatus.classList.add('is-error');
+      }).finally(function () {
+        if (submitBtn) submitBtn.disabled = false;
+      });
+    });
+
+    if (disciplinesSaveBtn) {
+      disciplinesSaveBtn.addEventListener('click', function () {
+        var user = window.__firebaseUser;
+        if (!user || typeof window.__userProfileUpdate !== 'function') return;
+        disciplinesSaveBtn.disabled = true;
+        window.__userProfileUpdate(user.uid, { disciplines: selectedDisciplines.slice() }).then(function () {
+          disciplinesStatus.textContent = 'Saved — applied to your Workout Generator.';
+          disciplinesStatus.classList.remove('is-error');
+          // Apply immediately to the live Workout Generator, so a swimmer
+          // sees the effect without needing to reload.
+          state.disciplines = selectedDisciplines.slice();
+          document.querySelectorAll('#disciplineChips .chip').forEach(function (chip) {
+            chip.setAttribute('aria-pressed', state.disciplines.indexOf(chip.dataset.discipline) > -1);
+          });
+        }).catch(function () {
+          disciplinesStatus.textContent = 'Could not save — please try again.';
+          disciplinesStatus.classList.add('is-error');
+        }).finally(function () {
+          disciplinesSaveBtn.disabled = false;
+        });
+      });
+    }
+
+    document.querySelectorAll('[data-tab="settings"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { setTimeout(loadProfileIfNeeded, 0); });
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (e.detail.user) loadProfileIfNeeded();
+      else { loadedForUid = null; resetFields(); }
+    });
+  })();
+
+  /* ============================= SETTINGS: APPEARANCE (DARK/LIGHT) =============================
+     The actual theme switch (data-theme attribute + localStorage) already
+     runs synchronously in <head>, before first paint, to avoid a flash of
+     the wrong theme — this just keeps the Settings pill-tabs in sync and
+     handles the live toggle click. */
+  (function wireThemeToggle() {
+    var STORAGE_KEY = 'swimfit_theme';
+    var tabs = document.getElementById('settingsThemeTabs');
+    function syncTabs(theme) {
+      document.querySelectorAll('#settingsThemeTabs [data-theme-choice]').forEach(function (b) {
+        b.setAttribute('aria-selected', b.dataset.themeChoice === theme ? 'true' : 'false');
+      });
+    }
+    function currentTheme() {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    syncTabs(currentTheme());
+    if (tabs) {
+      tabs.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-theme-choice]');
+        if (!btn) return;
+        var theme = btn.dataset.themeChoice;
+        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        else document.documentElement.removeAttribute('data-theme');
+        try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) { /* private browsing etc. */ }
+        syncTabs(theme);
+      });
+    }
+  })();
+
+  /* ============================= SETTINGS: LANGUAGE (EN/AR) =============================
+     Translates static chrome — nav, Hero, each tab's eyebrow/heading, the
+     auth modal's mode toggle — via [data-i18n] lookups below. Everything
+     generated at runtime (workout sets, AI Coach replies, PDFs, the Admin
+     Panel) stays in English regardless of this setting — translating a
+     content-generation system is a separate, materially larger effort than
+     translating this file's own static chrome. */
+  (function wireLanguageToggle() {
+    var STORAGE_KEY = 'swimfit_lang';
+    var I18N = {
+      en: {
+        'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
+        'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
+        'nav.signin': 'Sign In',
+        'hero.eyebrow': 'Performance Swim Training · UAE',
+        'hero.headline': 'Command the Water.<br>Own the <span class="accent">Race.</span>',
+        'hero.sub': 'A live training dashboard — build your own swim set, pick tonight’s gym focus, and manage your membership, all without a single long scroll.',
+        'hero.cta1': 'Build My Workout', 'hero.cta2': 'Today’s Gym Focus',
+        'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Swim Workout Generator',
+        'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'What Are You Training Today?',
+        'gear.eyebrow': 'Equipment Integration', 'gear.heading': 'Gear That Powers Every Set',
+        'academy.eyebrow': 'Technique Academy', 'academy.heading': 'Watch. Break Down. Improve.',
+        'coach.eyebrow': 'AI Swim Coach', 'coach.heading': 'Your Coach, On Call',
+        'tracker.eyebrow': 'Distance Tracker', 'tracker.heading': 'Log Your Swims, Watch The Volume Add Up',
+        'settings.eyebrow': 'Settings', 'settings.heading': 'Your Profile, Your Preferences',
+        'settings.sub': 'Update your details, set your training focus, and tune how Swimfit looks and reads for you.',
+        'pricing.eyebrow': 'Membership', 'pricing.heading': 'Simple Pricing, Serious Results',
+        'auth.signin': 'Sign In', 'auth.signup': 'Create Account'
+      },
+      ar: {
+        'nav.workouts': 'التمارين', 'nav.gym': 'الجيم', 'nav.gear': 'المعدات', 'nav.academy': 'الأكاديمية',
+        'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
+        'nav.signin': 'تسجيل الدخول',
+        'hero.eyebrow': 'تدريب السباحة الاحترافي · الإمارات',
+        'hero.headline': 'تحكّم بالماء.<br>املك <span class="accent">السباق.</span>',
+        'hero.sub': 'لوحة تدريب حية — ابنِ تمرين السباحة الخاص بك، اختر تركيز الجيم الليلة، وأدر عضويتك، كل ذلك دون تمرير طويل.',
+        'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'تركيز الجيم اليوم',
+        'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مولّد تمارين السباحة',
+        'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'ماذا تتدرب اليوم؟',
+        'gear.eyebrow': 'تكامل المعدات', 'gear.heading': 'معدات تدعم كل تمرين',
+        'academy.eyebrow': 'أكاديمية التقنية', 'academy.heading': 'شاهد. حلّل. تحسّن.',
+        'coach.eyebrow': 'مدرب السباحة الذكي', 'coach.heading': 'مدربك، على استعداد دائم',
+        'tracker.eyebrow': 'متتبع المسافة', 'tracker.heading': 'سجّل سباحاتك وشاهد حجمها يتراكم',
+        'settings.eyebrow': 'الإعدادات', 'settings.heading': 'ملفك الشخصي وتفضيلاتك',
+        'settings.sub': 'حدّث بياناتك، اضبط تركيز تدريبك، واختر كيف يبدو Swimfit ويُقرأ بالنسبة لك.',
+        'pricing.eyebrow': 'العضوية', 'pricing.heading': 'أسعار بسيطة، نتائج جادة',
+        'auth.signin': 'تسجيل الدخول', 'auth.signup': 'إنشاء حساب'
+      }
+    };
+
+    function applyLanguage(lang) {
+      var dict = I18N[lang] || I18N.en;
+      document.querySelectorAll('[data-i18n]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n');
+        var value = dict[key] || I18N.en[key];
+        if (value == null) return;
+        if (el.hasAttribute('data-i18n-html')) el.innerHTML = value;
+        else el.textContent = value;
+      });
+      document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
+      if (lang === 'ar') document.documentElement.setAttribute('dir', 'rtl');
+      else document.documentElement.removeAttribute('dir');
+      document.querySelectorAll('#settingsLangTabs [data-lang-choice]').forEach(function (b) {
+        b.setAttribute('aria-selected', b.dataset.langChoice === lang ? 'true' : 'false');
+      });
+    }
+
+    var tabs = document.getElementById('settingsLangTabs');
+    var current = document.documentElement.getAttribute('lang') === 'ar' ? 'ar' : 'en';
+    applyLanguage(current);
+    if (tabs) {
+      tabs.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-lang-choice]');
+        if (!btn) return;
+        var lang = btn.dataset.langChoice;
+        try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) { /* private browsing etc. */ }
+        applyLanguage(lang);
+      });
+    }
+  })();
 
   /* ============================= REVEAL ON SCROLL ============================= */
   document.body.classList.add('reveal-ready');
@@ -4973,6 +5702,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     var coachHistory = [];
     var sending = false;
+    var historyLoadedForUid = null;
 
     function appendMessage(role, text) {
       var row = document.createElement('div');
@@ -4986,10 +5716,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       return bubble;
     }
 
+    // Persisted in coach_widget_history/{uid} — a separate document from the
+    // full-screen page's coach_history/{uid}, so the two surfaces never
+    // overwrite each other's saved conversation. Loaded once per sign-in the
+    // first time the panel is opened, so a refresh or tab switch never loses
+    // the conversation.
+    function persistHistory() {
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__coachWidgetHistorySave !== 'function') return;
+      window.__coachWidgetHistorySave(user.uid, coachHistory.slice(-AI_COACH_HISTORY_LIMIT));
+    }
+    function loadHistoryIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || historyLoadedForUid === user.uid || typeof window.__coachWidgetHistoryLoad !== 'function') return;
+      historyLoadedForUid = user.uid;
+      window.__coachWidgetHistoryLoad(user.uid).then(function (data) {
+        var messages = data && Array.isArray(data.messages) ? data.messages : [];
+        if (!messages.length) return;
+        coachHistory = messages.slice(-AI_COACH_HISTORY_LIMIT);
+        messagesEl.innerHTML = '';
+        coachHistory.forEach(function (m) { appendMessage(m.role, m.content); });
+      }).catch(function () {});
+    }
+
     function openPanel() {
       if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
       panel.classList.add('open');
       fab.setAttribute('aria-expanded', 'true');
+      loadHistoryIfNeeded();
       if (!messagesEl.children.length) {
         appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach — ask me about stroke technique, dryland training, or how to read your workout log. What\'s up?');
       }
@@ -5048,6 +5802,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         typingBubble.textContent = result.data.reply;
         coachHistory.push({ role: 'assistant', content: result.data.reply });
         coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
+        persistHistory();
       }).catch(function () {
         typingBubble.classList.remove('coach-typing');
         typingBubble.classList.add('coach-error');
@@ -5063,7 +5818,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     });
 
     document.addEventListener('swimfit:authchange', function (e) {
-      if (!e.detail.user) closePanel();
+      if (e.detail.user) return;
+      closePanel();
+      coachHistory = [];
+      historyLoadedForUid = null;
+      messagesEl.innerHTML = '';
     });
   })();
 
@@ -5576,6 +6335,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var form = document.getElementById('trackerLogForm');
     var dateInput = document.getElementById('trackerLogDate');
     var kmInput = document.getElementById('trackerLogKm');
+    var durationInput = document.getElementById('trackerLogDuration');
     var disciplineSelect = document.getElementById('trackerLogDiscipline');
     var statusNote = document.getElementById('trackerLogStatus');
     var viewButtons = document.querySelectorAll('#trackerViewTabs [data-tracker-view]');
@@ -5584,14 +6344,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var weeklyTotalEl = document.getElementById('trackerWeeklyTotal');
     var monthlyTotalEl = document.getElementById('trackerMonthlyTotal');
     var topDisciplineEl = document.getElementById('trackerTopDiscipline');
+    var caloriesEl = document.getElementById('trackerCalories');
+    var avgPaceEl = document.getElementById('trackerAvgPace');
     var entriesList = document.getElementById('trackerEntriesList');
     var signInBtn = document.getElementById('trackerSignInBtn');
+    var goalInput = document.getElementById('trackerGoalInput');
+    var goalFill = document.getElementById('trackerGoalFill');
+    var goalNote = document.getElementById('trackerGoalNote');
+    var pbForm = document.getElementById('trackerPbForm');
+    var pbDisciplineSelect = document.getElementById('trackerPbDiscipline');
+    var pbDistanceSelect = document.getElementById('trackerPbDistance');
+    var pbTimeInput = document.getElementById('trackerPbTime');
+    var pbDateInput = document.getElementById('trackerPbDate');
     if (!form || !dateInput || !kmInput || !entriesList) return;
 
     var currentView = 'daily';
-    var cachedEntries = []; // { id, distanceMeters, loggedAt: Date, discipline }
+    var cachedEntries = []; // { id, distanceMeters, loggedAt: Date, discipline, durationSeconds }
+    var cachedPbEntries = []; // { id, discipline, distanceLabel, timeSeconds, loggedAt: Date }
     var loadedForUid = null;
+    var pbLoadedForUid = null;
     var VIEW_LABELS = { daily: 'Logged Today', weekly: 'This Week', monthly: 'This Month' };
+    var CALORIES_PER_METER = 0.2; // rough estimate for moderate-intensity swimming — not medical advice
 
     if (signInBtn) signInBtn.addEventListener('click', function () { if (typeof openAuthModal === 'function') openAuthModal(); });
 
@@ -5602,13 +6375,40 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     }
     dateInput.value = todayIsoDate();
     dateInput.max = todayIsoDate();
+    if (pbDateInput) { pbDateInput.value = todayIsoDate(); pbDateInput.max = todayIsoDate(); }
 
     function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
     function startOfWeek(d) { var x = startOfDay(d); var day = x.getDay(); x.setDate(x.getDate() - (day === 0 ? 6 : day - 1)); return x; }
     function startOfMonth(d) { var x = startOfDay(d); x.setDate(1); return x; }
+    function daysAgo(n) { var d = startOfDay(new Date()); d.setDate(d.getDate() - n); return d; }
+
+    // mm:ss (or h:mm:ss for a very long swim) — a stricter, purpose-built
+    // parser than parseTimeToSeconds's forgiving "1m 5s" grammar, since this
+    // field's placeholder promises an exact mm:ss shape.
+    function parseDurationToSeconds(str) {
+      if (!str) return null;
+      var parts = str.trim().split(':').map(function (p) { return parseInt(p, 10); });
+      if (parts.some(function (p) { return isNaN(p) || p < 0; })) return null;
+      var seconds = 0;
+      parts.forEach(function (p) { seconds = seconds * 60 + p; });
+      return seconds > 0 ? seconds : null;
+    }
 
     function sumDistance(entries) {
       return entries.reduce(function (sum, e) { return sum + e.distanceMeters; }, 0);
+    }
+
+    function computePace100(entry) {
+      if (!entry.durationSeconds) return null;
+      return entry.durationSeconds / (entry.distanceMeters / 100);
+    }
+
+    function computeAvgPace(entries) {
+      var withPace = entries.filter(function (e) { return !!e.durationSeconds; });
+      if (!withPace.length) return null;
+      var totalSec = withPace.reduce(function (s, e) { return s + e.durationSeconds; }, 0);
+      var totalM = withPace.reduce(function (s, e) { return s + e.distanceMeters; }, 0);
+      return totalSec / (totalM / 100);
     }
 
     // Ranked by total distance rather than entry count — two long swims of
@@ -5643,6 +6443,163 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       if (weeklyTotalEl) weeklyTotalEl.textContent = (sumDistance(weekEntries) / 1000).toFixed(2) + ' km';
       if (monthlyTotalEl) monthlyTotalEl.textContent = (sumDistance(monthEntries) / 1000).toFixed(2) + ' km';
       if (topDisciplineEl) topDisciplineEl.textContent = computeTopDiscipline(monthEntries) || '—';
+      if (caloriesEl) caloriesEl.textContent = Math.round(sumDistance(monthEntries) * CALORIES_PER_METER).toLocaleString();
+      if (avgPaceEl) {
+        var avgPace = computeAvgPace(monthEntries);
+        avgPaceEl.textContent = avgPace != null ? formatTime(avgPace) : '—';
+      }
+      renderGoalProgress();
+      renderVolumeChart();
+      renderPaceChart();
+    }
+
+    // ============================= ANALYTICS-DASHBOARD CHARTS =============================
+    // Every chart here is a hand-rolled inline SVG (no external chart
+    // library) — a single accent hue, recessive grid lines, and a native
+    // <title> per mark for a zero-JS hover tooltip, consistent with the
+    // rest of this file's "no build step, no dependencies" approach.
+    var GOAL_STORAGE_KEY = 'swimfit_weekly_goal_km';
+    function loadWeeklyGoalKm() {
+      try {
+        var v = parseFloat(localStorage.getItem(GOAL_STORAGE_KEY));
+        return v > 0 ? v : 10;
+      } catch (e) { return 10; }
+    }
+    function saveWeeklyGoalKm(v) {
+      try { localStorage.setItem(GOAL_STORAGE_KEY, String(v)); } catch (e) { /* private browsing etc. */ }
+    }
+    if (goalInput) {
+      goalInput.value = loadWeeklyGoalKm();
+      goalInput.addEventListener('change', function () {
+        var v = parseFloat(goalInput.value);
+        if (v > 0) { saveWeeklyGoalKm(v); renderGoalProgress(); }
+      });
+    }
+    function renderGoalProgress() {
+      if (!goalFill) return;
+      var goal = loadWeeklyGoalKm();
+      var weekKm = sumDistance(cachedEntries.filter(function (e) { return e.loggedAt >= startOfWeek(new Date()); })) / 1000;
+      var pct = goal > 0 ? Math.min(100, (weekKm / goal) * 100) : 0;
+      goalFill.style.width = pct + '%';
+      if (goalNote) goalNote.textContent = weekKm.toFixed(2) + ' / ' + goal.toFixed(2) + ' km this week';
+    }
+
+    function svgChart(innerMarkup, w, h, label) {
+      return '<svg class="tracker-svg-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + label + '">' + innerMarkup + '</svg>';
+    }
+
+    // Last 7 calendar days (today inclusive), one bar each — distance in km.
+    function renderVolumeChart() {
+      var container = document.getElementById('trackerVolumeChart');
+      if (!container) return;
+      var W = 460, H = 170, padL = 6, padR = 6, padT = 20, padB = 22;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var days = [];
+      for (var i = 6; i >= 0; i--) {
+        var d = daysAgo(i);
+        var dayTotal = sumDistance(cachedEntries.filter(function (e) { return startOfDay(e.loggedAt).getTime() === d.getTime(); }));
+        days.push({ date: d, km: dayTotal / 1000 });
+      }
+      var maxKm = Math.max.apply(null, days.map(function (d) { return d.km; }).concat([0.1]));
+      var barGap = 10;
+      var barW = (chartW - barGap * (days.length - 1)) / days.length;
+      var gridLines = [0, 0.5, 1].map(function (f) {
+        var y = padT + chartH * (1 - f);
+        return '<line class="chart-grid-line" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '"/>';
+      }).join('');
+      var bars = days.map(function (d, idx) {
+        var barH = maxKm > 0 ? (d.km / maxKm) * chartH : 0;
+        var x = padL + idx * (barW + barGap);
+        var y = padT + chartH - barH;
+        var dayLabel = d.date.toLocaleDateString(undefined, { weekday: 'short' });
+        var out = '<rect class="chart-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(barH, 1).toFixed(1) + '" rx="3">' +
+          '<title>' + dayLabel + ': ' + d.km.toFixed(2) + ' km</title></rect>';
+        if (d.km > 0) out += '<text class="chart-bar-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '">' + d.km.toFixed(1) + '</text>';
+        out += '<text class="chart-axis-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + dayLabel + '</text>';
+        return out;
+      }).join('');
+      container.innerHTML = svgChart(gridLines + bars, W, H, 'Weekly volume in kilometers per day');
+    }
+
+    // Average pace (seconds per 100m) for the last 10 logged swims that
+    // included a duration — only entries with a duration carry a pace at
+    // all, so a swimmer who never logs one simply never sees this chart.
+    function renderPaceChart() {
+      var container = document.getElementById('trackerPaceChart');
+      var emptyEl = document.getElementById('trackerPaceEmpty');
+      if (!container) return;
+      var withPace = cachedEntries.filter(function (e) { return !!e.durationSeconds; })
+        .slice().sort(function (a, b) { return a.loggedAt - b.loggedAt; }).slice(-10);
+      if (withPace.length < 2) {
+        container.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      var W = 460, H = 170, padL = 12, padR = 12, padT = 16, padB = 22;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var paces = withPace.map(computePace100);
+      var minP = Math.min.apply(null, paces), maxP = Math.max.apply(null, paces);
+      var range = Math.max(maxP - minP, 1);
+      var pts = withPace.map(function (e, idx) {
+        var x = padL + (idx / (withPace.length - 1)) * chartW;
+        var y = padT + ((computePace100(e) - minP) / range) * chartH;
+        return { x: x, y: y, e: e };
+      });
+      var pathD = pts.map(function (p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ');
+      var dots = pts.map(function (p, idx) {
+        return '<circle class="chart-dot' + (idx === pts.length - 1 ? ' pb-latest' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4">' +
+          '<title>' + p.e.loggedAt.toLocaleDateString() + ': ' + formatTime(computePace100(p.e)) + '/100m</title></circle>';
+      }).join('');
+      container.innerHTML = svgChart('<path class="chart-line" d="' + pathD + '"/>' + dots, W, H, 'Average pace per 100 meters trend');
+    }
+
+    // Charts whichever discipline+distance combo has the most logged PB
+    // entries (the one with real trend data), rather than asking the
+    // swimmer to pick — with only one PB series shown at a time, per this
+    // file's "one axis, no dual-scale" chart convention elsewhere.
+    function bestPbGroup() {
+      var groups = {};
+      cachedPbEntries.forEach(function (e) {
+        var key = e.discipline + '|' + e.distanceLabel;
+        (groups[key] = groups[key] || []).push(e);
+      });
+      var bestKey = null, bestCount = 1;
+      Object.keys(groups).forEach(function (k) {
+        if (groups[k].length > bestCount) { bestKey = k; bestCount = groups[k].length; }
+      });
+      return bestKey ? { key: bestKey, entries: groups[bestKey].slice().sort(function (a, b) { return a.loggedAt - b.loggedAt; }) } : null;
+    }
+    function renderPbChart() {
+      var container = document.getElementById('trackerPbChart');
+      var emptyEl = document.getElementById('trackerPbEmpty');
+      if (!container) return;
+      var group = bestPbGroup();
+      if (!group) {
+        container.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      var entries = group.entries;
+      var W = 460, H = 170, padL = 12, padR = 12, padT = 30, padB = 12;
+      var chartW = W - padL - padR, chartH = H - padT - padB;
+      var times = entries.map(function (e) { return e.timeSeconds; });
+      var minT = Math.min.apply(null, times), maxT = Math.max.apply(null, times);
+      var range = Math.max(maxT - minT, 1);
+      var pts = entries.map(function (e, idx) {
+        var x = padL + (entries.length === 1 ? 0 : (idx / (entries.length - 1)) * chartW);
+        var y = padT + ((e.timeSeconds - minT) / range) * chartH;
+        return { x: x, y: y, e: e };
+      });
+      var pathD = pts.map(function (p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ');
+      var dots = pts.map(function (p, idx) {
+        return '<circle class="chart-dot' + (idx === pts.length - 1 ? ' pb-latest' : '') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4">' +
+          '<title>' + p.e.loggedAt.toLocaleDateString() + ': ' + formatTime(p.e.timeSeconds) + '</title></circle>';
+      }).join('');
+      var parts = group.key.split('|');
+      var caption = '<text class="chart-axis-label" x="' + padL + '" y="14" style="font-size:11px; fill:var(--aqua);">' + parts[0] + ' — ' + parts[1] + '</text>';
+      container.innerHTML = svgChart(caption + '<path class="chart-line" d="' + pathD + '"/>' + dots, W, H, 'Personal best time progression for ' + parts[0] + ' ' + parts[1]);
     }
 
     function renderEntries() {
@@ -5694,20 +6651,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       }).catch(function () {});
     }
 
-    // Bounded to the current month's start — that already covers all three
-    // views (daily/weekly/monthly), so there's no need to fetch older history
-    // just for this page's aggregates.
+    // Bounded to the current month's start for the Daily/Weekly/Monthly
+    // views and analytics strip — but never any narrower than 7 days back,
+    // so the Weekly Volume chart always has full 7-day coverage even during
+    // the first few days of a new month.
     function loadEntriesIfNeeded() {
       var user = window.__firebaseUser;
       if (!user || loadedForUid === user.uid || typeof window.__swimLogQuerySince !== 'function') return;
       loadedForUid = user.uid;
-      window.__swimLogQuerySince(startOfMonth(new Date())).then(function (entries) {
+      var since = startOfMonth(new Date());
+      var sevenDaysBack = daysAgo(6);
+      if (sevenDaysBack < since) since = sevenDaysBack;
+      window.__swimLogQuerySince(since).then(function (entries) {
         cachedEntries = entries;
         renderStat();
         renderEntries();
       }).catch(function () {
         entriesList.innerHTML = '<p class="tracker-empty">Couldn\'t load your log — please try again.</p>';
       });
+    }
+
+    function loadPbEntriesIfNeeded() {
+      var user = window.__firebaseUser;
+      if (!user || pbLoadedForUid === user.uid || typeof window.__pbLogQueryAll !== 'function') return;
+      pbLoadedForUid = user.uid;
+      window.__pbLogQueryAll().then(function (entries) {
+        cachedPbEntries = entries;
+        renderPbChart();
+      }).catch(function () {});
     }
 
     viewButtons.forEach(function (btn) {
@@ -5728,18 +6699,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         statusNote.textContent = 'Enter a distance between 0 and 100 km.';
         return;
       }
+      var durationSeconds = durationInput ? parseDurationToSeconds(durationInput.value) : null;
+      if (durationInput && durationInput.value && !durationSeconds) {
+        statusNote.style.color = '#e5484d';
+        statusNote.textContent = 'Enter duration as mm:ss, e.g. 45:00.';
+        return;
+      }
       var loggedDate = dateInput.value ? new Date(dateInput.value + 'T12:00:00') : new Date();
       var distanceMeters = Math.round(km * 1000);
       var discipline = (disciplineSelect && disciplineSelect.value) || '';
 
       var submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
-      window.__swimLogAdd({ distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline }).then(function (ref) {
-        cachedEntries.unshift({ id: ref.id, distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline });
+      var payload = { distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline };
+      if (durationSeconds) payload.durationSeconds = durationSeconds;
+      window.__swimLogAdd(payload).then(function (ref) {
+        cachedEntries.unshift({ id: ref.id, distanceMeters: distanceMeters, loggedAt: loggedDate, discipline: discipline, durationSeconds: durationSeconds });
         cachedEntries.sort(function (a, b) { return b.loggedAt - a.loggedAt; });
         renderStat();
         renderEntries();
         kmInput.value = '';
+        if (durationInput) durationInput.value = '';
         statusNote.style.color = '';
         statusNote.textContent = 'Logged ' + km.toFixed(2) + ' km.';
       }).catch(function () {
@@ -5750,11 +6730,46 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       });
     });
 
+    if (pbForm) {
+      pbForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!window.__firebaseUser || typeof window.__pbLogAdd !== 'function') return;
+        var timeSeconds = parseTimeToSeconds(pbTimeInput.value);
+        if (!timeSeconds) return;
+        var loggedDate = pbDateInput && pbDateInput.value ? new Date(pbDateInput.value + 'T12:00:00') : new Date();
+        var entry = {
+          discipline: pbDisciplineSelect.value,
+          distanceLabel: pbDistanceSelect.value,
+          timeSeconds: timeSeconds,
+          loggedAt: loggedDate
+        };
+        var submitBtn = pbForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        window.__pbLogAdd(entry).then(function (ref) {
+          cachedPbEntries.push({ id: ref.id, discipline: entry.discipline, distanceLabel: entry.distanceLabel, timeSeconds: timeSeconds, loggedAt: loggedDate });
+          renderPbChart();
+          pbTimeInput.value = '';
+        }).catch(function () {}).finally(function () {
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
     document.querySelectorAll('[data-tab="tracker"]').forEach(function (btn) {
-      btn.addEventListener('click', function () { setTimeout(loadEntriesIfNeeded, 0); });
+      btn.addEventListener('click', function () {
+        setTimeout(loadEntriesIfNeeded, 0);
+        setTimeout(loadPbEntriesIfNeeded, 0);
+      });
     });
     document.addEventListener('swimfit:authchange', function (e) {
-      if (e.detail.user) { loadEntriesIfNeeded(); } else { loadedForUid = null; cachedEntries = []; renderStat(); renderEntries(); }
+      if (e.detail.user) {
+        loadEntriesIfNeeded();
+        loadPbEntriesIfNeeded();
+      } else {
+        loadedForUid = null; pbLoadedForUid = null;
+        cachedEntries = []; cachedPbEntries = [];
+        renderStat(); renderEntries(); renderPbChart();
+      }
     });
   })();
 
@@ -5808,9 +6823,44 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       return ms ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     }
 
+    var ADMIN_TRIAL_DAYS = 7;
+    function timeRemainingInfo(u) {
+      if (u.accessDisabled) return { text: 'Suspended', cls: 'is-expired' };
+      if (u.plan) {
+        var isActive = u.status === 'active' || u.status === 'trialing';
+        return { text: isActive ? 'Active plan' : 'Inactive', cls: isActive ? 'is-active' : 'is-expired' };
+      }
+      if (!u.trialStartedAt) return { text: '—', cls: 'is-expired' };
+      var endsAt = u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      var msLeft = endsAt - Date.now();
+      if (msLeft <= 0) return { text: 'Trial ended', cls: 'is-expired' };
+      var d = Math.floor(msLeft / 86400000), h = Math.floor((msLeft % 86400000) / 3600000);
+      return { text: (d > 0 ? d + 'd ' + h + 'h left' : h + 'h left'), cls: 'is-trial' };
+    }
+
+    function renderAdminStats() {
+      var subscribers = users.filter(function (u) { return !!u.plan; }).length;
+      var active = users.filter(function (u) { return u.plan && (u.status === 'active' || u.status === 'trialing') && !u.accessDisabled; }).length;
+      var onTrial = users.filter(function (u) {
+        return !u.plan && !u.accessDisabled && u.trialStartedAt && Date.now() < u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      }).length;
+      var suspended = users.filter(function (u) { return u.accessDisabled; }).length;
+      var totalEl = document.getElementById('adminStatTotal');
+      var subsEl = document.getElementById('adminStatSubscribers');
+      var activeEl = document.getElementById('adminStatActive');
+      var trialEl = document.getElementById('adminStatTrial');
+      var suspendedEl = document.getElementById('adminStatSuspended');
+      if (totalEl) totalEl.textContent = users.length;
+      if (subsEl) subsEl.textContent = subscribers;
+      if (activeEl) activeEl.textContent = active;
+      if (trialEl) trialEl.textContent = onTrial;
+      if (suspendedEl) suspendedEl.textContent = suspended;
+    }
+
     function renderUsers() {
       tbody.innerHTML = '';
       countEl.textContent = users.length + (users.length === 1 ? ' swimmer' : ' swimmers');
+      renderAdminStats();
       users.forEach(function (u) {
         var meta = inboxByUid[u.uid];
         var unread = meta ? !!meta.unreadForAdmin : !!u.unreadForAdmin;
@@ -5859,6 +6909,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         planTd.appendChild(document.createElement('br'));
         planTd.appendChild(extendBtn);
 
+        var timeTd = document.createElement('td');
+        var timeInfo = timeRemainingInfo(u);
+        var timeSpan = document.createElement('span');
+        timeSpan.className = 'admin-time-remaining ' + timeInfo.cls;
+        timeSpan.textContent = timeInfo.text;
+        timeTd.appendChild(timeSpan);
+
         var joinedTd = document.createElement('td');
         joinedTd.textContent = formatDate(u.createdAt);
 
@@ -5897,6 +6954,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
         tr.appendChild(nameTd);
         tr.appendChild(planTd);
+        tr.appendChild(timeTd);
         tr.appendChild(joinedTd);
         tr.appendChild(accessTd);
         tr.appendChild(msgTd);
@@ -6090,7 +7148,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   })();
 
   /* ============================= INIT ============================= */
-  renderGym('cardio');
+  renderGym(currentGymFocus);
   generateWorkout();
   switchTab('workouts', { scroll: false });
 })();

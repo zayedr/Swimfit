@@ -15,14 +15,22 @@ explicitly requested.
 
 The site is a marketing/training dashboard: a persistent Hero (with a looping background
 video generated via image-to-video, falling back gracefully to a static photo layer if it
-fails to load) + About section, followed by a tabbed shell: Disciplines, Workouts, Gym, Gear,
-Academy, AI Coach, Distance Tracker, Pricing. Workouts and Gym each get their own full-screen looping background video
+fails to load) + About section, followed by a tabbed shell: Workouts, Gym, Gear, Academy,
+AI Coach, Distance Tracker, Settings, Pricing. Workouts and Gym each get their own full-screen looping background video
 (swimmer/pool and dryland-gym respectively, lazy-loaded on first visit to that tab); the
-other four tabs share a CSS-only ambient water animation instead. A prior round built out a
+other tabs share a CSS-only ambient water animation instead. A prior round built out a
 full Community feed and a Profile/Swimmer Dashboard (with a client-side simulated
 password+OTP auth layer); both were deliberately removed in full to simplify the site back
 down to a pure content/training-tool experience — don't re-introduce nav links, footer
-links, or JS for either without being asked.
+links, or JS for either without being asked. A later round removed the standalone
+**Disciplines showcase tab** entirely (nav link, footer link, `#panel-disciplines`) as
+redundant with the Workout Generator's own discipline picker — the `DISCIPLINES` array
+itself (icon/key/name only, no `focus` field) still exists and still feeds
+`#disciplineChips` and `state.disciplines`' day-rotated default; only the standalone grid
+that used to render from that same array is gone. That same round also stripped the
+**fake testimonials** out of `#socialProof` ("SWIMMERS ARE ALREADY TALKING" marquee + cards)
+at the user's explicit request that they weren't real — `#socialProof` now contains only the
+genuine Instagram/TikTok follow cards.
 
 Auth is **real Firebase Authentication** (project `swimfi-ae`), wired in the `<script
 type="module">` in `<head>`. There are exactly two sign-in mechanics: **Google**
@@ -83,7 +91,7 @@ deleting `requestEmailOtp`/`verifyEmailOtp` from the live project, or run
 Signing out (`signOut(auth)`) fires `onAuthStateChanged(null)`, which every feature with its own
 local state (AI Coach widget/page, Distance Tracker, Admin Panel inbox) independently clears via
 a shared `swimfit:authchange` DOM event; a separate top-level listener on that same event
-(`SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin']`) additionally switches away from a
+(`SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings']`) additionally switches away from a
 signed-in-only tab back to Workouts if a swimmer signs out while on one — since the Admin Panel
 in particular has no in-place "please sign in" fallback of its own (unlike Coach/Tracker, whose
 panels do) — and then smooth-scrolls the page back to the Hero (`#top`) so signing out always
@@ -283,16 +291,26 @@ a generic pose. Cardio and Full Body focuses were left as they were (jump-rope/b
 conditioning and barbell strength work respectively already matched this "real gym" bar).
 
 **Technique Academy photos** (`VIDEOS`/`FEATURED_VIDEO` in index.html — each a static thumbnail
-behind a YouTube embed/play button) were regenerated this round, one purpose-shot photo per
+behind a YouTube embed/play button) were regenerated in an earlier round, one purpose-shot photo per
 topic (Freestyle, Backstroke, Butterfly, Breaststroke, Flip Turn, Underwater streamline, and the
-"all four strokes" masterclass card), replacing an earlier batch the user found visually
-mismatched/artifact-y. Generated via Higgsfield (`nano_banana_2`) with an explicit
-photorealistic-sports-photography prompt per topic; all seven are hosted on the same CloudFront
+"all four strokes" masterclass card), replacing a batch the user found visually
+mismatched/artifact-y. That round's Flip Turn photo still read as Backstroke rather than an
+authentic freestyle tumble turn, so it was regenerated again in a later round with an explicit
+"forward tuck/somersault approaching the wall, NOT swimming on their back" prompt — if a future
+Flip Turn regeneration is ever needed again, keep that same explicit disambiguation in the prompt,
+since a bare "flip turn" prompt has twice now drifted toward a backstroke-flip-turn read. That
+later round also regenerated the three photos used specifically on the Workouts Generator page —
+the `.tab-banner`'s `--pool-edge-photo`, the "Meet Your Coach" `.coach-banner-photo`'s
+`--coach-photo`, and the `.result-panel::before` ambient background's `--generator-photo` (all
+three custom properties defined in `:root`, all three scoped to `#panel-workouts` only) — with
+sharper, more professional swimming photography, replacing an earlier, more generic-looking batch.
+All of these are generated via Higgsfield (`nano_banana_2`) with an explicit
+photorealistic-sports-photography prompt per topic; every one is hosted on the same CloudFront
 bucket as the site's other generated media (`d8j0ntlcm91z4.cloudfront.net`). Note: this sandbox's
-network policy returns 403 on direct fetches to that CDN, so these renders were not
-pixel-inspected by Claude after generation — only prompted carefully and swapped in by URL:
-verify they look right in a real browser and regenerate any individual card that doesn't via the
-same Higgsfield flow if needed.
+network policy returns 403 on direct fetches to that CDN, so none of these renders (across any
+round) were pixel-inspected by Claude after generation — only prompted carefully and swapped in by
+URL: verify they look right in a real browser and regenerate any individual image that doesn't via
+the same Higgsfield flow if needed.
 
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
 swaps copy/button labels *and* which fields are visible, driving the password-only mechanics
@@ -340,8 +358,9 @@ an **Offers Strip** (`#offersStrip`, right after About — two eye-catching card
 free trial and Ultra's 2-months-free annual pricing, separate from the SWIM20 launch code in
 the announcement bar above); an **App Preview** (`#appPreview`, a static browser-chrome-framed
 mockup of the weekly distance chart / goal ring / specialization chips a signed-in swimmer
-would actually see); **Social Proof** (`#socialProof`, an infinite-scrolling testimonial
-marquee plus branded Instagram/TikTok follow cards linking to `@swimfit.ae`); and a **Plan
+would actually see); **Social Proof** (`#socialProof`, branded Instagram/TikTok follow cards
+linking to `@swimfit.ae` — the testimonial marquee that used to sit above these was removed,
+see above); and a **Plan
 Sneak Peek** (`#planPreview`, a Pro/Elite/Ultra pill-tab switcher that swaps a single preview
 card's price, features and accent color client-side — its own "join" CTA only ever routes to
 the real Pricing tab via `data-tab`, it never touches checkout directly, so it can't
@@ -359,6 +378,137 @@ deleted. Note for future purges: anything matching `wave`/`wavy` in this codebas
 `.hero-wave-1`/`-2`, the `i-wave` icon symbol, `nav-icon-wave`) is legitimate, actively-rendering
 Hero/nav design — not stale placeholder content — and should not be deleted on sight just because
 the name sounds informal.
+
+**Admin Panel subscription analytics.** `#adminStatsGrid` (five tiles, above the user table)
+gives the admin an at-a-glance read on the whole swimmer base — Total Registered, Total
+Subscribers (any real Paddle plan, not admin-granted), Active Memberships (Paddle plan OR an
+admin-granted override), On Free Trial, and Suspended — all computed client-side in
+`renderAdminStats()` from the same `users` array `adminListUsers` already returned, so no new
+Cloud Function or Firestore read was needed. The user table also gained a **Time Remaining**
+column (`timeRemainingInfo(u)`): `'Suspended'` for an `accessDisabled` account, `'Active plan'`
+for a real/granted subscription, `'{d}d {h}h left'` / just `'{h}h left'` for a swimmer still
+inside their trial window, `'Trial ended'` once it's passed, or `'—'` if there's no trial-start
+timestamp to compute from at all.
+
+**AI Coach got a visual pass and real persistence.** The floating widget's `.coach-bubble`
+styling picked up a gradient/shadow treatment and a subtle entrance animation so the chat reads
+like a finished product rather than a debug overlay. More substantively, both chat surfaces now
+survive a tab switch or refresh: the full-screen page already persisted to `coach_history/{uid}`
+(see the Auth/AI Coach sections above); the **floating widget** now does the same into its own
+`coach_widget_history/{uid}` document (identical shape/rules, kept separate so the widget and the
+full-screen page never clobber each other's saved conversation) via `window.__coachWidgetHistoryLoad`
+/`__coachWidgetHistorySave`, loaded once per sign-in (`loadHistoryIfNeeded()`) and persisted after
+every assistant reply. Signing out clears both the in-memory `coachHistory` and the rendered
+`#aiCoachWidget` messages via the existing `swimfit:authchange` listener, same as before.
+
+**Distance Tracker is now a full analytics dashboard**, not just a log + three totals. On top of
+the existing Daily/Weekly/Monthly pill-tabs and Weekly/Monthly/Most-Swum-Discipline strip, it now
+shows: **Est. Calories (Month)** (`CALORIES_PER_METER = 0.2`, an explicitly-labeled rough
+estimate for moderate-intensity swimming, not medical advice) and **Avg Pace / 100m** (only ever
+computed across entries that logged a duration — a swimmer who never fills in the optional
+Duration field simply never sees a pace number); a **Weekly Volume Goal** card
+(`localStorage['swimfit_weekly_goal_km']`, a plain client-side UI preference, not worth a
+Firestore round-trip) with a live progress bar; a **Weekly Volume Breakdown** chart (7-day bar
+chart) and an **Average Pace Trend** chart (line chart of the last 10 duration-bearing entries,
+with an explicit empty state under 2 points) — both hand-rolled inline SVG (no chart library,
+matching this file's "no build step, no dependencies" posture and the `dataviz` skill's
+guidance: single accent hue, recessive grid lines, a `<title>` per mark for zero-JS hover
+tooltips); and a new **Personal Best Progression** mini-log (`#trackerPbForm` — discipline,
+distance, time, date) writing to a new `personal_bests/{uid}/entries/{entryId}` Firestore
+collection (owner-only, create+delete, no in-place edit — same shape/rules pattern as
+`swim_logs`), charting whichever discipline+distance combo has the most logged entries
+(`bestPbGroup()`) since that's the one with an actual trend to show. The existing `swim_logs`
+schema gained an optional `durationSeconds` field (rules-validated, 0 < value ≤ 36000) to make
+the pace chart/analytics possible at all; entries logged before this field existed, or logged
+without filling in Duration, simply have no pace contribution — there is no retroactive
+backfill.
+
+**Swim workouts and Gym focus now rotate automatically instead of only being click-random.**
+Previously every `Math.random()` call inside `generateWorkout()` (which archetypes get picked,
+how many rounds a Main Set circuit gets, which warm-up/cool-down intent line shows) reshuffled on
+every single click of Generate, with no notion of "today's workout." `generateWorkout()` now
+reseeds a small deterministic PRNG (`workoutRng`, mulberry32 — see `makeSeededRandom()`) from
+`dailySeed()` (the calendar year folded together with the existing `dayIndex()` day-of-year, so
+the seed doesn't repeat every 365/366 days) at the very top of every call, and `pickN()`/
+`pickOne()`/`roundCountFor()` all draw from `workoutRng` instead of `Math.random()` directly. The
+practical effect: for a given set of distance/goal/discipline/level selections, generating today
+always produces the exact same workout, and it automatically rotates to a different one at
+midnight — the result panel's "Coach's Plan" note says as much ("This exact set structure holds
+for the rest of today and rotates automatically at midnight."). Gym's focus tabs got an
+equivalent treatment: `GYM_WEEKLY_ROTATION = ['upper', 'lower', 'full']` (Cardio is a modality,
+not a muscle-group split, so it's left out and stays manually-selected-only) cycles via
+`thisWeeksGymFocus()` (`weekIndex()`, i.e. `Math.floor(dayIndex() / 7)`), auto-selecting that
+week's focus as the default tab on load with a "This Week's Focus" note (`#gymWeeklyFocusNote`)
+— a swimmer can still freely click any other tab to override for that session, which just calls
+the existing `renderGym(focus)` and doesn't persist. There's no separate "Core" tab in
+`GYM_FOCUS` to rotate into — Full Body's own Core Activation phase stands in for the "Core" leg
+of the classic Upper/Lower/Core split.
+
+**"Save as PDF" on both generated workouts.** `#workoutPdfBtn` (Workouts result panel) and
+`#gymPdfBtn` (Gym, below the exercise grid) both lazy-load jsPDF from a CDN
+(`cdnjs.cloudflare.com/.../jspdf.umd.min.js`, same "pull in a CDN script only when a feature
+genuinely needs it" precedent as the existing `cdn.paddle.com/paddle/v2/paddle.js` tag) on first
+click via `loadJsPDF()`, then read the **already-rendered** result panel/exercise grid's own DOM
+(`extractStructuredWorkout()` / `extractStructuredGym()`, walking `.workout-block`/`.set-row` or
+`.gym-phase`/`.gym-card` and their child text nodes) rather than recomputing the workout a second
+time — so the PDF always matches exactly what's on screen, never a second silently-different
+render. `buildWorkoutPdf()`/`buildGymPdf()` share a `pdfTitleBlock()`/`pdfFooterOnAllPages()`
+branded header/footer (the Swimfit wordmark — read directly off the nav's own `.brand img`'s
+`data:` URI at generation time via `document.querySelector('.brand img')`, not duplicated as a
+second asset — an aqua accent bar, a
+maroon divider rule, and a "Generated by Swimfit — swimfit.online" + page-number footer on every
+page) and paginate via a per-builder `ensureSpace(need)` closure that calls `doc.addPage()` before
+the content would run off the bottom margin. Neither button appears until its panel actually has
+real content (`generateWorkout()`/`renderGym()` unhide them at the end of each render), and the
+PDF's own filename embeds today's date and (for Gym) the focus key.
+
+**New Settings tab** (`data-tab="settings"`, `#panel-settings`, signed-in-only — added to
+`SIGNED_IN_ONLY_TABS` alongside Coach/Tracker/Admin) holds four cards: **Swimmer Profile** (Full
+Name/Country/Age, editable and saved via `window.__userProfileUpdate` — a thin `setDoc(...,
+{merge:true})` bridge exposed alongside the existing `__userProfileGet`; **Username and Email are
+deliberately read-only** here, since a username change needs the same atomic
+`claimUsernameAndProfile` transaction signup uses to correctly free/reserve `usernames/{name}`
+docs, and a plain field overwrite on `users/{uid}.username` alone would silently break that
+collection's uniqueness guarantee); **Swimming Specialties** (the same `DISCIPLINES` chip picker
+as the Workout Generator, persisted to `users/{uid}.disciplines` and — on save — applied live to
+`state.disciplines` and `#disciplineChips`' own `aria-pressed` state, so the effect is visible
+immediately without a reload); **Appearance**, a Dark/Light pill-tab switch
+(`localStorage['swimfit_theme']`); and **Language**, an English/العربية pill-tab switch
+(`localStorage['swimfit_lang']`). Both of the last two are applied twice: once synchronously in
+the `<head>` flash-prevention `<script>` (same pattern as the announcement-bar dismissal guard —
+reads `localStorage` and sets `data-theme="light"`/`lang="ar" dir="rtl"` on `<html>` before first
+paint, so a returning swimmer's saved preference never flashes as Dark/English first) and once
+live via the Settings pill-tab click handlers (`wireThemeToggle()`/`wireLanguageToggle()`).
+
+The **Light theme** is a `:root[data-theme="light"]` block that only overrides the existing
+surface/text/accent custom properties (`--bg`, `--surface`, `--fg`, `--muted`, `--aqua`, etc.) —
+every rule in this file already reads color through `var(--...)`, so no second parallel
+stylesheet was needed. `--aqua` in particular is deepened (`#22D3EE` → `#0E7C90`) for the light
+palette specifically because the site's original bright cyan is a dark-background accent color
+that reads as low-contrast text on white. Ambient/duotone background effects (the Hero water
+animation, tab background photos) were designed against the dark palette and are left as-is in
+Light mode — they still read fine over the lighter chrome but weren't independently re-tuned;
+this is a deliberate, disclosed scope boundary, not an oversight.
+
+**Language switching translates static chrome only, not generated content** — a deliberate,
+disclosed scope decision rather than an oversight: the nav, Hero headline/sub/CTAs, and each tab's
+eyebrow/heading are tagged `data-i18n="key"` (an element that needs to preserve child markup
+across languages, like the Hero `<h1>`'s `<span class="accent">`, is additionally tagged
+`data-i18n-html` so `wireLanguageToggle()` sets `innerHTML` instead of `textContent` for it) and
+resolved against an `I18N.en`/`I18N.ar` dictionary in `wireLanguageToggle()`. Generated workouts,
+AI Coach replies, PDFs, and the Admin Panel all stay in English regardless of this setting —
+translating a content-generation system is a materially larger, separately-scoped effort than
+translating this file's own static chrome, and the Settings tab's own copy says as much to the
+swimmer. Setting `dir="rtl"` on `<html>` is enough to correctly mirror the large majority of this
+file's flex-based layouts for free (`direction: rtl` reverses visual order for any
+`flex-direction: row` container per spec, and default `text-align: start` follows direction
+automatically) — but this file also has scattered **physical** `margin-left`/`padding-right`-style
+rules that do *not* flip with `direction`, one of which (`.panel-wide`'s `width: 100vw;
+margin-left: calc(50% - 50vw)` full-bleed trick) was an actual, verified RTL bug causing ~124px of
+horizontal page overflow in Arabic — fixed by switching it to the logical
+`margin-inline-start` (which does flip). Any other visual RTL rough edges most likely trace to
+this same class of issue (a physical property that should have been logical); the fix each time
+is the same targeted swap, not a full stylesheet rewrite.
 
 ## History for context
 
