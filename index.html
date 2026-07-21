@@ -238,18 +238,18 @@
   // real-time (onSnapshot); replying writes directly to Firestore as
   // sender:'user' (see firestore.rules) — only the admin's own messages go
   // through a Cloud Function, since those need to reach an arbitrary uid.
-  window.__adminChatSubscribeMeta = function (onNext) {
+  window.__adminChatSubscribeMeta = function (onNext, onError) {
     if (!auth.currentUser) return function () {};
     return onSnapshot(doc(db, 'admin_chats', auth.currentUser.uid), function (snap) {
       onNext(snap.exists() ? snap.data() : null);
-    });
+    }, onError || function () {});
   };
-  window.__adminChatSubscribeMessages = function (onNext) {
+  window.__adminChatSubscribeMessages = function (onNext, onError) {
     if (!auth.currentUser) return function () {};
     var q = query(collection(db, 'admin_chats', auth.currentUser.uid, 'messages'), orderBy('createdAt', 'asc'));
     return onSnapshot(q, function (snap) {
       onNext(snap.docs.map(function (d) { return d.data(); }));
-    });
+    }, onError || function () {});
   };
   window.__adminChatReply = function (text) {
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
@@ -271,16 +271,16 @@
   // verified ID token email claim, checked directly in rules — no Cloud
   // Function round-trip), so a swimmer's reply and the admin's own message
   // both land instantly via onSnapshot instead of a 20s poll.
-  window.__adminPanelSubscribeInbox = function (onNext) {
+  window.__adminPanelSubscribeInbox = function (onNext, onError) {
     return onSnapshot(collection(db, 'admin_chats'), function (snap) {
       var byUid = {};
       snap.forEach(function (d) { byUid[d.id] = d.data(); });
       onNext(byUid);
-    });
+    }, onError || function () {});
   };
-  window.__adminPanelSubscribeThread = function (targetUid, onNext) {
+  window.__adminPanelSubscribeThread = function (targetUid, onNext, onError) {
     var q = query(collection(db, 'admin_chats', targetUid, 'messages'), orderBy('createdAt', 'asc'));
-    return onSnapshot(q, function (snap) { onNext(snap.docs.map(function (d) { return d.data(); })); });
+    return onSnapshot(q, function (snap) { onNext(snap.docs.map(function (d) { return d.data(); })); }, onError || function () {});
   };
   window.__adminPanelMarkRead = function (targetUid) {
     return setDoc(doc(db, 'admin_chats', targetUid), { unreadForAdmin: false }, { merge: true });
@@ -5155,8 +5155,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var cooldownM = Math.max(100, totalM - warmupM - presetM - mainM);
     var noScale = { intervalMult: 1, restAdd: 0 };
 
+    // The opening swim of every Warm-Up is always Freestyle, regardless of
+    // which discipline(s) are selected for the session — standard coaching
+    // practice for easing into the water, even for a Butterfly/Backstroke-
+    // focused day. The rest of the Warm-Up (and every later stage) still
+    // rotates through the swimmer's actual selected discipline(s) via
+    // nextStroke() as before.
     var warmup = [
-      buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), nextStroke() + ', easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
+      buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
       buildSet(4, 50, 'Drill/Build — odd 25 drill, even 25 build', state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
     ];
     if (state.level !== 'beginner') {
@@ -7906,7 +7912,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       chatForm.style.display = '';
       if (unsubscribeThread) { unsubscribeThread(); unsubscribeThread = null; }
       if (typeof window.__adminPanelSubscribeThread === 'function') {
-        unsubscribeThread = window.__adminPanelSubscribeThread(u.uid, renderThreadMessages);
+        // An onError callback matters here specifically: without one, a
+        // permission-denied or other Firestore error on this query leaves
+        // the "Loading…" placeholder above stuck forever with zero
+        // feedback, since onSnapshot's onNext callback simply never fires.
+        unsubscribeThread = window.__adminPanelSubscribeThread(u.uid, renderThreadMessages, function () {
+          chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Could not load this conversation — check your connection and try again.</p>';
+        });
       }
       if (typeof window.__adminPanelMarkRead === 'function') window.__adminPanelMarkRead(u.uid);
     }
@@ -7936,6 +7948,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           unsubscribeInbox = window.__adminPanelSubscribeInbox(function (byUid) {
             inboxByUid = byUid;
             renderUsers();
+          }, function () {
+            countEl.textContent = 'Could not load live message status — check your connection.';
           });
         }
       });
@@ -8020,7 +8034,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         });
       }
       if (typeof window.__adminChatSubscribeMessages === 'function') {
-        unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); });
+        unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); }, function () {
+          messagesEl.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Could not load your messages — check your connection and try again.</p>';
+        });
       }
     }
 

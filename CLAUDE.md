@@ -273,6 +273,25 @@ Support/Contact-Admin entry points for a signed-in swimmer — no separate tab o
 since a second entry point into the identical widget would just be a second button doing the
 same thing.
 
+**Every chat `onSnapshot` subscription now takes an optional `onError` callback**
+(`__adminChatSubscribeMeta`/`__adminChatSubscribeMessages` on the swimmer's side,
+`__adminPanelSubscribeInbox`/`__adminPanelSubscribeThread` on the admin's) — previously none of
+them did, so a Firestore error (permission-denied being the most likely: stale security rules on
+the live project that predate a given round's `firestore.rules` changes, since deploying rules
+is a separate manual `firebase deploy --only firestore:rules` step this repo's GitHub Pages
+auto-deploy does **not** cover) meant the `onNext` callback simply never fired again, silently
+freezing whatever placeholder text was on screen — most visibly the Admin Panel's `Chatting with
+[Swimmer]` thread view, which sets its message area to "Loading…" the instant a thread is opened
+and had nothing that ever cleared it if the subsequent `onSnapshot` errored instead of resolving.
+Each call site now passes an `onError` that swaps that placeholder for a plain "Could not load…
+check your connection and try again" message instead — turning a silent, indefinite hang into a
+visible, honest failure state. This is a defensive fix for the *symptom* (an onSnapshot error
+must never leave the UI stuck), not a fix for any specific cause — if the live site is actually
+seeing this error state, check first whether this round's `firestore.rules` (or any Cloud
+Function changes) have been deployed to the real `swimfi-ae` Firebase project yet, per the
+`invoker: 'public'` caveat already noted above; this sandbox has no Firebase CLI credentials for
+that project and cannot run that deploy step itself.
+
 `PADDLE_PRICE_IDS` in index.html holds real Paddle **price** ids (`pri_...`, fixed 2026-07-19 —
 it previously held product ids, which `Paddle.Checkout.open()` rejects). The **product** ids
 those prices belong to are a separate, still-correct mapping used server-side in
@@ -502,6 +521,15 @@ same "Coach's Technical Tips" voice as the rest of the generator, and renders as
 block (`renderBlock('Pre-Set — ' + preset.name, ...)`) between Warm-Up and Main Set in the result
 panel — so a swimmer sees exactly which archetype today's Pre-Set is and why, not just an
 unlabeled extra set of reps.
+
+**The Warm-Up's opening swim is always Freestyle**, regardless of which discipline(s) the
+swimmer has selected — standard coaching practice for easing into the water even on a
+Butterfly- or Backstroke-focused day. Previously the first `buildSet()` call in
+`generateWorkout()`'s `warmup` array called `nextStroke()` like every other set, so a
+Butterfly-primary swimmer's warm-up opened with Butterfly; it's now hardcoded to `'Freestyle,
+easy — long smooth strokes'` instead. Nothing else in the Warm-Up (the Drill/Build set, or the
+non-beginner "quick build" 25s) or in any later stage changed — they still rotate through
+`state.disciplines` via `nextStroke()` exactly as before.
 
 **Swim workouts and Gym focus now rotate automatically instead of only being click-random.**
 Previously every `Math.random()` call inside `generateWorkout()` (which archetypes get picked,
