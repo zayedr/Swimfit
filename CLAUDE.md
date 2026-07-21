@@ -282,6 +282,18 @@ as a muted `class="p"` prop so the stick-figure demo actually shows the right eq
 a generic pose. Cardio and Full Body focuses were left as they were (jump-rope/burpee-style
 conditioning and barbell strength work respectively already matched this "real gym" bar).
 
+**Technique Academy photos** (`VIDEOS`/`FEATURED_VIDEO` in index.html — each a static thumbnail
+behind a YouTube embed/play button) were regenerated this round, one purpose-shot photo per
+topic (Freestyle, Backstroke, Butterfly, Breaststroke, Flip Turn, Underwater streamline, and the
+"all four strokes" masterclass card), replacing an earlier batch the user found visually
+mismatched/artifact-y. Generated via Higgsfield (`nano_banana_2`) with an explicit
+photorealistic-sports-photography prompt per topic; all seven are hosted on the same CloudFront
+bucket as the site's other generated media (`d8j0ntlcm91z4.cloudfront.net`). Note: this sandbox's
+network policy returns 403 on direct fetches to that CDN, so these renders were not
+pixel-inspected by Claude after generation — only prompted carefully and swapped in by URL:
+verify they look right in a real browser and regenerate any individual card that doesn't via the
+same Higgsfield flow if needed.
+
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
 swaps copy/button labels *and* which fields are visible, driving the password-only mechanics
 described above (Google is a separate button, unaffected by this toggle). Create Account mode
