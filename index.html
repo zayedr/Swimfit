@@ -230,7 +230,17 @@
   };
   window.__adminChatReply = function (text) {
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
-    return addDoc(collection(db, 'admin_chats', auth.currentUser.uid, 'messages'), { sender: 'user', text: text, createdAt: serverTimestamp() });
+    var uid = auth.currentUser.uid;
+    var now = serverTimestamp();
+    // Mirrors __adminPanelSendMessage's two-write shape below — without the
+    // second write the admin's inbox list (which reads this metadata doc,
+    // not the messages subcollection, for its unread dot/last-message
+    // preview) never reflects a swimmer's reply unless that thread is
+    // already open.
+    return Promise.all([
+      addDoc(collection(db, 'admin_chats', uid, 'messages'), { sender: 'user', text: text, createdAt: now }),
+      setDoc(doc(db, 'admin_chats', uid), { lastMessageText: text, lastMessageAt: now, lastSender: 'user', unreadForAdmin: true }, { merge: true })
+    ]);
   };
 
   // Admin Panel direct-message thread — the admin's own side. Real-time on
@@ -685,18 +695,40 @@
     return getDoc(doc(db, 'usernames', username)).then(function (snap) { return snap.exists(); });
   };
 
-  // Settings tab: read the swimmer's own profile doc, and write back only
-  // the safe subset of fields (fullName, country, age, disciplines).
-  // Username/email are deliberately never routed through this updater — a
-  // username change needs the same atomic claimUsernameAndProfile
-  // transaction signup uses (to free/reserve usernames/{name} docs
-  // correctly), not a plain field overwrite, so Settings surfaces it
-  // read-only instead.
+  // Settings tab: read the swimmer's own profile doc, and write back the
+  // safe subset of fields (fullName, country, age, disciplines,
+  // avatarDataUrl). Username changes go through __renameUsername below
+  // instead — not this plain merge — since a rename has to atomically free
+  // the old usernames/{name} reservation and claim the new one.
   window.__userProfileGet = function (uid) {
     return getDoc(doc(db, 'users', uid)).then(function (snap) { return snap.exists() ? snap.data() : null; });
   };
   window.__userProfileUpdate = function (uid, fields) {
     return setDoc(doc(db, 'users', uid), fields, { merge: true });
+  };
+
+  // Settings tab: atomic username rename — mirrors claimUsernameAndProfile's
+  // create-only usernames/{name} guarantee, but also frees the swimmer's OLD
+  // reservation in the same transaction (via the delete rule scoped to
+  // "the doc's own uid", added alongside this feature) so a username never
+  // ends up orphaned-but-unusable after a rename. A no-op if the requested
+  // name is unchanged; rejects with Error('USERNAME_TAKEN') if someone else
+  // already holds it.
+  window.__renameUsername = function (uid, newUsername) {
+    var newRef = doc(db, 'usernames', newUsername);
+    var userRef = doc(db, 'users', uid);
+    return runTransaction(db, function (tx) {
+      return tx.get(userRef).then(function (userSnap) {
+        var oldUsername = userSnap.exists() ? userSnap.data().username : null;
+        if (oldUsername === newUsername) return;
+        return tx.get(newRef).then(function (newSnap) {
+          if (newSnap.exists()) throw new Error('USERNAME_TAKEN');
+          tx.set(newRef, { uid: uid, createdAt: serverTimestamp() });
+          if (oldUsername) tx.delete(doc(db, 'usernames', oldUsername));
+          tx.set(userRef, { username: newUsername }, { merge: true });
+        });
+      });
+    });
   };
 
   if (document.readyState === 'loading') {
@@ -1265,6 +1297,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
 .settings-save-status.is-error { color: #e5484d; }
+.settings-avatar-row { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.settings-avatar-preview, .settings-avatar-placeholder { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); flex-shrink: 0; }
+.settings-avatar-placeholder { display: flex; align-items: center; justify-content: center; background: var(--bg-alt); color: var(--muted); }
+.settings-avatar-placeholder .icon { width: 28px; height: 28px; }
+.settings-avatar-actions { display: flex; gap: var(--space-2); align-items: center; }
+.settings-username-hint { font-size: 0.78rem; margin-top: 4px; min-height: 1.1em; color: var(--muted-2); }
+.settings-username-hint.is-taken { color: #e5484d; }
+.settings-username-hint.is-available { color: var(--green-bright); }
+.nav-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-strong); }
 @media (max-width: 860px) { .settings-grid { grid-template-columns: 1fr; } }
 
 .pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -2207,6 +2248,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" class="btn btn-ghost btn-sm" id="navSignInBtn" data-auth-signed-out data-i18n="nav.signin">Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" id="navJoinNowBtn" data-welcome-trigger data-auth-signed-out>Join Now</button>
       <span class="nav-status-badge" id="navStatusBadge" hidden></span>
+      <img class="nav-avatar" id="navAvatar" data-auth-signed-in style="display:none" alt="" hidden>
       <button type="button" class="btn btn-outline-maroon btn-sm" id="navLogoutBtn" data-auth-signed-in style="display:none">Log Out</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
@@ -2941,6 +2983,15 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="settings-card">
             <h3><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile</h3>
             <form id="settingsProfileForm">
+              <div class="settings-avatar-row">
+                <img id="settingsAvatarPreview" class="settings-avatar-preview" alt="" hidden>
+                <div class="settings-avatar-placeholder" id="settingsAvatarPlaceholder"><svg class="icon"><use href="#i-user"/></svg></div>
+                <div class="settings-avatar-actions">
+                  <label class="btn btn-outline-aqua btn-sm" for="settingsAvatarInput">Upload Photo</label>
+                  <input type="file" id="settingsAvatarInput" accept="image/png,image/jpeg,image/webp" style="display:none">
+                  <button type="button" class="btn btn-ghost btn-sm" id="settingsAvatarRemoveBtn">Remove</button>
+                </div>
+              </div>
               <div class="profile-row">
                 <div class="profile-field">
                   <label for="settingsFullName">Full Name</label>
@@ -2948,7 +2999,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 </div>
                 <div class="profile-field">
                   <label for="settingsUsername">Username</label>
-                  <input type="text" id="settingsUsername" disabled>
+                  <input type="text" id="settingsUsername" maxlength="20" placeholder="e.g. alex_swims">
+                  <p class="settings-username-hint" id="settingsUsernameHint"></p>
                 </div>
                 <div class="profile-field">
                   <label for="settingsEmail">Email</label>
@@ -2963,7 +3015,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                   <input type="number" id="settingsAge" min="5" max="120" placeholder="e.g. 24">
                 </div>
               </div>
-              <p style="color:var(--muted-2); font-size:0.8rem; margin-top:10px;">Username and email can’t be changed here — email is managed by your sign-in method, and usernames are permanent once claimed.</p>
+              <p style="color:var(--muted-2); font-size:0.8rem; margin-top:10px;">Email can’t be changed here — it’s managed by your sign-in method. Changing your username frees your old handle for someone else to claim.</p>
               <button type="submit" class="btn btn-primary btn-sm" style="margin-top:16px">Save Profile</button>
               <p class="settings-save-status" id="settingsProfileStatus"></p>
             </form>
@@ -5434,6 +5486,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var form = document.getElementById('settingsProfileForm');
     var fullNameInput = document.getElementById('settingsFullName');
     var usernameInput = document.getElementById('settingsUsername');
+    var usernameHint = document.getElementById('settingsUsernameHint');
     var emailInput = document.getElementById('settingsEmail');
     var countryInput = document.getElementById('settingsCountry');
     var ageInput = document.getElementById('settingsAge');
@@ -5441,10 +5494,100 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var disciplineChipsEl = document.getElementById('settingsDisciplineChips');
     var disciplinesSaveBtn = document.getElementById('settingsDisciplinesSaveBtn');
     var disciplinesStatus = document.getElementById('settingsDisciplinesStatus');
+    var avatarInput = document.getElementById('settingsAvatarInput');
+    var avatarPreview = document.getElementById('settingsAvatarPreview');
+    var avatarPlaceholder = document.getElementById('settingsAvatarPlaceholder');
+    var avatarRemoveBtn = document.getElementById('settingsAvatarRemoveBtn');
     if (!form || !disciplineChipsEl) return;
 
     var selectedDisciplines = [];
     var loadedForUid = null;
+    var loadedUsername = '';
+    var pendingAvatarDataUrl = null; // null = unchanged this session; '' = remove; string = new upload
+    var SETTINGS_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+    var usernameCheckToken = 0;
+
+    function showAvatar(dataUrl) {
+      if (dataUrl) {
+        avatarPreview.src = dataUrl;
+        avatarPreview.hidden = false;
+        if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
+      } else {
+        avatarPreview.hidden = true;
+        avatarPreview.src = '';
+        if (avatarPlaceholder) avatarPlaceholder.style.display = '';
+      }
+    }
+
+    // Center-crops to a square, then scales to a fixed avatar size — a
+    // different treatment than the AI Coach's "fit longest edge" downscale,
+    // since a profile photo should read the same at any aspect ratio, not
+    // preserve the original framing.
+    function compressAvatarFile(file) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        var objectUrl = URL.createObjectURL(file);
+        img.onload = function () {
+          URL.revokeObjectURL(objectUrl);
+          var size = 200;
+          var side = Math.min(img.naturalWidth, img.naturalHeight);
+          var sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
+          var canvas = document.createElement('canvas');
+          canvas.width = size; canvas.height = size;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('image decode failed')); };
+        img.src = objectUrl;
+      });
+    }
+
+    if (avatarInput) {
+      avatarInput.addEventListener('change', function () {
+        var file = avatarInput.files && avatarInput.files[0];
+        if (!file) return;
+        compressAvatarFile(file).then(function (dataUrl) {
+          pendingAvatarDataUrl = dataUrl;
+          showAvatar(dataUrl);
+        }).catch(function () {
+          profileStatus.textContent = 'Could not read that image — try a different file.';
+          profileStatus.classList.add('is-error');
+        }).finally(function () { avatarInput.value = ''; });
+      });
+    }
+    if (avatarRemoveBtn) {
+      avatarRemoveBtn.addEventListener('click', function () {
+        pendingAvatarDataUrl = '';
+        showAvatar(null);
+      });
+    }
+
+    if (usernameInput) {
+      var checkTimer = null;
+      usernameInput.addEventListener('input', function () {
+        var raw = (usernameInput.value || '').trim().toLowerCase();
+        usernameInput.value = raw;
+        if (checkTimer) clearTimeout(checkTimer);
+        if (!raw || raw === loadedUsername) { usernameHint.textContent = ''; usernameHint.className = 'settings-username-hint'; return; }
+        if (!SETTINGS_USERNAME_RE.test(raw)) {
+          usernameHint.textContent = '3-20 characters: lowercase letters, numbers, underscore only.';
+          usernameHint.className = 'settings-username-hint is-taken';
+          return;
+        }
+        usernameHint.textContent = 'Checking availability…';
+        usernameHint.className = 'settings-username-hint';
+        var token = ++usernameCheckToken;
+        checkTimer = setTimeout(function () {
+          if (typeof window.__checkUsernameTaken !== 'function') return;
+          window.__checkUsernameTaken(raw).then(function (taken) {
+            if (token !== usernameCheckToken) return; // a newer keystroke superseded this check
+            usernameHint.textContent = taken ? 'That username is already taken.' : 'Available!';
+            usernameHint.className = 'settings-username-hint ' + (taken ? 'is-taken' : 'is-available');
+          }).catch(function () {});
+        }, 400);
+      });
+    }
 
     function renderDisciplineChips() {
       disciplineChipsEl.innerHTML = DISCIPLINES.map(function (d) {
@@ -5469,6 +5612,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     function resetFields() {
       fullNameInput.value = ''; usernameInput.value = ''; emailInput.value = '';
       countryInput.value = ''; ageInput.value = '';
+      loadedUsername = '';
+      pendingAvatarDataUrl = null;
+      showAvatar(null);
+      if (usernameHint) { usernameHint.textContent = ''; usernameHint.className = 'settings-username-hint'; }
       selectedDisciplines = [];
       renderDisciplineChips();
     }
@@ -5481,9 +5628,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       window.__userProfileGet(user.uid).then(function (data) {
         data = data || {};
         fullNameInput.value = data.fullName || user.displayName || '';
-        usernameInput.value = data.username || '(none set)';
+        loadedUsername = data.username || '';
+        usernameInput.value = loadedUsername;
         countryInput.value = data.country || '';
         ageInput.value = data.age || '';
+        pendingAvatarDataUrl = null;
+        showAvatar(data.avatarDataUrl || null);
+        if (typeof window.__updateNavAvatar === 'function') window.__updateNavAvatar(data.avatarDataUrl || null);
         selectedDisciplines = (data.disciplines && data.disciplines.length) ? data.disciplines.slice() : state.disciplines.slice();
         renderDisciplineChips();
       }).catch(function () {});
@@ -5493,18 +5644,45 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       e.preventDefault();
       var user = window.__firebaseUser;
       if (!user || typeof window.__userProfileUpdate !== 'function') return;
+
+      var newUsername = (usernameInput.value || '').trim().toLowerCase();
+      var usernameChanged = newUsername !== loadedUsername;
+      if (usernameChanged && !SETTINGS_USERNAME_RE.test(newUsername)) {
+        profileStatus.textContent = 'Username must be 3-20 characters: lowercase letters, numbers, underscore only.';
+        profileStatus.classList.add('is-error');
+        return;
+      }
+
       var fields = { fullName: fullNameInput.value.trim() };
       if (countryInput.value.trim()) fields.country = countryInput.value.trim();
       var ageVal = parseInt(ageInput.value, 10);
       if (ageVal) fields.age = ageVal;
+      if (pendingAvatarDataUrl !== null) fields.avatarDataUrl = pendingAvatarDataUrl;
+
       var submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
-      window.__userProfileUpdate(user.uid, fields).then(function () {
+      profileStatus.textContent = '';
+      profileStatus.classList.remove('is-error');
+
+      var renameStep = (usernameChanged && typeof window.__renameUsername === 'function')
+        ? window.__renameUsername(user.uid, newUsername)
+        : Promise.resolve();
+
+      renameStep.then(function () {
+        if (usernameChanged) loadedUsername = newUsername;
+        return window.__userProfileUpdate(user.uid, fields);
+      }).then(function () {
         profileStatus.textContent = 'Saved.';
         profileStatus.classList.remove('is-error');
-      }).catch(function () {
-        profileStatus.textContent = 'Could not save — please try again.';
+        if (fields.avatarDataUrl !== undefined) {
+          pendingAvatarDataUrl = null;
+          if (typeof window.__updateNavAvatar === 'function') window.__updateNavAvatar(fields.avatarDataUrl || null);
+        }
+      }).catch(function (err) {
         profileStatus.classList.add('is-error');
+        profileStatus.textContent = (err && err.message === 'USERNAME_TAKEN')
+          ? 'That username is already taken — try another.'
+          : 'Could not save — please try again.';
       }).finally(function () {
         if (submitBtn) submitBtn.disabled = false;
       });
@@ -5539,6 +5717,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     document.addEventListener('swimfit:authchange', function (e) {
       if (e.detail.user) loadProfileIfNeeded();
       else { loadedForUid = null; resetFields(); }
+    });
+  })();
+
+  /* ============================= NAV AVATAR =============================
+     Independent of whether a swimmer ever visits Settings — fetches their
+     avatarDataUrl (if any) on every sign-in so the nav reflects it right
+     away, and exposes __updateNavAvatar so Settings can refresh it live
+     the moment a swimmer uploads or removes a photo without a reload. */
+  (function wireNavAvatar() {
+    var img = document.getElementById('navAvatar');
+    if (!img) return;
+    window.__updateNavAvatar = function (dataUrl) {
+      if (dataUrl) { img.src = dataUrl; img.hidden = false; }
+      else { img.hidden = true; img.src = ''; }
+    };
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) { window.__updateNavAvatar(null); return; }
+      if (typeof window.__userProfileGet !== 'function') return;
+      window.__userProfileGet(e.detail.user.uid).then(function (data) {
+        window.__updateNavAvatar(data && data.avatarDataUrl ? data.avatarDataUrl : null);
+      }).catch(function () {});
     });
   })();
 
