@@ -287,16 +287,19 @@
     requestAnimationFrame(step);
   }
 
-  // ============================= ACCESS LEVEL (trial + subscription tier) =============================
-  // Resolves what the signed-in swimmer can currently see: 'trial' for the
-  // first TRIAL_DAYS after signup, whichever Paddle plan is actively paid for
-  // after that ('pro' | 'elite' | 'ultra'), 'admin' for the house account
-  // (see SWIMFIT_ADMIN_EMAIL above), or 'locked' once the trial has lapsed
-  // with no active subscription. This mirrors the server-side resolution in
-  // functions/index.js (getAccessLevel) that actually gates the one costly
-  // call (aiSwimCoach) — everything driven by this client copy (workout
-  // locks, the full-page Coach gate, the global paywall) is UI-only, same as
-  // every other "membership" gate on this site before it.
+  // ============================= ACCESS LEVEL (informational trial/plan badge only) =============================
+  // There is no paywall anywhere in this app — every signed-in, non-suspended
+  // swimmer gets full access to everything (AI Coach, photo analysis,
+  // Elite-level workouts, all of it), regardless of trial status or whether
+  // a Paddle plan is active. Resolves 'admin' for the house account (see
+  // SWIMFIT_ADMIN_EMAIL above), 'locked' *only* if the admin has manually
+  // suspended this account (accessDisabled — the sole remaining gate on the
+  // whole site), otherwise 'trial' / the real Paddle plan / 'unlocked' —
+  // these three are purely informational (nav badge, Admin Panel), never
+  // used to block anything. Mirrors the server-side resolution in
+  // functions/index.js (getAccessLevel), which enforces the same thing for
+  // the one call that costs money (aiSwimCoach): full access unless
+  // accessDisabled.
   var TRIAL_DAYS = 7;
   var latestSubscriptionDoc = null; // last paddle_subscriptions/{uid} snapshot data, or null
   var unsubscribeSubscriptionDoc = null;
@@ -331,16 +334,18 @@
     var trialEndsAt = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     var level;
     if (latestAccessDisabled) {
-      // A manual admin suspension always wins over trial/plan status —
-      // mirrors getAccessLevel() server-side (functions/index.js).
+      // The one and only remaining lock on this entire site: an admin-set
+      // manual suspension. Mirrors getAccessLevel() server-side.
       level = 'locked';
-    } else if (Date.now() < trialEndsAt.getTime()) {
-      level = 'trial';
     } else if (latestSubscriptionDoc && latestSubscriptionDoc.plan &&
                ['active', 'trialing'].indexOf(latestSubscriptionDoc.status) > -1) {
       level = latestSubscriptionDoc.plan;
+    } else if (Date.now() < trialEndsAt.getTime()) {
+      level = 'trial';
     } else {
-      level = 'locked';
+      // Trial elapsed, no paid plan — still fully unlocked, just nothing
+      // specific to show on the nav badge.
+      level = 'unlocked';
     }
     window.__swimfitAccess = { level: level, trialEndsAt: trialEndsAt };
     document.dispatchEvent(new CustomEvent('swimfit:accesschange', { detail: { access: window.__swimfitAccess } }));
@@ -1294,17 +1299,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .set-interval strong, .set-rest strong { display: block; font-family: var(--font-display); font-size: 1.05rem; }
 .set-interval span, .set-rest span { font-size: 0.7rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
 
-.member-gate { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius); border: 1px dashed var(--border-strong); text-align: center; color: var(--muted); }
-.member-gate strong { color: var(--fg); }
-
-.tier-lock-card {
-  padding: var(--space-6); border-radius: var(--radius); border: 1px dashed var(--border-strong);
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); color: var(--muted);
-}
-.tier-lock-card .icon { width: 32px; height: 32px; color: var(--maroon-bright); }
-.tier-lock-card h3 { color: var(--fg); font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.tier-lock-card p { max-width: 42ch; }
-
 .coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
 .coach-tips li:hover { transform: translateX(4px); }
@@ -1407,8 +1401,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .price-features li { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.94rem; }
 .price-features li .icon { color: var(--green-bright); width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
 .price-note { text-align: center; color: var(--muted-2); font-size: 0.85rem; margin-top: var(--space-5); }
-.price-locked { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.82rem; color: var(--muted-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); }
-.price-locked .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: var(--muted-2); }
 @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; } }
 
 /* ============================= FAQ ============================= */
@@ -1572,25 +1564,8 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .paywall-icon .icon { width: 24px; height: 24px; }
 .paywall-card h2 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: var(--space-2); }
 .paywall-card > p { color: var(--muted); max-width: 44ch; margin-inline: auto; margin-bottom: var(--space-5); }
-.paywall-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
-.paywall-plan-btn {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4) var(--space-2);
-  color: var(--fg); cursor: pointer; transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.paywall-plan-btn:hover { transform: translateY(-2px); border-color: var(--aqua); }
-.paywall-plan-btn.featured { border-color: var(--maroon-bright); background: linear-gradient(160deg, rgba(196,59,92,0.14), var(--surface-2)); }
-.paywall-plan-badge {
-  position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--maroon); color: var(--on-maroon);
-  font-family: var(--font-display); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
-}
-.paywall-plan-name { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.9rem; }
-.paywall-plan-price { font-weight: 700; font-size: 1rem; }
-.paywall-plan-price small { font-weight: 400; color: var(--muted-2); font-size: 0.72rem; }
 .paywall-note { font-size: 0.8rem; color: var(--muted-2); margin-bottom: var(--space-4); }
 @media (max-width: 560px) {
-  .paywall-plans { grid-template-columns: 1fr; }
   .paywall-card { padding: var(--space-5) var(--space-4); }
 }
 body.paywall-locked { overflow: hidden; }
@@ -2760,18 +2735,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div class="coach-page-shell" data-auth-signed-in style="display:none">
-        <div class="coach-page-locked" id="coachPageLockedPrompt" hidden>
-          <svg class="icon"><use href="#i-lock"/></svg>
-          <h3>Your Trial Has Ended</h3>
-          <p>Subscribe to Pro to keep chatting with your AI Swim Coach — technique breakdowns, dryland guidance and training-log feedback, whenever you need it.</p>
-          <button type="button" class="btn btn-primary" data-plan="pro">Upgrade to Pro</button>
-        </div>
-        <div class="coach-page-locked" id="coachPageTierLock" hidden>
-          <svg class="icon"><use href="#i-lock"/></svg>
-          <h3>Dedicated AI Page Is An Elite Benefit</h3>
-          <p>Your plan includes the quick-chat widget in the corner of every page. Upgrade to Elite for the full-screen Coach page, seamless saved conversation history, and photo analysis of your logs, gear and technique.</p>
-          <button type="button" class="btn btn-primary" data-tab="pricing">Upgrade to Elite</button>
-        </div>
         <div id="coachPageChatWrap" style="display:none">
           <div class="coach-page-prompts" id="coachPagePrompts">
             <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
@@ -2894,7 +2857,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Floating AI Coach widget (chat only)</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker</li>
           </ul>
-          <p class="price-locked"><svg class="icon"><use href="#i-lock"/></svg> Elite-level swim tracks, the full-screen AI Coach page, saved chat history and photo analysis require Elite</p>
           <button type="button" class="btn btn-ghost btn-block" data-plan="pro">Subscribe</button>
         </div>
         <div class="price-card featured" data-reveal>
@@ -2953,7 +2915,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </details>
         <details class="faq-item">
           <summary>What happens when my free trial ends?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Every new account gets 7 days of full platform access — every swim track, Gym Focus, the full-screen AI Coach page and Distance Tracker — starting the moment you sign in. Once the 7 days are up, pick a plan above to keep going.</div>
+          <div class="faq-body">Nothing — every signed-in swimmer keeps full platform access (every swim track, Gym Focus, the full-screen AI Coach page and Distance Tracker) whether or not you subscribe. A plan above is entirely optional if you'd like to support Swimfit directly.</div>
         </details>
       </div>
     </div>
@@ -3126,7 +3088,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </button>
     <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 7-Day Free Trial</div>
     <h2 id="promoPopupTitle">Train Like It&rsquo;s Race Season</h2>
-    <p class="promo-popup-copy">Register now to unlock a strict 7-Day Free Trial with complete premium access across the entire platform! After 7 days, a paid subscription is required to continue.</p>
+    <p class="promo-popup-copy">Register free and get complete access to the entire platform — no card required, and nothing locks later.</p>
     <ul class="promo-popup-perks">
       <li><svg class="icon"><use href="#i-check"/></svg> Adaptive Swim Workout Generator &amp; dryland Gym plans</li>
       <li><svg class="icon"><use href="#i-check"/></svg> AI Swim Coach with photo technique analysis</li>
@@ -3137,28 +3099,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </div>
 
-<!-- ============================= GLOBAL PAYWALL (post-trial lock) ============================= -->
+<!-- ============================= ACCOUNT SUSPENSION OVERLAY =============================
+     Shown only when an admin has manually suspended this account
+     (accessDisabled). There is no trial/subscription paywall anywhere on
+     this site — this is the one remaining access gate, and it has nothing
+     to do with billing, so there's no "subscribe to fix this" path here. -->
 <div class="paywall-overlay" id="paywallOverlay" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" hidden>
   <div class="paywall-card">
     <div class="paywall-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
-    <h2 id="paywallTitle">Your Free Trial Has Ended</h2>
-    <p>Subscribe to a plan to keep full access to Swimfit's workouts, gym focus, technique academy, AI Coach and Distance Tracker.</p>
-    <div class="paywall-plans">
-      <button type="button" class="paywall-plan-btn" data-plan="pro">
-        <span class="paywall-plan-name">Pro</span>
-        <span class="paywall-plan-price">49 AED<small>/mo</small></span>
-      </button>
-      <button type="button" class="paywall-plan-btn featured" data-plan="elite">
-        <span class="paywall-plan-badge">Most Popular</span>
-        <span class="paywall-plan-name">Elite</span>
-        <span class="paywall-plan-price">79 AED<small>/mo</small></span>
-      </button>
-      <button type="button" class="paywall-plan-btn" data-plan="ultra">
-        <span class="paywall-plan-name">Ultra</span>
-        <span class="paywall-plan-price">499 AED<small>/yr</small></span>
-      </button>
-    </div>
-    <p class="paywall-note">Questions about billing? Email <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.</p>
+    <h2 id="paywallTitle">Account Access Suspended</h2>
+    <p>Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.</p>
+    <p class="paywall-note">Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.</p>
     <button type="button" class="btn btn-ghost btn-sm" id="paywallLogoutBtn">Log Out</button>
   </div>
 </div>
@@ -3630,21 +3581,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     }
   });
 
-  /* ============================= GLOBAL PAYWALL ============================= */
-  // Signing in while trial-expired-and-unsubscribed shows this instead of the
-  // dashboard; the plan buttons here always route straight to Paddle checkout
-  // (the swimmer is already signed in by definition — locked is a post-signin
-  // state), and Log Out just proxies the already-wired nav button.
-  document.querySelectorAll('#paywallOverlay [data-plan]').forEach(function (btn) {
-    btn.addEventListener('click', function () { goToPaddleCheckout(btn.dataset.plan); });
-  });
-  // A locked (trial-expired, unsubscribed) swimmer can't actually reach this
-  // button in practice — the global paywall above already blocks the whole
-  // dashboard first — but the Coach page gates itself independently too, so
-  // this stays correct if that ever changes.
-  document.querySelectorAll('#coachPageLockedPrompt [data-plan]').forEach(function (btn) {
-    btn.addEventListener('click', function () { goToPaddleCheckout(btn.dataset.plan); });
-  });
+  /* ============================= ACCOUNT SUSPENSION OVERLAY =============================
+     There is no paywall on this site — this overlay exists purely for the
+     one remaining access gate, an admin-issued manual suspension
+     (accessDisabled / adminToggleAccess). It has nothing to do with trial
+     status or subscriptions, so it offers no "subscribe to fix this" path —
+     just a contact-support note and Log Out. */
   var paywallLogoutBtn = document.getElementById('paywallLogoutBtn');
   if (paywallLogoutBtn) {
     paywallLogoutBtn.addEventListener('click', function () {
@@ -3658,14 +3600,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var overlay = document.getElementById('paywallOverlay');
     if (overlay) overlay.hidden = !locked;
     document.body.classList.toggle('paywall-locked', locked);
-
-    // The moment the trial hits zero, the dashboard underneath the paywall
-    // overlay is also switched to the Pricing layout — closing the overlay
-    // by subscribing lands the swimmer directly on the plans, and nothing
-    // premium is ever left rendered behind the blur.
-    if (locked && dashboard.getAttribute('data-active-tab') !== 'pricing') {
-      switchTab('pricing', { scroll: false });
-    }
 
     var fab = document.getElementById('coachFab');
     if (fab) fab.style.display = locked ? 'none' : '';
@@ -3681,7 +3615,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         // A real countdown, not a once-a-page-load day count — days+hours
         // (minutes too, in the final hour) recomputed every time this runs,
         // which is now frequent enough (see the 30s interval below) that it
-        // reads as live rather than static.
+        // reads as live rather than static. Purely informational — nothing
+        // locks when it reaches zero.
         var msLeft = Math.max(0, access.trialEndsAt.getTime() - Date.now());
         var daysLeft = Math.floor(msLeft / 86400000);
         var hoursLeft = Math.floor((msLeft % 86400000) / 3600000);
@@ -3691,15 +3626,19 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           : (minutesLeft + 'm left');
         badge.hidden = false;
         badge.innerHTML = '<svg class="icon"><use href="#i-clock"/></svg> Trial — ' + countdownLabel;
-      } else {
+      } else if (['pro', 'elite', 'ultra'].indexOf(access.level) > -1) {
         badge.hidden = false;
         badge.innerHTML = '<svg class="icon"><use href="#i-trophy"/></svg> ' + access.level.charAt(0).toUpperCase() + access.level.slice(1) + ' Plan';
+      } else {
+        // 'unlocked' — trial elapsed, no paid plan, nothing to show; every
+        // feature stays fully available regardless.
+        badge.hidden = true;
       }
     }
 
-    // Re-render whatever tier-gated content is currently on screen so a
-    // trial expiring (or a subscription resolving) mid-session updates
-    // immediately rather than only on the next manual interaction.
+    // Re-render whatever content reads access level so a subscription
+    // resolving mid-session (or a suspension toggling) updates immediately
+    // rather than only on the next manual interaction.
     if (typeof generateWorkout === 'function') generateWorkout();
     if (typeof renderCoachPageGate === 'function') renderCoachPageGate();
   });
@@ -4363,30 +4302,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       tips.map(function (t) { return '<li>' + icon('i-check') + '<span>' + t + '</span></li>'; }).join('') + '</ul></div>';
   }
 
-  // Elite-level training tracks are gated behind Elite/Ultra (or a trial, or
-  // the admin house account) — Pro subscribers get Beginner + Competitive
-  // only. Purely a UI gate, same as every other content lock on this site;
-  // the one place tier access is actually enforced server-side is aiSwimCoach.
-  function tierAllowsEliteLevel() {
-    var access = window.__swimfitAccess;
-    return !!access && (access.level === 'admin' || access.level === 'trial' || access.level === 'elite' || access.level === 'ultra');
-  }
-
   function generateWorkout() {
-    if (state.level === 'elite' && !tierAllowsEliteLevel()) {
-      var lockedEl = document.getElementById('workoutResult');
-      lockedEl.innerHTML = '<div class="tier-lock-card">' + icon('i-lock') +
-        '<h3>Elite Track Locked</h3>' +
-        '<p>High-performance Elite training sets are an Elite/Ultra plan benefit' +
-        (window.__firebaseUser ? '.' : ' — sign in free to start your 7-day trial and preview it.') + '</p>' +
-        '<button type="button" class="btn btn-primary" data-tab="pricing">' +
-        (window.__firebaseUser ? 'Upgrade to Elite' : 'Start Free Trial') + '</button></div>';
-      lockedEl.querySelectorAll('[data-tab]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) { e.preventDefault(); switchTab(btn.dataset.tab); });
-      });
-      return;
-    }
-
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
@@ -4450,11 +4366,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         ? 'Pace personalized from your ' + (pb100Sec ? '100m' : '50m') + ' Freestyle PB (' + formatTime(pb100Sec || pb50Sec) + ') — target ' + formatTime(pace100) + '/100m.'
         : 'Add your 50m or 100m Freestyle PB above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
-
-    if (state.level === 'elite' && window.__swimfitAccess && window.__swimfitAccess.level === 'trial') {
-      html += '<div class="member-gate">' + icon('i-lock') +
-        ' <strong>You\'re previewing an Elite-only track during your free trial.</strong> <a href="#" data-tab="pricing" style="color:var(--aqua)">Upgrade to Elite</a> to keep access after your trial ends.</div>';
-    }
 
     html += renderCoachTips();
 
@@ -4556,22 +4467,25 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         { name: 'Foam Roll — Thoracic Spine', prescription: '2 min', cue: 'Restores upper-back mobility for a full, relaxed streamline.' }
       ]
     },
+    // Real commercial gym equipment — barbells, cable stacks and machines,
+    // not home-style bodyweight work. Loads scale off the swimmer's
+    // strength profile the same way every other weighted exercise does.
     upper: {
       warmup: [
         { name: 'Arm Circles', prescription: '2 x 15 each direction', cue: 'Lubricates the shoulder joint before any pressing or pulling.' },
-        { name: 'Scapular Push-Ups', prescription: '2 x 12', cue: 'Wakes up shoulder-blade control before load goes through the arms.' }
+        { name: 'Cable Face Pulls (light warm-up sets)', prescription: '2 x 15', loadPct: 0.15, weighted: true, cue: 'Wakes up the rear delts and rotator cuff before heavier pressing and pulling.' }
       ],
       core: [
-        { name: 'Side Plank', prescription: '3 x 20s / side', cue: 'Lateral core strength that keeps the hips from dropping mid-stroke.' },
-        { name: 'Bird Dog', prescription: '3 x 10 / side', cue: 'Cross-body stability that mirrors a controlled body-line pull.' }
+        { name: 'Cable Woodchoppers', prescription: '3 x 12 / side', loadPct: 0.2, weighted: true, cue: 'Rotational core power that mirrors the torso drive behind every strong pull.' },
+        { name: 'Side Plank', prescription: '3 x 20s / side', cue: 'Lateral core strength that keeps the hips from dropping mid-stroke.' }
       ],
       main: [
-        { name: 'Band Pull-Aparts', prescription: '3 x 20', cue: 'Light band, full range — protects the shoulder for high stroke volume.' },
-        { name: 'Push-Ups', prescription: '4 x 15', cue: 'Full lockout, tight core — builds the pressing strength behind every pull.' },
-        { name: 'Y-T-W Raises', prescription: '3 x 10 each', cue: 'Light dumbbells — builds the small stabilizers, not just the big movers.' },
-        { name: 'Pull-Ups', prescription: '4 x 6', cue: 'Scapular control on the way down mirrors a controlled recovery phase.' },
+        { name: 'Lat Pulldowns', prescription: '4 x 10', loadPct: 0.55, weighted: true, cue: 'Builds the wide-lat pulling strength behind a powerful catch and pull-through.' },
+        { name: 'Incline Bench Press', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Upper-chest and shoulder pressing strength for a powerful recovery and dive entry.' },
+        { name: 'Cable Face Pulls', prescription: '4 x 15', loadPct: 0.25, weighted: true, cue: 'Rear-delt and rotator-cuff strength that keeps the shoulder healthy under high stroke volume.' },
         { name: 'Seated Cable Rows', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Builds the mid-back strength that keeps the catch high and the elbow up.' },
-        { name: 'Tricep Dips', prescription: '3 x 12', cue: 'Finishes the pull-through strength that powers the back half of the stroke.' }
+        { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
+        { name: 'Cable Tricep Pushdowns', prescription: '3 x 12', loadPct: 0.3, weighted: true, cue: 'Finishes the pull-through strength that powers the back half of the stroke.' }
       ],
       cooldown: [
         { name: 'Doorway Chest Stretch', prescription: '2 x 30s', cue: 'Opens a chest tightened by repeated pressing and pulling.' },
@@ -4581,22 +4495,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     lower: {
       warmup: [
         { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range used in a flutter kick.' },
-        { name: 'Walking Lunges (bodyweight)', prescription: '2 x 10 / side', cue: 'Primes the legs for loaded single-leg work.' }
+        { name: 'Goblet Squats (light warm-up sets)', prescription: '2 x 10', loadPct: 0.2, weighted: true, cue: 'Grooves the squat pattern and warms the hips before loaded barbell work.' }
       ],
       core: [
-        { name: 'Side Plank with Leg Lift', prescription: '3 x 10 / side', cue: 'Hip stability under load — keeps the kick even and streamlined.' },
+        { name: 'Cable Pull-Throughs', prescription: '3 x 12', loadPct: 0.3, weighted: true, cue: 'Hip-hinge activation that primes the glutes before heavy posterior-chain lifts.' },
         { name: 'Glute Bridge Hold', prescription: '3 x 30s', cue: 'Activates the glutes before they’re asked to fire explosively.' }
       ],
       main: [
-        { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — quality over fatigue.' },
-        { name: 'Broad Jumps', prescription: '3 x 6', cue: 'Stick the landing — builds the same triple-extension used off the block.' },
+        { name: 'Barbell Squats', prescription: '4 x 8', loadPct: 0.7, weighted: true, cue: 'Heavy leg strength — the base under every kick, start and turn.' },
+        { name: 'Romanian Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly into a powerful, sustained kick.' },
+        { name: 'Leg Press', prescription: '4 x 10', loadPct: 0.65, weighted: true, cue: 'High-volume quad and glute strength without loading the spine — built for repeatable heavy leg days.' },
+        { name: 'Hamstring Curl Machine', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Isolated hamstring strength that balances the quad-dominant lifts above.' },
         { name: 'Bulgarian Split Squats', prescription: '3 x 10 / side', loadPct: 0.4, weighted: true, cue: 'Single-leg strength and balance — carries into an even kick.' },
-        { name: 'Single-Leg RDL', prescription: '3 x 8 / side', loadPct: 0.3, weighted: true, cue: 'Builds the hamstring and balance control behind a strong dolphin kick.' },
-        { name: 'Glute Bridges', prescription: '3 x 15', cue: 'Hip drive strength that powers a strong streamline kick-out.' },
-        { name: 'Calf Raises', prescription: '4 x 20', cue: 'Ankle stiffness and pop — directly supports flutter and dolphin kick.' }
+        { name: 'Standing Calf Raise Machine', prescription: '4 x 20', loadPct: 0.5, weighted: true, cue: 'Ankle stiffness and pop under real load — directly supports flutter and dolphin kick.' }
       ],
       cooldown: [
-        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases quads loaded by jumps and split squats.' },
+        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases quads loaded by heavy squats and presses.' },
         { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Opens the hips for a full, unrestricted kick range.' },
         { name: 'Calf Stretch', prescription: '2 x 30s / side', cue: 'Keeps the ankle supple for a whippy flutter kick.' }
       ]
@@ -4818,6 +4732,30 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     generic: { beats: 2, frames: [
       '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L51 45"/><path d="M60 31 L69 45"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>',
       '<circle cx="60" cy="21" r="5"/><path d="M60 26 L60 47"/><path d="M60 31 L48 42"/><path d="M60 31 L72 42"/><path d="M60 47 L55 73"/><path d="M60 47 L65 73"/>'
+    ] },
+    woodchop: { frames: [
+      '<path class="p" d="M92 6 L92 74"/><circle class="p" cx="92" cy="10" r="3"/><circle cx="50" cy="24" r="5"/><path d="M52 29 L54 50"/><path d="M52 33 L74 14"/><path d="M54 50 L48 72"/><path d="M54 50 L60 72"/>',
+      '<path class="p" d="M92 6 L92 74"/><circle class="p" cx="92" cy="10" r="3"/><circle cx="50" cy="24" r="5"/><path d="M52 29 L54 50"/><path d="M52 33 L30 58"/><path d="M54 50 L48 72"/><path d="M54 50 L60 72"/>'
+    ] },
+    latpulldown: { frames: [
+      '<path class="p" d="M40 8 L80 8"/><path class="p" d="M60 8 L60 20"/><circle cx="60" cy="34" r="5"/><path d="M62 39 L62 56"/><path d="M62 42 L46 18"/><path d="M62 42 L78 18"/><path d="M62 56 L56 72"/><path d="M62 56 L68 72"/>',
+      '<path class="p" d="M40 8 L80 8"/><path class="p" d="M60 8 L60 30"/><circle cx="60" cy="38" r="5"/><path d="M62 43 L62 58"/><path d="M62 45 L48 32"/><path d="M62 45 L76 32"/><path d="M62 58 L56 72"/><path d="M62 58 L68 72"/>'
+    ] },
+    benchpress: { beats: 2, frames: [
+      '<path class="p" d="M30 60 L30 74"/><path class="p" d="M30 60 L58 46"/><circle cx="58" cy="40" r="5"/><path d="M60 44 L74 50"/><path class="p" d="M64 38 L86 38"/><path d="M74 50 L82 62"/>',
+      '<path class="p" d="M30 60 L30 74"/><path class="p" d="M30 60 L58 46"/><circle cx="58" cy="40" r="5"/><path d="M60 44 L70 34"/><path class="p" d="M60 24 L82 24"/><path d="M70 34 L78 46"/>'
+    ] },
+    pushdown: { frames: [
+      '<path class="p" d="M70 6 L70 30"/><circle class="p" cx="70" cy="8" r="3"/><circle cx="56" cy="24" r="5"/><path d="M58 29 L58 48"/><path d="M58 32 L70 30"/><path d="M58 48 L52 72"/><path d="M58 48 L64 72"/>',
+      '<path class="p" d="M70 6 L70 30"/><circle class="p" cx="70" cy="8" r="3"/><circle cx="56" cy="24" r="5"/><path d="M58 29 L58 48"/><path d="M58 34 L72 48"/><path d="M58 48 L52 72"/><path d="M58 48 L64 72"/>'
+    ] },
+    legpress: { beats: 2, frames: [
+      '<path class="p" d="M20 40 L20 74"/><path d="M20 55 L40 55"/><circle cx="46" cy="50" r="5"/><path d="M48 55 L58 60"/><path d="M58 60 L70 52"/><path d="M58 60 L66 70"/><path class="p" d="M78 40 L78 66"/>',
+      '<path class="p" d="M20 40 L20 74"/><path d="M20 55 L40 55"/><circle cx="46" cy="50" r="5"/><path d="M48 55 L58 60"/><path d="M58 60 L86 56"/><path d="M58 60 L66 70"/><path class="p" d="M92 40 L92 62"/>'
+    ] },
+    hamcurl: { beats: 2, frames: [
+      '<path class="p" d="M18 56 L70 56"/><circle cx="24" cy="50" r="5"/><path d="M30 54 L58 56"/><path d="M58 56 L86 60"/><path class="p" d="M86 60 L92 50"/>',
+      '<path class="p" d="M18 56 L70 56"/><circle cx="24" cy="50" r="5"/><path d="M30 54 L58 56"/><path d="M58 56 L78 40"/><path class="p" d="M78 40 L86 32"/>'
     ] }
   };
 
@@ -4858,25 +4796,30 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     'Lat Stretch': 'sidelean',
     'Foam Roll — Thoracic Spine': 'foamroll',
     'Arm Circles': 'armcircles',
-    'Scapular Push-Ups': 'pushup',
-    'Push-Ups': 'pushup',
     'Side Plank': 'sideplank',
     'Side Plank with Leg Lift': 'sideplank',
     'Bird Dog': 'birddog',
-    'Y-T-W Raises': 'ytw',
     'Seated Cable Rows': 'rower',
-    'Tricep Dips': 'dips',
     'Doorway Chest Stretch': 'cheststretch',
     'Cross-Body Shoulder Stretch': 'armacross',
     'Leg Swings': 'legswing',
-    'Walking Lunges (bodyweight)': 'lunge',
     'Bulgarian Split Squats': 'lunge',
-    'Single-Leg RDL': 'slrdl',
     'Glute Bridge Hold': 'bridge',
-    'Glute Bridges': 'bridge',
-    'Calf Raises': 'calfraise',
     'Pigeon Pose': 'pigeon',
-    'Calf Stretch': 'calfstretch'
+    'Calf Stretch': 'calfstretch',
+    'Cable Face Pulls (light warm-up sets)': 'bandpull',
+    'Cable Face Pulls': 'bandpull',
+    'Cable Woodchoppers': 'woodchop',
+    'Lat Pulldowns': 'latpulldown',
+    'Incline Bench Press': 'benchpress',
+    'Cable Tricep Pushdowns': 'pushdown',
+    'Goblet Squats (light warm-up sets)': 'squat',
+    'Cable Pull-Throughs': 'hinge',
+    'Barbell Squats': 'bbsquat',
+    'Romanian Deadlifts': 'hinge',
+    'Leg Press': 'legpress',
+    'Hamstring Curl Machine': 'hamcurl',
+    'Standing Calf Raise Machine': 'calfraise'
   };
 
   function renderGymAnim(exerciseName) {
@@ -5146,8 +5089,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var fileInput = document.getElementById('coachPageFileInput');
     var hint = document.getElementById('coachPageHint');
     var signInBtn = document.getElementById('coachPageSignInBtn');
-    var lockedPromptEl = document.getElementById('coachPageLockedPrompt');
-    var tierLockEl = document.getElementById('coachPageTierLock');
     var chatWrapEl = document.getElementById('coachPageChatWrap');
     var promptsEl = document.getElementById('coachPagePrompts');
     if (!messagesEl || !form || !input || !sendBtn || !attachBtn || !fileInput) return;
@@ -5159,21 +5100,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     var historyLoadedForUid = null;
     var lastRenderedRole = null; // for message grouping — see appendMessage
 
-    // Dedicated page + saved history + photo upload are an Elite/Ultra (or
-    // trial, or admin) benefit — Pro stays on the floating widget only.
+    // No tier gate here — the dedicated page, saved history and photo upload
+    // are available to any signed-in account that isn't admin-suspended.
     function coachPageTierAllowed() {
       var access = window.__swimfitAccess;
-      return !!access && (access.level === 'admin' || access.level === 'trial' || access.level === 'elite' || access.level === 'ultra');
+      return !!access && access.level !== 'locked';
     }
 
     window.renderCoachPageGate = function () {
-      if (!tierLockEl || !chatWrapEl) return;
-      var access = window.__swimfitAccess;
-      var isLocked = !!access && access.level === 'locked';
+      if (!chatWrapEl) return;
       var allowed = coachPageTierAllowed();
-      if (lockedPromptEl) lockedPromptEl.hidden = !isLocked;
-      tierLockEl.hidden = isLocked || allowed;
-      chatWrapEl.style.display = (!isLocked && allowed) ? '' : 'none';
+      chatWrapEl.style.display = allowed ? '' : 'none';
       if (allowed) loadPersistedHistoryIfNeeded();
     };
 
@@ -5375,9 +5312,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
     }
 
-    // Elite/Ultra/trial/admin only (see coachPageTierAllowed) — restores the
-    // saved transcript from coach_history/{uid} on first reach each sign-in,
-    // falling back to the canned welcome message if there's no history yet.
+    // Any signed-in, non-suspended account (see coachPageTierAllowed) —
+    // restores the saved transcript from coach_history/{uid} on first reach
+    // each sign-in, falling back to the canned welcome message if there's no
+    // history yet.
     function loadPersistedHistoryIfNeeded() {
       var user = window.__firebaseUser;
       if (!user || !coachPageTierAllowed() || historyLoadedForUid === user.uid) return;

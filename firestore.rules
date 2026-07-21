@@ -24,12 +24,12 @@ rules_version = '2';
 // swim_logs/{uid}/entries/{entryId} — a swimmer's manually-logged distance entries for
 //                      the Distance Tracker page. Owner-only; deletable (to fix a mislog)
 //                      but never editable in place — delete and re-log instead.
-// coach_history/{uid} — persisted AI Coach chat transcript for the full-screen page
-//                      (Elite/Ultra/trial only — enforced client-side, same as every other
-//                      tier gate that isn't a paid API call; see aiSwimCoach for the one
-//                      gate that *is* enforced server-side). Text only — image attachments
-//                      are never persisted here, only a placeholder, to stay well under the
-//                      1 MiB document size limit and to avoid ever storing image bytes twice.
+// coach_history/{uid} — persisted AI Coach chat transcript for the full-screen page. Available
+//                      to any signed-in, non-suspended swimmer — there is no paywall/tier gate
+//                      anywhere in this app anymore (see aiSwimCoach in functions/index.js).
+//                      Text only — image attachments are never persisted here, only a
+//                      placeholder, to stay well under the 1 MiB document size limit and to
+//                      avoid ever storing image bytes twice.
 // admin_chats/{uid}   — Admin Panel direct-message thread metadata (lastMessageText,
 //                      unreadForUser, etc) plus the /messages subcollection itself. Real-time
 //                      on both sides: the owning swimmer reads/writes their own thread (sender
