@@ -280,42 +280,37 @@ const TRIAL_DAYS = 7;
 
 // Resolves what a signed-in swimmer can currently access: 'admin' immediately
 // for the house account (see ADMIN_EMAILS — checked first, before any
-// Firestore read, so the admin override can never be defeated by a trial
-// date, a missing/malformed profile doc, or a paddle_subscriptions read
-// failing — nothing below this line can ever downgrade an admin), then
-// 'locked' if the admin has manually disabled the account (adminToggleAccess),
-// 'trial' during the first TRIAL_DAYS after signup, whichever Paddle plan is
-// actively paid for after that ('pro' | 'elite' | 'ultra'), or 'locked' once
-// the trial has lapsed with no active subscription. Mirrors the
-// client-side resolution in index.html so the one call that actually costs
-// money (aiSwimCoach) can't be tricked by a client that simply hides its own
-// paywall UI — this always re-derives access from Firestore via the Admin
-// SDK, never from anything the request body claims. Fails open (returns
-// 'trial') only when the user's profile doc doesn't exist at all yet, to
-// avoid a brand-new signup racing its own first profile write into an
-// incorrect instant lockout. Takes email as well as uid specifically so the
-// admin check lives in this one place rather than being duplicated (and
-// potentially forgotten) at every call site.
+// Firestore read, so the admin override can never be defeated by anything
+// below), then 'locked' if — and only if — the admin has manually suspended
+// the account (adminToggleAccess). There is no other way to end up 'locked':
+// the trial/paid-plan system no longer gates anything. Every authenticated,
+// non-suspended account gets full access everywhere — the AI Coach, photo
+// analysis, Elite-level workouts, all of it — regardless of trial status or
+// whether a Paddle plan is active. Trial/plan are still resolved and
+// returned ('trial' | 'pro' | 'elite' | 'ultra' | 'unlocked') purely for
+// informational display (nav badge, Admin Panel), never to block a request.
+// Takes email as well as uid specifically so the admin check lives in this
+// one place rather than being duplicated (and potentially forgotten) at
+// every call site.
 async function getAccessLevel(uid, email) {
   if (isAdminEmail(email)) return 'admin';
   var userSnap = await db.collection('users').doc(uid).get();
   var userData = userSnap.exists ? userSnap.data() : null;
-  // A manual admin-set access lock (see adminToggleAccess) always wins over
-  // trial/plan status — a suspended account stays locked even mid-trial or
-  // on a paid plan, until the admin re-enables it.
+  // A manual admin-set suspension (see adminToggleAccess) is the one
+  // remaining way to end up 'locked' — everything else below is informational.
   if (userData && userData.accessDisabled === true) return 'locked';
-  var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
-  var trialStart = trialStartField ? trialStartField.toDate() : new Date();
-  if (!userData || Date.now() < trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) {
-    return 'trial';
-  }
 
   var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
   var subData = subSnap.exists ? subSnap.data() : null;
   if (subData && subData.plan && PADDLE_ACTIVE_STATUSES.indexOf(subData.status) !== -1) {
     return subData.plan;
   }
-  return 'locked';
+  var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
+  var trialStart = trialStartField ? trialStartField.toDate() : new Date();
+  if (!userData || Date.now() < trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) {
+    return 'trial';
+  }
+  return 'unlocked';
 }
 
 // Allowed browser origins for every user-facing (non-webhook) function below —
@@ -622,10 +617,6 @@ exports.aiSwimCoach = onRequest(
     }
 
     var rawImages = Array.isArray(body.images) ? body.images : [];
-    if (rawImages.length > 0 && accessLevel === 'pro') {
-      res.status(403).json({ error: 'Photo analysis is an Elite feature — upgrade to attach workout, gear or technique photos.' });
-      return;
-    }
     if (rawImages.length > COACH_MAX_IMAGES_PER_MESSAGE) {
       res.status(400).json({ error: 'You can attach up to ' + COACH_MAX_IMAGES_PER_MESSAGE + ' images per message.' });
       return;

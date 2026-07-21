@@ -107,59 +107,43 @@ allowlist, a per-image size cap, and a per-message count cap) and forwards them 
 multimodal content blocks alongside the text turn — the floating widget never sends images,
 so this is purely additive.
 
-The full-screen Coach page has three gate states, all driven by `window.renderCoachPageGate()`
-on every `swimfit:accesschange`: signed-out (`data-auth-signed-out`, unchanged), `locked`
-(trial expired, no active plan — `#coachPageLockedPrompt`, a Coach-specific "Upgrade to Pro"
-prompt; belt-and-suspenders, since the site-wide `#paywallOverlay` already blocks a locked
-swimmer from reaching any tab at all before this ever renders), and everyone else who isn't
-Elite/Ultra/trial/admin (`#coachPageTierLock`, unchanged "upgrade to Elite" prompt — Pro keeps
-the floating widget only). The chat itself got a pass toward feeling like a real product:
-consecutive messages from the same sender are visually grouped (tighter spacing, softened inner
-corner — `coach-msg-grouped`, tracked via a `lastRenderedRole` variable in `wireAiCoachPage`),
-and an empty conversation shows four suggested-prompt chips (`#coachPagePrompts` — "Build a
-taper plan", "Explain lactate threshold", etc.) that hide the moment either a real message is
-sent or persisted history loads in, so they only ever appear alongside the canned welcome
-message on a genuinely fresh conversation.
+**There is no paywall anywhere on this site.** An earlier round built a full 7-day-trial →
+Paddle-subscription enforcement system (trial countdown lockout, an Elite-only full-screen Coach
+page, a Pro-only photo-upload restriction, an Elite-gated Workouts difficulty track); at the
+user's explicit, repeated instruction that system's *enforcement* was removed entirely. Every
+signed-in, non-suspended account now gets 100% of the platform unconditionally — the full-screen
+AI Coach page, photo analysis, saved chat history, Elite-level Workouts sets, all of it — with no
+lock screens, upgrade prompts, or gated overlays anywhere. The **only** remaining access gate on
+the whole site is a manual admin suspension (`accessDisabled`, see below); everything else
+(trial countdown, Paddle plan) is purely informational display, never enforcement. The Pricing
+tab and Paddle checkout still exist as a voluntary "support us" option — subscribing changes
+nothing functionally, since nothing was ever locked.
 
-**Trial + subscription tier system.** Every new account gets a strict 7-day free trial starting
-at signup (`users/{uid}.trialStartedAt`, see above). The nav's trial badge shows a real, live
-countdown rather than a static day count — days+hours+minutes while more than a day remains,
-then hours+minutes, then just minutes, computed from `access.trialEndsAt` on every
-`swimfit:accesschange` and kept current by a 30-second recompute interval (`recomputeAccessLevel`
-was previously on a 5-minute timer; tightened so the displayed countdown never drifts far from
-real wall-clock time). The instant the countdown reaches zero, `recomputeAccessLevel` resolves
-the swimmer to `'locked'`, the full-screen `#paywallOverlay` takes over, and the tab shell
-underneath is simultaneously switched to the Pricing tab (in the paywall's
-`swimfit:accesschange` handler) so nothing premium stays rendered behind the blur and closing
-the overlay by subscribing lands directly on the plans — there is no grace window. Once the trial lapses, access depends on the swimmer's Paddle plan: `paddleWebhook` (`functions/index.js`)
-resolves each event's Paddle **product** id (not price id — see the Paddle risk note below) to
-a plan key (`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes `{plan, status,
-...}` onto `paddle_subscriptions/{uid}`; an `active`/`trialing` status counts as paid. The
-resolved access level — `'trial' | 'pro' | 'elite' | 'ultra' | 'locked' | 'admin'` — is computed
-in two places that must stay in sync: client-side in index.html
-(`recomputeAccessLevel`/`window.__swimfitAccess`, reactive via an `onSnapshot` on
-`paddle_subscriptions/{uid}` plus the 30-second re-check timer noted above, broadcast as a
-`swimfit:accesschange` DOM event) and server-side in `functions/index.js`
-(`getAccessLevel(uid, email)`, Admin-SDK reads only — never trusts anything the client claims).
-`getAccessLevel` checks `isAdminEmail(email)` and returns `'admin'` immediately, before any
-Firestore read, so the admin override lives in exactly one place rather than being duplicated
-(and potentially forgotten) at each call site — `aiSwimCoach` is currently the only caller. A
-`'locked'` swimmer (trial expired, no active plan) sees a full-screen `#paywallOverlay` that
-blocks the whole dashboard; the one Cloud Function that actually costs money, `aiSwimCoach`,
-independently re-derives access level and rejects the call outright when locked, and rejects
-`images` specifically for the `pro` plan (Pro gets the floating widget only — no full-screen
-page, no saved history, no photo upload; enforced both client-side via
-`coachPageTierAllowed()` and server-side, since that's a real API-cost boundary). Workouts'
-"Elite" training level (a pre-existing difficulty tier, distinct from the *subscription* tier
-of the same name) is gated the same way: `tierAllowsEliteLevel()` replaces the generated set
-with a `.tier-lock-card` upgrade prompt for `pro`, and shows a "you're previewing this on
-trial" nudge instead of real content for trial swimmers. Gym workouts, Technique Academy
-videos, and the new Distance Tracker tab are **not** tier-gated — open to any signed-in
-swimmer regardless of plan, matching how they always worked before this system existed.
-Elite/Ultra/trial (and the admin account below) get a persisted AI Coach transcript on the
-full-screen page — `coach_history/{uid}` (text only, capped at 60 entries; image bytes are
-never persisted, only sent per-request) — loaded once per sign-in and upserted after each
-exchange; Pro never reaches that surface, so it has no persisted history by construction.
+The full-screen Coach page (`#coachPageChatWrap`) is shown to any signed-in, non-suspended
+swimmer via `window.renderCoachPageGate()` on every `swimfit:accesschange` — there are no more
+`#coachPageLockedPrompt`/`#coachPageTierLock` prompts to gate around; `coachPageTierAllowed()`
+is just `!!access && access.level !== 'locked'`. The chat itself still got a pass toward feeling
+like a real product: consecutive messages from the same sender are visually grouped (tighter
+spacing, softened inner corner — `coach-msg-grouped`, tracked via a `lastRenderedRole` variable
+in `wireAiCoachPage`), and an empty conversation shows four suggested-prompt chips
+(`#coachPagePrompts` — "Build a taper plan", "Explain lactate threshold", etc.) that hide the
+moment either a real message is sent or persisted history loads in, so they only ever appear
+alongside the canned welcome message on a genuinely fresh conversation.
+
+**Trial badge + Paddle plan (informational only).** Every new account still gets a
+`trialStartedAt` timestamp on signup (see above), and the nav badge still shows a real, live
+countdown (days+hours+minutes, then hours+minutes, then just minutes, recomputed every 30
+seconds) purely as marketing/UI flavor — nothing happens when it reaches zero. `paddleWebhook`
+(`functions/index.js`) still resolves each event's Paddle **product** id to a plan key
+(`pro`/`elite`/`ultra`) via `PADDLE_PLAN_BY_PRODUCT_ID` and writes it onto
+`paddle_subscriptions/{uid}`, and `getAccessLevel(uid, email)`/`recomputeAccessLevel()` still
+resolve and display it (`'trial' | 'pro' | 'elite' | 'ultra' | 'unlocked' | 'locked' | 'admin'`)
+— but only `'admin'` and `'locked'` (the accessDisabled case) ever change behavior; the rest are
+cosmetic nav-badge text. `getAccessLevel` checks `isAdminEmail(email)` and returns `'admin'`
+immediately, before any Firestore read, so the admin override lives in exactly one place rather
+than being duplicated (and potentially forgotten) at each call site — `aiSwimCoach` is currently
+the only caller, and its one remaining check is `if (accessLevel === 'locked') return 402`,
+which now only ever fires for a manually suspended account.
 
 There's a single hardcoded house account, `swimfit.ae@gmail.com` (the `ADMIN_EMAILS` array in
 `functions/index.js`, kept in sync with the `SWIMFIT_ADMIN_EMAIL` constant in index.html's
@@ -282,6 +266,21 @@ diagram. Props (barbells, boxes, ropes, walls, benches) are marked `class="p"` a
 This replaced the earlier `.gym-video-frame` → `#videoModal` "Coming Soon" placeholder path
 entirely — the Gym tab no longer opens `#videoModal` at all (the Academy tab still does, for its
 own in-production videos).
+
+**Upper Body and Lower Body focuses use real commercial gym equipment**, not home-style
+bodyweight work — a deliberate rewrite at the user's request. Upper Body's main lifts are Lat
+Pulldowns, Incline Bench Press, Cable Face Pulls, Seated Cable Rows, Weighted Pull-Ups and Cable
+Tricep Pushdowns, with Cable Woodchoppers as the rotational core exercise; Lower Body's main
+lifts are Barbell Squats, Romanian Deadlifts, Leg Press, Hamstring Curl Machine, Bulgarian Split
+Squats and a Standing Calf Raise Machine, with a Cable Pull-Through for glute activation. Warmups
+now use light-load versions of the same equipment (Goblet Squats, Cable Face Pulls) rather than
+plain bodyweight moves, since this is meant to read as a real gym session throughout, not just in
+the main set. Six new movement archetypes were added to `GYM_ANIMS`/`GYM_ANIM_MAP` for the
+equipment these bodyweight-only archetypes couldn't represent — `woodchop`, `latpulldown`,
+`benchpress`, `pushdown`, `legpress`, `hamcurl` — each drawing the relevant machine/cable/barbell
+as a muted `class="p"` prop so the stick-figure demo actually shows the right equipment, not just
+a generic pose. Cardio and Full Body focuses were left as they were (jump-rope/burpee-style
+conditioning and barbell strength work respectively already matched this "real gym" bar).
 
 The sign-in modal (`#authModal`) has a Sign In / Create Account toggle (`#authModeToggle`) that
 swaps copy/button labels *and* which fields are visible, driving the password-only mechanics
