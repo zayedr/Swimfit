@@ -731,6 +731,47 @@ removed, mirroring the precedent AI Coach already set (a floating widget *and* a
 full-screen page, both real, both reading/writing the identical underlying data) — this is a
 second, more spacious entry point into the same conversation, not a replacement.
 
+**A real bug in `firestore.rules`' `isValidProfileWrite()` was found and fixed**: it validated the
+*entire* `users/{uid}` document on every write, not just the fields a given write actually
+touched. Since an `update` (including a merged `set()`) exposes `request.resource.data` as the
+full post-merge document — every untouched pre-existing field included — this meant any account
+carrying even one legacy field that predates a validation rule (most plausibly `distance`/`pb50`/
+`pb100`/`goal`/`disciplines`, all originally written by the onboarding wizard this repo removed
+several rounds ago, under whatever looser or different constraints existed at the time) would have
+*every future write rejected* with a bare permission-denied — including ones that only ever touch
+an unrelated field like `notifyWeeklyEmail` or `avatarDataUrl`. The practical symptom: toggling the
+Settings "Email me a weekly training summary" switch (or saving a new avatar) failed with "Could
+not save — please try again" on any account with old data, with no way for that swimmer to ever
+fix a field they didn't know existed or was invalid. Fixed by scoping `isValidProfileWrite()` to a
+`changedKeys` parameter — `request.resource.data.keys()` for `create`, `request.resource.data
+.diff(resource.data).affectedKeys()` for `update` — so a write is judged only on what it actually
+changes, never on untouched legacy data sitting elsewhere on the same document. Verified via a
+dedicated rules-emulator test that seeds a doc with deliberately-invalid legacy fields (an
+out-of-range `distance`, an oversized `pb50`) and confirms an update touching only
+`notifyWeeklyEmail` now succeeds while a write that actually tries to set a bad value for a
+validated field is still correctly rejected.
+
+**Avatar rendering now has a real fail-safe.** Neither `#settingsAvatarPreview` nor `#navAvatar`
+had an `error` listener, so a stored `avatarDataUrl` that failed to decode for any reason (most
+likely: it was never actually persisted in the first place, e.g. due to the `isValidProfileWrite`
+bug above rejecting the save while the client-side preview still showed it optimistically before
+the write round-tripped) left the browser's broken-image glyph on screen instead of falling back
+to the empty/placeholder state a swimmer with no avatar at all sees. Both `<img>` elements now call
+`showAvatar(null)`/`window.__updateNavAvatar(null)` on their own `error` event. `wireNavAvatar()`'s
+profile-fetch `.catch()` was also hardened to reset to that same safe empty state instead of
+silently leaving whatever avatar state was on screen from a previous account/session.
+
+**"Export My Data (CSV)" had a real, classic download bug.** The code called
+`URL.revokeObjectURL(url)` immediately after `a.click()` — a well-documented failure mode in
+Firefox and Safari, where the browser reads a `blob:` URL's data *asynchronously* after the click
+fires, so revoking the reference before that read completes can silently fail or truncate the
+download with no error surfaced back to the calling code (`a.click()` reports nothing either way,
+so the "Downloaded." success message showed regardless of whether a file actually landed).
+Confirmed independently: this file's own bundled jsPDF library ships a `saveAs()`-style download
+helper internally that already delays its own `revokeObjectURL` by 40 seconds for exactly this
+reason. Fixed by wrapping the revoke call in a short `setTimeout` (4s) instead of calling it
+synchronously.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

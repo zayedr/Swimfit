@@ -6178,6 +6178,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var SETTINGS_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
     var usernameCheckToken = 0;
 
+    // A stored avatarDataUrl that fails to decode for any reason (corrupted
+    // in transit, an unexpected non-image value) must never leave the
+    // browser's broken-image glyph on screen — fall back to the same empty
+    // state a swimmer with no avatar at all sees.
+    avatarPreview.addEventListener('error', function () { showAvatar(null); });
     function showAvatar(dataUrl) {
       if (dataUrl) {
         avatarPreview.src = dataUrl;
@@ -6361,7 +6366,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          // Revoking the object URL synchronously (the previous behavior)
+          // is a known real bug in Firefox and Safari: the browser reads a
+          // blob: URL's data asynchronously after click(), so revoking it
+          // immediately can silently fail or truncate the download while
+          // this code — which has no way to detect that, since click()
+          // reports no error — carries on and shows a false "Downloaded."
+          // A short delay lets the browser actually finish reading it first.
+          setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
           if (exportStatus) { exportStatus.textContent = 'Downloaded.'; exportStatus.classList.remove('is-error'); }
         }).catch(function () {
           if (exportStatus) { exportStatus.textContent = 'Could not export — please try again.'; exportStatus.classList.add('is-error'); }
@@ -6461,12 +6473,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (dataUrl) { img.src = dataUrl; img.hidden = false; }
       else { img.hidden = true; img.src = ''; }
     };
+    // Same "never show a broken-image glyph" guarantee as the Settings
+    // avatar preview — a stored value that fails to decode just hides the
+    // image instead of leaving the browser's broken-icon placeholder.
+    img.addEventListener('error', function () { window.__updateNavAvatar(null); });
     document.addEventListener('swimfit:authchange', function (e) {
       if (!e.detail.user) { window.__updateNavAvatar(null); return; }
       if (typeof window.__userProfileGet !== 'function') return;
       window.__userProfileGet(e.detail.user.uid).then(function (data) {
         window.__updateNavAvatar(data && data.avatarDataUrl ? data.avatarDataUrl : null);
-      }).catch(function () {});
+      }).catch(function () {
+        // A failed profile fetch must not leave a stale avatar (or a stale
+        // "no avatar" state) on screen from whatever account was signed in
+        // before — reset to the safe empty state either way.
+        window.__updateNavAvatar(null);
+      });
     });
   })();
 
