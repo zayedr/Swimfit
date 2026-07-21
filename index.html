@@ -2090,6 +2090,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-yt" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5c.35 0 .68.04 1 .12"/><path d="M14 3c.3 2.3 2 4 4.5 4.2"/></symbol>
 <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4V8z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
 </defs>
 </svg>
 
@@ -2525,6 +2526,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 <p>Configure your set on the left, then hit <strong>Generate Swim Workout</strong>.</p>
               </div>
             </div>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutPdfBtn" style="display:none; margin-top:20px;">
+              <svg class="icon"><use href="#i-download"/></svg> Save Workout as PDF
+            </button>
           </div>
 
           <div class="workout-ai-panel" data-auth-signed-in style="display:none">
@@ -2601,6 +2605,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
       <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
       <div id="gymGrid"></div>
+      <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
+        <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
+      </button>
 
       <div class="workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6);">
         <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
@@ -4410,6 +4417,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     document.getElementById('workoutResult').querySelectorAll('[data-tab]').forEach(function (btn) {
       btn.addEventListener('click', function (e) { e.preventDefault(); switchTab(btn.dataset.tab); });
     });
+    var pdfBtn = document.getElementById('workoutPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = '';
   }
 
   document.getElementById('generateBtn').addEventListener('click', generateWorkout);
@@ -4966,6 +4975,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     if (io) document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { io.observe(el); });
     else document.querySelectorAll('#gymGrid [data-reveal]').forEach(function (el) { el.classList.add('is-visible'); });
+
+    var pdfBtn = document.getElementById('gymPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = '';
   }
 
   document.getElementById('gymApplyBtn').addEventListener('click', function () { renderGym(currentGymFocus); });
@@ -4976,6 +4988,282 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     renderGym(btn.dataset.focus);
   });
+
+  /* ============================= PDF WORKOUT EXPORT ============================= */
+  // jsPDF is loaded lazily from a CDN on first click of either "Save as PDF"
+  // button — same "only pull in a dependency when it's actually needed"
+  // posture as the rest of this no-build-step file — rather than up front on
+  // every page load.
+  (function wirePdfExport() {
+    var JSPDF_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
+    var jsPdfLoadPromise = null;
+    function loadJsPDF() {
+      if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+      if (jsPdfLoadPromise) return jsPdfLoadPromise;
+      jsPdfLoadPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = JSPDF_SRC;
+        script.onload = function () {
+          if (window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
+          else reject(new Error('jsPDF failed to initialize'));
+        };
+        script.onerror = function () { jsPdfLoadPromise = null; reject(new Error('Could not load the PDF library')); };
+        document.head.appendChild(script);
+      });
+      return jsPdfLoadPromise;
+    }
+
+    function todayFileStamp() { return new Date().toISOString().slice(0, 10); }
+
+    // Reads the already-rendered result panel's own DOM (rather than
+    // recomputing the workout a second time) so the PDF always matches
+    // exactly what's on screen.
+    function extractStructuredWorkout(rootEl) {
+      var planNotes = Array.prototype.filter.call(rootEl.children, function (el) { return el.tagName === 'P'; })
+        .map(function (p) { return p.textContent.trim(); });
+      var blocks = Array.prototype.map.call(rootEl.querySelectorAll('.workout-block'), function (block) {
+        var titleEl = block.querySelector('.workout-block-title');
+        var intentEl = block.querySelector('.coach-intent-body');
+        var rows = [];
+        var currentRound = null;
+        Array.prototype.forEach.call(block.children, function (child) {
+          if (child.classList.contains('round-label')) currentRound = child.textContent.trim();
+          else if (child.classList.contains('set-row')) {
+            rows.push({
+              round: currentRound,
+              title: child.querySelector('.set-title').textContent.trim(),
+              pace: child.querySelector('.set-pace').textContent.trim(),
+              interval: child.querySelector('.set-interval strong').textContent.trim(),
+              rest: child.querySelector('.set-rest strong').textContent.trim()
+            });
+          }
+        });
+        return { title: titleEl ? titleEl.textContent.trim() : '', intent: intentEl ? intentEl.textContent.trim() : null, rows: rows };
+      });
+      var tips = Array.prototype.map.call(rootEl.querySelectorAll('.coach-tips li'), function (li) { return li.textContent.trim(); });
+      return { planNotes: planNotes, blocks: blocks, tips: tips };
+    }
+
+    function extractStructuredGym(rootEl) {
+      var phases = Array.prototype.map.call(rootEl.querySelectorAll('.gym-phase'), function (phase) {
+        var titleEl = phase.querySelector('.gym-phase-title');
+        var exercises = Array.prototype.map.call(phase.querySelectorAll('.gym-card'), function (card) {
+          var extraP = Array.prototype.find.call(card.querySelectorAll('p'), function (p) {
+            return !p.classList.contains('prescription') && !p.classList.contains('cue');
+          });
+          return {
+            name: card.querySelector('h3').textContent.trim(),
+            prescription: card.querySelector('.prescription').textContent.trim(),
+            load: extraP ? extraP.textContent.trim() : null,
+            cue: card.querySelector('.cue').textContent.trim()
+          };
+        });
+        return { title: titleEl ? titleEl.textContent.trim() : '', exercises: exercises };
+      });
+      return { phases: phases };
+    }
+
+    // Shared branded header/footer so both PDFs (swim workout + gym
+    // routine) look like the same product, not two one-off exports.
+    function pdfHeaderBand(doc) {
+      var pageW = doc.internal.pageSize.getWidth();
+      doc.setFillColor(34, 211, 238); // --aqua
+      doc.rect(0, 0, pageW, 6, 'F');
+    }
+    function pdfTitleBlock(doc, pageTitle) {
+      var pageW = doc.internal.pageSize.getWidth();
+      pdfHeaderBand(doc);
+      var y = 42;
+      var logoImg = document.querySelector('.brand img');
+      if (logoImg && logoImg.src) {
+        try { doc.addImage(logoImg.src, 'PNG', 40, y - 14, 105, 18); } catch (e) { /* logo optional */ }
+      }
+      y += 34;
+      doc.setTextColor(20, 20, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text(pageTitle, 40, y);
+      y += 10;
+      doc.setDrawColor(156, 42, 68); // --maroon
+      doc.setLineWidth(1.2);
+      doc.line(40, y, pageW - 40, y);
+      return y + 20;
+    }
+    function pdfFooterOnAllPages(doc) {
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var pageCount = doc.internal.getNumberOfPages();
+      for (var p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Generated by Swimfit — swimfit.online', 40, pageH - 20);
+        doc.text(String(p) + ' / ' + pageCount, pageW - 70, pageH - 20);
+      }
+    }
+
+    function buildWorkoutPdf(jsPDFCtor, data) {
+      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 40;
+      var y = pdfTitleBlock(doc, 'Swim Workout');
+
+      function ensureSpace(need) {
+        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(90, 90, 90);
+      data.planNotes.forEach(function (line) {
+        doc.splitTextToSize(line, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
+        y += 4;
+      });
+      y += 8;
+
+      data.blocks.forEach(function (block) {
+        ensureSpace(28);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(21, 137, 153);
+        doc.text(block.title.toUpperCase(), marginX, y);
+        y += 15;
+
+        if (block.intent) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(9);
+          doc.setTextColor(110, 110, 110);
+          doc.splitTextToSize('Coach’s Intent: ' + block.intent, pageW - marginX * 2).forEach(function (l) { ensureSpace(12); doc.text(l, marginX, y); y += 11; });
+          y += 4;
+        }
+
+        var lastRound = null;
+        block.rows.forEach(function (row) {
+          if (row.round && row.round !== lastRound) {
+            ensureSpace(15);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(156, 42, 68);
+            doc.text(row.round, marginX, y);
+            y += 13;
+            lastRound = row.round;
+          }
+          ensureSpace(26);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setTextColor(20, 20, 20);
+          var titleLines = doc.splitTextToSize(row.title, pageW - marginX * 2 - 130);
+          titleLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 11); });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(90, 90, 90);
+          doc.text(row.interval + '  ·  ' + row.rest, pageW - marginX - 120, y);
+          y += Math.max(titleLines.length * 11, 11) + 3;
+          doc.setFontSize(8.5);
+          doc.setTextColor(21, 137, 153);
+          doc.splitTextToSize(row.pace, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          y += 6;
+        });
+        y += 6;
+      });
+
+      if (data.tips.length) {
+        ensureSpace(24);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(196, 59, 92);
+        doc.text('COACH’S TECHNICAL TIPS', marginX, y);
+        y += 16;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(40, 40, 40);
+        data.tips.forEach(function (tip) {
+          doc.splitTextToSize('• ' + tip, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
+          y += 2;
+        });
+      }
+
+      pdfFooterOnAllPages(doc);
+      return doc;
+    }
+
+    function buildGymPdf(jsPDFCtor, data, focusLabel) {
+      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+      var pageW = doc.internal.pageSize.getWidth();
+      var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 40;
+      var y = pdfTitleBlock(doc, 'Gym Routine — ' + focusLabel);
+
+      function ensureSpace(need) {
+        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+      }
+
+      data.phases.forEach(function (phase) {
+        ensureSpace(28);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12.5);
+        doc.setTextColor(21, 137, 153);
+        doc.text(phase.title.toUpperCase(), marginX, y);
+        y += 16;
+
+        phase.exercises.forEach(function (ex) {
+          ensureSpace(34);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.setTextColor(20, 20, 20);
+          var nameLines = doc.splitTextToSize(ex.name, pageW - marginX * 2 - 110);
+          nameLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 12); });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9.5);
+          doc.setTextColor(21, 137, 153);
+          doc.text(ex.prescription, pageW - marginX - 100, y);
+          y += Math.max(nameLines.length * 12, 12) + 2;
+          if (ex.load) {
+            doc.setFontSize(8.5);
+            doc.setTextColor(46, 160, 90);
+            doc.splitTextToSize(ex.load, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          }
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8.5);
+          doc.setTextColor(110, 110, 110);
+          doc.splitTextToSize(ex.cue, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          y += 6;
+        });
+        y += 6;
+      });
+
+      pdfFooterOnAllPages(doc);
+      return doc;
+    }
+
+    function wireButton(btn, buildFn) {
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = 'Preparing PDF…';
+        loadJsPDF().then(function (jsPDFCtor) {
+          buildFn(jsPDFCtor);
+        }).catch(function () {
+          alert('Could not generate the PDF right now — please try again.');
+        }).finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = original;
+        });
+      });
+    }
+
+    wireButton(document.getElementById('workoutPdfBtn'), function (jsPDFCtor) {
+      var data = extractStructuredWorkout(document.getElementById('workoutResult'));
+      buildWorkoutPdf(jsPDFCtor, data).save('swimfit-swim-workout-' + todayFileStamp() + '.pdf');
+    });
+    wireButton(document.getElementById('gymPdfBtn'), function (jsPDFCtor) {
+      var data = extractStructuredGym(document.getElementById('gymGrid'));
+      buildGymPdf(jsPDFCtor, data, GYM_LABEL[currentGymFocus]).save('swimfit-gym-' + currentGymFocus + '-' + todayFileStamp() + '.pdf');
+    });
+  })();
 
   /* ============================= REVEAL ON SCROLL ============================= */
   document.body.classList.add('reveal-ready');
