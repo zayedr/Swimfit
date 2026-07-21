@@ -62,28 +62,44 @@ service cloud.firestore {
   // Shared field-level validation for users/{uid} writes. Keeping this in one
   // function (rather than duplicating it across the create/update rules)
   // means the onboarding fields can only ever be tightened in one place.
-  function isValidProfileWrite(data) {
-    return (!('username' in data) || (data.username is string && data.username.matches('^[a-z0-9_]{3,20}$')))
-      && (!('age' in data) || (data.age is int && data.age >= 5 && data.age <= 120))
-      && (!('dob' in data) || (data.dob is string && data.dob.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
-      && (!('fullName' in data) || (data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 80))
-      && (!('country' in data) || (data.country is string && data.country.size() > 0 && data.country.size() <= 60))
-      && (!('onboardingComplete' in data) || data.onboardingComplete is bool)
-      && (!('trialStartedAt' in data) || data.trialStartedAt is timestamp)
-      && (!('disciplines' in data) || (data.disciplines is list && data.disciplines.size() >= 1 && data.disciplines.size() <= 5))
-      && (!('distance' in data) || (data.distance is number && data.distance >= 500 && data.distance <= 10000))
-      && (!('goal' in data) || (data.goal is string && data.goal.matches('^(endurance|speed|technique)$')))
-      && (!('pb50' in data) || (data.pb50 is string && data.pb50.size() <= 10))
-      && (!('pb100' in data) || (data.pb100 is string && data.pb100.size() <= 10))
-      && (!('workingWeight' in data) || (data.workingWeight is string && data.workingWeight.size() <= 20))
-      && (!('strengthLimit' in data) || (data.strengthLimit is string && data.strengthLimit.size() <= 20))
+  //
+  // `changedKeys` scopes every check to only the fields THIS write actually
+  // touches — never to every field already sitting on the document. This
+  // matters a great deal for `update`: request.resource.data there is the
+  // FULL post-merge document, including every untouched pre-existing field,
+  // so validating against `data` directly (the original design) meant any
+  // account with even one legacy field that predates a given validation
+  // rule (e.g. a `dob`/`distance`/`pb50` value written by the onboarding
+  // wizard this repo removed rounds ago, under looser or different rules at
+  // the time) would have every future write rejected — including one that
+  // only ever touches an unrelated field like `notifyWeeklyEmail` or
+  // `avatarDataUrl`. That was a real, live bug: toggling the Notifications
+  // preference or saving a new avatar failed with a bare permission-denied
+  // on any account carrying old data, with no way for that swimmer to ever
+  // clear the field they didn't even know was invalid. Scoping validation
+  // to `changedKeys` means a write is judged only on what it changes.
+  function isValidProfileWrite(data, changedKeys) {
+    return (!('username' in changedKeys) || (data.username is string && data.username.matches('^[a-z0-9_]{3,20}$')))
+      && (!('age' in changedKeys) || (data.age is int && data.age >= 5 && data.age <= 120))
+      && (!('dob' in changedKeys) || (data.dob is string && data.dob.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+      && (!('fullName' in changedKeys) || (data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 80))
+      && (!('country' in changedKeys) || (data.country is string && data.country.size() > 0 && data.country.size() <= 60))
+      && (!('onboardingComplete' in changedKeys) || data.onboardingComplete is bool)
+      && (!('trialStartedAt' in changedKeys) || data.trialStartedAt is timestamp)
+      && (!('disciplines' in changedKeys) || (data.disciplines is list && data.disciplines.size() >= 1 && data.disciplines.size() <= 5))
+      && (!('distance' in changedKeys) || (data.distance is number && data.distance >= 500 && data.distance <= 10000))
+      && (!('goal' in changedKeys) || (data.goal is string && data.goal.matches('^(endurance|speed|technique)$')))
+      && (!('pb50' in changedKeys) || (data.pb50 is string && data.pb50.size() <= 10))
+      && (!('pb100' in changedKeys) || (data.pb100 is string && data.pb100.size() <= 10))
+      && (!('workingWeight' in changedKeys) || (data.workingWeight is string && data.workingWeight.size() <= 20))
+      && (!('strengthLimit' in changedKeys) || (data.strengthLimit is string && data.strengthLimit.size() <= 20))
       // A client-downscaled (200x200 JPEG, ~10-30KB base64) avatar data: URI
       // — capped at 300KB of string length as a sanity ceiling, not a tight
       // fit, since Firestore's 1MiB document limit is shared with every
       // other field on this same doc. Empty string clears the avatar.
-      && (!('avatarDataUrl' in data) || (data.avatarDataUrl is string && data.avatarDataUrl.size() <= 300000))
+      && (!('avatarDataUrl' in changedKeys) || (data.avatarDataUrl is string && data.avatarDataUrl.size() <= 300000))
       // Informational preference only — no email infra reads this yet.
-      && (!('notifyWeeklyEmail' in data) || data.notifyWeeklyEmail is bool);
+      && (!('notifyWeeklyEmail' in changedKeys) || data.notifyWeeklyEmail is bool);
   }
 
   match /databases/{database}/documents {
@@ -102,14 +118,14 @@ service cloud.firestore {
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
                        'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
                        'avatarDataUrl', 'notifyWeeklyEmail'])
-        && isValidProfileWrite(request.resource.data);
+        && isValidProfileWrite(request.resource.data, request.resource.data.keys());
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
                        'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
                        'avatarDataUrl', 'notifyWeeklyEmail'])
-        && isValidProfileWrite(request.resource.data);
+        && isValidProfileWrite(request.resource.data, request.resource.data.diff(resource.data).affectedKeys());
       allow delete: if false;
     }
 
