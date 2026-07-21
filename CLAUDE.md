@@ -164,32 +164,74 @@ exchange; Pro never reaches that surface, so it has no persisted history by cons
 There's a single hardcoded house account, `swimfit.ae@gmail.com` (the `ADMIN_EMAILS` array in
 `functions/index.js`, kept in sync with the `SWIMFIT_ADMIN_EMAIL` constant in index.html's
 module `<script>`), that always resolves to access level `'admin'` — full Ultra-equivalent
-access everywhere above, trial/subscription status irrelevant. Signing in as that address
-shows an "Ultra Access" nav badge and short-circuits the Subscribe buttons (both the Pricing
-tab's and the paywall overlay's) with a friendly alert instead of opening real Paddle checkout.
+access everywhere above, trial/subscription status irrelevant, checked *before* every other
+piece of access logic on both sides so nothing downstream (a trial date, a missing profile
+doc, a manual suspension) can ever override it. Signing in as that address shows an "Ultra
+Access" nav badge (no countdown — `trialEndsAt: null` for `'admin'`) and short-circuits the
+Subscribe buttons (both the Pricing tab's and the paywall overlay's) with a friendly alert
+instead of opening real Paddle checkout. Email comparisons on both sides (`isAdminEmail()`
+server-side, the inline check in `onAuthStateChanged` client-side) lowercase *and* trim the
+address before comparing, defensively.
+
+A manual **account suspension** flag, `users/{uid}.accessDisabled` (boolean, Admin-SDK-only —
+never in the client's own writable-field allowlist in `firestore.rules`, so a swimmer can never
+clear it themselves), resolves a swimmer to `'locked'` regardless of trial/plan status —
+checked in `getAccessLevel()` immediately after the admin bypass, and mirrored client-side via a
+live `onSnapshot` on the swimmer's own `users/{uid}` doc (`latestAccessDisabled`, folded into
+`recomputeAccessLevel()`) so a toggle from the Admin Panel takes effect on an already-open tab
+within moments, not just on next sign-in. This is orthogonal to the trial/plan system — an
+admin can suspend a paying subscriber without touching their plan record, and restore them just
+as cleanly (`adminToggleAccess`).
 
 That same address also unlocks a hidden **Admin Panel** tab (`data-tab="admin"`,
 `#panel-admin`, nav entry shown/hidden via `[data-admin-only]`). It lists every registered
 swimmer (`adminListUsers`, capped at the 300 most recent) with their name, email, resolved plan,
-and join date, and lets the admin grant/clear a manual plan override per swimmer
+join date, and access status — there is deliberately **no password column of any kind**:
+Firebase Authentication never exposes a swimmer's password to this app in any form, hashed or
+otherwise (see the Auth section above), so displaying one is not a feature that can exist here,
+only a request to build something insecure that isn't technically possible with this
+architecture. From the table the admin can grant/clear a manual plan override per swimmer
 (`adminSetUserPlan`, writes `paddle_subscriptions/{uid}` with `source: 'admin_grant'` — same
 shape `paddleWebhook` writes, so it's picked up identically by
-`getAccessLevel`/`recomputeAccessLevel`). `adminListUsers` was hardened this round: a
-`safeMillis()` helper guards every `.toMillis()` call (a doc missing a timestamp field no longer
-throws), and each swimmer's subscription/chat sub-lookups run in their own isolated `try/catch`
-so one malformed record can't 500 the entire list — the previous "Could not load the user list"
-failure mode was traced to this class of issue, on top of the general `invoker: 'public'`
-redeploy caveat noted above. Every `admin*`
-Cloud Function independently re-verifies the caller's ID token and `isAdminEmail()` — none of
-this is expressed as a Firestore rule, since "list every user" or "write any user's plan" is
-exactly the kind of cross-user privilege that's safer funneled through a server-verified
-endpoint than trusted to a security-rules expression. Direct messaging is a per-swimmer thread
-at `admin_chats/{uid}/messages` — the admin's side reads/sends via `adminGetThread`/
-`adminSendMessage` (Admin SDK), while the swimmer's own side (a floating inbox widget, mirrored
-from the AI Coach fab but bottom-left) reads/replies straight through Firestore in real time,
-gated by ordinary owner-only rules (`sender` must be `'user'` on their own writes). The
-swimmer's inbox widget sits above the paywall overlay in z-order deliberately — a locked-out
-swimmer can still read and reply to a support message from the team.
+`getAccessLevel`/`recomputeAccessLevel`), reset a swimmer's trial to a fresh 7-day window
+(`adminExtendTrial`, a "+7 Day Trial" button — resets `trialStartedAt` to now), and toggle their
+`accessDisabled` suspension flag on/off (`adminToggleAccess`, an Enabled/Disabled pill per row).
+`adminListUsers` was hardened in an earlier round: a `safeMillis()` helper guards every
+`.toMillis()` call (a doc missing a timestamp field no longer throws), and each swimmer's
+subscription/chat sub-lookups run in their own isolated `try/catch` so one malformed record
+can't 500 the entire list — the previous "Could not load the user list" failure mode was traced
+to this class of issue, on top of the general `invoker: 'public'` redeploy caveat noted above.
+Every `admin*` Cloud Function independently re-verifies the caller's ID token and
+`isAdminEmail()` — none of this is expressed as a Firestore rule, since "list every user",
+"write any user's plan", "extend a trial", or "suspend an account" are exactly the kind of
+cross-user privilege that's safer funneled through a server-verified endpoint than trusted to a
+security-rules expression.
+
+**Direct messaging is fully real-time on both sides**, via `admin_chats/{uid}/messages` —
+unlike every other admin* operation above, this one deliberately bypasses Cloud Functions
+entirely in favor of direct Firestore `onSnapshot`/writes on *both* ends, because a request/
+response endpoint can't deliver true real-time push; the admin's identity is instead verified
+directly in `firestore.rules` via an `isAdminAuth()` helper that checks the caller's verified ID
+token `email` claim against the same hardcoded address — exactly as strong a guarantee as
+`isAdminEmail()` server-side, just expressed in rules syntax. The swimmer's own side (a floating
+inbox widget, mirrored from the AI Coach fab but bottom-left) reads/replies straight through
+Firestore in real time, gated by ordinary owner-only rules (`sender` must be `'user'` on their
+own writes) — unchanged from before. The **admin's side** (in the Admin Panel) now mirrors that
+exactly instead of polling: `window.__adminPanelSubscribeInbox` runs one live
+`onSnapshot(collection('admin_chats'))` for unread-dot/last-message-preview badges across every
+swimmer at once, and opening a thread (`window.__adminPanelSubscribeThread`) subscribes directly
+to that swimmer's `messages` subcollection — a swimmer's reply now appears in the Admin Panel
+the instant it's written, with no 20-second poll delay. Sending as the admin
+(`window.__adminPanelSendMessage`) writes the message plus the `admin_chats/{uid}` metadata doc
+(`lastMessageText`/`unreadForUser`/`unreadForAdmin`) in the same two direct writes the old
+`adminSendMessage` Cloud Function used to make server-side — the Cloud Function itself, along
+with `adminGetThread`, was deleted as dead code once the rules made it possible to do the same
+thing without a round-trip. The swimmer's inbox widget sits above the paywall overlay in
+z-order deliberately — a locked-out swimmer can still read and reply to a support message from
+the team. A **"Message Coach / Company" quick-action button** on the Workouts tab
+(`#workoutsContactCoachBtn`, `data-auth-signed-in`) gives every signed-in non-admin swimmer an
+obvious, labeled entry point into that same floating inbox widget (`window.__openAdminMsgPanel`,
+exposed by the widget's own IIFE) rather than requiring them to notice the small corner FAB.
 
 `PADDLE_PRICE_IDS` in index.html holds real Paddle **price** ids (`pri_...`, fixed 2026-07-19 —
 it previously held product ids, which `Paddle.Checkout.open()` rejects). The **product** ids

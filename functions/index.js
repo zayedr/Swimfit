@@ -273,7 +273,7 @@ const COACH_ALLOWED_IMAGE_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp'
 // module system between the two files, so it's duplicated deliberately).
 const ADMIN_EMAILS = ['swimfit.ae@gmail.com'];
 function isAdminEmail(email) {
-  return !!email && ADMIN_EMAILS.indexOf(String(email).toLowerCase()) !== -1;
+  return !!email && ADMIN_EMAILS.indexOf(String(email).toLowerCase().trim()) !== -1;
 }
 
 const TRIAL_DAYS = 7;
@@ -282,9 +282,11 @@ const TRIAL_DAYS = 7;
 // for the house account (see ADMIN_EMAILS — checked first, before any
 // Firestore read, so the admin override can never be defeated by a trial
 // date, a missing/malformed profile doc, or a paddle_subscriptions read
-// failing), 'trial' during the first TRIAL_DAYS after signup, whichever
-// Paddle plan is actively paid for after that ('pro' | 'elite' | 'ultra'), or
-// 'locked' once the trial has lapsed with no active subscription. Mirrors the
+// failing — nothing below this line can ever downgrade an admin), then
+// 'locked' if the admin has manually disabled the account (adminToggleAccess),
+// 'trial' during the first TRIAL_DAYS after signup, whichever Paddle plan is
+// actively paid for after that ('pro' | 'elite' | 'ultra'), or 'locked' once
+// the trial has lapsed with no active subscription. Mirrors the
 // client-side resolution in index.html so the one call that actually costs
 // money (aiSwimCoach) can't be tricked by a client that simply hides its own
 // paywall UI — this always re-derives access from Firestore via the Admin
@@ -298,6 +300,10 @@ async function getAccessLevel(uid, email) {
   if (isAdminEmail(email)) return 'admin';
   var userSnap = await db.collection('users').doc(uid).get();
   var userData = userSnap.exists ? userSnap.data() : null;
+  // A manual admin-set access lock (see adminToggleAccess) always wins over
+  // trial/plan status — a suspended account stays locked even mid-trial or
+  // on a paid plan, until the admin re-enables it.
+  if (userData && userData.accessDisabled === true) return 'locked';
   var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
   var trialStart = trialStartField ? trialStartField.toDate() : new Date();
   if (!userData || Date.now() < trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) {
@@ -330,10 +336,15 @@ const ALLOWED_WEB_ORIGINS = [
 // the caller's ID token and re-checks isAdminEmail() itself (never trusts a
 // client-claimed role), then reads/writes with the Admin SDK, which bypasses
 // firestore.rules entirely — that's deliberate: it keeps every privileged
-// cross-user operation (listing all swimmers, messaging any one of them,
-// granting a plan) funneled through one auditable, server-verified path
-// instead of trying to express "is the admin" as a Firestore rule.
-const ADMIN_MESSAGE_MAX_LENGTH = 2000;
+// cross-user operation (listing all swimmers, granting a plan, extending a
+// trial, disabling access) funneled through one auditable, server-verified
+// path instead of trying to express "is the admin" as a Firestore rule. The
+// direct-message thread itself is the one exception — see firestore.rules'
+// admin_chats block — since that needs to be truly real-time (onSnapshot)
+// on both sides, which a Cloud Function round-trip can't give it; the
+// admin's own verified ID token email claim is checked directly in rules
+// instead, exactly the same isAdminEmail() comparison, just expressed in
+// rules syntax as isAdminAuth().
 const ADMIN_LIST_USERS_LIMIT = 300;
 
 // Verifies the request is a POST from a signed-in admin. On failure, writes
@@ -399,6 +410,7 @@ exports.adminListUsers = onRequest(
           displayName: data.displayName || data.fullName || null,
           createdAt: safeMillis(data.createdAt),
           trialStartedAt: safeMillis(data.trialStartedAt),
+          accessDisabled: !!data.accessDisabled,
           plan: subData && subData.plan ? subData.plan : null,
           status: subData && subData.status ? subData.status : null,
           lastMessageText: chatData ? chatData.lastMessageText || null : null,
@@ -414,7 +426,12 @@ exports.adminListUsers = onRequest(
   }
 );
 
-exports.adminGetThread = onRequest(
+// Resets a swimmer's trial to a fresh TRIAL_DAYS window starting now — a
+// support gesture for a swimmer who lost time to a bug, or a promo extension.
+// Only ever moves trialStartedAt forward in effect (a full new window from
+// "now"); has no effect on an admin account (there's nothing to extend) and
+// is independent of any accessDisabled/plan override.
+exports.adminExtendTrial = onRequest(
   { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
@@ -426,48 +443,42 @@ exports.adminGetThread = onRequest(
       return;
     }
     try {
-      var messagesSnap = await db.collection('admin_chats').doc(targetUid).collection('messages').orderBy('createdAt', 'asc').get();
-      var messages = messagesSnap.docs.map(function (d) {
-        var m = d.data();
-        return { sender: m.sender, text: m.text, createdAt: m.createdAt ? m.createdAt.toMillis() : null };
-      });
-      // Viewing the thread counts as the admin having read it.
-      await db.collection('admin_chats').doc(targetUid).set({ unreadForAdmin: false }, { merge: true });
-      res.status(200).json({ messages: messages });
+      await db.collection('users').doc(targetUid).set(
+        { trialStartedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      res.status(200).json({ ok: true });
     } catch (err) {
-      logger.error('adminGetThread failed', err);
-      res.status(500).json({ error: 'Could not load that conversation.' });
+      logger.error('adminExtendTrial failed', err);
+      res.status(500).json({ error: 'Could not extend that trial.' });
     }
   }
 );
 
-exports.adminSendMessage = onRequest(
+// Manual account suspend/restore — independent of plan or trial status, so
+// the admin can cut off a specific swimmer's access (e.g. abuse, chargeback)
+// without touching their plan record, and restore it just as cleanly.
+// getAccessLevel() checks this immediately after the admin bypass, before
+// any trial/plan math, so a disabled account is always 'locked' regardless
+// of what else is true about it.
+exports.adminToggleAccess = onRequest(
   { cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     var decoded = await verifyAdminRequest(req, res);
     if (!decoded) return;
 
     var targetUid = typeof req.body.targetUid === 'string' ? req.body.targetUid : '';
-    var text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
-    if (!targetUid || !text) {
-      res.status(400).json({ error: 'targetUid and text are required.' });
-      return;
-    }
-    if (text.length > ADMIN_MESSAGE_MAX_LENGTH) {
-      res.status(400).json({ error: 'Message is too long (max ' + ADMIN_MESSAGE_MAX_LENGTH + ' characters).' });
+    var disabled = req.body.disabled === true;
+    if (!targetUid) {
+      res.status(400).json({ error: 'targetUid is required.' });
       return;
     }
     try {
-      var now = admin.firestore.FieldValue.serverTimestamp();
-      await db.collection('admin_chats').doc(targetUid).collection('messages').add({ sender: 'admin', text: text, createdAt: now });
-      await db.collection('admin_chats').doc(targetUid).set(
-        { lastMessageText: text, lastMessageAt: now, lastSender: 'admin', unreadForUser: true, unreadForAdmin: false },
-        { merge: true }
-      );
-      res.status(200).json({ ok: true });
+      await db.collection('users').doc(targetUid).set({ accessDisabled: disabled }, { merge: true });
+      res.status(200).json({ ok: true, disabled: disabled });
     } catch (err) {
-      logger.error('adminSendMessage failed', err);
-      res.status(500).json({ error: 'Could not send that message.' });
+      logger.error('adminToggleAccess failed', err);
+      res.status(500).json({ error: 'Could not update that account\'s access.' });
     }
   }
 );
