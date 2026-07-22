@@ -294,7 +294,20 @@ async function mirrorLegacyPaddleSubscriptionDoc(eventType, data) {
 }
 
 exports.paddleWebhook = onRequest(
-  { secrets: [PADDLE_WEBHOOK_SECRET, PADDLE_API_KEY], cors: false, region: 'us-central1', invoker: 'public' },
+  {
+    secrets: [PADDLE_WEBHOOK_SECRET, PADDLE_API_KEY],
+    cors: false,
+    region: 'us-central1',
+    invoker: 'public',
+    // Keeps one instance warm at all times so a Paddle delivery never lands
+    // on a cold start — relevant here because paddle.webhooks.unmarshal()
+    // enforces a hardcoded 5-second signature freshness window (measured
+    // from the ts Paddle signed to the moment this code verifies it), and a
+    // cold start alone can plausibly eat that whole budget. Costs the price
+    // of one always-on instance; remove if that tradeoff isn't worth it once
+    // this theory is confirmed/ruled out via Cloud Logging.
+    minInstances: 1
+  },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
