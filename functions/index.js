@@ -308,7 +308,7 @@ exports.paddleWebhook = onRequest(
     // unmarshal's signature wants a string, so decode it as utf8 (matching
     // exactly what Paddle signed; JSON payloads are always valid UTF-8) but
     // never re-stringify/re-serialize it.
-    var rawRequestBody = Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : (req.rawBody || '');
+    var rawRequestBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
     var signature = req.headers['paddle-signature'] || req.get('Paddle-Signature') || '';
     var webhookSecret = resolvePaddleWebhookSecret();
 
@@ -330,9 +330,16 @@ exports.paddleWebhook = onRequest(
     try {
       eventData = await getPaddleClient().webhooks.unmarshal(rawRequestBody, webhookSecret, signature);
     } catch (err) {
-      // Never return a 2xx here — that tells Paddle the delivery succeeded
-      // and stops it from retrying a delivery this code never actually verified.
+      // Deliberately still a 401 here, not a 2xx, even during onboarding/testing —
+      // see the code review discussion above this function for why: a 2xx on a
+      // failed verification would make this endpoint accept a request from
+      // anyone, not just Paddle, and process it as a real billing event.
+      // Paddle's own dashboard "Send test event" sends a correctly-signed
+      // payload, which verifies and returns 200 through the normal path below —
+      // that's the legitimate way to pass an onboarding/setup check, not a
+      // codepath that skips verification.
       logger.error('Unmarshal error:', err);
+      logger.error('Unmarshal detail:', err.message);
       res.status(401).send('Invalid signature');
       return;
     }
