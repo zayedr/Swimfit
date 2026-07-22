@@ -1051,6 +1051,92 @@ extension of that button's own accent color rather than a mismatched effect; dis
 string "Subscribe," so the relabel was copy-only — verified via a full click-through that
 `data-plan` (not button text) still drives checkout.
 
+**A real Support/floating-widget greeting race was found and fixed.** The canned "Hello! Welcome
+to the Swimfit Support Team..." greeting (see above) existed in code but, in practice, a real
+signed-in swimmer often saw a blank panel instead: Firebase Auth's initial "signed out" resolution
+fires for every visitor (even ones who turn out to be signed in a moment later), and the
+`swimfit:authchange` handler's signed-out branch wiped the panel via `messagesEl.innerHTML = ''`;
+when the real sign-in then landed, `subscribe()`/`subscribeIfNeeded()` only started the async
+Firestore subscription — nothing re-asserted the greeting synchronously — so the panel stayed
+blank until that round-trip resolved, or showed a bare error if it failed. Both the floating widget
+and the full-screen Support tab now call `renderMessages([])` synchronously at wire-time *and* as
+the very first statement inside `subscribe()`/`subscribeIfNeeded()`, and their `onError` callbacks
+re-render the greeting before appending a small error note rather than replacing the whole panel
+with only error text — verified via Playwright that the greeting renders in the same JS tick as
+sign-in, before any Firestore round-trip could possibly resolve.
+
+**Workout Generator: Personal Bests now accept any competition distance, not just fixed
+50m/100m.** Each stroke's PB row (`.pb-stroke-grid`, Freestyle/Backstroke/Butterfly/Breaststroke)
+is now a `<select>` (50/100/200/400/800/1500m, 100m default) paired with a time input, rather than
+two separate fixed-distance fields — a 400m or 1500m specialist can log their actual best instead
+of estimating a 50m/100m equivalent. `personalPaceFromPB(pbDistanceM, pbTimeSec, goalKeys)` was
+rewritten around a Riegel-style fatigue-exponent formula (`T2 = T1 * (D2/D1)^1.03`) to normalize
+whichever distance was logged to an equivalent 100m pace, replacing the old hardcoded
+`pb50Sec*2+3` shortcut that only ever worked for a 50m input.
+
+**Fitness Goals became multi-select** (`state.goals`, an array, replacing the single `state.goal`
+string) — a swimmer can combine Speed + Endurance + Technique in one session instead of being
+forced to pick exactly one, mirroring the existing Disciplines chip picker's own multi-select
+pattern (same "keep at least one selected" guard). Every downstream consumer of the old singular
+field was converted to blend across every selected goal: `paceSecondsPer100()` and
+`personalPaceFromPB()` average their per-goal base pace across `goalKeys`; `renderCoachTips()`
+concatenates one tip per selected goal; the Main Set's `ARCHETYPE_POOLS` are combined
+(deduplicated) across every selected goal rather than picking just one goal's pool, so combining
+goals genuinely means more archetype variety, not an arbitrary tie-break; `gymOrientation()`
+checks membership (`indexOf(...) > -1`) instead of equality; and all four AI-context payload call
+sites (the Workouts/Gym inline panels, the floating widget, the full-screen Coach page) now send
+`state.goals.join(', ')`. The picker's own label changed to "Fitness Goals (pick one, or combine
+several)" to signal the new behavior.
+
+**Every generated workout now avoids repeating the prior day's headline Pre-Set/Main-Set
+archetype.** `generateWorkout()`'s daily-seeded rotation already changed the workout automatically
+at midnight (see above), but nothing previously stopped an unlucky roll from picking the exact
+same Pre-Set archetype (or the same first Main Set block) two days running for a swimmer with
+unchanged settings. A new `dailySeedForDate(d)` helper generalizes the existing `dailySeed()` (which
+now just calls it with `new Date()`) so a seed can be computed for an arbitrary date, and
+`generateWorkout()` builds a second, throwaway RNG (`priorDayRng`, seeded from yesterday's date)
+purely to simulate what today's current settings would have produced yesterday for the Pre-Set
+archetype and the Main Set's first archetype — the two most visible repeated elements a swimmer
+would notice. If today's real pick (drawn from the real, still-fully-deterministic `workoutRng`)
+matches that simulated prior-day pick, it's re-rolled from the remaining candidates (via a new
+`pickOneFrom(rng, arr)` helper that draws against an arbitrary RNG instance without touching the
+global `workoutRng`/`pickOne`). This never touches `priorDayRng` for anything actually rendered —
+it exists solely as a comparison baseline — so today's own generation stays exactly as
+deterministic-per-day as before. Verified via Playwright across three simulated consecutive
+calendar days with identical settings: no Pre-Set archetype repeated on any two consecutive days.
+
+**The avatar/profile-photo feature was removed entirely, at the user's request that it was
+unnecessary.** Settings' avatar upload row (`#settingsAvatarPreview`/`#settingsAvatarInput`/
+`#settingsAvatarRemoveBtn`), the nav bar's `#navAvatar` image, the `wireNavAvatar()` IIFE,
+`compressAvatarFile()`, `showAvatar()`, `window.__updateNavAvatar`, and every `avatarDataUrl`
+read/write in the Settings profile form JS are all gone — a swimmer's profile card in Settings now
+starts directly with the Full Name/Username/Email/Country/Age fields, and the nav bar shows no
+avatar slot for any account. `firestore.rules`' `isValidProfileWrite()` and both the `create`/
+`update` field allowlists on `users/{uid}` dropped `avatarDataUrl` to match — a full removal
+rather than just hiding the UI, since an orphaned nav avatar with no way to ever set a photo would
+have been confusing dead code. The `support-page-avatar`/`coach-page-avatar` CSS classes and
+markup (the Support/Coach bot identity icon badges) are unrelated to this feature and were left
+untouched.
+
+**Workout Generator + Gym profile inputs now auto-save, and Settings' Swimming Specialties saves
+instantly on toggle instead of requiring a separate button.** Previously the Swimmer Profile's Age
+field, all 4 PB distance+time pairs, and the Gym tab's Age/Working Weight/Strength Limit fields
+were plain form inputs with no persistence at all — every one of them silently reset on a page
+reload or tab navigation, since they were only ever read live at generate-time. A new
+`swimfit_generator_prefs` localStorage blob (`loadGeneratorPrefs()`/`saveGeneratorPrefs()`) now
+captures all of it — `state.disciplines`/`distance`/`equipment`/`goals`/`level` (restored into
+`state`'s own initializer, so chip/slider/tab rendering reflects it from the very first paint) plus
+every one of the plain fields above (`GENERATOR_PREF_FIELD_IDS`, restored on load and saved on
+every `input`/`change` event). This is device-local generator preference, not account data another
+device needs to see, so localStorage (matching the existing units/theme/language/weekly-goal
+precedent elsewhere in this file) was the right store rather than a new Firestore field + rules
+deploy. Separately, Settings' Swimming Specialties chip picker no longer needs its own "Save
+Specialties" button (removed) — toggling a chip now calls `persistDisciplines()` immediately,
+which writes to Firestore, applies live to the Workout Generator's own chip group, and mirrors the
+selection into the same `swimfit_generator_prefs` blob, all in one step. Verified via Playwright:
+typing into a PB/age/gym field, reloading the page, and confirming the value survives; toggling a
+Specialty chip and confirming the "Saved" status text appears with no button click involved.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

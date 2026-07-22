@@ -767,8 +767,8 @@
   };
 
   // Settings tab: read the swimmer's own profile doc, and write back the
-  // safe subset of fields (fullName, country, age, disciplines,
-  // avatarDataUrl). Username changes go through __renameUsername below
+  // safe subset of fields (fullName, country, age, disciplines).
+  // Username changes go through __renameUsername below
   // instead — not this plain merge — since a rename has to atomically free
   // the old usernames/{name} reservation and claim the new one.
   window.__userProfileGet = function (uid) {
@@ -1380,15 +1380,9 @@ section { position: relative; scroll-margin-top: 96px; }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
 .settings-save-status.is-error { color: #e5484d; }
-.settings-avatar-row { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
-.settings-avatar-preview, .settings-avatar-placeholder { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); flex-shrink: 0; }
-.settings-avatar-placeholder { display: flex; align-items: center; justify-content: center; background: var(--bg-alt); color: var(--muted); }
-.settings-avatar-placeholder .icon { width: 28px; height: 28px; }
-.settings-avatar-actions { display: flex; gap: var(--space-2); align-items: center; }
 .settings-username-hint { font-size: 0.78rem; margin-top: 4px; min-height: 1.1em; color: var(--muted-2); }
 .settings-username-hint.is-taken { color: #e5484d; }
 .settings-username-hint.is-available { color: var(--green-bright); }
-.nav-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-strong); }
 .settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .settings-toggle-row label:first-child { font-size: 0.92rem; color: var(--fg); }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
@@ -2456,7 +2450,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" class="btn btn-ghost btn-sm" id="navSignInBtn" data-auth-signed-out data-i18n="nav.signin">Sign In</button>
       <button type="button" class="btn btn-primary btn-sm" id="navJoinNowBtn" data-welcome-trigger data-auth-signed-out>Join Now</button>
       <span class="nav-status-badge" id="navStatusBadge" hidden></span>
-      <img class="nav-avatar" id="navAvatar" data-auth-signed-in style="display:none" alt="" hidden>
       <button type="button" class="btn btn-outline-maroon btn-sm" id="navLogoutBtn" data-auth-signed-in style="display:none">Log Out</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
         <svg class="icon" id="navToggleIcon"><use href="#i-menu"/></svg>
@@ -2770,34 +2763,59 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 <label for="swimmerAge">Age</label>
                 <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
               </div>
-              <div class="profile-field">
-                <label for="pb50">50m Freestyle PB <span style="text-transform:none; font-weight:400; color:var(--muted-2)">(optional)</span></label>
-                <input type="text" id="pb50" placeholder="optional — e.g. 0:28">
-              </div>
-              <div class="profile-field">
-                <label for="pb100">100m Freestyle PB <span style="text-transform:none; font-weight:400; color:var(--muted-2)">(optional)</span></label>
-                <input type="text" id="pb100" placeholder="optional — e.g. 1:05">
-              </div>
             </div>
           </div>
 
           <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Per-Stroke Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — sharpens pacing whenever that stroke is the primary discipline below)</span></div>
+            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below)</span></div>
             <div class="pb-stroke-grid">
               <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Freestyle</span>
+                <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeFreestyle" placeholder="optional — e.g. 1:05">
+              </div>
+              <div class="pb-stroke-row">
                 <span class="pb-stroke-name">Backstroke</span>
-                <input type="text" id="pb50Backstroke" placeholder="50m — e.g. 0:31">
-                <input type="text" id="pb100Backstroke" placeholder="100m — e.g. 1:08">
+                <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeBackstroke" placeholder="optional — e.g. 1:08">
               </div>
               <div class="pb-stroke-row">
                 <span class="pb-stroke-name">Butterfly</span>
-                <input type="text" id="pb50Butterfly" placeholder="50m — e.g. 0:29">
-                <input type="text" id="pb100Butterfly" placeholder="100m — e.g. 1:04">
+                <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeButterfly" placeholder="optional — e.g. 1:04">
               </div>
               <div class="pb-stroke-row">
                 <span class="pb-stroke-name">Breaststroke</span>
-                <input type="text" id="pb50Breaststroke" placeholder="50m — e.g. 0:35">
-                <input type="text" id="pb100Breaststroke" placeholder="100m — e.g. 1:16">
+                <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
               </div>
             </div>
           </div>
@@ -2821,8 +2839,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
 
           <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goal</div>
-            <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goal"></div>
+            <div class="config-label"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or combine several)</span></div>
+            <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
           </div>
 
           <div class="config-group">
@@ -3253,15 +3271,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="settings-card">
             <h3><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile</h3>
             <form id="settingsProfileForm">
-              <div class="settings-avatar-row">
-                <img id="settingsAvatarPreview" class="settings-avatar-preview" alt="" hidden>
-                <div class="settings-avatar-placeholder" id="settingsAvatarPlaceholder"><svg class="icon"><use href="#i-user"/></svg></div>
-                <div class="settings-avatar-actions">
-                  <label class="btn btn-outline-aqua btn-sm" for="settingsAvatarInput">Upload Photo</label>
-                  <input type="file" id="settingsAvatarInput" accept="image/png,image/jpeg,image/webp" style="display:none">
-                  <button type="button" class="btn btn-ghost btn-sm" id="settingsAvatarRemoveBtn">Remove</button>
-                </div>
-              </div>
               <div class="profile-row">
                 <div class="profile-field">
                   <label for="settingsFullName">Full Name</label>
@@ -3293,9 +3302,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
           <div class="settings-card">
             <h3><svg class="icon"><use href="#i-wave"/></svg> Swimming Specialties</h3>
-            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Pick the stroke(s) you train most — this becomes your default in the Workout Generator’s Discipline picker.</p>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Pick the stroke(s) you train most — this becomes your default in the Workout Generator’s Discipline picker. Saved automatically as you tap.</p>
             <div class="chip-group" id="settingsDisciplineChips" role="group" aria-label="Swimming specialties — multiple selectable"></div>
-            <button type="button" class="btn btn-primary btn-sm" id="settingsDisciplinesSaveBtn" style="margin-top:16px">Save Specialties</button>
             <p class="settings-save-status" id="settingsDisciplinesStatus"></p>
           </div>
 
@@ -4689,14 +4697,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   })();
 
   /* ============================= WORKOUT GENERATOR ============================= */
-  function dayIndex() {
-    var now = new Date();
-    var start = new Date(now.getFullYear(), 0, 0);
-    return Math.floor((now - start) / 86400000);
+  function dayIndexForDate(d) {
+    var start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
   }
+  function dayIndex() { return dayIndexForDate(new Date()); }
   // Year folded in so the seed doesn't repeat every 365/366 days like a bare
   // dayIndex() would.
-  function dailySeed() { return new Date().getFullYear() * 1000 + dayIndex(); }
+  function dailySeedForDate(d) { return d.getFullYear() * 1000 + dayIndexForDate(d); }
+  function dailySeed() { return dailySeedForDate(new Date()); }
   function weekIndex() { return Math.floor(dayIndex() / 7); }
 
   // Deterministic PRNG (mulberry32) so a workout generated today always comes
@@ -4735,12 +4744,34 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     { key: 'medley', icon: 'i-medley', name: 'Individual Medley' }
   ];
 
+  // Auto-save for the Workout Generator + Gym profile inputs — previously
+  // these lived only in the in-memory `state` object (or, for the plain
+  // form fields below, weren't captured anywhere at all outside of a live
+  // generate/apply call), so every one of them silently reset on a page
+  // reload or tab navigation. All of it is device-local generator
+  // preference, not account data another device needs to see, so
+  // localStorage (rather than a new Firestore field + rules deploy) is the
+  // right store — same precedent as the existing units/theme/language/
+  // weekly-goal preferences elsewhere in this file.
+  var GENERATOR_PREFS_KEY = 'swimfit_generator_prefs';
+  function loadGeneratorPrefs() {
+    try { return JSON.parse(localStorage.getItem(GENERATOR_PREFS_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function saveGeneratorPrefs(patch) {
+    try {
+      var current = loadGeneratorPrefs();
+      Object.keys(patch).forEach(function (k) { current[k] = patch[k]; });
+      localStorage.setItem(GENERATOR_PREFS_KEY, JSON.stringify(current));
+    } catch (e) { /* private-browsing/storage-full: auto-save is best-effort */ }
+  }
+  var generatorPrefs = loadGeneratorPrefs();
+
   var state = {
-    disciplines: [DISCIPLINES[dayIndex() % DISCIPLINES.length].name],
-    distance: 2000,
-    equipment: [],
-    goal: GOALS[dayIndex() % GOALS.length].key,
-    level: 'beginner'
+    disciplines: (generatorPrefs.disciplines && generatorPrefs.disciplines.length) ? generatorPrefs.disciplines : [DISCIPLINES[dayIndex() % DISCIPLINES.length].name],
+    distance: generatorPrefs.distance || 2000,
+    equipment: generatorPrefs.equipment || [],
+    goals: (generatorPrefs.goals && generatorPrefs.goals.length) ? generatorPrefs.goals : [GOALS[dayIndex() % GOALS.length].key],
+    level: generatorPrefs.level || 'beginner'
   };
 
   document.getElementById('disciplineChips').innerHTML = DISCIPLINES.map(function (d) {
@@ -4759,35 +4790,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       state.disciplines.push(name);
       chip.setAttribute('aria-pressed', 'true');
     }
+    saveGeneratorPrefs({ disciplines: state.disciplines });
   });
 
   document.getElementById('equipmentGrid').innerHTML = GEAR.filter(function (g) { return g.key !== 'snorkel'; }).map(function (g) {
-    return '<label class="equip-check"><input type="checkbox" data-equip="' + g.name + '">' + icon(g.icon) + '<span>' + g.name + '</span></label>';
+    return '<label class="equip-check"><input type="checkbox" data-equip="' + g.name + '"' + (state.equipment.indexOf(g.name) > -1 ? ' checked' : '') + '>' + icon(g.icon) + '<span>' + g.name + '</span></label>';
   }).join('');
   document.getElementById('equipmentGrid').addEventListener('change', function (e) {
     state.equipment = Array.from(this.querySelectorAll('input:checked')).map(function (i) { return i.dataset.equip; });
+    saveGeneratorPrefs({ equipment: state.equipment });
   });
 
   var quoteText = document.getElementById('quoteText');
   var quoteGoal = document.getElementById('quoteGoal');
   function renderGoalChips() {
     document.getElementById('goalChips').innerHTML = GOALS.map(function (g) {
-      return '<button type="button" class="chip" data-goal="' + g.key + '" aria-pressed="' + (g.key === state.goal) + '">' + icon(g.icon) + g.label + '</button>';
+      return '<button type="button" class="chip" data-goal="' + g.key + '" aria-pressed="' + (state.goals.indexOf(g.key) > -1) + '">' + icon(g.icon) + g.label + '</button>';
     }).join('');
   }
   renderGoalChips();
+  // With multiple goals selected, the quote/label always reflects the FIRST
+  // selected one (the swimmer's primary focus) — same "primary = first
+  // selected" convention activeStrokePbFieldIds() already uses for
+  // disciplines, rather than inventing a second rule here.
   function updateQuote() {
-    var g = GOALS.find(function (x) { return x.key === state.goal; });
+    var g = GOALS.find(function (x) { return x.key === state.goals[0]; });
     quoteText.textContent = g.quote;
-    quoteGoal.textContent = g.label;
+    quoteGoal.textContent = state.goals.map(function (k) { return GOALS.find(function (x) { return x.key === k; }).label; }).join(' + ');
   }
   updateQuote();
   document.getElementById('goalChips').addEventListener('click', function (e) {
     var chip = e.target.closest('.chip');
     if (!chip) return;
-    state.goal = chip.dataset.goal;
-    this.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+    var key = chip.dataset.goal;
+    var idx = state.goals.indexOf(key);
+    if (idx > -1) {
+      if (state.goals.length === 1) return; // keep at least one selected
+      state.goals.splice(idx, 1);
+      chip.setAttribute('aria-pressed', 'false');
+    } else {
+      state.goals.push(key);
+      chip.setAttribute('aria-pressed', 'true');
+    }
     updateQuote();
+    saveGeneratorPrefs({ goals: state.goals });
   });
 
   var distanceSlider = document.getElementById('distanceSlider');
@@ -4803,6 +4849,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   updateDistanceLabel();
   distanceSlider.addEventListener('input', updateDistanceLabel);
+  distanceSlider.addEventListener('change', function () { saveGeneratorPrefs({ distance: state.distance }); });
   document.addEventListener('swimfit:unitschange', updateDistanceLabel);
 
   document.getElementById('levelTabs').addEventListener('click', function (e) {
@@ -4810,6 +4857,38 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!btn) return;
     state.level = btn.dataset.level;
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
+    saveGeneratorPrefs({ level: state.level });
+  });
+  (function restoreLevelTab() {
+    var levelTabs = document.getElementById('levelTabs');
+    if (!levelTabs) return;
+    var match = levelTabs.querySelector('.pill-tab[data-level="' + state.level + '"]');
+    if (!match) return;
+    levelTabs.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === match ? 'true' : 'false'); });
+  })();
+
+  // The remaining Workout Generator + Gym profile fields are plain inputs
+  // with no chip/slider state of their own — restore each one's last saved
+  // value on load, then auto-save on every keystroke/change so none of them
+  // reset on a reload or tab switch either.
+  var GENERATOR_PREF_FIELD_IDS = [
+    'swimmerAge', 'gymAge', 'gymWorkingWeight', 'gymStrengthLimit',
+    'pbDistanceFreestyle', 'pbTimeFreestyle',
+    'pbDistanceBackstroke', 'pbTimeBackstroke',
+    'pbDistanceButterfly', 'pbTimeButterfly',
+    'pbDistanceBreaststroke', 'pbTimeBreaststroke'
+  ];
+  GENERATOR_PREF_FIELD_IDS.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (generatorPrefs.fields && generatorPrefs.fields[id] !== undefined) el.value = generatorPrefs.fields[id];
+    var persistField = function () {
+      var fields = loadGeneratorPrefs().fields || {};
+      fields[id] = el.value;
+      saveGeneratorPrefs({ fields: fields });
+    };
+    el.addEventListener('input', persistField);
+    el.addEventListener('change', persistField);
   });
 
   var LEVEL_SCALERS = {
@@ -4825,10 +4904,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function paceSecondsPer100(goalKey, level) {
-    var base = { speed: 85, endurance: 100, technique: 105 }[goalKey];
+  // Accepts one or more simultaneously-selected goals and blends their base
+  // pace (a plain average) — e.g. Speed + Endurance together lands the
+  // target pace between a pure-sprint and pure-distance session, rather
+  // than requiring the swimmer to pick only one focus.
+  function paceSecondsPer100(goalKeys, level) {
+    var bases = { speed: 85, endurance: 100, technique: 105 };
+    var avgBase = goalKeys.reduce(function (sum, k) { return sum + bases[k]; }, 0) / goalKeys.length;
     var levelAdj = { beginner: 25, competitive: 0, elite: -8 }[level];
-    return base + levelAdj;
+    return avgBase + levelAdj;
   }
 
   // Real swim training runs off a pace ladder, not one flat number: your 50m
@@ -4883,23 +4967,34 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // Individual Medley has no single-stroke PB to key off, so it falls back
   // to Freestyle as the closest general-pace proxy.
   var STROKE_PB_FIELD_IDS = {
-    'Freestyle': { pb50: 'pb50', pb100: 'pb100' },
-    'Backstroke': { pb50: 'pb50Backstroke', pb100: 'pb100Backstroke' },
-    'Butterfly': { pb50: 'pb50Butterfly', pb100: 'pb100Butterfly' },
-    'Breaststroke': { pb50: 'pb50Breaststroke', pb100: 'pb100Breaststroke' }
+    'Freestyle': { distance: 'pbDistanceFreestyle', time: 'pbTimeFreestyle' },
+    'Backstroke': { distance: 'pbDistanceBackstroke', time: 'pbTimeBackstroke' },
+    'Butterfly': { distance: 'pbDistanceButterfly', time: 'pbTimeButterfly' },
+    'Breaststroke': { distance: 'pbDistanceBreaststroke', time: 'pbTimeBreaststroke' }
   };
   function activeStrokePbFieldIds() {
     var primary = state.disciplines && state.disciplines[0];
     return STROKE_PB_FIELD_IDS[primary] || STROKE_PB_FIELD_IDS.Freestyle;
   }
 
-  function personalPaceFromPB(pb50Sec, pb100Sec, goalKey) {
-    var racePace100;
-    if (pb100Sec) racePace100 = pb100Sec;
-    else if (pb50Sec) racePace100 = pb50Sec * 2 + 3; // + ~3s for the extra turn/fatigue over the second 50
-    else return null;
-    var goalOffset = { speed: 3, endurance: 12, technique: 15 }[goalKey];
-    return racePace100 + goalOffset;
+  // Predicts pace per 100m from a PB logged at ANY race distance (50m-1500m),
+  // not just a hardcoded 50m/100m shortcut — uses the same family of
+  // fatigue-exponent model sports science uses for cross-distance time
+  // prediction (Riegel's formula: T2 = T1 * (D2/D1)^b). Swimming's
+  // aerobic/anaerobic profile means per-100m pace naturally slows at longer
+  // distances; 1.03 is a middle-of-the-road exponent for competitive
+  // swimming (running's own version of this typically uses ~1.06) — a
+  // reasonable estimate, not a lab-measured constant, same disclosed-estimate
+  // posture as CALORIES_PER_METER elsewhere in this file.
+  var PB_PACE_FATIGUE_EXPONENT = 1.03;
+  // goalKeys: one or more simultaneously-selected goals — their offsets are
+  // averaged, same blending convention as paceSecondsPer100 above.
+  function personalPaceFromPB(pbDistanceM, pbTimeSec, goalKeys) {
+    if (!pbDistanceM || !pbTimeSec) return null;
+    var equivalent100Pace = pbTimeSec * Math.pow(100 / pbDistanceM, PB_PACE_FATIGUE_EXPONENT);
+    var offsets = { speed: 3, endurance: 12, technique: 15 };
+    var avgOffset = goalKeys.reduce(function (sum, k) { return sum + offsets[k]; }, 0) / goalKeys.length;
+    return equivalent100Pace + avgOffset;
   }
 
   function strokeLabelSingle(discipline) {
@@ -4966,6 +5061,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return copy.slice(0, Math.min(n, copy.length));
   }
   function pickOne(arr) { return arr[Math.floor(workoutRng() * arr.length)]; }
+  // Draws against an arbitrary RNG instance instead of the global workoutRng —
+  // used to replay "what would today's settings have produced yesterday" for
+  // the no-repeat-vs-yesterday check in generateWorkout(), without disturbing
+  // today's own real pick sequence.
+  function pickOneFrom(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
   // circuit from — seeded per day (see workoutRng above) so the shape is
@@ -5399,7 +5499,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   function renderCoachTips() {
     var tips = state.disciplines.map(function (d) { return TIPS_BY_DISCIPLINE[d]; });
-    tips.push(TIPS_BY_GOAL[state.goal], UNIVERSAL_TIPS[dayIndex() % UNIVERSAL_TIPS.length]);
+    tips = tips.concat(state.goals.map(function (g) { return TIPS_BY_GOAL[g]; }));
+    tips.push(UNIVERSAL_TIPS[dayIndex() % UNIVERSAL_TIPS.length]);
     return '<div class="coach-tips"><div class="coach-tips-head">' + icon('i-target') + ' Coach’s Technical Tips</div><ul>' +
       tips.map(function (t) { return '<li>' + icon('i-check') + '<span>' + t + '</span></li>'; }).join('') + '</ul></div>';
   }
@@ -5410,14 +5511,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // the swimmer's workout automatically rotates at midnight rather than
     // reshuffling on every click of Generate.
     workoutRng = makeSeededRandom(dailySeed());
+    // A separate, throwaway RNG seeded with yesterday's date, used only to
+    // simulate "what would today's current settings have produced yesterday"
+    // for the Pre-Set and first Main Set archetype — so a swimmer generating
+    // on consecutive days with unchanged settings never sees the identical
+    // headline archetype twice in a row. This never touches the real
+    // workoutRng, so today's own pick sequence stays exactly as deterministic
+    // as before.
+    var priorDayRng = makeSeededRandom(dailySeedForDate(new Date(Date.now() - 86400000)));
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
     var pbFieldIds = activeStrokePbFieldIds();
-    var pb50Sec = parseTimeToSeconds(document.getElementById(pbFieldIds.pb50).value);
-    var pb100Sec = parseTimeToSeconds(document.getElementById(pbFieldIds.pb100).value);
-    var personalPace = personalPaceFromPB(pb50Sec, pb100Sec, state.goal);
-    var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goal, state.level);
+    var pbDistanceM = parseInt(document.getElementById(pbFieldIds.distance).value, 10);
+    var pbTimeSec = parseTimeToSeconds(document.getElementById(pbFieldIds.time).value);
+    var personalPace = personalPaceFromPB(pbDistanceM, pbTimeSec, state.goals);
+    var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goals, state.level);
 
     var totalM = state.distance;
     var ageCapApplied = false;
@@ -5450,14 +5559,37 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
     // second of this generator's four fixed stages.
     var presetArchetype = pickOne(PRESET_ARCHETYPES);
+    if (PRESET_ARCHETYPES.length > 1) {
+      var priorPresetArchetype = pickOneFrom(priorDayRng, PRESET_ARCHETYPES);
+      if (presetArchetype === priorPresetArchetype) {
+        presetArchetype = pickOne(PRESET_ARCHETYPES.filter(function (a) { return a !== priorPresetArchetype; }));
+      }
+    }
     var preset = {
       name: presetArchetype.name,
       rounds: presetArchetype.build(presetM, pace100, scaler, nextStroke),
       intent: pickOne(presetArchetype.intents)
     };
 
-    var pool = ARCHETYPE_POOLS[state.goal];
+    // Multiple selected goals combine their archetype pools into one bigger
+    // candidate set (deduplicated) rather than picking just one goal's pool —
+    // Speed + Endurance together genuinely means more variety to draw from,
+    // not an arbitrary tie-break.
+    var pool = state.goals.reduce(function (acc, g) {
+      ARCHETYPE_POOLS[g].forEach(function (a) { if (acc.indexOf(a) === -1) acc.push(a); });
+      return acc;
+    }, []);
     var chosenArchetypes = pickN(pool, Math.min(scaler.blocks, pool.length));
+    if (pool.length > 1) {
+      var priorFirstMainArchetype = pickOneFrom(priorDayRng, pool);
+      if (chosenArchetypes[0] === priorFirstMainArchetype) {
+        var altMainPool = pool.filter(function (a) { return a !== priorFirstMainArchetype; });
+        var replacementMain = pickOne(altMainPool);
+        if (chosenArchetypes.indexOf(replacementMain) === -1) {
+          chosenArchetypes[0] = replacementMain;
+        }
+      }
+    }
     var share = 1 / chosenArchetypes.length;
     var main = chosenArchetypes.map(function (archetype) {
       var shareM = Math.round((mainM * share) / 100) * 100 || 100;
@@ -5483,7 +5615,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
-      GOALS.find(function (g) { return g.key === state.goal; }).label + ' focus · ' + state.level + ' level. ' + scaler.note +
+      state.goals.map(function (k) { return GOALS.find(function (g) { return g.key === k; }).label; }).join(' + ') + ' focus · ' + state.level + ' level. ' + scaler.note +
       (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
       ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
 
@@ -5695,8 +5827,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // swimmer already configured) so Full Body programming automatically leans
   // sprint or distance without asking the swimmer to repeat themselves.
   function gymOrientation() {
-    if (state.goal === 'speed' || state.distance <= 1500) return 'sprint';
-    if (state.goal === 'endurance' || state.distance >= 3500) return 'distance';
+    if (state.goals.indexOf('speed') > -1 || state.distance <= 1500) return 'sprint';
+    if (state.goals.indexOf('endurance') > -1 || state.distance >= 3500) return 'distance';
     return 'balanced';
   }
   var GYM_ORIENTATION_LABEL = {
@@ -6393,12 +6525,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var ageInput = document.getElementById('settingsAge');
     var profileStatus = document.getElementById('settingsProfileStatus');
     var disciplineChipsEl = document.getElementById('settingsDisciplineChips');
-    var disciplinesSaveBtn = document.getElementById('settingsDisciplinesSaveBtn');
     var disciplinesStatus = document.getElementById('settingsDisciplinesStatus');
-    var avatarInput = document.getElementById('settingsAvatarInput');
-    var avatarPreview = document.getElementById('settingsAvatarPreview');
-    var avatarPlaceholder = document.getElementById('settingsAvatarPlaceholder');
-    var avatarRemoveBtn = document.getElementById('settingsAvatarRemoveBtn');
     var notifyToggle = document.getElementById('settingsNotifyToggle');
     var notifyStatus = document.getElementById('settingsNotifyStatus');
     var exportBtn = document.getElementById('settingsExportBtn');
@@ -6410,77 +6537,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var selectedDisciplines = [];
     var loadedForUid = null;
     var loadedUsername = '';
-    var pendingAvatarDataUrl = null; // null = unchanged this session; '' = remove; string = new upload
     var SETTINGS_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
     var usernameCheckToken = 0;
-
-    // Load-then-reveal, never show-then-hide-on-error: the <img> stays
-    // hidden behind the placeholder until it has actually finished
-    // decoding successfully, so a bad/corrupted avatarDataUrl (or one that
-    // simply fails to load) can never flash the browser's broken-image
-    // glyph on screen even for an instant — the previous approach (show
-    // immediately, hide on 'error') left exactly that gap.
-    avatarPreview.addEventListener('load', function () {
-      if (!avatarPreview.getAttribute('src')) return;
-      avatarPreview.hidden = false;
-      if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
-    });
-    avatarPreview.addEventListener('error', function () { showAvatar(null); });
-    function showAvatar(dataUrl) {
-      if (dataUrl) {
-        avatarPreview.hidden = true;
-        if (avatarPlaceholder) avatarPlaceholder.style.display = '';
-        avatarPreview.src = dataUrl; // reveals itself via the 'load' handler above once decoded
-      } else {
-        avatarPreview.hidden = true;
-        avatarPreview.removeAttribute('src');
-        if (avatarPlaceholder) avatarPlaceholder.style.display = '';
-      }
-    }
-
-    // Center-crops to a square, then scales to a fixed avatar size — a
-    // different treatment than the AI Coach's "fit longest edge" downscale,
-    // since a profile photo should read the same at any aspect ratio, not
-    // preserve the original framing.
-    function compressAvatarFile(file) {
-      return new Promise(function (resolve, reject) {
-        var img = new Image();
-        var objectUrl = URL.createObjectURL(file);
-        img.onload = function () {
-          URL.revokeObjectURL(objectUrl);
-          var size = 200;
-          var side = Math.min(img.naturalWidth, img.naturalHeight);
-          var sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
-          var canvas = document.createElement('canvas');
-          canvas.width = size; canvas.height = size;
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
-        };
-        img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('image decode failed')); };
-        img.src = objectUrl;
-      });
-    }
-
-    if (avatarInput) {
-      avatarInput.addEventListener('change', function () {
-        var file = avatarInput.files && avatarInput.files[0];
-        if (!file) return;
-        compressAvatarFile(file).then(function (dataUrl) {
-          pendingAvatarDataUrl = dataUrl;
-          showAvatar(dataUrl);
-        }).catch(function () {
-          profileStatus.textContent = 'Could not read that image — try a different file.';
-          profileStatus.classList.add('is-error');
-        }).finally(function () { avatarInput.value = ''; });
-      });
-    }
-    if (avatarRemoveBtn) {
-      avatarRemoveBtn.addEventListener('click', function () {
-        pendingAvatarDataUrl = '';
-        showAvatar(null);
-      });
-    }
 
     if (usernameInput) {
       var checkTimer = null;
@@ -6513,6 +6571,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         return '<button type="button" class="chip" data-discipline="' + d.name + '" aria-pressed="' + (selectedDisciplines.indexOf(d.name) > -1) + '">' + icon(d.icon) + d.name + '</button>';
       }).join('');
     }
+    // Saves immediately on every toggle — no separate "Save Specialties"
+    // button to remember to click — and applies live to the Workout
+    // Generator's own chip group right away, same as the button used to.
+    function persistDisciplines() {
+      var user = window.__firebaseUser;
+      if (!user || typeof window.__userProfileUpdate !== 'function') return;
+      window.__userProfileUpdate(user.uid, { disciplines: selectedDisciplines.slice() }).then(function () {
+        if (disciplinesStatus) { disciplinesStatus.textContent = 'Saved — applied to your Workout Generator.'; disciplinesStatus.classList.remove('is-error'); }
+        state.disciplines = selectedDisciplines.slice();
+        document.querySelectorAll('#disciplineChips .chip').forEach(function (chip) {
+          chip.setAttribute('aria-pressed', state.disciplines.indexOf(chip.dataset.discipline) > -1);
+        });
+        saveGeneratorPrefs({ disciplines: state.disciplines });
+      }).catch(function () {
+        if (disciplinesStatus) { disciplinesStatus.textContent = 'Could not save — please try again.'; disciplinesStatus.classList.add('is-error'); }
+      });
+    }
     disciplineChipsEl.addEventListener('click', function (e) {
       var chip = e.target.closest('.chip');
       if (!chip) return;
@@ -6526,14 +6601,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         selectedDisciplines.push(name);
         chip.setAttribute('aria-pressed', 'true');
       }
+      persistDisciplines();
     });
 
     function resetFields() {
       fullNameInput.value = ''; usernameInput.value = ''; emailInput.value = '';
       countryInput.value = ''; ageInput.value = '';
       loadedUsername = '';
-      pendingAvatarDataUrl = null;
-      showAvatar(null);
       if (usernameHint) { usernameHint.textContent = ''; usernameHint.className = 'settings-username-hint'; }
       selectedDisciplines = [];
       renderDisciplineChips();
@@ -6552,9 +6626,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         usernameInput.value = loadedUsername;
         countryInput.value = data.country || '';
         ageInput.value = data.age || '';
-        pendingAvatarDataUrl = null;
-        showAvatar(data.avatarDataUrl || null);
-        if (typeof window.__updateNavAvatar === 'function') window.__updateNavAvatar(data.avatarDataUrl || null);
         selectedDisciplines = (data.disciplines && data.disciplines.length) ? data.disciplines.slice() : state.disciplines.slice();
         renderDisciplineChips();
         if (notifyToggle) notifyToggle.checked = !!data.notifyWeeklyEmail;
@@ -6675,7 +6746,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (countryInput.value.trim()) fields.country = countryInput.value.trim();
       var ageVal = parseInt(ageInput.value, 10);
       if (ageVal) fields.age = ageVal;
-      if (pendingAvatarDataUrl !== null) fields.avatarDataUrl = pendingAvatarDataUrl;
 
       var submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
@@ -6692,10 +6762,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }).then(function () {
         profileStatus.textContent = 'Saved.';
         profileStatus.classList.remove('is-error');
-        if (fields.avatarDataUrl !== undefined) {
-          pendingAvatarDataUrl = null;
-          if (typeof window.__updateNavAvatar === 'function') window.__updateNavAvatar(fields.avatarDataUrl || null);
-        }
       }).catch(function (err) {
         profileStatus.classList.add('is-error');
         profileStatus.textContent = (err && err.message === 'USERNAME_TAKEN')
@@ -6706,70 +6772,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       });
     });
 
-    if (disciplinesSaveBtn) {
-      disciplinesSaveBtn.addEventListener('click', function () {
-        var user = window.__firebaseUser;
-        if (!user || typeof window.__userProfileUpdate !== 'function') return;
-        disciplinesSaveBtn.disabled = true;
-        window.__userProfileUpdate(user.uid, { disciplines: selectedDisciplines.slice() }).then(function () {
-          disciplinesStatus.textContent = 'Saved — applied to your Workout Generator.';
-          disciplinesStatus.classList.remove('is-error');
-          // Apply immediately to the live Workout Generator, so a swimmer
-          // sees the effect without needing to reload.
-          state.disciplines = selectedDisciplines.slice();
-          document.querySelectorAll('#disciplineChips .chip').forEach(function (chip) {
-            chip.setAttribute('aria-pressed', state.disciplines.indexOf(chip.dataset.discipline) > -1);
-          });
-        }).catch(function () {
-          disciplinesStatus.textContent = 'Could not save — please try again.';
-          disciplinesStatus.classList.add('is-error');
-        }).finally(function () {
-          disciplinesSaveBtn.disabled = false;
-        });
-      });
-    }
-
     document.querySelectorAll('[data-tab="settings"]').forEach(function (btn) {
       btn.addEventListener('click', function () { setTimeout(loadProfileIfNeeded, 0); });
     });
     document.addEventListener('swimfit:authchange', function (e) {
       if (e.detail.user) loadProfileIfNeeded();
       else { loadedForUid = null; resetFields(); }
-    });
-  })();
-
-  /* ============================= NAV AVATAR =============================
-     Independent of whether a swimmer ever visits Settings — fetches their
-     avatarDataUrl (if any) on every sign-in so the nav reflects it right
-     away, and exposes __updateNavAvatar so Settings can refresh it live
-     the moment a swimmer uploads or removes a photo without a reload. */
-  (function wireNavAvatar() {
-    var img = document.getElementById('navAvatar');
-    if (!img) return;
-    // Same load-then-reveal guarantee as the Settings avatar preview: stay
-    // hidden until the image has actually finished decoding successfully,
-    // so a bad/corrupted value can never flash the browser's broken-image
-    // glyph in the nav even for an instant.
-    img.addEventListener('load', function () {
-      if (!img.getAttribute('src')) return;
-      img.hidden = false;
-    });
-    img.addEventListener('error', function () { window.__updateNavAvatar(null); });
-    window.__updateNavAvatar = function (dataUrl) {
-      if (dataUrl) { img.hidden = true; img.src = dataUrl; }
-      else { img.hidden = true; img.removeAttribute('src'); }
-    };
-    document.addEventListener('swimfit:authchange', function (e) {
-      if (!e.detail.user) { window.__updateNavAvatar(null); return; }
-      if (typeof window.__userProfileGet !== 'function') return;
-      window.__userProfileGet(e.detail.user.uid).then(function (data) {
-        window.__updateNavAvatar(data && data.avatarDataUrl ? data.avatarDataUrl : null);
-      }).catch(function () {
-        // A failed profile fetch must not leave a stale avatar (or a stale
-        // "no avatar" state) on screen from whatever account was signed in
-        // before — reset to the safe empty state either way.
-        window.__updateNavAvatar(null);
-      });
     });
   })();
 
@@ -7082,7 +7090,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           history: historyForRequest,
           discipline: state.disciplines.join(', '),
           level: state.level,
-          goal: state.goal
+          goal: state.goals.join(', ')
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -7533,7 +7541,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           history: historyForRequest,
           discipline: state.disciplines.join(', '),
           level: state.level,
-          goal: state.goal,
+          goal: state.goals.join(', '),
           images: images.map(function (img) { return { mediaType: img.mediaType, data: img.data }; })
         });
       }).then(function (res) {
@@ -7682,7 +7690,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       window.__firebaseGetIdToken().then(function (idToken) {
         return aiCoachFetch(idToken, {
           message: contextualMessage, history: historyForRequest,
-          discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
+          discipline: state.disciplines.join(', '), level: state.level, goal: state.goals.join(', ')
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -7795,7 +7803,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       window.__firebaseGetIdToken().then(function (idToken) {
         return aiCoachFetch(idToken, {
           message: contextualMessage, history: historyForRequest,
-          discipline: state.disciplines.join(', '), level: state.level, goal: state.goal
+          discipline: state.disciplines.join(', '), level: state.level, goal: state.goals.join(', ')
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -8627,6 +8635,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Show the greeting the instant this widget is wired — never gated on
+    // sign-in or a Firestore round-trip, so it's genuinely there the moment
+    // a swimmer opens the panel, not just "usually fast."
+    renderMessages([]);
+
     function openPanel() {
       panel.classList.add('open');
       fab.setAttribute('aria-expanded', 'true');
@@ -8656,6 +8669,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     });
 
     function subscribe() {
+      // Re-assert the greeting the moment a real sign-in actually happens —
+      // the earlier sign-out resolution (which fires for every visitor,
+      // signed in or not, as Firebase Auth settles) already wiped this panel
+      // via the authchange handler below, and the Firestore subscription
+      // about to start is asynchronous, so without this a swimmer would see
+      // a blank panel until that round-trip resolves.
+      renderMessages([]);
       if (unsubscribeMeta) unsubscribeMeta();
       if (unsubscribeMessages) unsubscribeMessages();
       if (typeof window.__adminChatSubscribeMeta === 'function') {
@@ -8665,7 +8685,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }
       if (typeof window.__adminChatSubscribeMessages === 'function') {
         unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); }, function () {
-          messagesEl.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Could not load your messages — check your connection and try again.</p>';
+          // Keep the greeting on screen even when the subscription errors —
+          // a swimmer should never lose the friendly intro to a scary "could
+          // not load" wall of text; the connection note appends below it instead.
+          renderMessages([]);
+          var errNote = document.createElement('p');
+          errNote.style.cssText = 'text-align:center;color:var(--muted-2);padding:8px 0;font-size:0.8rem;';
+          errNote.textContent = 'Could not load your message history — check your connection and try again.';
+          messagesEl.appendChild(errNote);
         });
       }
     }
@@ -8726,13 +8753,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Show the greeting synchronously the instant this page is wired — never
+    // gated on sign-in or a Firestore round-trip, so a swimmer opening the
+    // Support tab always sees it immediately, not just once the network
+    // catches up.
+    renderMessages([]);
+
     function subscribeIfNeeded() {
       var user = window.__firebaseUser;
       if (!user || loadedForUid === user.uid || typeof window.__adminChatSubscribeMessages !== 'function') return;
       loadedForUid = user.uid;
+      // Re-assert the greeting the moment a real sign-in happens — the
+      // earlier sign-out resolution (fires for every visitor as Firebase
+      // Auth settles, signed in or not) already cleared this panel via the
+      // authchange handler below, and the Firestore subscription about to
+      // start is asynchronous, so without this a swimmer sees a blank panel
+      // until that round-trip resolves.
+      renderMessages([]);
       if (unsubscribeMessages) unsubscribeMessages();
       unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); }, function () {
-        messagesEl.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Could not load your messages — check your connection and try again.</p>';
+        // Keep the greeting visible even when the subscription errors — a
+        // swimmer should never lose the friendly intro to a bare error wall.
+        renderMessages([]);
+        var errNote = document.createElement('p');
+        errNote.style.cssText = 'text-align:center;color:var(--muted-2);padding:8px 0;font-size:0.8rem;';
+        errNote.textContent = 'Could not load your message history — check your connection and try again.';
+        messagesEl.appendChild(errNote);
       });
     }
 

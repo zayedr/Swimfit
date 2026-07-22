@@ -100,11 +100,6 @@ service cloud.firestore {
       && (!('pb100' in changedKeys) || (data.pb100 is string && data.pb100.size() <= 10))
       && (!('workingWeight' in changedKeys) || (data.workingWeight is string && data.workingWeight.size() <= 20))
       && (!('strengthLimit' in changedKeys) || (data.strengthLimit is string && data.strengthLimit.size() <= 20))
-      // A client-downscaled (200x200 JPEG, ~10-30KB base64) avatar data: URI
-      // — capped at 300KB of string length as a sanity ceiling, not a tight
-      // fit, since Firestore's 1MiB document limit is shared with every
-      // other field on this same doc. Empty string clears the avatar.
-      && (!('avatarDataUrl' in changedKeys) || (data.avatarDataUrl is string && data.avatarDataUrl.size() <= 300000))
       // Informational preference only — no email infra reads this yet.
       && (!('notifyWeeklyEmail' in changedKeys) || data.notifyWeeklyEmail is bool);
   }
@@ -124,14 +119,14 @@ service cloud.firestore {
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
                        'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
-                       'avatarDataUrl', 'notifyWeeklyEmail'])
+                       'notifyWeeklyEmail'])
         && isValidProfileWrite(request.resource.data, request.resource.data.keys());
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt',
                        'fullName', 'country', 'age', 'dob', 'username', 'onboardingComplete', 'trialStartedAt',
                        'disciplines', 'distance', 'goal', 'pb50', 'pb100', 'workingWeight', 'strengthLimit',
-                       'avatarDataUrl', 'notifyWeeklyEmail'])
+                       'notifyWeeklyEmail'])
         && isValidProfileWrite(request.resource.data, request.resource.data.diff(resource.data).affectedKeys());
       allow delete: if false;
     }
