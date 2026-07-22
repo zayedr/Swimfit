@@ -934,6 +934,123 @@ be completed either — this sandbox's own outbound network policy returned a 40
 to both `swimfit.online` and `api.paddle.com` (confirmed via a direct `curl`, ruling out a
 Paddle-side or auth-side cause), independent of the missing MCP servers.
 
+**A wide cross-app round touching Settings, Support, AI Coach, Gym, Workouts, the PB Tracker,
+the Home page, and Pricing/trial.** Settings was live-audited (Playwright against the Firestore
+emulator/mock) rather than rewritten — Units, Notifications, Export CSV, the Billing portal
+button, and the avatar-remove edge case were all found already wired to real persistence with no
+mock/placeholder logic, so nothing there needed fixing.
+
+The **Support tab** (and the matching floating admin-chat widget) now shows an instant, no-wait
+greeting bubble — "Hello! Welcome to the Swimfit Support Team. How can I assist you today?" —
+the moment either surface opens with an empty thread, replacing the old, blander empty-state
+copy. This is a purely client-rendered canned greeting, never written to Firestore as a fake
+admin message (which would misrepresent a bot reply as a real admin one and pollute the Admin
+Panel's own inbox view) — the underlying channel is still the same real human `admin_chats`
+messaging system it always was, not an AI chatbot; a literal AI-backed "Support" channel would
+conflict with `aiSwimCoach`'s own system prompt, which explicitly refuses non-swimming topics
+including account/billing questions. The Support tab also picked up a real visual upgrade: a
+`.support-page-header` identity strip (avatar, "Swimfit Support Team" name, a pulsing "Online
+now" status dot) and a `.support-trust-row` of three trust badges (real-time replies, a real
+human team, account & billing help) above the chat shell, plus a gradient-bordered, glow-shadowed
+`.support-page-shell` distinct from the plain Coach page shell it's built on top of.
+
+The **full-screen AI Coach page** got an equivalent `.coach-page-header` identity strip (bot
+avatar, "AI Swim Coach" name, a pulsing "Ready to help" status dot) and a refined active-thread
+indicator (a solid `aqua` inset left border on `.coach-thread-item.is-active`, replacing a flat
+background-only highlight) for a sleeker, more product-like feel. Its existing per-thread
+Firestore persistence (`coach_threads/{uid}/threads/{threadId}`, already fully automatic — every
+message, image, and thread already survived a refresh before this round) needed no changes; this
+round's real addition is **video upload**: since Claude's API takes images, not raw video, a
+selected video file is never uploaded whole — `extractVideoFrames()` decodes it into an offscreen
+`<video>`, seeks to 3 evenly-spaced timestamps (10%/50%/90% of duration), and captures each via
+canvas into a JPEG through the exact same `compressImageFile()`-style downscale/encode pipeline
+already used for photos, then feeds those frames into the same `pendingImages` array and the same
+3-image-per-message cap `aiSwimCoach` already enforces server-side — no backend changes were
+needed at all, since the endpoint only ever sees images either way. This is deliberately framed as
+"the coach reviews key frames from your clip," not full motion/video understanding, since that's
+an honest description of what a vision-only model can actually do with extracted stills.
+
+**Gym gained a fifth focus, Flexibility & Agility** (`GYM_FOCUS.flexibility`), a modality like
+Cardio rather than a muscle-group split — real mobility/agility work (Leg Swings, World's
+Greatest Stretch, Bird Dog, 90/90 Hip Switches, a Deep Squat Hold, an Agility Ladder drill,
+Lateral Bounds, Walking Lunges with Rotation, a Cone Shuffle Drill, and cooldown stretches)
+across the same Warm-Up/Core/Main/Cool-Down phase structure every other focus uses. Left out of
+`GYM_WEEKLY_ROTATION` on purpose, same precedent as Cardio — it's manually-selected only, not
+part of the auto-rotating Upper/Lower/Full cycle. Most of its exercises reuse existing
+`GYM_ANIM_MAP` archetypes (`legswing`, `birddog`, `pigeon`, `squat`, `lunge`, `hinge`,
+`sidelean`, `foamroll`, `kneellunge`) rather than new hand-drawn SVGs, since those poses already
+existed and matched closely; only the Agility Ladder and Cone Shuffle drills fall back to the
+existing generic animation, a disclosed trade-off rather than inventing new archetypes for two
+exercises.
+
+**The Workout Generator's Speed-vs-Endurance-vs-Technique focus picker already existed**
+(`state.goal`/`GOALS`, feeding `generateWorkout()`'s pacing and Gym's own sprint/distance
+orientation) — this round's real work was making the **result panel compact**: each of the four
+stage blocks (Warm-Up, Pre-Set, Main Set, Cool-Down) now renders as a native `<details>`/
+`<summary>` disclosure (`renderBlock(..., openByDefault)`) instead of an always-expanded `<div>`,
+with Main Set open by default and the three supporting stages collapsed, plus a "N sets" count in
+each collapsed summary so there's still useful information at a glance without expanding
+anything. `extractStructuredWorkout()` (the PDF export's DOM reader) was updated to strip that
+count span's text back out when reading a block's title, so the PDF still shows a clean "Warm-Up"
+rather than "Warm-Up3 sets" — verified the PDF export still fires correctly after this change.
+
+**The Personal Best Tracker's distance picker now goes up to 1500m** (`#trackerPbDistance`
+gained `800m`/`1500m` options, on top of the existing 50/100/200/400m) — `parseTimeToSeconds()`
+and `formatTime()` already handled arbitrarily-large minute values correctly (an 18:32 1500m swim
+parses/round-trips with no code changes needed), so this was purely an options-list addition,
+verified by actually logging an 18:32 1500m PB end-to-end into the mock Firestore.
+
+**The Hero's stat row was rebuilt around one new, genuinely live counter.** The three static
+feature-count tiles (Disciplines/Skill Tracks/Gym Focuses) were removed, and a new **"Total
+Active Subscribers"** tile sits alongside the existing live "Registered Swimmers" one — both read
+the same public `stats/counters` doc via `onSnapshot`, both hide gracefully if Firestore can't be
+reached. The new `activeSubscriberCount` field is maintained by a brand-new Firestore trigger,
+`exports.onSubscriptionWrite` (`onDocumentWritten('subscriptions/{subscriptionId}', ...)`,
+`firebase-functions/v2/firestore`) — it compares before/after `status` on every write to the
+`subscriptions` collection (the same per-Paddle-entity mirror `paddleWebhook` already maintains)
+through the existing `subscriptionGrantsAccess()` helper, and increments/decrements the counter
+by exactly 1 only when a write crosses the active/not-active boundary (e.g. `trialing` →
+`active` produces no delta at all, since both count as active) — this is the only place that
+counter is ever written, so it can never drift from what `getAccessLevel()` itself would compute.
+A swimmer has no read access to any subscription but their own, so this genuinely could not be
+computed client-side.
+
+That same round did a **light copy pass for brand neutrality and plain language**: every literal
+"UAE"/"Emirates" reference was removed from user-visible copy (the Hero eyebrow, the Pricing
+FAQ's currency note — which now just says "billed directly in AED" — and the Settings country
+field's example placeholder), in both English and Arabic, while deliberately leaving AED itself
+as the billing currency untouched, since removing a *brand* reference to a region is a different,
+much smaller change than changing the actual currency Paddle bills in — the latter wasn't asked
+for and isn't something this sandbox could safely do without live Paddle catalog access anyway.
+Separately, every user-visible "dashboard" mention (the `<title>`, the meta description, the Hero
+subhead in both languages, the auth modal subtitle, the About section and footer taglines, the
+App Preview heading and its mocked browser-chrome URL bar, and a footer nav column literally
+titled "Dashboard") was reworded to "platform" (or, for the footer column, renamed to "Explore")
+— internal implementation details like the `#dashboard` element id, `.dashboard` CSS classes, and
+the `dashboard` JS variable were deliberately left alone, since those are plumbing, not copy a
+swimmer ever reads.
+
+**The free trial dropped from 7 days to 3**, everywhere the number appeared: `TRIAL_DAYS` (both
+the client constant and the server-side one in `functions/index.js`, which independently gates
+`aiSwimCoach`), the Admin Panel's own `ADMIN_TRIAL_DAYS` and its "+7 Day Trial" grant button (now
+"+3 Day Trial" — changed for consistency, since leaving the admin's manual grant at 7 days while
+new signups got 3 would read as a confusing inconsistency rather than a deliberate goodwill
+gesture), and every piece of marketing copy mentioning the old number (the Offers Strip cards,
+the entrance promo popup badge, the Pricing tab's own sub-copy). Distinct "7 days"/"7-day"
+mentions that were never about the trial at all — a Gym AI prompt chip asking for "a full week (7
+days)" of programming, and a code comment about the Distance Tracker's chart needing "full 7-day
+coverage" for its weekly view — were correctly left untouched, since a calendar week is still 7
+days regardless of the trial length.
+
+**Every "Subscribe" button on the Pricing tab is now "Get Started," with a persistent, color-
+matched glow** (`.btn-cta-glow`, a slow breathing box-shadow — green for Elite's `.btn-primary`,
+aqua for Pro's `.btn-ghost`, maroon for Ultra's `.btn-outline-maroon` — via three keyframe
+variants keyed off the button's own existing class, so the glow always reads as a natural
+extension of that button's own accent color rather than a mismatched effect; disabled under
+`prefers-reduced-motion` down to a static shadow). No JS logic anywhere keyed off the literal
+string "Subscribe," so the relabel was copy-only — verified via a full click-through that
+`data-plan` (not button text) still drives checkout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

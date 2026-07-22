@@ -92,6 +92,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const functionsV1 = require('firebase-functions/v1');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
@@ -528,7 +529,7 @@ function isAdminEmail(email) {
   return !!email && ADMIN_EMAILS.indexOf(String(email).toLowerCase().trim()) !== -1;
 }
 
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 3;
 
 // Resolves what a signed-in swimmer can currently access: 'admin' immediately
 // for the house account (see ADMIN_EMAILS — checked first, before any
@@ -1111,6 +1112,40 @@ exports.onUserCreated = functionsV1
       if (user.email) await sendWelcomeEmail(user);
     } catch (err) {
       logger.error('onUserCreated: failed to send welcome email', err);
+    }
+  }
+);
+
+// Maintains stats/counters.activeSubscriberCount — the public "Total Active
+// Subscribers" figure the Hero stat tile reads live (same doc, same
+// onSnapshot pattern as userCount above). Driven entirely by Firestore's own
+// before/after Change on every write to subscriptions/{subscriptionId} (see
+// upsertPaddleSubscription in paddleWebhook, the only writer of that
+// collection), rather than by counting documents client-side — a swimmer
+// has no read access to any subscription but their own, so this can only be
+// computed server-side. subscriptionGrantsAccess() is the single source of
+// truth for "does this status count as active" (see its definition above),
+// so this trigger and getAccessLevel() can never disagree on what counts.
+// Only increments/decrements exactly when a write crosses that active/not-
+// active boundary — a status that's active both before and after (e.g.
+// 'trialing' -> 'active') correctly produces no delta at all.
+exports.onSubscriptionWrite = onDocumentWritten(
+  { document: 'subscriptions/{subscriptionId}', region: 'us-central1' },
+  async function (event) {
+    var change = event.data;
+    if (!change) return;
+    var beforeStatus = change.before.exists ? (change.before.data().status || null) : null;
+    var afterStatus = change.after.exists ? (change.after.data().status || null) : null;
+    var wasActive = subscriptionGrantsAccess(beforeStatus);
+    var isActive = subscriptionGrantsAccess(afterStatus);
+    if (wasActive === isActive) return;
+    try {
+      await db.collection('stats').doc('counters').set(
+        { activeSubscriberCount: admin.firestore.FieldValue.increment(isActive ? 1 : -1) },
+        { merge: true }
+      );
+    } catch (err) {
+      logger.error('onSubscriptionWrite: failed to update activeSubscriberCount', err);
     }
   }
 );
