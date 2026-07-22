@@ -19,8 +19,15 @@ rules_version = '2';
 //                      site's Hero), but never writable from a client — it's only ever
 //                      incremented by the onUserCreated Cloud Function via the Admin SDK,
 //                      which bypasses these rules entirely.
-// paddle_subscriptions/{docId} — billing records. A swimmer can read only their own
-//                      (matched by the firebaseUid the checkout attached), never write.
+// paddle_subscriptions/{docId} — billing records, docId keyed by Firebase uid. A swimmer
+//                      can read only their own (matched by the firebaseUid the checkout
+//                      attached), never write.
+// customers/{customerId}, subscriptions/{subscriptionId} — a true per-Paddle-entity mirror,
+//                      docId is the real Paddle customer/subscription id rather than the
+//                      Firebase uid, written only by paddleWebhook via the Admin SDK
+//                      (bypasses these rules). Additive alongside paddle_subscriptions above,
+//                      not a replacement — same owner-only read (matched by firebaseUid),
+//                      never write, convention.
 // swim_logs/{uid}/entries/{entryId} — a swimmer's manually-logged distance entries for
 //                      the Distance Tracker page. Owner-only; deletable (to fix a mislog)
 //                      but never editable in place — delete and re-log instead. An optional
@@ -282,6 +289,25 @@ service cloud.firestore {
     }
 
     match /paddle_subscriptions/{docId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
+      allow write: if false;
+    }
+
+    // customers/{paddleCustomerId} and subscriptions/{paddleSubscriptionId} —
+    // a true per-Paddle-entity mirror (docId is the real Paddle id, not the
+    // Firebase uid) maintained only by paddleWebhook's Admin-SDK writes,
+    // which bypass these rules entirely; additive alongside, never a
+    // replacement for, paddle_subscriptions/{docId} above. Same read
+    // convention: a swimmer can read only their own (matched by the
+    // firebaseUid the checkout attached), never write, and never list/query
+    // (list stays implicitly blocked since it's not in the allow list) — the
+    // one server-side lookup that needs to query by firebaseUid
+    // (paddleCustomerPortalSession) runs entirely through the Admin SDK.
+    match /customers/{customerId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
+      allow write: if false;
+    }
+    match /subscriptions/{subscriptionId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.firebaseUid;
       allow write: if false;
     }

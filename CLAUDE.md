@@ -807,6 +807,250 @@ on screen at all, not just briefly. The `error` listener still exists as the fal
 value that fails outright. A real, valid upload is unaffected — it now just becomes visible the
 instant it finishes decoding instead of instantly-but-optimistically.
 
+**Paddle webhook handling was rewritten to use Paddle's own official Node SDK
+(`@paddle/paddle-node-sdk`) instead of a hand-rolled HMAC verifier, and gained a proper
+per-Paddle-entity Firestore mirror alongside the pre-existing billing state.** `paddleWebhook`
+now verifies every delivery with `paddle.webhooks.unmarshal(rawRequestBody, PADDLE_WEBHOOK_SECRET,
+signature)` — the SDK's own signature check, run against `req.rawBody` (the exact bytes Paddle
+signed, read before any JSON-parsing) — and never returns a 2xx on a failed verification (401,
+so Paddle keeps retrying a delivery this code never actually accepted). A verified event is routed
+by `eventData.eventType` (compared against the SDK's own `EventName` enum, not a string literal)
+to one of three paths: `subscription.created`/`updated`/`canceled` upsert into a new
+`subscriptions/{paddleSubscriptionId}` Firestore collection via `upsertPaddleSubscription()`;
+`customer.created`/`updated` upsert into a new `customers/{paddleCustomerId}` collection via
+`upsertPaddleCustomer()`; and `transaction.completed` (plus the two subscription cases above)
+also mirror into the pre-existing `paddle_subscriptions/{firebaseUid}` blob via
+`mirrorLegacyPaddleSubscriptionDoc()`, kept in its original shape on purpose so `getAccessLevel()`
+and the Admin Panel — both already shipped — never regress. Every event type not explicitly
+routed falls to a `default:` branch that acks 200 without processing (defense in depth beyond
+the signature check: a verified signature proves the delivery came from Paddle, not that every
+event type Paddle might ever add is safe to blindly act on). Every upsert is keyed by the real
+Paddle id (`subscriptionId`/`customerId`), not the Firebase uid, and always merge-writes — Paddle
+deliveries are at-least-once and can arrive out of order, so every handler is idempotent by
+construction. A new `subscriptionGrantsAccess(status)` helper (just `PADDLE_ACTIVE_STATUSES =
+['active','trialing']` checked against `status`) is the single source of truth for "does this
+subscription currently grant paid access" — deliberately never inspects `scheduledChange` at all,
+since Paddle itself leaves `status` as `'active'`/`'trialing'` right up until a scheduled
+cancellation/pause actually takes effect (at which point a fresh `subscription.updated` event
+flips `status` itself), so gating purely on `status` already gets "never revoke early on a
+pending scheduled change, only on an actual cancellation" right by construction, with no
+special-casing needed. `getAccessLevel()` now calls this same helper instead of duplicating the
+`PADDLE_ACTIVE_STATUSES.indexOf(...)` check inline. `scheduledChangeAction`/`scheduledChangeAt`
+are still stored on the `subscriptions/{id}` doc for display/audit, just never read by the access
+decision. Every entity is also stored in full as a `raw` field (JSON-round-tripped via
+`toPlainObject()`, since Firestore rejects the SDK's class instances and `undefined` values
+directly) — nothing is lost even where a specific convenience field wasn't extracted.
+`firestore.rules` gained matching `customers/{customerId}`/`subscriptions/{subscriptionId}`
+blocks, same owner-only-read/no-client-write convention as the pre-existing
+`paddle_subscriptions/{docId}` block right above them (a swimmer can read only their own, matched
+by the `firebaseUid` the checkout attached; list/write stay blocked; the one server-side query by
+`firebaseUid`, in `paddleCustomerPortalSession` below, runs through the Admin SDK and bypasses
+these rules entirely, same as every other admin-style lookup in this codebase).
+
+**A new `paddleCustomerPortalSession` Cloud Function lets a signed-in swimmer self-serve payment
+method changes, cancellation, and invoices through Paddle's own hosted customer portal**, wired to
+a new "Manage Billing" button on the Settings tab's new Billing card (`#settingsBillingPortalBtn`).
+The swimmer's Paddle customer id is resolved entirely server-side — a `subscriptions` (falling
+back to `customers`) query by `firebaseUid` against the caller's own verified ID token uid — never
+from anything the client sends in the request body, so no signed-in swimmer can ever request a
+portal session scoped to someone else's billing data by supplying a different customer id. Once
+resolved, `paddle.customerPortalSessions.create(customerId, subscriptionIds)` mints the session and
+the function returns just `session.urls.general.overview`, which the client opens in a new tab. A
+swimmer with no billing record yet (never subscribed) gets a plain 404 with an explanatory message
+rather than a broken portal link. This is the first caller of `PADDLE_API_KEY` — a real Paddle API
+key, a different credential from `PADDLE_WEBHOOK_SECRET` (which only ever verifies a webhook
+delivery, never authenticates an outbound call) — read via a new `defineSecret`, alongside a new
+non-secret `PADDLE_ENVIRONMENT` `defineString` (`'production'` default, `'sandbox'` for a
+dev/local override) that selects which Paddle environment the SDK client points at. Both the
+webhook handler and the portal-session function share one lazily-constructed `Paddle` SDK client
+instance (`getPaddleClient()`) built from these two params.
+
+A `functions/.env.example` was added (and `functions/.gitignore`'s blanket `.env.*` ignore rule
+was given a `!.env.example` exception so it isn't itself gitignored) — it's documentation only,
+listing every secret this codebase's Cloud Functions need and what each is for; every one of them
+is actually backed by Firebase Secret Manager (`firebase functions:secrets:set ...`) at runtime,
+never read from a real `.env` file, except `PADDLE_ENVIRONMENT` (the one non-secret `defineString`
+param), which genuinely can be overridden via a real `functions/.env.<project-id>` file if needed.
+The `functions/index.js` header's GO-LIVE CHECKLIST comment was updated to match: the new
+`PADDLE_API_KEY` secret, the new `customers`/`subscriptions` Firestore rules needing their own
+`firebase deploy --only firestore:rules`, and an explicit list of which Paddle event types to
+select when registering the webhook destination in the Paddle dashboard (everything else is
+safely ignored, not rejected, so over-selecting is harmless).
+
+**Every entity this fulfillment system touches is live, production state — never disposable.**
+The Paddle webhook notification destination and its signing secret (created manually in the
+Paddle dashboard per the checklist above, since no Paddle MCP tool was available in this
+environment to create one programmatically), the three product/price tiers backing the Pricing
+tab's checkout, and every customer/subscription/transaction record in Paddle or in this app's
+Firestore mirror are all real, live fulfillment state — deleting any of them breaks real billing
+event processing for real swimmers, not a test fixture. Nothing along this build touched or
+deleted any of them; all verification of the new SDK-based signature check and typed event
+parsing was done entirely offline, against locally-fabricated test payloads signed with a
+throwaway test secret that was never Paddle's real signing secret and never sent to any live
+Paddle or Cloud Functions endpoint.
+
+**`paddleWebhook` gained a defense-in-depth IP allowlist and cold-start mitigation, and the
+client gained Paddle Retain's `pwCustomer` wiring — all three code-only, no live Paddle account
+access involved.** A sandbox→live migration was requested this round (recreate the product/price
+catalog in live, mint live credentials, configure live account settings) but neither the
+`paddle-sandbox` nor `paddle-live` MCP server the request depended on was actually connected in
+this session (confirmed via `ListConnectors` — only the Higgsfield media connector was present),
+so none of that catalog/credential work was attempted; fabricating it was explicitly ruled out.
+What *was* achievable without live Paddle access: `paddleWebhook` now fetches and caches Paddle's
+published IPv4 ranges (`https://api.paddle.com/ips`, `data.ipv4_cidrs`, 1-hour cache) via
+`fetchPaddleIpRanges()`/`ipInCidr()`/`extractClientIp()` (the last reading the real origin from
+`X-Forwarded-For`, since Cloud Run's own connecting socket is always Google's front end, never
+Paddle's) and rejects (403) any delivery from outside that range — deliberately **fails open**
+(skips the IP check, logs a warning, still enforces the real signature check below) if the fetch
+itself ever fails and no cached list exists yet, since this is defense-in-depth on top of
+`paddle.webhooks.unmarshal()`'s cryptographic verification, never a replacement for it, and an
+unrelated outage fetching Paddle's own IP list should never be able to take down real billing
+event delivery. The list is intentionally never hardcoded, per Paddle's own guidance that it can
+change. Separately, `paddleWebhook` now also sets `minInstances: 1` to keep one instance always
+warm — a hedge against the SDK's hardcoded 5-second (`WebhooksValidator.MAX_VALID_TIME_DIFFERENCE`)
+signature-freshness window being eaten by cold-start latency, at the cost of one always-on Cloud
+Run instance; drop it if that theory gets ruled out. On the client, `window.__resolvePaddleCustomerId(uid)`
+mirrors `paddleCustomerPortalSession`'s own subscriptions-then-customers lookup-by-`firebaseUid`
+(same owner-only Firestore rules, just run client-side), and a new `swimfit:authchange` listener
+calls it on sign-in and re-runs `Paddle.Initialize()` with `pwCustomer: { id: customerId }` once a
+real Paddle customer id is found — the initial page-load `Paddle.Initialize()` call is deliberately
+left to fire immediately without it, since a customer id only exists after a swimmer's first
+subscription and blocking first paint on an auth/Firestore round-trip isn't worth it. A pure
+code-audit of what already existed (no MCP needed) found the client Paddle token is already
+`live_`-prefixed and `Paddle.Environment.set('production')` was already in place on both client
+and server (`PADDLE_ENVIRONMENT` defaults to `'production'`) — i.e. this codebase was not actually
+pointed at sandbox to begin with, so there was no sandbox→live string-swap to perform in the price
+IDs, checkout code, or environment setters. Whether the actual `pri_.../pro_...` catalog IDs and
+the `PADDLE_WEBHOOK_SECRET`/`PADDLE_API_KEY` secret *values* are genuinely live-account credentials
+(as opposed to sandbox values that merely share the same ID format) is **not verifiable from code
+alone** and still depends on the missing MCP connection or the user's own dashboard access. A
+pre-verification content audit (also code-only) found the footer's Privacy Policy and Terms of
+Service links are both literal `href="#"` placeholders, and there is no Refund/Cancellation Policy
+link or page anywhere in the site at all — a real gap for Paddle's account verification, which
+this round only surfaced, did not fix (no policy copy was drafted, since that's a business/legal
+decision, not a coding one). Contact info is fine as-is (a `mailto:` link sits in the footer,
+reachable from any page). Live-domain-resolution and pricing-page-vs-live-catalog checks could not
+be completed either — this sandbox's own outbound network policy returned a 403 on direct fetches
+to both `swimfit.online` and `api.paddle.com` (confirmed via a direct `curl`, ruling out a
+Paddle-side or auth-side cause), independent of the missing MCP servers.
+
+**A wide cross-app round touching Settings, Support, AI Coach, Gym, Workouts, the PB Tracker,
+the Home page, and Pricing/trial.** Settings was live-audited (Playwright against the Firestore
+emulator/mock) rather than rewritten — Units, Notifications, Export CSV, the Billing portal
+button, and the avatar-remove edge case were all found already wired to real persistence with no
+mock/placeholder logic, so nothing there needed fixing.
+
+The **Support tab** (and the matching floating admin-chat widget) now shows an instant, no-wait
+greeting bubble — "Hello! Welcome to the Swimfit Support Team. How can I assist you today?" —
+the moment either surface opens with an empty thread, replacing the old, blander empty-state
+copy. This is a purely client-rendered canned greeting, never written to Firestore as a fake
+admin message (which would misrepresent a bot reply as a real admin one and pollute the Admin
+Panel's own inbox view) — the underlying channel is still the same real human `admin_chats`
+messaging system it always was, not an AI chatbot; a literal AI-backed "Support" channel would
+conflict with `aiSwimCoach`'s own system prompt, which explicitly refuses non-swimming topics
+including account/billing questions. The Support tab also picked up a real visual upgrade: a
+`.support-page-header` identity strip (avatar, "Swimfit Support Team" name, a pulsing "Online
+now" status dot) and a `.support-trust-row` of three trust badges (real-time replies, a real
+human team, account & billing help) above the chat shell, plus a gradient-bordered, glow-shadowed
+`.support-page-shell` distinct from the plain Coach page shell it's built on top of.
+
+The **full-screen AI Coach page** got an equivalent `.coach-page-header` identity strip (bot
+avatar, "AI Swim Coach" name, a pulsing "Ready to help" status dot) and a refined active-thread
+indicator (a solid `aqua` inset left border on `.coach-thread-item.is-active`, replacing a flat
+background-only highlight) for a sleeker, more product-like feel. Its existing per-thread
+Firestore persistence (`coach_threads/{uid}/threads/{threadId}`, already fully automatic — every
+message, image, and thread already survived a refresh before this round) needed no changes; this
+round's real addition is **video upload**: since Claude's API takes images, not raw video, a
+selected video file is never uploaded whole — `extractVideoFrames()` decodes it into an offscreen
+`<video>`, seeks to 3 evenly-spaced timestamps (10%/50%/90% of duration), and captures each via
+canvas into a JPEG through the exact same `compressImageFile()`-style downscale/encode pipeline
+already used for photos, then feeds those frames into the same `pendingImages` array and the same
+3-image-per-message cap `aiSwimCoach` already enforces server-side — no backend changes were
+needed at all, since the endpoint only ever sees images either way. This is deliberately framed as
+"the coach reviews key frames from your clip," not full motion/video understanding, since that's
+an honest description of what a vision-only model can actually do with extracted stills.
+
+**Gym gained a fifth focus, Flexibility & Agility** (`GYM_FOCUS.flexibility`), a modality like
+Cardio rather than a muscle-group split — real mobility/agility work (Leg Swings, World's
+Greatest Stretch, Bird Dog, 90/90 Hip Switches, a Deep Squat Hold, an Agility Ladder drill,
+Lateral Bounds, Walking Lunges with Rotation, a Cone Shuffle Drill, and cooldown stretches)
+across the same Warm-Up/Core/Main/Cool-Down phase structure every other focus uses. Left out of
+`GYM_WEEKLY_ROTATION` on purpose, same precedent as Cardio — it's manually-selected only, not
+part of the auto-rotating Upper/Lower/Full cycle. Most of its exercises reuse existing
+`GYM_ANIM_MAP` archetypes (`legswing`, `birddog`, `pigeon`, `squat`, `lunge`, `hinge`,
+`sidelean`, `foamroll`, `kneellunge`) rather than new hand-drawn SVGs, since those poses already
+existed and matched closely; only the Agility Ladder and Cone Shuffle drills fall back to the
+existing generic animation, a disclosed trade-off rather than inventing new archetypes for two
+exercises.
+
+**The Workout Generator's Speed-vs-Endurance-vs-Technique focus picker already existed**
+(`state.goal`/`GOALS`, feeding `generateWorkout()`'s pacing and Gym's own sprint/distance
+orientation) — this round's real work was making the **result panel compact**: each of the four
+stage blocks (Warm-Up, Pre-Set, Main Set, Cool-Down) now renders as a native `<details>`/
+`<summary>` disclosure (`renderBlock(..., openByDefault)`) instead of an always-expanded `<div>`,
+with Main Set open by default and the three supporting stages collapsed, plus a "N sets" count in
+each collapsed summary so there's still useful information at a glance without expanding
+anything. `extractStructuredWorkout()` (the PDF export's DOM reader) was updated to strip that
+count span's text back out when reading a block's title, so the PDF still shows a clean "Warm-Up"
+rather than "Warm-Up3 sets" — verified the PDF export still fires correctly after this change.
+
+**The Personal Best Tracker's distance picker now goes up to 1500m** (`#trackerPbDistance`
+gained `800m`/`1500m` options, on top of the existing 50/100/200/400m) — `parseTimeToSeconds()`
+and `formatTime()` already handled arbitrarily-large minute values correctly (an 18:32 1500m swim
+parses/round-trips with no code changes needed), so this was purely an options-list addition,
+verified by actually logging an 18:32 1500m PB end-to-end into the mock Firestore.
+
+**The Hero's stat row was rebuilt around one new, genuinely live counter.** The three static
+feature-count tiles (Disciplines/Skill Tracks/Gym Focuses) were removed, and a new **"Total
+Active Subscribers"** tile sits alongside the existing live "Registered Swimmers" one — both read
+the same public `stats/counters` doc via `onSnapshot`, both hide gracefully if Firestore can't be
+reached. The new `activeSubscriberCount` field is maintained by a brand-new Firestore trigger,
+`exports.onSubscriptionWrite` (`onDocumentWritten('subscriptions/{subscriptionId}', ...)`,
+`firebase-functions/v2/firestore`) — it compares before/after `status` on every write to the
+`subscriptions` collection (the same per-Paddle-entity mirror `paddleWebhook` already maintains)
+through the existing `subscriptionGrantsAccess()` helper, and increments/decrements the counter
+by exactly 1 only when a write crosses the active/not-active boundary (e.g. `trialing` →
+`active` produces no delta at all, since both count as active) — this is the only place that
+counter is ever written, so it can never drift from what `getAccessLevel()` itself would compute.
+A swimmer has no read access to any subscription but their own, so this genuinely could not be
+computed client-side.
+
+That same round did a **light copy pass for brand neutrality and plain language**: every literal
+"UAE"/"Emirates" reference was removed from user-visible copy (the Hero eyebrow, the Pricing
+FAQ's currency note — which now just says "billed directly in AED" — and the Settings country
+field's example placeholder), in both English and Arabic, while deliberately leaving AED itself
+as the billing currency untouched, since removing a *brand* reference to a region is a different,
+much smaller change than changing the actual currency Paddle bills in — the latter wasn't asked
+for and isn't something this sandbox could safely do without live Paddle catalog access anyway.
+Separately, every user-visible "dashboard" mention (the `<title>`, the meta description, the Hero
+subhead in both languages, the auth modal subtitle, the About section and footer taglines, the
+App Preview heading and its mocked browser-chrome URL bar, and a footer nav column literally
+titled "Dashboard") was reworded to "platform" (or, for the footer column, renamed to "Explore")
+— internal implementation details like the `#dashboard` element id, `.dashboard` CSS classes, and
+the `dashboard` JS variable were deliberately left alone, since those are plumbing, not copy a
+swimmer ever reads.
+
+**The free trial dropped from 7 days to 3**, everywhere the number appeared: `TRIAL_DAYS` (both
+the client constant and the server-side one in `functions/index.js`, which independently gates
+`aiSwimCoach`), the Admin Panel's own `ADMIN_TRIAL_DAYS` and its "+7 Day Trial" grant button (now
+"+3 Day Trial" — changed for consistency, since leaving the admin's manual grant at 7 days while
+new signups got 3 would read as a confusing inconsistency rather than a deliberate goodwill
+gesture), and every piece of marketing copy mentioning the old number (the Offers Strip cards,
+the entrance promo popup badge, the Pricing tab's own sub-copy). Distinct "7 days"/"7-day"
+mentions that were never about the trial at all — a Gym AI prompt chip asking for "a full week (7
+days)" of programming, and a code comment about the Distance Tracker's chart needing "full 7-day
+coverage" for its weekly view — were correctly left untouched, since a calendar week is still 7
+days regardless of the trial length.
+
+**Every "Subscribe" button on the Pricing tab is now "Get Started," with a persistent, color-
+matched glow** (`.btn-cta-glow`, a slow breathing box-shadow — green for Elite's `.btn-primary`,
+aqua for Pro's `.btn-ghost`, maroon for Ultra's `.btn-outline-maroon` — via three keyframe
+variants keyed off the button's own existing class, so the glow always reads as a natural
+extension of that button's own accent color rather than a mismatched effect; disabled under
+`prefers-reduced-motion` down to a static shadow). No JS logic anywhere keyed off the literal
+string "Subscribe," so the relabel was copy-only — verified via a full click-through that
+`data-plan` (not button text) still drives checkout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Swimfit — Premium Swim Training Dashboard</title>
-<meta name="description" content="Swimfit is a premium swim-training dashboard: build a custom daily workout by discipline, distance, equipment and goal, pick your dryland focus, and manage your membership — for beginners through elite athletes.">
+<title>Swimfit — Premium Swim Training Platform</title>
+<meta name="description" content="Swimfit is a premium swim-training platform: build a custom daily workout by discipline, distance, equipment and goal, pick your dryland focus, and manage your membership — for beginners through elite athletes.">
 <meta name="theme-color" content="#070B0A">
 <script>
   // Runs synchronously, before first paint, so a visitor who already dismissed
@@ -87,7 +87,7 @@
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
-    collection, addDoc, query, where, orderBy, getDocs, Timestamp, runTransaction
+    collection, addDoc, query, where, orderBy, limit, getDocs, Timestamp, runTransaction
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
   // Your web app's Firebase configuration
@@ -124,6 +124,24 @@
   // the same as any other "please sign in" case.
   window.__firebaseGetIdToken = function () {
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
+  };
+
+  // Resolves this swimmer's own Paddle customer id (ctm_...) for Paddle
+  // Retain's pwCustomer — mirrors the exact same subscriptions-then-customers
+  // lookup-by-firebaseUid the paddleCustomerPortalSession Cloud Function does
+  // server-side (see functions/index.js), just run client-side against the
+  // owner-only read rules already in firestore.rules for both collections.
+  // Resolves to null (not an error) for a swimmer with no billing record yet —
+  // that's the normal case for anyone who hasn't subscribed.
+  window.__resolvePaddleCustomerId = function (uid) {
+    var subQ = query(collection(db, 'subscriptions'), where('firebaseUid', '==', uid), limit(1));
+    return getDocs(subQ).then(function (snap) {
+      if (!snap.empty) return snap.docs[0].data().customerId || snap.docs[0].id;
+      var custQ = query(collection(db, 'customers'), where('firebaseUid', '==', uid), limit(1));
+      return getDocs(custQ).then(function (custSnap) {
+        return custSnap.empty ? null : (custSnap.docs[0].data().customerId || custSnap.docs[0].id);
+      });
+    }).catch(function () { return null; });
   };
 
   // Persisted AI Coach chat history for the full-screen Coach page — any
@@ -326,7 +344,7 @@
         payload.trialStartedAt = serverTimestamp();
       } else if (!existingTrialStart) {
         // Pre-existing account from before the trial system shipped — grandfather
-        // a fresh 7-day trial starting now instead of retroactively locking them
+        // a fresh 3-day trial starting now instead of retroactively locking them
         // out based on a signup date from before this feature existed.
         payload.trialStartedAt = serverTimestamp();
       }
@@ -364,6 +382,35 @@
       tile.style.display = 'none';
     }
   }
+  // Live "Total Active Subscribers" counter — mirrors wireRegisteredUsersCounter()
+  // above, reading activeSubscriberCount off the SAME public stats/counters doc.
+  // That field is maintained server-side by onSubscriptionWrite (functions/index.js),
+  // a Firestore trigger on subscriptions/{subscriptionId} that increments/decrements
+  // it whenever a subscription's status crosses the active/trialing boundary — never
+  // computed client-side, since a swimmer has no read access to any subscription but
+  // their own.
+  function wireActiveSubscribersCounter() {
+    var el = document.getElementById('activeSubscribersCount');
+    var tile = document.getElementById('activeSubscribersStat');
+    if (!el || !tile) return;
+    var settled = false;
+    var timeout = setTimeout(function () { if (!settled) tile.style.display = 'none'; }, 8000);
+    try {
+      onSnapshot(doc(db, 'stats', 'counters'), function (snap) {
+        settled = true;
+        clearTimeout(timeout);
+        var count = snap.exists() && typeof snap.data().activeSubscriberCount === 'number' ? snap.data().activeSubscriberCount : null;
+        if (count == null) { tile.style.display = 'none'; return; }
+        tile.style.display = '';
+        animateCountTo(el, count);
+      }, function () {
+        settled = true;
+        tile.style.display = 'none';
+      });
+    } catch (e) {
+      tile.style.display = 'none';
+    }
+  }
   function animateCountTo(el, target) {
     var start = parseInt(el.textContent, 10) || 0;
     var startTime = null, duration = 900;
@@ -389,7 +436,7 @@
   // functions/index.js (getAccessLevel), which enforces the same thing for
   // the one call that costs money (aiSwimCoach): full access unless
   // accessDisabled.
-  var TRIAL_DAYS = 7;
+  var TRIAL_DAYS = 3;
   var latestSubscriptionDoc = null; // last paddle_subscriptions/{uid} snapshot data, or null
   var unsubscribeSubscriptionDoc = null;
   var latestAccessDisabled = false; // live users/{uid}.accessDisabled — an admin-set manual suspension
@@ -542,7 +589,7 @@
 
     logoutBtn.addEventListener('click', function () { signOut(auth); });
 
-    if (!passwordAuthForm) { wireRegisteredUsersCounter(); return; }
+    if (!passwordAuthForm) { wireRegisteredUsersCounter(); wireActiveSubscribersCounter(); return; }
 
     // ============================= PASSWORD AUTH =============================
     // The only registration/sign-in path: Full Name + Username + Email +
@@ -707,6 +754,7 @@
     };
 
     wireRegisteredUsersCounter();
+    wireActiveSubscribersCounter();
   }
 
   // Backs the live "is this available?" check in the Create Account form's
@@ -962,6 +1010,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .btn-outline-aqua { background: transparent; color: var(--aqua); border: 1px solid var(--aqua); }
 .btn-outline-aqua:hover { background: var(--aqua); color: var(--bg); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(34,211,238,0.25); }
 .btn-block { width: 100%; }
+
+/* Pricing CTA glow — a slow, subtle breathing shadow (not the one-shot
+   .btn-pulse above) that draws the eye to the plan buttons without being
+   obnoxious. Color matches each button's own existing accent so it reads as
+   a natural extension of the button, not a mismatched effect. */
+@keyframes ctaGlowGreen { 0%, 100% { box-shadow: 0 4px 18px rgba(46,204,129,0.25); } 50% { box-shadow: 0 4px 28px rgba(46,204,129,0.55); } }
+@keyframes ctaGlowAqua { 0%, 100% { box-shadow: 0 4px 18px rgba(34,211,238,0.18); } 50% { box-shadow: 0 4px 28px rgba(34,211,238,0.45); } }
+@keyframes ctaGlowMaroon { 0%, 100% { box-shadow: 0 4px 18px rgba(196,59,92,0.18); } 50% { box-shadow: 0 4px 28px rgba(196,59,92,0.45); } }
+.btn-cta-glow { animation: ctaGlowGreen 2.6s ease-in-out infinite; }
+.btn-ghost.btn-cta-glow { animation-name: ctaGlowAqua; }
+.btn-outline-maroon.btn-cta-glow { animation-name: ctaGlowMaroon; }
+@media (prefers-reduced-motion: reduce) { .btn-cta-glow { animation: none; box-shadow: 0 4px 20px rgba(46,204,129,0.35); } }
 .btn-sm { padding: 0.6em 1.2em; font-size: 0.85rem; min-height: 38px; }
 
 /* ============================= NAV (also the app's tab controller) ============================= */
@@ -1445,8 +1505,20 @@ section { position: relative; scroll-margin-top: 96px; }
 .workout-block:nth-of-type(4) { animation-delay: 270ms; }
 .workout-block:nth-of-type(5) { animation-delay: 360ms; }
 @keyframes blockIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
-.workout-block-title { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; color: var(--aqua); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2); }
+.workout-block-title {
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; color: var(--aqua);
+  margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);
+  cursor: pointer; list-style: none;
+}
+.workout-block-title::-webkit-details-marker { display: none; }
+.workout-block-title::before {
+  content: ''; width: 9px; height: 9px; flex-shrink: 0; border-right: 2px solid var(--aqua); border-bottom: 2px solid var(--aqua);
+  transform: rotate(-45deg); transition: transform var(--dur) var(--ease);
+}
+.workout-block[open] > .workout-block-title::before { transform: rotate(45deg); }
 .workout-block-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.workout-block-count { text-transform: none; letter-spacing: normal; color: var(--muted-2); font-size: 0.78rem; flex-shrink: 0; }
+.workout-block:not([open]) { padding-bottom: var(--space-2); }
 .coach-intent { display: flex; gap: 10px; align-items: flex-start; background: var(--bg-alt); border-left: 3px solid var(--aqua); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); }
 .coach-intent .icon { width: 16px; height: 16px; color: var(--aqua); flex-shrink: 0; margin-top: 3px; }
 .coach-intent-label { font-family: var(--font-display); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.07em; color: var(--aqua); display: block; margin-bottom: 3px; }
@@ -1840,6 +1912,46 @@ body.paywall-locked { overflow: hidden; }
 .coach-page-locked h3 { color: var(--fg); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .coach-page-locked p { max-width: 40ch; }
 
+/* Support tab — a distinct, more vibrant/trust-forward treatment layered on
+   top of the shared .coach-page-shell, since this surface is the one place
+   a swimmer with an actual account/billing problem lands and needs to feel
+   confident a real team is on the other end. */
+.support-trust-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+.support-trust-badge {
+  display: flex; align-items: center; gap: 0.5em; font-size: 0.82rem; color: var(--fg);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.5em 1em;
+}
+.support-trust-badge .icon { width: 16px; height: 16px; color: var(--aqua); }
+.support-page-shell {
+  border-image: linear-gradient(135deg, var(--aqua), var(--green-bright)) 1;
+  border-width: 1.5px; border-style: solid;
+  box-shadow: var(--shadow-2), 0 0 40px -20px var(--aqua);
+}
+.support-page-header {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0;
+}
+.support-page-avatar {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--aqua), var(--green-bright)); color: var(--on-green);
+  box-shadow: 0 2px 12px rgba(34,211,238,0.3);
+}
+.support-page-avatar .icon { width: 22px; height: 22px; }
+.support-page-header-body { display: flex; flex-direction: column; gap: 2px; }
+.support-page-header-name { font-weight: 700; color: var(--fg); font-size: 0.98rem; }
+.support-page-header-status { display: flex; align-items: center; gap: 0.4em; font-size: 0.78rem; color: var(--muted); }
+.support-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(19,168,102,0.6); animation: support-pulse 2s infinite;
+}
+@keyframes support-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(19,168,102,0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(19,168,102,0); }
+  100% { box-shadow: 0 0 0 0 rgba(19,168,102,0); }
+}
+@media (prefers-reduced-motion: reduce) { .support-status-dot { animation: none; } }
+
 /* Multi-thread layout: a fixed sidebar of named conversations beside the
    existing chat pane, both scrolling independently within the same
    .coach-page-shell height. */
@@ -1861,7 +1973,10 @@ body.paywall-locked { overflow: hidden; }
   cursor: pointer; border: 1px solid transparent; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .coach-thread-item:hover { background: var(--surface); }
-.coach-thread-item.is-active { background: var(--surface-2); border-color: var(--aqua); }
+.coach-thread-item.is-active {
+  background: var(--surface-2); border-color: var(--aqua);
+  box-shadow: inset 3px 0 0 0 var(--aqua);
+}
 .coach-thread-item-body { flex: 1; min-width: 0; }
 .coach-thread-item-title { font-size: 0.86rem; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .coach-thread-item-preview { font-size: 0.74rem; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1879,6 +1994,25 @@ body.paywall-locked { overflow: hidden; }
   .coach-threads-quickstart { flex-direction: row; flex-wrap: wrap; margin-bottom: 0; margin-right: var(--space-2); }
   .coach-threads-list { flex-direction: row; flex-wrap: wrap; }
 }
+
+.coach-page-header {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0;
+}
+.coach-page-avatar {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--aqua), var(--maroon-bright, var(--aqua))); color: var(--on-green, #04231c);
+  box-shadow: 0 2px 12px rgba(34,211,238,0.3);
+}
+.coach-page-avatar .icon { width: 22px; height: 22px; }
+.coach-page-header-body { display: flex; flex-direction: column; gap: 2px; }
+.coach-page-header-name { font-weight: 700; color: var(--fg); font-size: 0.98rem; }
+.coach-page-header-status { display: flex; align-items: center; gap: 0.4em; font-size: 0.78rem; color: var(--muted); }
+.coach-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--aqua); flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(34,211,238,0.6); animation: support-pulse 2s infinite;
+}
+@media (prefers-reduced-motion: reduce) { .coach-status-dot { animation: none; } }
 
 .coach-page-prompts { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-4) var(--space-5) 0; }
 .coach-prompt-chip {
@@ -2377,18 +2511,16 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
 
   <div class="wrap hero-content">
-    <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training · UAE</p>
+    <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training</p>
     <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Command the Water.<br>Own the <span class="accent">Race.</span></h1>
-    <p data-reveal data-i18n="hero.sub">A live training dashboard — build your own swim set, pick tonight's gym focus, and manage your membership, all without a single long scroll.</p>
+    <p data-reveal data-i18n="hero.sub">A live training platform — build your own swim set, pick tonight's gym focus, and manage your membership, all without a single long scroll.</p>
     <div class="hero-actions" data-reveal>
       <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1">Build My Workout</button>
       <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
     </div>
     <div class="hero-stats" data-reveal>
-      <div class="stat"><strong data-count="5">0</strong><span>Disciplines</span></div>
-      <div class="stat"><strong data-count="3">0</strong><span>Skill Tracks</span></div>
-      <div class="stat"><strong data-count="4">0</strong><span>Gym Focuses</span></div>
       <div class="stat" id="registeredUsersStat" style="display:none"><strong id="registeredUsersCount">0</strong><span>Registered Swimmers</span></div>
+      <div class="stat" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span></div>
     </div>
   </div>
 </header>
@@ -2399,7 +2531,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="section-head center">
       <p class="eyebrow" style="justify-content:center">What Is Swimfit?</p>
       <h2>The Dynamic Training Platform For Every Swimmer</h2>
-      <p>Swimfit is the ultimate dynamic training platform for beginner, competitive and elite swimmers — one dashboard that builds your workout, your gym session and your race prep around exactly where you are today.</p>
+      <p>Swimfit is the ultimate dynamic training platform for beginner, competitive and elite swimmers — one place that builds your workout, your gym session and your race prep around exactly where you are today.</p>
     </div>
     <div class="grid grid-3">
       <div class="card about-pillar" data-reveal="scale">
@@ -2428,7 +2560,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="offer-card-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
       <div class="offer-card-body">
         <span class="offer-card-eyebrow">New Here?</span>
-        <h3>7 Days, Fully Free</h3>
+        <h3>3 Days, Fully Free</h3>
         <p>Every new account gets full platform access from day one — every swim track, Gym Focus, the AI Coach and Distance Tracker — free for a full week. No card required to start.</p>
         <button type="button" class="btn btn-outline-aqua btn-sm" id="offerTrialCtaBtn" data-auth-signed-out>Start Free Trial</button>
       </div>
@@ -2451,13 +2583,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="wrap">
     <div class="section-head center">
       <p class="eyebrow" style="justify-content:center">Inside The App</p>
-      <h2>A Peek At Your Training Dashboard</h2>
+      <h2>A Peek At Your Training Platform</h2>
       <p>Every swim logged, every gym session tracked, every specialization dialed in — here's a taste of what's waiting after you sign in.</p>
     </div>
     <div class="app-preview-frame" data-reveal="scale">
       <div class="app-preview-chrome">
         <span class="app-preview-dot"></span><span class="app-preview-dot"></span><span class="app-preview-dot"></span>
-        <span>swimfit.online/dashboard</span>
+        <span>swimfit.online/app</span>
       </div>
       <div class="app-preview-body">
         <div class="app-preview-card">
@@ -2580,8 +2712,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Members-Only Training Area</h3>
-        <p>Register free to unlock the full Swim Workout Generator — 7 days of complete premium access across the entire platform, no card required.</p>
-        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 7-Day Trial</button>
+        <p>Register free to unlock the full Swim Workout Generator — 3 days of complete premium access across the entire platform, no card required.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 3-Day Trial</button>
       </div>
 
       <div data-auth-signed-in style="display:none">
@@ -2765,8 +2897,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Members-Only Training Area</h3>
-        <p>Register free to unlock every dryland Gym plan with live technique demos — 7 days of complete premium access, no card required.</p>
-        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 7-Day Trial</button>
+        <p>Register free to unlock every dryland Gym plan with live technique demos — 3 days of complete premium access, no card required.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 3-Day Trial</button>
       </div>
 
       <div data-auth-signed-in style="display:none">
@@ -2799,6 +2931,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
         <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
         <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
+        <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
       </div>
       <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
       <div id="gymGrid"></div>
@@ -2878,6 +3011,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <div class="coach-threads-list" id="coachThreadsList"></div>
           </aside>
           <div class="coach-threads-main">
+            <div class="coach-page-header">
+              <div class="coach-page-avatar"><svg class="icon"><use href="#i-bolt"/></svg></div>
+              <div class="coach-page-header-body">
+                <span class="coach-page-header-name">AI Swim Coach</span>
+                <span class="coach-page-header-status"><span class="coach-status-dot"></span> Ready to help</span>
+              </div>
+            </div>
             <div class="coach-page-prompts" id="coachPagePrompts">
               <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
               <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
@@ -2888,17 +3028,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
             <form class="coach-page-form" id="coachPageForm">
               <div class="coach-page-form-row">
-                <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach or take a photo">
+                <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach a photo or video">
                   <svg class="icon"><use href="#i-camera"/></svg>
                 </button>
-                <input type="file" id="coachPageFileInput" accept="image/*" multiple capture="environment" hidden>
+                <input type="file" id="coachPageFileInput" accept="image/*,video/*" multiple capture="environment" hidden>
                 <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
-                <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo…" maxlength="2000"></textarea>
+                <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo/video…" maxlength="2000"></textarea>
                 <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
                   <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
                 </button>
               </div>
-              <p class="coach-page-hint" id="coachPageHint">Up to 3 photos per message · JPEG, PNG, WEBP or GIF</p>
+              <p class="coach-page-hint" id="coachPageHint">Up to 3 photos per message (or key frames from one video) · JPEG, PNG, WEBP, GIF, or a short video clip</p>
             </form>
           </div>
         </div>
@@ -3027,6 +3167,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <option value="100m">100m</option>
               <option value="200m">200m</option>
               <option value="400m">400m</option>
+              <option value="800m">800m</option>
+              <option value="1500m">1500m</option>
             </select>
             <label for="trackerPbTime" class="sr-only">Time</label>
             <input type="text" id="trackerPbTime" class="form-input" placeholder="Time — e.g. 0:32 or 1:05" required>
@@ -3053,6 +3195,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <p data-i18n="support.sub">Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.</p>
       </div>
 
+      <div class="support-trust-row" data-auth-signed-in style="display:none">
+        <div class="support-trust-badge"><svg class="icon"><use href="#i-bolt"/></svg> Real-time replies</div>
+        <div class="support-trust-badge"><svg class="icon"><use href="#i-user"/></svg> A real human team</div>
+        <div class="support-trust-badge"><svg class="icon"><use href="#i-lock"/></svg> Account &amp; billing help</div>
+      </div>
+
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Sign In To Contact Support</h3>
@@ -3061,6 +3209,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div class="coach-page-shell support-page-shell" data-auth-signed-in style="display:none">
+        <div class="support-page-header">
+          <div class="support-page-avatar"><svg class="icon"><use href="#i-droplet"/></svg></div>
+          <div class="support-page-header-body">
+            <span class="support-page-header-name">Swimfit Support Team</span>
+            <span class="support-page-header-status"><span class="support-status-dot"></span> Online now</span>
+          </div>
+        </div>
         <div class="coach-messages coach-page-messages" id="supportPageMessages"></div>
         <form class="coach-page-form" id="supportPageForm">
           <div class="coach-page-form-row">
@@ -3123,7 +3278,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 </div>
                 <div class="profile-field">
                   <label for="settingsCountry">Country</label>
-                  <input type="text" id="settingsCountry" maxlength="60" placeholder="e.g. United Arab Emirates">
+                  <input type="text" id="settingsCountry" maxlength="60" placeholder="e.g. Canada">
                 </div>
                 <div class="profile-field">
                   <label for="settingsAge">Age</label>
@@ -3182,6 +3337,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
 
           <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-lane"/></svg> Billing</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Manage your payment method, view invoices, or cancel your subscription through Paddle's secure billing portal — opens in a new tab.</p>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="settingsBillingPortalBtn">Manage Billing</button>
+            <p class="settings-save-status" id="settingsBillingPortalStatus"></p>
+          </div>
+
+          <div class="settings-card">
             <h3><svg class="icon"><use href="#i-download"/></svg> Export Your Data</h3>
             <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Download every swim you’ve logged and every Personal Best on record as a CSV file, for your own records or to import elsewhere.</p>
             <button type="button" class="btn btn-outline-aqua btn-sm" id="settingsExportBtn">Export My Data (CSV)</button>
@@ -3197,7 +3359,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center" data-i18n="pricing.eyebrow">Membership</p>
         <h2 data-i18n="pricing.heading">Simple Pricing, Serious Results</h2>
-        <p>Every new account starts with a <strong style="color:var(--fg)">free 7-day trial</strong> of full platform access. Billed in AED after that. Cancel anytime.</p>
+        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access. Billed in AED after that. Cancel anytime.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card" data-reveal>
@@ -3210,7 +3372,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Floating AI Coach widget (chat only)</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker</li>
           </ul>
-          <button type="button" class="btn btn-ghost btn-block" data-plan="pro">Subscribe</button>
+          <button type="button" class="btn btn-ghost btn-block btn-cta-glow" data-plan="pro">Get Started</button>
         </div>
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
@@ -3226,7 +3388,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Photo analysis (workout logs, gear, technique)</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
           </ul>
-          <button type="button" class="btn btn-primary btn-block" data-plan="elite">Subscribe</button>
+          <button type="button" class="btn btn-primary btn-block btn-cta-glow" data-plan="elite">Get Started</button>
         </div>
         <div class="price-card" data-reveal>
           <span class="price-badge price-badge-maroon">Includes 2 Months Free!</span>
@@ -3240,7 +3402,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Early access to new tracks</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Downloadable training plans</li>
           </ul>
-          <button type="button" class="btn btn-outline-maroon btn-block" data-plan="ultra">Subscribe</button>
+          <button type="button" class="btn btn-outline-maroon btn-block btn-cta-glow" data-plan="ultra">Get Started</button>
         </div>
       </div>
       <p class="price-note">Prices shown in AED · VAT where applicable · Email us anytime to manage or cancel your membership.</p>
@@ -3264,7 +3426,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </details>
         <details class="faq-item">
           <summary>How does AED billing work?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">All plans are priced and billed directly in UAE Dirhams (AED) through our secure checkout — no currency conversion surprises.</div>
+          <div class="faq-body">All plans are priced and billed directly in AED through our secure checkout — no currency conversion surprises.</div>
         </details>
         <details class="faq-item">
           <summary>What happens when my free trial ends?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -3346,7 +3508,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="footer-top">
       <div class="footer-brand">
         <img src="data:image/png;base64,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" alt="Swimfit" width="150" height="26">
-        <p>Premium swim training for beginners, competitive swimmers and elite athletes. A dashboard that builds your workout, your gym session and your race prep — all in one lane.</p>
+        <p>Premium swim training for beginners, competitive swimmers and elite athletes. A platform that builds your workout, your gym session and your race prep — all in one lane.</p>
         <div class="social-row" style="margin-top:16px">
           <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
           <a href="https://www.tiktok.com/@swimfit.ae" target="_blank" rel="noopener" aria-label="TikTok"><svg class="icon"><use href="#i-tiktok"/></svg></a>
@@ -3354,7 +3516,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
       </div>
       <div class="footer-col">
-        <h4>Dashboard</h4>
+        <h4>Explore</h4>
         <ul>
           <li><button type="button" data-tab="workouts">Workout Generator</button></li>
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
@@ -3414,7 +3576,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
     <h3 id="authModalTitle">Sign In to Swimfit</h3>
-    <p id="authModalSubtitle">Quick access to your training dashboard.</p>
+    <p id="authModalSubtitle">Quick access to your training platform.</p>
     <button type="button" class="google-btn" id="googleLoginBtn">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -3463,7 +3625,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <button type="button" class="promo-popup-close" id="promoPopupClose" aria-label="Close">
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
-    <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 7-Day Free Trial</div>
+    <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 3-Day Free Trial</div>
     <h2 id="promoPopupTitle">Train Like It&rsquo;s Race Season</h2>
     <p class="promo-popup-copy">Register free and get complete access to the entire platform — no card required, and nothing locks later.</p>
     <ul class="promo-popup-perks">
@@ -4194,7 +4356,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // <head>); Sign In only needs Email + Password.
   var AUTH_MODE_COPY = {
     signin: {
-      title: 'Sign In to Swimfit', subtitle: 'Quick access to your training dashboard.',
+      title: 'Sign In to Swimfit', subtitle: 'Quick access to your training platform.',
       google: 'Continue with Google', password: 'Sign In'
     },
     signup: {
@@ -4309,19 +4471,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var pendingSubscribePlan = null;
   var paddleReady = false;
 
+  function paddleEventCallback(event) {
+    if (event.name === 'checkout.completed') {
+      alert('Thanks for subscribing to Swimfit! A confirmation is on its way to your email.');
+    }
+  }
+
   if (window.Paddle && PADDLE_CLIENT_TOKEN.indexOf('REPLACE_WITH_') !== 0) {
     try {
       Paddle.Environment.set('production');
-      Paddle.Initialize({
-        token: PADDLE_CLIENT_TOKEN,
-        eventCallback: function (event) {
-          if (event.name === 'checkout.completed') {
-            alert('Thanks for subscribing to Swimfit! A confirmation is on its way to your email.');
-          }
-        }
-      });
+      Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: paddleEventCallback });
       paddleReady = true;
     } catch (e) {}
+  }
+
+  // Paddle Retain's pwCustomer identifies the signed-in customer to Paddle so
+  // its dunning/recovery features (e.g. failed-payment emails) attach to the
+  // right account — but a customer id (ctm_...) only exists once a swimmer
+  // has actually subscribed at least once, and isn't known at the initial
+  // page-load Initialize() call above (which must still run immediately, for
+  // a signed-out visitor or a never-subscribed swimmer). Re-initializing
+  // Paddle.js after resolving the id is the documented way to attach it once
+  // it's known, without blocking the first Initialize() on an auth/Firestore
+  // round-trip. Only ever fires with a REAL Paddle customer id — never the
+  // Firebase uid or email — per Paddle's own pwCustomer contract.
+  if (paddleReady) {
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user || typeof window.__resolvePaddleCustomerId !== 'function') return;
+      window.__resolvePaddleCustomerId(e.detail.user.uid).then(function (customerId) {
+        if (!customerId) return;
+        try {
+          Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: paddleEventCallback, pwCustomer: { id: customerId } });
+        } catch (e) {}
+      });
+    });
   }
 
   function goToPaddleCheckout(plan) {
@@ -4745,7 +4928,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // rounds is an array of { label, sets } — label is a short round title
   // (e.g. "Round 1 — Build Pace") or null/undefined for a flat, single-round
   // block like Warm-Up/Cool-Down where a "round" heading would just be noise.
-  function renderBlock(name, rounds, intent) {
+  // Native <details>/<summary> keeps every stage's full content in the DOM
+  // (still readable by extractStructuredWorkout() for the PDF export and
+  // still findable by browser find-in-page/screen readers) while collapsing
+  // it visually — the compact "at a glance" view the result panel needs,
+  // without a second parallel summarized data structure to keep in sync.
+  // Main Set stays open by default (the stage a swimmer actually came for);
+  // Warm-Up/Pre-Set/Cool-Down start collapsed since they're supporting work.
+  function renderBlock(name, rounds, intent, openByDefault) {
     var totalSets = rounds.reduce(function (n, r) { return n + r.sets.length; }, 0);
     if (!totalSets) return '';
     var body = rounds.map(function (round) {
@@ -4763,7 +4953,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var intentHtml = intent
       ? '<div class="coach-intent">' + icon('i-target') + '<div><span class="coach-intent-label">Coach’s Intent — Why This Set</span><span class="coach-intent-body">' + intent + '</span></div></div>'
       : '';
-    return '<div class="workout-block"><div class="workout-block-title">' + name + '</div>' + intentHtml + body + '</div>';
+    return '<details class="workout-block"' + (openByDefault ? ' open' : '') + '><summary class="workout-block-title">' + name +
+      '<span class="workout-block-count">' + totalSets + ' set' + (totalSets === 1 ? '' : 's') + '</span></summary>' + intentHtml + body + '</details>';
   }
 
   function pickN(arr, n) {
@@ -5285,10 +5476,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     ];
     var cooldownIntent = pickOne(COOLDOWN_INTENTS[state.level]);
 
-    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], warmupIntent) +
-      renderBlock('Pre-Set — ' + preset.name, preset.rounds, preset.intent) +
-      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, block.intent); }).join('') +
-      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent);
+    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], warmupIntent, false) +
+      renderBlock('Pre-Set — ' + preset.name, preset.rounds, preset.intent, false) +
+      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, block.intent, true); }).join('') +
+      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent, false);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
@@ -5429,6 +5620,31 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         { name: 'Cross-Body Shoulder Stretch', prescription: '2 x 30s / side', cue: 'Keeps the shoulder capsule mobile for a long, relaxed recovery.' }
       ]
     },
+    // A modality, not a muscle-group split — mobility, dynamic stretching and
+    // footwork/agility work rather than a strength lift day. Deliberately no
+    // loadPct/weighted fields anywhere here, same convention as Cardio.
+    flexibility: {
+      warmup: [
+        { name: 'Leg Swings — Front & Lateral', prescription: '2 x 10 / side, each direction', cue: 'Dynamic range through the hip in every plane a flutter and dolphin kick actually use.' },
+        { name: 'World’s Greatest Stretch', prescription: '2 x 5 / side', cue: 'One move through the hip, thoracic spine and hamstring together — the fastest way to open the whole body before a mobility session.' }
+      ],
+      core: [
+        { name: 'Bird Dog', prescription: '3 x 8 / side', cue: 'Opposite arm and leg extend together without the hips rotating — the same anti-rotation control that keeps a stroke from fishtailing.' },
+        { name: '90/90 Hip Switches', prescription: '3 x 8 / side', cue: 'Rotates through the hip socket, not the lower back — builds the internal/external hip rotation every stroke and turn needs.' }
+      ],
+      main: [
+        { name: 'Deep Squat Hold (Mobility)', prescription: '4 x 30s', cue: 'Sit as low as you can with heels flat — opens the ankles and hips for a deeper, more powerful streamline push-off.' },
+        { name: 'Agility Ladder — In-In-Out-Out', prescription: '6 x through', cue: 'Fast, light feet — builds the same quick neuromuscular firing that makes a start or turn snap instead of drag.' },
+        { name: 'Lateral Bounds (Skater Jumps)', prescription: '4 x 8 / side', cue: 'Stick each landing before bounding again — single-leg power and control that carries into a stronger, more stable kick.' },
+        { name: 'Walking Lunges with Rotation', prescription: '3 x 10 / side', cue: 'Rotate toward the front knee at the bottom of each lunge — combines hip mobility with the same trunk rotation used mid-stroke.' },
+        { name: 'Cone Shuffle Drill', prescription: '5 x 20s', cue: 'Stay low, quick lateral steps — sharpens the same reactive footwork and balance a race-day dive and turn demand under fatigue.' }
+      ],
+      cooldown: [
+        { name: 'Standing Forward Fold', prescription: '1 x 45s', cue: 'Let the head and arms hang heavy — releases the whole posterior chain after a high-output mobility session.' },
+        { name: 'Seated Straddle Stretch', prescription: '2 x 30s', cue: 'Hinge from the hips, not the back — opens the inner thighs and hips for a wider, freer kick.' },
+        { name: 'Thoracic Rotation Stretch (Open Book)', prescription: '2 x 30s / side', cue: 'Keep the hips stacked and let only the chest rotate open — restores the rotational range every stroke breathes and reaches through.' }
+      ]
+    },
     lower: {
       warmup: [
         { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range used in a flutter kick.' },
@@ -5453,8 +5669,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       ]
     }
   };
-  var GYM_TONE = { cardio: 'maroon', full: 'green', upper: 'aqua', lower: 'green' };
-  var GYM_LABEL = { cardio: 'Fitness / Cardio', full: 'Full Body', upper: 'Upper Body', lower: 'Lower Body' };
+  var GYM_TONE = { cardio: 'maroon', full: 'green', upper: 'aqua', lower: 'green', flexibility: 'aqua' };
+  var GYM_LABEL = { cardio: 'Fitness / Cardio', full: 'Full Body', upper: 'Upper Body', lower: 'Lower Body', flexibility: 'Flexibility & Agility' };
   var GYM_PHASE_LABEL = { warmup: 'Warm-Up', core: 'Core Activation', main: 'Main Power / Strength Lifts', cooldown: 'Cool-Down & Mobility' };
   var GYM_PHASE_ICON = { warmup: 'i-heart-pulse', core: 'i-core', main: 'i-bolt', cooldown: 'i-droplet' };
 
@@ -5763,7 +5979,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     'Romanian Deadlifts': 'hinge',
     'Leg Press': 'legpress',
     'Hamstring Curl Machine': 'hamcurl',
-    'Standing Calf Raise Machine': 'calfraise'
+    'Standing Calf Raise Machine': 'calfraise',
+    'Leg Swings — Front & Lateral': 'legswing',
+    'World’s Greatest Stretch': 'kneellunge',
+    '90/90 Hip Switches': 'pigeon',
+    'Deep Squat Hold (Mobility)': 'squat',
+    'Lateral Bounds (Skater Jumps)': 'lunge',
+    'Walking Lunges with Rotation': 'lunge',
+    'Standing Forward Fold': 'hinge',
+    'Seated Straddle Stretch': 'sidelean',
+    'Thoracic Rotation Stretch (Open Book)': 'foamroll'
   };
 
   function renderGymAnim(exerciseName) {
@@ -5906,6 +6131,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         .map(function (p) { return p.textContent.trim(); });
       var blocks = Array.prototype.map.call(rootEl.querySelectorAll('.workout-block'), function (block) {
         var titleEl = block.querySelector('.workout-block-title');
+        // The title element also carries a "N sets" count span (see
+        // renderBlock's <summary>) purely for the on-screen collapsed view —
+        // strip it before reading the title text so the PDF title doesn't
+        // come out as e.g. "Warm-Up3 sets" with no separator.
+        var titleText = '';
+        if (titleEl) {
+          titleText = Array.prototype.filter.call(titleEl.childNodes, function (n) { return n.nodeType === 3; })
+            .map(function (n) { return n.textContent; }).join('').trim();
+        }
         var intentEl = block.querySelector('.coach-intent-body');
         var rows = [];
         var currentRound = null;
@@ -5921,7 +6155,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             });
           }
         });
-        return { title: titleEl ? titleEl.textContent.trim() : '', intent: intentEl ? intentEl.textContent.trim() : null, rows: rows };
+        return { title: titleText, intent: intentEl ? intentEl.textContent.trim() : null, rows: rows };
       });
       var tips = Array.prototype.map.call(rootEl.querySelectorAll('.coach-tips li'), function (li) { return li.textContent.trim(); });
       return { planNotes: planNotes, blocks: blocks, tips: tips };
@@ -6169,6 +6403,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var notifyStatus = document.getElementById('settingsNotifyStatus');
     var exportBtn = document.getElementById('settingsExportBtn');
     var exportStatus = document.getElementById('settingsExportStatus');
+    var billingBtn = document.getElementById('settingsBillingPortalBtn');
+    var billingStatus = document.getElementById('settingsBillingPortalStatus');
     if (!form || !disciplineChipsEl) return;
 
     var selectedDisciplines = [];
@@ -6388,6 +6624,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       });
     }
 
+    // Mints a Paddle-hosted customer portal session server-side (see
+    // paddleCustomerPortalSession in functions/index.js) and redirects there
+    // — the swimmer's Paddle customer id is resolved on the server from
+    // their own subscriptions/customers records, never sent from here, so
+    // this call only ever needs a fresh Firebase ID token.
+    var PADDLE_PORTAL_SESSION_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/paddleCustomerPortalSession';
+    if (billingBtn) {
+      billingBtn.addEventListener('click', function () {
+        if (typeof window.__firebaseGetIdToken !== 'function') return;
+        billingBtn.disabled = true;
+        if (billingStatus) { billingStatus.textContent = 'Opening your billing portal…'; billingStatus.classList.remove('is-error'); }
+        window.__firebaseGetIdToken().then(function (idToken) {
+          return fetch(PADDLE_PORTAL_SESSION_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+            body: JSON.stringify({})
+          });
+        }).then(function (resp) {
+          return resp.json().then(function (json) { return { ok: resp.ok, json: json }; });
+        }).then(function (result) {
+          if (!result.ok || !result.json || !result.json.url) {
+            throw new Error((result.json && result.json.error) || 'Could not open the billing portal.');
+          }
+          if (billingStatus) { billingStatus.textContent = ''; billingStatus.classList.remove('is-error'); }
+          window.open(result.json.url, '_blank', 'noopener');
+        }).catch(function (err) {
+          if (billingStatus) {
+            billingStatus.textContent = (err && err.message) || 'Could not open the billing portal — please try again.';
+            billingStatus.classList.add('is-error');
+          }
+        }).finally(function () { billingBtn.disabled = false; });
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var user = window.__firebaseUser;
@@ -6589,9 +6859,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
         'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
         'nav.signin': 'Sign In',
-        'hero.eyebrow': 'Performance Swim Training · UAE',
+        'hero.eyebrow': 'Performance Swim Training',
         'hero.headline': 'Command the Water.<br>Own the <span class="accent">Race.</span>',
-        'hero.sub': 'A live training dashboard — build your own swim set, pick tonight’s gym focus, and manage your membership, all without a single long scroll.',
+        'hero.sub': 'A live training platform — build your own swim set, pick tonight’s gym focus, and manage your membership, all without a single long scroll.',
         'hero.cta1': 'Build My Workout', 'hero.cta2': 'Today’s Gym Focus',
         'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Swim Workout Generator',
         'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'What Are You Training Today?',
@@ -6610,9 +6880,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'التمارين', 'nav.gym': 'الجيم', 'nav.gear': 'المعدات', 'nav.academy': 'الأكاديمية',
         'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.support': 'الدعم', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
         'nav.signin': 'تسجيل الدخول',
-        'hero.eyebrow': 'تدريب السباحة الاحترافي · الإمارات',
+        'hero.eyebrow': 'تدريب السباحة الاحترافي',
         'hero.headline': 'تحكّم بالماء.<br>املك <span class="accent">السباق.</span>',
-        'hero.sub': 'لوحة تدريب حية — ابنِ تمرين السباحة الخاص بك، اختر تركيز الجيم الليلة، وأدر عضويتك، كل ذلك دون تمرير طويل.',
+        'hero.sub': 'منصة تدريب حية — ابنِ تمرين السباحة الخاص بك، اختر تركيز الجيم الليلة، وأدر عضويتك، كل ذلك دون تمرير طويل.',
         'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'تركيز الجيم اليوم',
         'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مولّد تمارين السباحة',
         'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'ماذا تتدرب اليوم؟',
@@ -7083,7 +7353,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       hint.classList.toggle('coach-page-hint-error', !!isError);
     }
     function resetHint() {
-      setHint('Up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos per message · JPEG, PNG, WEBP or GIF', false);
+      setHint('Up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos per message (or key frames from one video) · JPEG, PNG, WEBP, GIF, or a short video clip', false);
     }
 
     function renderAttachments() {
@@ -7134,6 +7404,61 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       });
     }
 
+    // Claude's API takes images, not raw video — so a video upload extracts a
+    // handful of representative frames (evenly spaced through the clip) and
+    // sends those through the EXACT SAME image pipeline as a photo (same
+    // compression, same pendingImages array, same aiSwimCoach request shape
+    // and per-message image cap). The coach reviews stroke position/timing
+    // across those frames rather than true motion — an honest scope for a
+    // vision-only model, not a claim of full video understanding.
+    var COACH_VIDEO_FRAME_COUNT = 3;
+    function extractVideoFrames(file) {
+      return new Promise(function (resolve, reject) {
+        var video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        var objectUrl = URL.createObjectURL(file);
+        var frames = [];
+        var timestamps = [];
+
+        function captureAt(idx) {
+          if (idx >= timestamps.length) {
+            URL.revokeObjectURL(objectUrl);
+            resolve(frames);
+            return;
+          }
+          video.currentTime = timestamps[idx];
+        }
+
+        video.addEventListener('loadedmetadata', function () {
+          var duration = video.duration || 0;
+          if (!isFinite(duration) || duration <= 0) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('video has no readable duration'));
+            return;
+          }
+          for (var i = 1; i <= COACH_VIDEO_FRAME_COUNT; i++) {
+            timestamps.push(duration * (i / (COACH_VIDEO_FRAME_COUNT + 1)));
+          }
+          captureAt(0);
+        });
+        video.addEventListener('seeked', function () {
+          var canvas = document.createElement('canvas');
+          var w = video.videoWidth, h = video.videoHeight;
+          var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
+          frames.push({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
+          captureAt(frames.length);
+        });
+        video.addEventListener('error', function () { URL.revokeObjectURL(objectUrl); reject(new Error('video decode failed')); });
+        video.src = objectUrl;
+      });
+    }
+
     attachBtn.addEventListener('click', function () {
       if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
       fileInput.click();
@@ -7144,15 +7469,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       fileInput.value = '';
       if (!files.length) return;
       var room = AI_COACH_PAGE_MAX_IMAGES - pendingImages.length;
-      if (room <= 0) { setHint('You can attach up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos per message.', true); return; }
-      files = files.filter(function (f) { return f.type.indexOf('image/') === 0; }).slice(0, room);
-      if (!files.length) return;
-      Promise.all(files.map(compressImageFile)).then(function (results) {
-        pendingImages = pendingImages.concat(results);
+      if (room <= 0) { setHint('You can attach up to ' + AI_COACH_PAGE_MAX_IMAGES + ' photos (or one video) per message.', true); return; }
+      var imageFiles = files.filter(function (f) { return f.type.indexOf('image/') === 0; });
+      var videoFile = files.filter(function (f) { return f.type.indexOf('video/') === 0; })[0];
+
+      var work = imageFiles.slice(0, room).map(compressImageFile);
+      if (videoFile && !imageFiles.length) {
+        setHint('Reading video frames…', false);
+        work = [extractVideoFrames(videoFile).then(function (frames) { return frames.slice(0, room); })];
+      }
+      if (!work.length) return;
+
+      Promise.all(work).then(function (results) {
+        var flat = [].concat.apply([], results.map(function (r) { return Array.isArray(r) ? r : [r]; })).slice(0, room);
+        pendingImages = pendingImages.concat(flat);
         renderAttachments();
         resetHint();
       }).catch(function () {
-        setHint('Couldn\'t read one of those photos — try a different file.', true);
+        setHint('Couldn\'t read that file — try a different photo or video.', true);
       });
     });
 
@@ -8022,7 +8356,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return ms ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     }
 
-    var ADMIN_TRIAL_DAYS = 7;
+    var ADMIN_TRIAL_DAYS = 3;
     function timeRemainingInfo(u) {
       if (u.accessDisabled) return { text: 'Suspended', cls: 'is-expired' };
       if (u.plan) {
@@ -8098,8 +8432,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var extendBtn = document.createElement('button');
         extendBtn.type = 'button';
         extendBtn.className = 'admin-extend-btn';
-        extendBtn.textContent = '+7 Day Trial';
-        extendBtn.title = 'Reset this swimmer’s trial to a fresh 7 days starting now';
+        extendBtn.textContent = '+3 Day Trial';
+        extendBtn.title = 'Reset this swimmer’s trial to a fresh 3 days starting now';
         extendBtn.addEventListener('click', function () {
           extendBtn.disabled = true;
           adminFetch(ADMIN_EXTEND_TRIAL_ENDPOINT, { targetUid: u.uid }).finally(function () { extendBtn.disabled = false; });
@@ -8272,6 +8606,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     function renderMessages(messages) {
       messagesEl.innerHTML = '';
+      if (!messages.length) {
+        var greetRow = document.createElement('div');
+        greetRow.className = 'coach-msg coach-msg-assistant';
+        var greetBubble = document.createElement('div');
+        greetBubble.className = 'coach-bubble';
+        greetBubble.textContent = 'Hello! Welcome to the Swimfit Support Team. How can I assist you today?';
+        greetRow.appendChild(greetBubble);
+        messagesEl.appendChild(greetRow);
+      }
       messages.forEach(function (m) {
         var row = document.createElement('div');
         row.className = 'coach-msg ' + (m.sender === 'admin' ? 'coach-msg-assistant' : 'coach-msg-user');
@@ -8366,7 +8709,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         row.className = 'coach-msg coach-msg-assistant';
         var bubble = document.createElement('div');
         bubble.className = 'coach-bubble';
-        bubble.textContent = 'Hey! Send us a message about your account, billing, or anything else, and the Swimfit team will reply right here.';
+        bubble.textContent = 'Hello! Welcome to the Swimfit Support Team. How can I assist you today?';
         row.appendChild(bubble);
         messagesEl.appendChild(row);
         return;
