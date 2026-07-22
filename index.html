@@ -3182,6 +3182,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
 
           <div class="settings-card">
+            <h3><svg class="icon"><use href="#i-lane"/></svg> Billing</h3>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Manage your payment method, view invoices, or cancel your subscription through Paddle's secure billing portal — opens in a new tab.</p>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="settingsBillingPortalBtn">Manage Billing</button>
+            <p class="settings-save-status" id="settingsBillingPortalStatus"></p>
+          </div>
+
+          <div class="settings-card">
             <h3><svg class="icon"><use href="#i-download"/></svg> Export Your Data</h3>
             <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Download every swim you’ve logged and every Personal Best on record as a CSV file, for your own records or to import elsewhere.</p>
             <button type="button" class="btn btn-outline-aqua btn-sm" id="settingsExportBtn">Export My Data (CSV)</button>
@@ -6169,6 +6176,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var notifyStatus = document.getElementById('settingsNotifyStatus');
     var exportBtn = document.getElementById('settingsExportBtn');
     var exportStatus = document.getElementById('settingsExportStatus');
+    var billingBtn = document.getElementById('settingsBillingPortalBtn');
+    var billingStatus = document.getElementById('settingsBillingPortalStatus');
     if (!form || !disciplineChipsEl) return;
 
     var selectedDisciplines = [];
@@ -6385,6 +6394,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         }).catch(function () {
           if (exportStatus) { exportStatus.textContent = 'Could not export — please try again.'; exportStatus.classList.add('is-error'); }
         }).finally(function () { exportBtn.disabled = false; });
+      });
+    }
+
+    // Mints a Paddle-hosted customer portal session server-side (see
+    // paddleCustomerPortalSession in functions/index.js) and redirects there
+    // — the swimmer's Paddle customer id is resolved on the server from
+    // their own subscriptions/customers records, never sent from here, so
+    // this call only ever needs a fresh Firebase ID token.
+    var PADDLE_PORTAL_SESSION_ENDPOINT = 'https://us-central1-swimfi-ae.cloudfunctions.net/paddleCustomerPortalSession';
+    if (billingBtn) {
+      billingBtn.addEventListener('click', function () {
+        if (typeof window.__firebaseGetIdToken !== 'function') return;
+        billingBtn.disabled = true;
+        if (billingStatus) { billingStatus.textContent = 'Opening your billing portal…'; billingStatus.classList.remove('is-error'); }
+        window.__firebaseGetIdToken().then(function (idToken) {
+          return fetch(PADDLE_PORTAL_SESSION_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+            body: JSON.stringify({})
+          });
+        }).then(function (resp) {
+          return resp.json().then(function (json) { return { ok: resp.ok, json: json }; });
+        }).then(function (result) {
+          if (!result.ok || !result.json || !result.json.url) {
+            throw new Error((result.json && result.json.error) || 'Could not open the billing portal.');
+          }
+          if (billingStatus) { billingStatus.textContent = ''; billingStatus.classList.remove('is-error'); }
+          window.open(result.json.url, '_blank', 'noopener');
+        }).catch(function (err) {
+          if (billingStatus) {
+            billingStatus.textContent = (err && err.message) || 'Could not open the billing portal — please try again.';
+            billingStatus.classList.add('is-error');
+          }
+        }).finally(function () { billingBtn.disabled = false; });
       });
     }
 

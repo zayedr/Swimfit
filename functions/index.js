@@ -1,10 +1,12 @@
 /**
- * Swimfit — Paddle Billing webhook receiver, new-user onboarding, and the
- * registered-swimmers counter.
+ * Swimfit — Paddle Billing webhook receiver + fulfillment, the customer
+ * portal session minter, new-user onboarding, and the registered-swimmers
+ * counter.
  *
  * Deploy target: Firebase Cloud Functions, project "swimfi-ae". Mixes 2nd-gen
- * HTTPS functions (paddleWebhook) with a 1st-gen Auth trigger (onUserCreated)
- * in the same codebase — both are fully supported together.
+ * HTTPS functions (paddleWebhook, paddleCustomerPortalSession, aiSwimCoach,
+ * admin*) with a 1st-gen Auth trigger (onUserCreated) in the same codebase —
+ * both are fully supported together.
  *
  * ============================= GO-LIVE CHECKLIST =============================
  * One of these steps is a Firebase Console toggle, not code — easy to miss,
@@ -28,19 +30,27 @@
  *   3. Firebase Console -> Firestore Database: create the database if it
  *      doesn't exist yet (either starting mode is fine — step 7 below
  *      deploys and enforces the real firestore.rules regardless).
- *   4. cd functions && npm install
- *   5. Set the required secrets (prompts for the value, nothing is echoed):
+ *   4. cd functions && npm install (pulls in @paddle/paddle-node-sdk — see
+ *      package.json — alongside the pre-existing firebase-admin/functions/nodemailer).
+ *   5. Set the required secrets (prompts for the value, nothing is echoed —
+ *      see .env.example for what each one is for; that file is documentation
+ *      only, since Secret Manager, not a .env file, is what actually backs
+ *      these at runtime):
  *        firebase functions:secrets:set PADDLE_WEBHOOK_SECRET
+ *        firebase functions:secrets:set PADDLE_API_KEY
  *        firebase functions:secrets:set SMTP_HOST
  *        firebase functions:secrets:set SMTP_PORT
  *        firebase functions:secrets:set SMTP_USER
  *        firebase functions:secrets:set SMTP_PASS
  *        firebase functions:secrets:set ANTHROPIC_API_KEY
- *      (SMTP secrets power the welcome email sent by onUserCreated — without
- *      them it still creates the Firestore profile/counter, just skips the
- *      email. ANTHROPIC_API_KEY is required for the aiSwimCoach function —
- *      get a key from https://console.anthropic.com and paste it in when
- *      prompted.)
+ *      PADDLE_WEBHOOK_SECRET and PADDLE_API_KEY are two DIFFERENT Paddle
+ *      credentials — the former only verifies a webhook delivery, the latter
+ *      is a real API key used to mint customer portal sessions — never set
+ *      one to the other's value. (SMTP secrets power the welcome email sent
+ *      by onUserCreated — without them it still creates the Firestore
+ *      profile/counter, just skips the email. ANTHROPIC_API_KEY is required
+ *      for the aiSwimCoach function — get a key from
+ *      https://console.anthropic.com and paste it in when prompted.)
  *   6. firebase deploy --only functions
  *      Every onRequest function below declares `invoker: 'public'` so the
  *      Firebase CLI grants the underlying Cloud Run service's
@@ -57,173 +67,276 @@
  *      allUsers has Cloud Run Invoker, or ask whoever administers the GCP
  *      project to lift that org policy for this project.
  *   7. firebase deploy --only firestore:rules
+ *      (needed for this round's new customers/{customerId} and
+ *      subscriptions/{subscriptionId} collections — see firestore.rules.)
  *   8. Copy the deployed paddleWebhook HTTPS URL, register it in the Paddle
  *      dashboard under Developer Tools -> Notifications -> Webhook
- *      destinations (select the events you want, e.g.
- *      subscription.created/updated/canceled, transaction.completed). Paddle
- *      then shows a webhook signing secret for that destination — that's the
- *      value step 5 already asked for; if you're registering the webhook for
- *      the first time, come back and update the secret with the same command
- *      and redeploy.
- *   9. aiSwimCoach and the admin* functions need no separate webhook
- *      registration — index.html calls their HTTPS URLs directly once you
- *      paste them into the matching *_ENDPOINT constants near each feature's
- *      code.
+ *      destinations, selecting at least: subscription.created,
+ *      subscription.updated, subscription.canceled, customer.created,
+ *      customer.updated, transaction.completed — every other event type is
+ *      safely ignored (ack'd 200, not processed) by the switch/default in
+ *      paddleWebhook below, so it's fine to select more than this if useful
+ *      for other tooling. Paddle then shows a webhook signing secret for
+ *      that destination — that's the value step 5 already asked for; if
+ *      you're registering the webhook for the first time, come back and
+ *      update the secret with the same command and redeploy.
+ *      NEVER delete this notification destination once created — it's the
+ *      live fulfillment path for every subscription/customer/transaction
+ *      event above, not a throwaway test artifact.
+ *   9. aiSwimCoach, paddleCustomerPortalSession, and the admin* functions
+ *      need no separate webhook registration — index.html calls their HTTPS
+ *      URLs directly once you paste them into the matching *_ENDPOINT
+ *      constants near each feature's code.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
+const { defineSecret, defineString } = require('firebase-functions/params');
 const functionsV1 = require('firebase-functions/v1');
 const logger = require('firebase-functions/logger');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+const { Paddle, Environment, EventName } = require('@paddle/paddle-node-sdk');
 
 admin.initializeApp();
 const db = admin.firestore();
 
+// PADDLE_WEBHOOK_SECRET is the per-notification-destination SIGNING SECRET
+// (Paddle dashboard -> Developer Tools -> Notifications -> your destination),
+// used ONLY to verify a webhook delivery really came from Paddle.
+// PADDLE_API_KEY is a different credential entirely — a real Paddle API key,
+// used to make authenticated calls back to Paddle (e.g. minting a customer
+// portal session in paddleCustomerPortalSession below). Never conflate the
+// two, and never use one in place of the other.
 const PADDLE_WEBHOOK_SECRET = defineSecret('PADDLE_WEBHOOK_SECRET');
+const PADDLE_API_KEY = defineSecret('PADDLE_API_KEY');
+// Not a secret — just selects which Paddle environment PADDLE_API_KEY
+// belongs to. Defaults to 'production' since this integration runs against
+// Swimfit's live Paddle account; set to 'sandbox' only to point a local/dev
+// deploy at a sandbox API key instead.
+const PADDLE_ENVIRONMENT = defineString('PADDLE_ENVIRONMENT', { default: 'production' });
 const SMTP_HOST = defineSecret('SMTP_HOST');
 const SMTP_PORT = defineSecret('SMTP_PORT');
 const SMTP_USER = defineSecret('SMTP_USER');
 const SMTP_PASS = defineSecret('SMTP_PASS');
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
-// Reject signatures older than this to guard against replay attacks.
-const MAX_SIGNATURE_AGE_SECONDS = 300;
+// One Paddle client per warm function instance — cheap to construct, but no
+// reason to rebuild it on every single invocation.
+let paddleClientInstance = null;
+function getPaddleClient() {
+  if (!paddleClientInstance) {
+    paddleClientInstance = new Paddle(PADDLE_API_KEY.value(), {
+      environment: PADDLE_ENVIRONMENT.value() === 'sandbox' ? Environment.sandbox : Environment.production
+    });
+  }
+  return paddleClientInstance;
+}
 
-// Only these event types get written to Firestore — see the allowlist check
-// in paddleWebhook. Extend this list deliberately if you register for more
-// events in the Paddle dashboard.
-const KNOWN_PADDLE_EVENT_TYPES = [
-  'subscription.created',
-  'subscription.updated',
-  'subscription.canceled',
-  'subscription.paused',
-  'subscription.resumed',
-  'transaction.completed',
-  'transaction.paid'
-];
-
-// Maps a Paddle PRODUCT id (data.items[].price.product_id on the webhook
-// payload) to the Swimfit plan it represents — keyed by product rather than
-// price so this stays correct even across a monthly/annual price change on
-// the same product, and matches the pro_.../PADDLE_PRICE_IDS constants
-// already hardcoded in index.html's checkout call. Keep the two in sync.
+// Maps a Paddle PRODUCT id (subscription/transaction items[].price.productId
+// on the webhook payload) to the Swimfit plan it represents — keyed by
+// product rather than price so this stays correct even across a
+// monthly/annual price change on the same product, and matches the
+// PADDLE_PRICE_IDS constant already hardcoded in index.html's checkout call.
+// Keep the two in sync.
 const PADDLE_PLAN_BY_PRODUCT_ID = {
   'pro_01kxvepbgps1gw1w5qmt45hev6': 'pro',
   'pro_01kxvet9dy5deg86r4xe16yb5k': 'elite',
   'pro_01kxvev8we8cytygfk733nkjt7': 'ultra'
 };
-// Paddle subscription statuses that count as "actively paying" — everything
-// else (canceled, paused, past_due) drops the swimmer back to the post-trial
-// paywall until they resubscribe.
+// Paddle subscription statuses that count as "actively paying." A
+// scheduled_change to cancel or pause a subscription (e.g. "cancels at end of
+// billing period") never revokes access early — Paddle leaves `status` as
+// 'active'/'trialing' right up until the change actually takes effect, at
+// which point a fresh subscription.updated event flips status itself. So
+// gating purely on `status` (never inspecting scheduledChange) already gets
+// "only revoke on an actual cancellation, never on a scheduled one" right by
+// construction, with no special-casing needed.
 const PADDLE_ACTIVE_STATUSES = ['active', 'trialing'];
+function subscriptionGrantsAccess(status) {
+  return PADDLE_ACTIVE_STATUSES.indexOf(status) !== -1;
+}
 
-function verifyPaddleSignature(rawBody, signatureHeader, secret) {
-  if (!signatureHeader || !secret) return false;
+// Firestore rejects class instances / undefined values — round-trip through
+// JSON to get a plain, storable snapshot of whatever shape the SDK's typed
+// entity actually has, regardless of which convenience fields below guessed
+// right. This is also why every upsert below stores the full entity as `raw`
+// alongside its extracted fields: nothing is lost even if a field name guess
+// is wrong or Paddle adds a field this code doesn't know about yet.
+function toPlainObject(value) {
+  return JSON.parse(JSON.stringify(value === undefined ? null : value));
+}
 
-  var parts = {};
-  signatureHeader.split(';').forEach(function (part) {
-    var kv = part.split('=');
-    if (kv.length === 2) parts[kv[0]] = kv[1];
-  });
-  var ts = parts.ts;
-  var h1 = parts.h1;
-  if (!ts || !h1) return false;
+// The Paddle SDK's typed entities use camelCase (customData); the raw API
+// (and this project's own pre-SDK code) used snake_case (custom_data) — read
+// both so this keeps working regardless of which shape a given field arrives in.
+function extractFirebaseUid(entityData) {
+  var customData = (entityData && (entityData.customData || entityData.custom_data)) || {};
+  return customData.firebaseUid || customData.firebase_uid || null;
+}
 
-  var age = Math.abs(Date.now() / 1000 - Number(ts));
-  if (isNaN(age) || age > MAX_SIGNATURE_AGE_SECONDS) return false;
+// Idempotent upsert into customers/{paddleCustomerId} — a true per-Paddle-
+// entity mirror, additive alongside (never replacing) the pre-existing
+// paddle_subscriptions/{firebaseUid} blob below, which getAccessLevel() and
+// the Admin Panel already read and which is left in its original shape to
+// avoid regressing either. Safe to call repeatedly with the same customer id
+// in any order — Paddle webhook deliveries are at-least-once and can arrive
+// out of order.
+async function upsertPaddleCustomer(customerData) {
+  var customerId = customerData && customerData.id;
+  if (!customerId) {
+    logger.warn('Paddle webhook: customer event with no id, skipping customers/ upsert');
+    return;
+  }
+  await db.collection('customers').doc(String(customerId)).set(
+    {
+      customerId: String(customerId),
+      email: customerData.email || null,
+      firebaseUid: extractFirebaseUid(customerData),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      raw: toPlainObject(customerData)
+    },
+    { merge: true }
+  );
+}
 
-  var expected = crypto.createHmac('sha256', secret).update(ts + ':' + rawBody).digest('hex');
+// Idempotent upsert into subscriptions/{paddleSubscriptionId} — see
+// upsertPaddleCustomer above for why this exists alongside, not instead of,
+// paddle_subscriptions/{firebaseUid}.
+async function upsertPaddleSubscription(subscriptionData) {
+  var subscriptionId = subscriptionData && subscriptionData.id;
+  if (!subscriptionId) {
+    logger.warn('Paddle webhook: subscription event with no id, skipping subscriptions/ upsert');
+    return;
+  }
+  var items = Array.isArray(subscriptionData.items) ? subscriptionData.items : [];
+  var firstPrice = (items.length && items[0].price) || {};
+  var scheduledChange = subscriptionData.scheduledChange || subscriptionData.scheduled_change || null;
+  await db.collection('subscriptions').doc(String(subscriptionId)).set(
+    {
+      subscriptionId: String(subscriptionId),
+      customerId: subscriptionData.customerId || subscriptionData.customer_id || null,
+      firebaseUid: extractFirebaseUid(subscriptionData),
+      status: subscriptionData.status || null,
+      priceId: firstPrice.id || null,
+      productId: firstPrice.productId || firstPrice.product_id || null,
+      // Deliberately stored for display/audit only — see subscriptionGrantsAccess()
+      // above, which never reads these two fields, so a pending scheduled
+      // cancellation/pause never revokes access early.
+      scheduledChangeAction: scheduledChange ? scheduledChange.action || null : null,
+      scheduledChangeAt: scheduledChange ? scheduledChange.effectiveAt || scheduledChange.effective_at || null : null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      raw: toPlainObject(subscriptionData)
+    },
+    { merge: true }
+  );
+}
 
-  var expectedBuf = Buffer.from(expected, 'utf8');
-  var receivedBuf = Buffer.from(h1, 'utf8');
-  if (expectedBuf.length !== receivedBuf.length) return false;
-  return crypto.timingSafeEqual(expectedBuf, receivedBuf);
+// Mirrors a verified subscription/transaction event into the pre-existing
+// paddle_subscriptions/{docId} blob, in exactly the shape getAccessLevel()
+// and the Admin Panel already expect — unchanged in behavior from before
+// this round's SDK migration, just now fed from the SDK's typed event data
+// instead of a hand-parsed JSON body.
+async function mirrorLegacyPaddleSubscriptionDoc(eventType, data) {
+  var firebaseUid = extractFirebaseUid(data);
+  var docId = firebaseUid || data.customerId || data.customer_id || data.id;
+  if (!docId) {
+    logger.warn('Paddle webhook: no usable document id on event, skipping legacy paddle_subscriptions write', { eventType: eventType });
+    return;
+  }
+  var items = Array.isArray(data.items) ? data.items : [];
+  var priceIds = items.map(function (item) { return item.price && item.price.id; }).filter(Boolean);
+  var productIds = items
+    .map(function (item) { return item.price && (item.price.productId || item.price.product_id); })
+    .filter(Boolean);
+  // First product id that maps to a known plan wins — a subscription only
+  // ever carries one Swimfit product per checkout, so ties aren't expected.
+  var plan = null;
+  for (var pIdx = 0; pIdx < productIds.length; pIdx++) {
+    if (PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]) { plan = PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]; break; }
+  }
+
+  await db.collection('paddle_subscriptions').doc(String(docId)).set(
+    {
+      eventType: eventType,
+      status: data.status || null,
+      subscriptionId: data.subscriptionId || data.subscription_id || (String(eventType).indexOf('subscription.') === 0 ? data.id : null) || null,
+      customerId: data.customerId || data.customer_id || null,
+      firebaseUid: firebaseUid,
+      priceIds: priceIds,
+      productIds: productIds,
+      plan: plan,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      raw: toPlainObject(data)
+    },
+    { merge: true }
+  );
 }
 
 exports.paddleWebhook = onRequest(
-  { secrets: [PADDLE_WEBHOOK_SECRET], cors: false, region: 'us-central1', invoker: 'public' },
+  { secrets: [PADDLE_WEBHOOK_SECRET, PADDLE_API_KEY], cors: false, region: 'us-central1', invoker: 'public' },
   async function (req, res) {
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
       return;
     }
 
-    var rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
-    var signatureHeader = req.get('Paddle-Signature');
+    // Paddle signs the exact raw bytes of the request body — parsing it to
+    // JSON (or re-serializing it) before verification changes those bytes
+    // and makes verification fail. req.rawBody is Firebase Functions' own
+    // pre-parse buffer, captured before any body-parsing middleware runs.
+    var rawRequestBody = req.rawBody ? req.rawBody.toString('utf8') : '';
+    var signature = req.get('Paddle-Signature') || req.get('paddle-signature') || '';
 
-    if (!verifyPaddleSignature(rawBody, signatureHeader, PADDLE_WEBHOOK_SECRET.value())) {
-      logger.warn('Paddle webhook: signature verification failed');
+    var eventData;
+    try {
+      eventData = await getPaddleClient().webhooks.unmarshal(rawRequestBody, PADDLE_WEBHOOK_SECRET.value(), signature);
+    } catch (err) {
+      // Never return a 2xx here — that tells Paddle the delivery succeeded
+      // and stops it from retrying a delivery this code never actually verified.
+      logger.warn('Paddle webhook: signature verification failed', { message: err && err.message });
       res.status(401).send('Invalid signature');
       return;
     }
-
-    var event;
-    try {
-      event = JSON.parse(rawBody);
-    } catch (err) {
-      logger.error('Paddle webhook: could not parse JSON body', err);
-      res.status(400).send('Invalid JSON');
+    if (!eventData || !eventData.eventType) {
+      res.status(400).send('No event data');
       return;
     }
 
-    var eventType = event.event_type;
-    var data = event.data || {};
-    logger.info('Paddle webhook received', { eventType: eventType, eventId: event.event_id });
-
-    // Defense in depth beyond the signature check above: only ever act on the
-    // event types this integration is actually built to handle. A verified
-    // signature proves the request came from Paddle, not that every possible
-    // event type Paddle might ever add is safe to blindly process here.
-    if (KNOWN_PADDLE_EVENT_TYPES.indexOf(eventType) === -1) {
-      logger.info('Paddle webhook: event type not in the known allowlist, acking without processing', { eventType: eventType });
-      res.status(200).send('OK');
-      return;
-    }
+    logger.info('Paddle webhook received', { eventType: eventData.eventType, eventId: eventData.eventId });
 
     try {
-      var customData = data.custom_data || {};
-      var firebaseUid = customData.firebaseUid || customData.firebase_uid || null;
-      var docId = firebaseUid || data.customer_id || data.id || event.event_id;
-
-      if (docId) {
-        var priceIds = Array.isArray(data.items)
-          ? data.items.map(function (item) { return item.price && item.price.id; }).filter(Boolean)
-          : [];
-        var productIds = Array.isArray(data.items)
-          ? data.items.map(function (item) { return item.price && item.price.product_id; }).filter(Boolean)
-          : [];
-        // First product id that maps to a known plan wins — a subscription only
-        // ever carries one Swimfit product per checkout, so ties aren't expected.
-        var plan = null;
-        for (var pIdx = 0; pIdx < productIds.length; pIdx++) {
-          if (PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]) { plan = PADDLE_PLAN_BY_PRODUCT_ID[productIds[pIdx]]; break; }
-        }
-
-        await db.collection('paddle_subscriptions').doc(String(docId)).set(
-          {
-            eventType: eventType,
-            status: data.status || null,
-            subscriptionId: data.subscription_id || (eventType && eventType.indexOf('subscription.') === 0 ? data.id : null) || null,
-            customerId: data.customer_id || null,
-            firebaseUid: firebaseUid,
-            priceIds: priceIds,
-            productIds: productIds,
-            plan: plan,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            raw: data
-          },
-          { merge: true }
-        );
-      } else {
-        logger.warn('Paddle webhook: no usable document id on event, skipping Firestore write', { eventType: eventType });
+      var data = eventData.data || {};
+      switch (eventData.eventType) {
+        case EventName.SubscriptionCreated:
+        case EventName.SubscriptionUpdated:
+        case EventName.SubscriptionCanceled:
+          await upsertPaddleSubscription(data);
+          await mirrorLegacyPaddleSubscriptionDoc(eventData.eventType, data);
+          break;
+        case EventName.CustomerCreated:
+        case EventName.CustomerUpdated:
+          await upsertPaddleCustomer(data);
+          break;
+        case EventName.TransactionCompleted:
+          await mirrorLegacyPaddleSubscriptionDoc(eventData.eventType, data);
+          break;
+        default:
+          // Defense in depth beyond the signature check above: only ever act
+          // on event types this integration is actually built to handle. A
+          // verified signature proves the request came from Paddle, not that
+          // every event type Paddle might ever add is safe to process here.
+          logger.info('Paddle webhook: event type not handled, acking without processing', { eventType: eventData.eventType });
       }
     } catch (err) {
-      // Still ack the webhook so Paddle doesn't retry indefinitely for a processing bug —
-      // the raw event is already logged above for manual recovery.
-      logger.error('Paddle webhook: failed to write to Firestore', err);
+      // Still ack the webhook so Paddle doesn't retry indefinitely for a bug
+      // on our end — the verified event is already logged above for manual
+      // recovery, and every handler above is itself an idempotent upsert, so
+      // safely reprocessing a retried/late-redelivered event once the
+      // underlying bug is fixed is not a concern.
+      logger.error('Paddle webhook: handler failed', err);
     }
 
     res.status(200).send('OK');
@@ -302,7 +415,7 @@ async function getAccessLevel(uid, email) {
 
   var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
   var subData = subSnap.exists ? subSnap.data() : null;
-  if (subData && subData.plan && PADDLE_ACTIVE_STATUSES.indexOf(subData.status) !== -1) {
+  if (subData && subData.plan && subscriptionGrantsAccess(subData.status)) {
     return subData.plan;
   }
   var trialStartField = userData && (userData.trialStartedAt || userData.createdAt);
@@ -325,6 +438,80 @@ const ALLOWED_WEB_ORIGINS = [
   'https://zayedr.github.io',
   'https://swimfi-ae.web.app'
 ];
+
+// ============================================================================
+// Customer Portal — lets a signed-in swimmer self-serve payment method
+// changes, cancellation, and invoice history through Paddle's own hosted
+// portal, without needing the Admin Panel's help.
+// ============================================================================
+//
+// The swimmer's Paddle customer id is resolved SERVER-SIDE from the
+// subscriptions/customers collections upsertPaddleSubscription/
+// upsertPaddleCustomer maintain (see paddleWebhook above) — a client-supplied
+// customer id is never trusted, since that would let any signed-in swimmer
+// request a portal session for anyone else's billing data just by guessing
+// or supplying a different customer id in the request body.
+exports.paddleCustomerPortalSession = onRequest(
+  { secrets: [PADDLE_API_KEY], cors: ALLOWED_WEB_ORIGINS, region: 'us-central1', invoker: 'public' },
+  async function (req, res) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method Not Allowed' });
+      return;
+    }
+
+    // 1. Verify the caller is actually signed in before resolving anything.
+    var authHeader = req.get('Authorization') || '';
+    var tokenMatch = authHeader.match(/^Bearer (.+)$/);
+    if (!tokenMatch) {
+      res.status(401).json({ error: 'Please sign in.' });
+      return;
+    }
+    var decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    } catch (err) {
+      res.status(401).json({ error: 'Your session expired — please sign in again.' });
+      return;
+    }
+
+    try {
+      // 2. Resolve this swimmer's Paddle customer id from OUR OWN records —
+      // never from anything the client sent in this request.
+      var subSnap = await db.collection('subscriptions').where('firebaseUid', '==', decoded.uid).limit(1).get();
+      var customerId = null;
+      var subscriptionId = null;
+      if (!subSnap.empty) {
+        var subDoc = subSnap.docs[0].data();
+        customerId = subDoc.customerId || null;
+        subscriptionId = subDoc.subscriptionId || subSnap.docs[0].id;
+      }
+      if (!customerId) {
+        var custSnap = await db.collection('customers').where('firebaseUid', '==', decoded.uid).limit(1).get();
+        if (!custSnap.empty) customerId = custSnap.docs[0].data().customerId || custSnap.docs[0].id;
+      }
+      if (!customerId) {
+        res.status(404).json({ error: 'No billing account found for this swimmer yet — subscribe first to unlock the customer portal.' });
+        return;
+      }
+
+      // 3. Mint the portal session with the Paddle SDK and hand back the URL.
+      var session = await getPaddleClient().customerPortalSessions.create(
+        customerId,
+        subscriptionId ? [subscriptionId] : []
+      );
+      var portalUrl = session && session.urls && session.urls.general ? session.urls.general.overview : null;
+      if (!portalUrl) {
+        logger.error('paddleCustomerPortalSession: Paddle returned no overview URL', { uid: decoded.uid, customerId: customerId });
+        res.status(502).json({ error: 'Could not open the billing portal right now — please try again shortly.' });
+        return;
+      }
+      res.status(200).json({ url: portalUrl });
+    } catch (err) {
+      logger.error('paddleCustomerPortalSession failed', err);
+      res.status(500).json({ error: 'Could not open the billing portal right now — please try again shortly.' });
+    }
+  }
+);
 
 // ============================================================================
 // Admin Panel — swimfit.ae@gmail.com only. Every endpoint below re-verifies

@@ -807,6 +807,88 @@ on screen at all, not just briefly. The `error` listener still exists as the fal
 value that fails outright. A real, valid upload is unaffected — it now just becomes visible the
 instant it finishes decoding instead of instantly-but-optimistically.
 
+**Paddle webhook handling was rewritten to use Paddle's own official Node SDK
+(`@paddle/paddle-node-sdk`) instead of a hand-rolled HMAC verifier, and gained a proper
+per-Paddle-entity Firestore mirror alongside the pre-existing billing state.** `paddleWebhook`
+now verifies every delivery with `paddle.webhooks.unmarshal(rawRequestBody, PADDLE_WEBHOOK_SECRET,
+signature)` — the SDK's own signature check, run against `req.rawBody` (the exact bytes Paddle
+signed, read before any JSON-parsing) — and never returns a 2xx on a failed verification (401,
+so Paddle keeps retrying a delivery this code never actually accepted). A verified event is routed
+by `eventData.eventType` (compared against the SDK's own `EventName` enum, not a string literal)
+to one of three paths: `subscription.created`/`updated`/`canceled` upsert into a new
+`subscriptions/{paddleSubscriptionId}` Firestore collection via `upsertPaddleSubscription()`;
+`customer.created`/`updated` upsert into a new `customers/{paddleCustomerId}` collection via
+`upsertPaddleCustomer()`; and `transaction.completed` (plus the two subscription cases above)
+also mirror into the pre-existing `paddle_subscriptions/{firebaseUid}` blob via
+`mirrorLegacyPaddleSubscriptionDoc()`, kept in its original shape on purpose so `getAccessLevel()`
+and the Admin Panel — both already shipped — never regress. Every event type not explicitly
+routed falls to a `default:` branch that acks 200 without processing (defense in depth beyond
+the signature check: a verified signature proves the delivery came from Paddle, not that every
+event type Paddle might ever add is safe to blindly act on). Every upsert is keyed by the real
+Paddle id (`subscriptionId`/`customerId`), not the Firebase uid, and always merge-writes — Paddle
+deliveries are at-least-once and can arrive out of order, so every handler is idempotent by
+construction. A new `subscriptionGrantsAccess(status)` helper (just `PADDLE_ACTIVE_STATUSES =
+['active','trialing']` checked against `status`) is the single source of truth for "does this
+subscription currently grant paid access" — deliberately never inspects `scheduledChange` at all,
+since Paddle itself leaves `status` as `'active'`/`'trialing'` right up until a scheduled
+cancellation/pause actually takes effect (at which point a fresh `subscription.updated` event
+flips `status` itself), so gating purely on `status` already gets "never revoke early on a
+pending scheduled change, only on an actual cancellation" right by construction, with no
+special-casing needed. `getAccessLevel()` now calls this same helper instead of duplicating the
+`PADDLE_ACTIVE_STATUSES.indexOf(...)` check inline. `scheduledChangeAction`/`scheduledChangeAt`
+are still stored on the `subscriptions/{id}` doc for display/audit, just never read by the access
+decision. Every entity is also stored in full as a `raw` field (JSON-round-tripped via
+`toPlainObject()`, since Firestore rejects the SDK's class instances and `undefined` values
+directly) — nothing is lost even where a specific convenience field wasn't extracted.
+`firestore.rules` gained matching `customers/{customerId}`/`subscriptions/{subscriptionId}`
+blocks, same owner-only-read/no-client-write convention as the pre-existing
+`paddle_subscriptions/{docId}` block right above them (a swimmer can read only their own, matched
+by the `firebaseUid` the checkout attached; list/write stay blocked; the one server-side query by
+`firebaseUid`, in `paddleCustomerPortalSession` below, runs through the Admin SDK and bypasses
+these rules entirely, same as every other admin-style lookup in this codebase).
+
+**A new `paddleCustomerPortalSession` Cloud Function lets a signed-in swimmer self-serve payment
+method changes, cancellation, and invoices through Paddle's own hosted customer portal**, wired to
+a new "Manage Billing" button on the Settings tab's new Billing card (`#settingsBillingPortalBtn`).
+The swimmer's Paddle customer id is resolved entirely server-side — a `subscriptions` (falling
+back to `customers`) query by `firebaseUid` against the caller's own verified ID token uid — never
+from anything the client sends in the request body, so no signed-in swimmer can ever request a
+portal session scoped to someone else's billing data by supplying a different customer id. Once
+resolved, `paddle.customerPortalSessions.create(customerId, subscriptionIds)` mints the session and
+the function returns just `session.urls.general.overview`, which the client opens in a new tab. A
+swimmer with no billing record yet (never subscribed) gets a plain 404 with an explanatory message
+rather than a broken portal link. This is the first caller of `PADDLE_API_KEY` — a real Paddle API
+key, a different credential from `PADDLE_WEBHOOK_SECRET` (which only ever verifies a webhook
+delivery, never authenticates an outbound call) — read via a new `defineSecret`, alongside a new
+non-secret `PADDLE_ENVIRONMENT` `defineString` (`'production'` default, `'sandbox'` for a
+dev/local override) that selects which Paddle environment the SDK client points at. Both the
+webhook handler and the portal-session function share one lazily-constructed `Paddle` SDK client
+instance (`getPaddleClient()`) built from these two params.
+
+A `functions/.env.example` was added (and `functions/.gitignore`'s blanket `.env.*` ignore rule
+was given a `!.env.example` exception so it isn't itself gitignored) — it's documentation only,
+listing every secret this codebase's Cloud Functions need and what each is for; every one of them
+is actually backed by Firebase Secret Manager (`firebase functions:secrets:set ...`) at runtime,
+never read from a real `.env` file, except `PADDLE_ENVIRONMENT` (the one non-secret `defineString`
+param), which genuinely can be overridden via a real `functions/.env.<project-id>` file if needed.
+The `functions/index.js` header's GO-LIVE CHECKLIST comment was updated to match: the new
+`PADDLE_API_KEY` secret, the new `customers`/`subscriptions` Firestore rules needing their own
+`firebase deploy --only firestore:rules`, and an explicit list of which Paddle event types to
+select when registering the webhook destination in the Paddle dashboard (everything else is
+safely ignored, not rejected, so over-selecting is harmless).
+
+**Every entity this fulfillment system touches is live, production state — never disposable.**
+The Paddle webhook notification destination and its signing secret (created manually in the
+Paddle dashboard per the checklist above, since no Paddle MCP tool was available in this
+environment to create one programmatically), the three product/price tiers backing the Pricing
+tab's checkout, and every customer/subscription/transaction record in Paddle or in this app's
+Firestore mirror are all real, live fulfillment state — deleting any of them breaks real billing
+event processing for real swimmers, not a test fixture. Nothing along this build touched or
+deleted any of them; all verification of the new SDK-based signature check and typed event
+parsing was done entirely offline, against locally-fabricated test payloads signed with a
+throwaway test secret that was never Paddle's real signing secret and never sent to any live
+Paddle or Cloud Functions endpoint.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
