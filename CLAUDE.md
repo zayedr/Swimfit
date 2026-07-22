@@ -1227,6 +1227,44 @@ Hero's "Command the Water. Own the Race." headline was deliberately left untouch
 intentional marketing pun, not technical debug text, and nothing else on the landing page or in
 the footer read as unintentional scaffolding.
 
+**A major layout cleanup removed every marketing section sitting between the Hero and the tab
+shell, and everything inside the Workouts panel that sat above the actual generator form** — the
+whole point being that reaching the Swim Workout Generator no longer means scrolling through a
+stack of landing-page content first. Removed entirely: the About section ("What Is Swimfit?"),
+the Offers Strip ("3 Days, Fully Free" / Ultra annual savings), the App Preview ("A Peek At Your
+Training Platform" dashboard mockup teaser), and the Plan Sneak Peek ("Find Your Level" pricing
+switcher) — along with their now-fully-orphaned JS (`wirePlanPreview()`, `PLAN_PREVIEW_DATA`, the
+`offerTrialCtaBtn` click handler) and CSS. The Social Proof section (Instagram/TikTok follow
+cards) was **not** in this list and was deliberately left in place. Within the Workouts panel
+itself, the `.services-strip` six-card feature grid (Adaptive Daily Workouts / Personalized Pacing
+/ Race-Pace Analytics / etc.) and the `.coach-banner` ("Meet Your Coach — Every Set, Coached Like
+a Real Practice") were removed too, along with the panel's own decorative `.tab-banner` photo strip
+— the actual config form (`.generator`) is now the first substantial thing a signed-in swimmer sees
+on the Workouts tab, right below a minimal heading and the guest-gate/contact-coach button. The
+Gym tab's own `.tab-banner` was left untouched (out of scope, and the class is still shared/used
+there). Root CSS custom properties `--coach-photo`/`--pool-edge-photo` were removed alongside their
+now-sole consumers.
+
+**The generated workout card itself was made meaningfully more compact**, on top of the earlier
+`<details>`/`<summary>` collapse-by-default pass: `.result-panel` padding dropped from
+`--space-6` to `--space-4`; the gap between stages (`.workout-block + .workout-block`) dropped
+from `--space-5` to `--space-3`; every set row's padding, font sizes (title, pace label, gear
+chips, interval/rest/total figures) and checkbox size were all scaled down roughly 10-20%; and the
+"Coach's Plan" summary paragraphs and "Coach's Technical Tips" block picked up smaller font sizes
+and tighter margins to match. `.result-panel::before`'s background-photo darkening overlay was
+also deepened (from ~0.94/0.78 opacity to ~0.97/0.92) specifically because a workout card is
+read-heavy — a dozen-plus set rows at once — so legibility against the ambient photo mattered more
+here than the decorative effect elsewhere in this file. Verified via Playwright: a 4000m workout
+(6 stages, 12+ set rows) renders with zero layout overflow and the config form sits within ~270px
+of the top of the Workouts panel instead of requiring a long scroll past marketing content first.
+
+**Support's `.support-trust-row`** (three badges — "Real-time replies," "A real human team,"
+"Account & billing help" — sitting above the chat shell) **was removed** as the one genuinely
+promotional/decorative block on that page; everything else on Support and Settings was audited and
+found to already be a functional interactive control or a one-line functional helper caption (e.g.
+"Manual log entry and your weekly goal always stay in kilometers" on the Units card) rather than
+marketing copy, so neither page needed further trimming beyond this.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
