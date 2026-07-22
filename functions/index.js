@@ -316,13 +316,15 @@ exports.paddleWebhook = onRequest(
     // in production: a missing/renamed secret, or a signature header Paddle
     // never actually sent. Safe to log — the signature header is an HMAC
     // output (ts;h1=...), never the secret itself, and this never logs
-    // webhookSecret's value.
+    // webhookSecret's value (only its length, below).
     logger.info('Paddle webhook: pre-verification state', {
       paddleSignatureHeader: signature || null,
       secretStatus: webhookSecret ? 'Secret exists' : 'Secret MISSING',
       rawBodyLength: rawRequestBody.length,
       hasRawBody: !!req.rawBody
     });
+    logger.info('Signature:', req.headers['paddle-signature']);
+    logger.info('Secret length:', webhookSecret ? webhookSecret.length : 0);
 
     var eventData;
     try {
@@ -330,7 +332,7 @@ exports.paddleWebhook = onRequest(
     } catch (err) {
       // Never return a 2xx here — that tells Paddle the delivery succeeded
       // and stops it from retrying a delivery this code never actually verified.
-      logger.warn('Paddle webhook: signature verification failed', { message: err && err.message });
+      logger.error('Unmarshal error:', err);
       res.status(401).send('Invalid signature');
       return;
     }
