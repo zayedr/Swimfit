@@ -1265,6 +1265,52 @@ found to already be a functional interactive control or a one-line functional he
 "Manual log entry and your weekly goal always stay in kilometers" on the Units card) rather than
 marketing copy, so neither page needed further trimming beyond this.
 
+**A real, previously-live bug in the full-screen Support page's `swimfit:authchange` handler was
+found and fixed.** Its signed-out branch called `messagesEl.innerHTML = '';` directly instead of
+`renderMessages([])` — the floating widget's equivalent handler already did this correctly, but the
+full-screen page had been missed. Since this signed-out event fires for *every* visitor as Firebase
+Auth resolves (even ones who turn out to be signed in a moment later), the practical effect was a
+real, reproducible gap: the greeting would render at wire-time, then vanish the instant this event
+fired, and only reappear once the real sign-in resolved and `subscribeIfNeeded()` ran — a swimmer
+opening the tab during that window saw a blank panel instead of the intended instant greeting.
+Fixed to call `renderMessages([])` in that branch too, matching the widget. Verified via Playwright
+by simulating the exact race (Support tab opened → signed-out flash fires → greeting must survive →
+real sign-in resolves 300ms later) — the greeting now stays visible through every step.
+
+**The generated workout card was restructured again for a more aggressive scroll reduction.** Only
+the *first* Main Set archetype now defaults open (`main.map(function (block, i) { ... i === 0 })`)
+— previously every Main Set block opened by default, so a longer session (which now picks an extra
+archetype per the earlier 3500m+ variety rule) rendered two or more fully-expanded blocks
+simultaneously, which was the single biggest remaining contributor to scroll height. Every
+set row was also rewritten from a grid of three separately-labeled mini-columns (Interval / Rest /
+Total, each its own value-over-label pair) into one line: title, pace tag, and gear chips inline
+on the left, a single compact "1:45 int · 15s rest · 7:00 tot" string on the right — removing an
+entire line of vertical space per row. The `.quote-card` pull-quote above the result panel and the
+gap between it and the result panel were both shrunk too, and `.result-panel`'s own padding
+tightened further. Net effect, measured via Playwright on a 4000m/12-row workout: the result panel
+dropped from ~1400px to ~980px tall in its default (collapsed-except-first-Main-Set) state — every
+other stage is still one click away, just not force-expanded on load. `extractStructuredWorkout()`/
+`buildWorkoutPdf()` (the PDF export) were updated to match the merged `.set-stats` markup instead of
+reading the now-gone `.set-interval`/`.set-rest` elements — verified the PDF still exports correctly
+afterward.
+
+**Per-set completion checkboxes were removed entirely and replaced with one "Complete Workout"
+button** at the bottom of the result panel, per explicit feedback that swimmers don't want to
+click through a dozen-plus individual boxes mid-session. The button reads the workout's total
+target distance directly off `totalM` (already computed in `generateWorkout()`) and, on click, logs
+one `swim_logs` entry for that full amount via the same `window.__swimLogAdd` bridge the checkboxes
+used — no new Firestore collection or Cloud Function needed, same as before. The button disables
+itself and relabels to "Logged To Tracker — X km" on success (so re-clicking can't double-log the
+same session; a fresh Generate produces a fresh button), and a new `swimfit:swimlogchange` DOM
+event fires alongside the log so an *already-open* Distance Tracker tab refreshes immediately —
+without it, the Tracker's own `loadEntriesIfNeeded()` only ever fetches once per signed-in session
+(guarded by `loadedForUid`), so a swim logged from Workouts after the Tracker was already visited
+earlier in the session would otherwise sit invisible until the next sign-in. `inferSetDiscipline()`
+and the per-row `completedSetLogIds` map from the old checkbox implementation were deleted as fully
+dead code alongside it. Verified via Playwright: zero checkboxes render, clicking Complete Workout
+writes exactly one correctly-sized `swim_logs` entry and updates the button state, with no page
+errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
