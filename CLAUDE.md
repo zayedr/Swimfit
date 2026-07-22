@@ -889,6 +889,51 @@ parsing was done entirely offline, against locally-fabricated test payloads sign
 throwaway test secret that was never Paddle's real signing secret and never sent to any live
 Paddle or Cloud Functions endpoint.
 
+**`paddleWebhook` gained a defense-in-depth IP allowlist and cold-start mitigation, and the
+client gained Paddle Retain's `pwCustomer` wiring — all three code-only, no live Paddle account
+access involved.** A sandbox→live migration was requested this round (recreate the product/price
+catalog in live, mint live credentials, configure live account settings) but neither the
+`paddle-sandbox` nor `paddle-live` MCP server the request depended on was actually connected in
+this session (confirmed via `ListConnectors` — only the Higgsfield media connector was present),
+so none of that catalog/credential work was attempted; fabricating it was explicitly ruled out.
+What *was* achievable without live Paddle access: `paddleWebhook` now fetches and caches Paddle's
+published IPv4 ranges (`https://api.paddle.com/ips`, `data.ipv4_cidrs`, 1-hour cache) via
+`fetchPaddleIpRanges()`/`ipInCidr()`/`extractClientIp()` (the last reading the real origin from
+`X-Forwarded-For`, since Cloud Run's own connecting socket is always Google's front end, never
+Paddle's) and rejects (403) any delivery from outside that range — deliberately **fails open**
+(skips the IP check, logs a warning, still enforces the real signature check below) if the fetch
+itself ever fails and no cached list exists yet, since this is defense-in-depth on top of
+`paddle.webhooks.unmarshal()`'s cryptographic verification, never a replacement for it, and an
+unrelated outage fetching Paddle's own IP list should never be able to take down real billing
+event delivery. The list is intentionally never hardcoded, per Paddle's own guidance that it can
+change. Separately, `paddleWebhook` now also sets `minInstances: 1` to keep one instance always
+warm — a hedge against the SDK's hardcoded 5-second (`WebhooksValidator.MAX_VALID_TIME_DIFFERENCE`)
+signature-freshness window being eaten by cold-start latency, at the cost of one always-on Cloud
+Run instance; drop it if that theory gets ruled out. On the client, `window.__resolvePaddleCustomerId(uid)`
+mirrors `paddleCustomerPortalSession`'s own subscriptions-then-customers lookup-by-`firebaseUid`
+(same owner-only Firestore rules, just run client-side), and a new `swimfit:authchange` listener
+calls it on sign-in and re-runs `Paddle.Initialize()` with `pwCustomer: { id: customerId }` once a
+real Paddle customer id is found — the initial page-load `Paddle.Initialize()` call is deliberately
+left to fire immediately without it, since a customer id only exists after a swimmer's first
+subscription and blocking first paint on an auth/Firestore round-trip isn't worth it. A pure
+code-audit of what already existed (no MCP needed) found the client Paddle token is already
+`live_`-prefixed and `Paddle.Environment.set('production')` was already in place on both client
+and server (`PADDLE_ENVIRONMENT` defaults to `'production'`) — i.e. this codebase was not actually
+pointed at sandbox to begin with, so there was no sandbox→live string-swap to perform in the price
+IDs, checkout code, or environment setters. Whether the actual `pri_.../pro_...` catalog IDs and
+the `PADDLE_WEBHOOK_SECRET`/`PADDLE_API_KEY` secret *values* are genuinely live-account credentials
+(as opposed to sandbox values that merely share the same ID format) is **not verifiable from code
+alone** and still depends on the missing MCP connection or the user's own dashboard access. A
+pre-verification content audit (also code-only) found the footer's Privacy Policy and Terms of
+Service links are both literal `href="#"` placeholders, and there is no Refund/Cancellation Policy
+link or page anywhere in the site at all — a real gap for Paddle's account verification, which
+this round only surfaced, did not fix (no policy copy was drafted, since that's a business/legal
+decision, not a coding one). Contact info is fine as-is (a `mailto:` link sits in the footer,
+reachable from any page). Live-domain-resolution and pricing-page-vs-live-catalog checks could not
+be completed either — this sandbox's own outbound network policy returned a 403 on direct fetches
+to both `swimfit.online` and `api.paddle.com` (confirmed via a direct `curl`, ruling out a
+Paddle-side or auth-side cause), independent of the missing MCP servers.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

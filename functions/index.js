@@ -139,6 +139,73 @@ const SMTP_USER = defineSecret('SMTP_USER');
 const SMTP_PASS = defineSecret('SMTP_PASS');
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
+// Paddle's own published IP allowlist for outbound webhook deliveries
+// (https://api.paddle.com/ips, data.ipv4_cidrs) — fetched at runtime and
+// cached rather than hardcoded, since Paddle can change this list and a
+// stale hardcoded copy would eventually start rejecting genuine deliveries.
+// This is defense-in-depth ON TOP OF, not instead of, the cryptographic
+// paddle.webhooks.unmarshal() signature check below — it narrows the attack
+// surface (rejects obviously-not-Paddle traffic before it's even parsed) but
+// is never the sole authentication mechanism.
+const PADDLE_IPS_URL = 'https://api.paddle.com/ips';
+const PADDLE_IPS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+let paddleIpCache = { cidrs: null, fetchedAt: 0 };
+
+function ipv4ToInt(ip) {
+  var parts = String(ip).split('.');
+  if (parts.length !== 4) return null;
+  var nums = parts.map(Number);
+  if (nums.some(function (n) { return isNaN(n) || n < 0 || n > 255; })) return null;
+  return ((nums[0] << 24) | (nums[1] << 16) | (nums[2] << 8) | nums[3]) >>> 0;
+}
+
+function ipInCidr(ip, cidr) {
+  var pieces = String(cidr).split('/');
+  var baseInt = ipv4ToInt(pieces[0]);
+  var bits = pieces.length === 2 ? parseInt(pieces[1], 10) : 32;
+  var ipInt = ipv4ToInt(ip);
+  if (baseInt === null || ipInt === null || isNaN(bits) || bits < 0 || bits > 32) return false;
+  if (bits === 0) return true;
+  var mask = (0xFFFFFFFF << (32 - bits)) >>> 0;
+  return (baseInt & mask) === (ipInt & mask);
+}
+
+// Fetches+caches Paddle's live IPv4 ranges. Fails OPEN on a fetch error
+// (returns the last-known-good list, or null if none cached yet) rather than
+// blocking every webhook — an unrelated hiccup fetching Paddle's own IP list
+// should never be able to take down real billing event delivery, since the
+// signature check is still the actual authentication.
+async function fetchPaddleIpRanges() {
+  var now = Date.now();
+  if (paddleIpCache.cidrs && now - paddleIpCache.fetchedAt < PADDLE_IPS_CACHE_TTL_MS) {
+    return paddleIpCache.cidrs;
+  }
+  try {
+    var resp = await fetch(PADDLE_IPS_URL);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var json = await resp.json();
+    var cidrs = json && json.data && Array.isArray(json.data.ipv4_cidrs) ? json.data.ipv4_cidrs : null;
+    if (!cidrs || !cidrs.length) throw new Error('Response had no data.ipv4_cidrs');
+    paddleIpCache = { cidrs: cidrs, fetchedAt: now };
+    return cidrs;
+  } catch (err) {
+    logger.warn('Paddle webhook: could not refresh Paddle IP allowlist', { message: err && err.message, usingCached: !!paddleIpCache.cidrs });
+    return paddleIpCache.cidrs; // last-known-good, or null
+  }
+}
+
+// Cloud Run/Functions sits behind Google's front end, so the connecting
+// socket is never Paddle's own IP — the real origin is the first hop in
+// X-Forwarded-For.
+function extractClientIp(req) {
+  var xff = req.headers['x-forwarded-for'];
+  if (xff) {
+    var first = String(xff).split(',')[0].trim();
+    if (first) return first;
+  }
+  return req.ip || (req.socket && req.socket.remoteAddress) || null;
+}
+
 // One Paddle client per warm function instance — cheap to construct, but no
 // reason to rebuild it on every single invocation.
 let paddleClientInstance = null;
@@ -312,6 +379,22 @@ exports.paddleWebhook = onRequest(
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
       return;
+    }
+
+    var clientIp = extractClientIp(req);
+    var paddleCidrs = await fetchPaddleIpRanges();
+    if (paddleCidrs) {
+      var ipAllowed = !!clientIp && paddleCidrs.some(function (cidr) { return ipInCidr(clientIp, cidr); });
+      if (!ipAllowed) {
+        logger.warn('Paddle webhook: rejected — source IP not in Paddle\'s published range', { clientIp: clientIp });
+        res.status(403).send('Forbidden');
+        return;
+      }
+    } else {
+      // Fetching Paddle's IP list failed and there's no cached copy yet —
+      // fail OPEN rather than block real deliveries on an unrelated outage;
+      // the signature check below is still the actual authentication.
+      logger.warn('Paddle webhook: Paddle IP allowlist unavailable, skipping IP check for this request');
     }
 
     // Paddle signs the exact raw bytes of the request body — parsing it to

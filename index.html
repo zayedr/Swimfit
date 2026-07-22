@@ -87,7 +87,7 @@
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
-    collection, addDoc, query, where, orderBy, getDocs, Timestamp, runTransaction
+    collection, addDoc, query, where, orderBy, limit, getDocs, Timestamp, runTransaction
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
   // Your web app's Firebase configuration
@@ -124,6 +124,24 @@
   // the same as any other "please sign in" case.
   window.__firebaseGetIdToken = function () {
     return auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Not signed in'));
+  };
+
+  // Resolves this swimmer's own Paddle customer id (ctm_...) for Paddle
+  // Retain's pwCustomer — mirrors the exact same subscriptions-then-customers
+  // lookup-by-firebaseUid the paddleCustomerPortalSession Cloud Function does
+  // server-side (see functions/index.js), just run client-side against the
+  // owner-only read rules already in firestore.rules for both collections.
+  // Resolves to null (not an error) for a swimmer with no billing record yet —
+  // that's the normal case for anyone who hasn't subscribed.
+  window.__resolvePaddleCustomerId = function (uid) {
+    var subQ = query(collection(db, 'subscriptions'), where('firebaseUid', '==', uid), limit(1));
+    return getDocs(subQ).then(function (snap) {
+      if (!snap.empty) return snap.docs[0].data().customerId || snap.docs[0].id;
+      var custQ = query(collection(db, 'customers'), where('firebaseUid', '==', uid), limit(1));
+      return getDocs(custQ).then(function (custSnap) {
+        return custSnap.empty ? null : (custSnap.docs[0].data().customerId || custSnap.docs[0].id);
+      });
+    }).catch(function () { return null; });
   };
 
   // Persisted AI Coach chat history for the full-screen Coach page — any
@@ -4316,19 +4334,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var pendingSubscribePlan = null;
   var paddleReady = false;
 
+  function paddleEventCallback(event) {
+    if (event.name === 'checkout.completed') {
+      alert('Thanks for subscribing to Swimfit! A confirmation is on its way to your email.');
+    }
+  }
+
   if (window.Paddle && PADDLE_CLIENT_TOKEN.indexOf('REPLACE_WITH_') !== 0) {
     try {
       Paddle.Environment.set('production');
-      Paddle.Initialize({
-        token: PADDLE_CLIENT_TOKEN,
-        eventCallback: function (event) {
-          if (event.name === 'checkout.completed') {
-            alert('Thanks for subscribing to Swimfit! A confirmation is on its way to your email.');
-          }
-        }
-      });
+      Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: paddleEventCallback });
       paddleReady = true;
     } catch (e) {}
+  }
+
+  // Paddle Retain's pwCustomer identifies the signed-in customer to Paddle so
+  // its dunning/recovery features (e.g. failed-payment emails) attach to the
+  // right account — but a customer id (ctm_...) only exists once a swimmer
+  // has actually subscribed at least once, and isn't known at the initial
+  // page-load Initialize() call above (which must still run immediately, for
+  // a signed-out visitor or a never-subscribed swimmer). Re-initializing
+  // Paddle.js after resolving the id is the documented way to attach it once
+  // it's known, without blocking the first Initialize() on an auth/Firestore
+  // round-trip. Only ever fires with a REAL Paddle customer id — never the
+  // Firebase uid or email — per Paddle's own pwCustomer contract.
+  if (paddleReady) {
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user || typeof window.__resolvePaddleCustomerId !== 'function') return;
+      window.__resolvePaddleCustomerId(e.detail.user.uid).then(function (customerId) {
+        if (!customerId) return;
+        try {
+          Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: paddleEventCallback, pwCustomer: { id: customerId } });
+        } catch (e) {}
+      });
+    });
   }
 
   function goToPaddleCheckout(plan) {
