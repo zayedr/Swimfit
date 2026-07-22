@@ -110,6 +110,24 @@ const db = admin.firestore();
 // two, and never use one in place of the other.
 const PADDLE_WEBHOOK_SECRET = defineSecret('PADDLE_WEBHOOK_SECRET');
 const PADDLE_API_KEY = defineSecret('PADDLE_API_KEY');
+
+// defineSecret('PADDLE_WEBHOOK_SECRET') binds to process.env.PADDLE_WEBHOOK_SECRET
+// at runtime — the name passed to defineSecret IS the env var name, they're
+// always identical. The only way this can come back empty is if the secret
+// was actually provisioned in Secret Manager under a different name (e.g.
+// PADDLE_WEBHOOK_SECRET_KEY, a name some Paddle setup guides use) and never
+// declared here, so process.env never gets it populated regardless of what
+// this function reads. This helper checks the real defineSecret value first,
+// then falls back to a plain (non-Secret-Manager-bound) env var read under
+// that alternate name in case it was wired in some other way — reading
+// process.env directly is harmless even when unset (just undefined), unlike
+// declaring a second defineSecret for a secret that may not exist, which
+// would hard-fail `firebase deploy` instead of degrading gracefully.
+function resolvePaddleWebhookSecret() {
+  var fromDefinedSecret = PADDLE_WEBHOOK_SECRET.value();
+  if (fromDefinedSecret) return fromDefinedSecret;
+  return process.env.PADDLE_WEBHOOK_SECRET || process.env.PADDLE_WEBHOOK_SECRET_KEY || '';
+}
 // Not a secret — just selects which Paddle environment PADDLE_API_KEY
 // belongs to. Defaults to 'production' since this integration runs against
 // Swimfit's live Paddle account; set to 'sandbox' only to point a local/dev
@@ -286,13 +304,29 @@ exports.paddleWebhook = onRequest(
     // Paddle signs the exact raw bytes of the request body — parsing it to
     // JSON (or re-serializing it) before verification changes those bytes
     // and makes verification fail. req.rawBody is Firebase Functions' own
-    // pre-parse buffer, captured before any body-parsing middleware runs.
-    var rawRequestBody = req.rawBody ? req.rawBody.toString('utf8') : '';
-    var signature = req.get('Paddle-Signature') || req.get('paddle-signature') || '';
+    // pre-parse Buffer, captured before any body-parsing middleware runs —
+    // unmarshal's signature wants a string, so decode it as utf8 (matching
+    // exactly what Paddle signed; JSON payloads are always valid UTF-8) but
+    // never re-stringify/re-serialize it.
+    var rawRequestBody = Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : (req.rawBody || '');
+    var signature = req.headers['paddle-signature'] || req.get('Paddle-Signature') || '';
+    var webhookSecret = resolvePaddleWebhookSecret();
+
+    // Debug logging for the exact 401 failure modes this integration has hit
+    // in production: a missing/renamed secret, or a signature header Paddle
+    // never actually sent. Safe to log — the signature header is an HMAC
+    // output (ts;h1=...), never the secret itself, and this never logs
+    // webhookSecret's value.
+    logger.info('Paddle webhook: pre-verification state', {
+      paddleSignatureHeader: signature || null,
+      secretStatus: webhookSecret ? 'Secret exists' : 'Secret MISSING',
+      rawBodyLength: rawRequestBody.length,
+      hasRawBody: !!req.rawBody
+    });
 
     var eventData;
     try {
-      eventData = await getPaddleClient().webhooks.unmarshal(rawRequestBody, PADDLE_WEBHOOK_SECRET.value(), signature);
+      eventData = await getPaddleClient().webhooks.unmarshal(rawRequestBody, webhookSecret, signature);
     } catch (err) {
       // Never return a 2xx here — that tells Paddle the delivery succeeded
       // and stops it from retrying a delivery this code never actually verified.
