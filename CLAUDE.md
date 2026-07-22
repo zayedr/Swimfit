@@ -1137,6 +1137,96 @@ selection into the same `swimfit_generator_prefs` blob, all in one step. Verifie
 typing into a PB/age/gym field, reloading the page, and confirming the value survives; toggling a
 Specialty chip and confirming the "Saved" status text appears with no button click involved.
 
+**A real, previously-live crash in `generateWorkout()` was found and fixed**: the "Coach's Plan"
+pace-summary paragraph referenced `pb100Sec`/`pb50Sec`, two variables that no longer existed
+anywhere in the function after an earlier round rewrote the PB fields around flexible
+distance/time pairs (`pbDistanceM`/`pbTimeSec`) — a bare `ReferenceError` on that line, thrown the
+moment `personalPace` was non-null (i.e. the instant a swimmer actually filled in a PB), meaning
+the whole workout generation silently failed for exactly the swimmers using the feature as
+intended. Every previous round's Playwright verification happened to test with empty PB fields,
+so `personalPace` stayed `null` and the broken branch was never exercised. Fixed to read
+`pbDistanceM`/`pbTimeSec` directly; verified end-to-end with a filled-in PB with zero page errors.
+
+**Workout Generator: a wide formatting/logic revamp.** The "Coach's Intent — Why This Set" boxes
+are gone from every stage (`renderBlock()` no longer takes or renders an `intent` param at all —
+the underlying `intents` arrays stay on each archetype object as inert, harmless data, same
+"don't touch working content, just stop reading it" precedent as `coach_history` elsewhere in this
+file) — a swimmer sees the sets themselves, not a paragraph justifying them. "Target Pace: 1:44 /
+100m" is gone too; `cleanPaceLabel()` converts an internal tag like `"200 Pace"` into a plain
+`"200m Pace"` label with no clock time attached, while non-numeric tags (`Recovery Pace`, `Drill
+Pace`, etc.) pass through unchanged. Every set row now also shows a **Total Time** figure
+(`reps × interval`, via `buildSet()`'s new `totalSec` field) alongside the existing Interval/Rest
+columns, and the Rest column now reads `"Rest: 15s"` inline rather than a value-over-label pair.
+The Warm-Up's second line (previously a fixed `"Drill/Build — odd 25 drill, even 25 build"` every
+single day) now rotates through `WARMUP_DRILL_POOL` via `pickOne()` — the same day-stable
+`workoutRng` seed as everything else, so it still only changes at midnight, never on every click —
+while the opening Freestyle-easy swim stays hardcoded exactly as before.
+
+**A hard realism cap: no single Butterfly rep/set can ever exceed 200m.** `buildSet()` is the one
+function every archetype (Warm-Up, Pre-Set, every Main Set archetype, Cool-Down) funnels through
+to build a set, so the cap lives there once instead of being audited into each archetype
+individually: if a label starts with `"Butterfly"` and the computed `dist` is over 200m, reps are
+scaled up (`Math.ceil(reps * dist / 200)`) and `dist` is clamped to 200 — preserving the
+archetype's intended total volume rather than silently shrinking the session. This was a real,
+reachable case: `Build-By-Thirds` (an Endurance archetype whose single continuous rep scales
+directly with the swimmer's chosen distance) could previously hand a Butterfly-primary swimmer an
+800m+ unbroken Butterfly rep at large total distances.
+
+**Longer sessions now get genuinely more varied Main Set archetypes, not just a bigger version of
+the same one or two.** `blockCountForDistance()` adds one extra archetype (capped by how many
+distinct archetypes actually exist in the combined goal pool) once total distance reaches 3500m —
+a swimmer choosing 3-4km sees a wider spread of Main Set blocks instead of the existing
+per-archetype round/rep scaling alone stretching to fill the volume.
+
+**Equipment is never combined all at once onto the same set.** The Technique archetype "Equipment
+Strength" previously handed every selected piece of gear (Fins + Kickboard + Pull Buoy + Hand
+Paddles, if all four were checked) onto the same set row — unrealistic, since a swimmer only ever
+uses one or two pieces of gear per rep in practice. It now picks one gear item for Round 1 and a
+different one (where more than one is selected) for Round 2, with Round 3 intentionally gear-off
+to test transfer, matching the realistic single-item-per-round pattern every other equipment-aware
+archetype (`Descending Power Ladder`, `Sprint Reps`, etc.) already used.
+
+**Every set row got an interactive completion checkbox that logs straight into the Distance
+Tracker.** Checking `.set-complete-check` on a rendered `.set-row` calls the exact same
+`window.__swimLogAdd` bridge the Tracker's own manual log form uses (`{distanceMeters, loggedAt,
+discipline}` — no new Firestore collection, Cloud Function, or security rule needed), with the
+discipline best-effort inferred from the set's own title text (`inferSetDiscipline()`, falling
+back to the swimmer's primary selected discipline for the handful of equipment/pull-focused sets
+whose titles don't name a specific stroke). Unchecking the same box deletes that exact entry again
+via `window.__swimLogDelete`, tracked in-memory by the row's own generated `data-set-id` — a map
+that never needs explicit clearing, since the next Generate click replaces `#workoutResult`'s
+entire DOM subtree anyway. Verified end-to-end against the Firestore emulator mock: checking a box
+creates exactly one `swim_logs` entry with the right distance/discipline, unchecking it removes
+that same entry.
+
+**The About section was condensed from three full pillar cards into a single slim chip row.**
+Reaching the tab shell (Workouts, Gym, etc.) below it on a fresh page load meant scrolling past a
+noticeably taller block than necessary; the same three ideas (Always Adaptive / Built On Technique
+Science / One Squad, Every Level) now read as three small pill-shaped chips in one row
+(`.about-pillar-chip`) under a shortened headline, with the restating "Swimfit is the ultimate..."
+paragraph dropped as redundant with the `<h2>` right above it. This was a deliberate, scoped trim —
+not a removal of the section or its ideas — confirmed with the user before touching it, since the
+literal ask ("remove the long definition block") didn't match anything actually inside the Workouts
+panel or the site footer (both already short) once audited; the About section was the only
+genuinely long descriptive block sitting between the Hero and the tab shell.
+
+**Settings got a visual pass**: a soft dual radial-gradient wash (aqua top-left, green
+bottom-right, both low-opacity) now sits behind the whole signed-in Settings shell, and each
+`.settings-card` picked up a gradient background, a colored top accent bar (rotating aqua/green/
+maroon per card), a soft drop shadow, and a hover lift — replacing the previous flat single-tone
+card treatment. This layers on top of both Dark and Light mode's own surface colors rather than
+overriding them, so the page still fully respects the swimmer's Appearance choice while reading
+noticeably less flat/gloomy than before.
+
+**A landing-page/footer audit for leftover debug or placeholder copy found nothing to remove.**
+Grepped for the usual signs of orphaned scaffolding (`TODO`/`FIXME`, `lorem ipsum`, sample
+emails/names, raw `console.log`-style text visible in markup, etc.) across the whole file — every
+hit traced back to either the bundled jsPDF library's own source (third-party, never user-facing)
+or coincidental substring matches inside base64 image data URIs, not actual rendered copy. The
+Hero's "Command the Water. Own the Race." headline was deliberately left untouched — it's an
+intentional marketing pun, not technical debug text, and nothing else on the landing page or in
+the footer read as unintentional scaffolding.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
