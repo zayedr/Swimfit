@@ -1408,14 +1408,14 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .quote-card {
   background: linear-gradient(160deg, rgba(31,163,90,0.12), rgba(34,211,238,0.06));
-  border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3) var(--space-4);
   position: relative; overflow: hidden;
 }
-.quote-card .icon { width: 28px; height: 28px; color: var(--aqua); opacity: 0.5; margin-bottom: var(--space-2); }
-.quote-card blockquote { font-family: var(--font-display); font-size: 1.3rem; line-height: 1.3; margin-bottom: var(--space-2); }
-.quote-card cite { color: var(--muted-2); font-size: 0.82rem; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; }
+.quote-card .icon { width: 18px; height: 18px; color: var(--aqua); opacity: 0.5; margin-bottom: 4px; }
+.quote-card blockquote { font-family: var(--font-display); font-size: 1rem; line-height: 1.25; margin-bottom: 2px; }
+.quote-card cite { color: var(--muted-2); font-size: 0.72rem; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; }
 
-.result-panel { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); overflow: hidden; min-height: 100%; }
+.result-panel { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); overflow: hidden; min-height: 100%; }
 .result-panel::before {
   content: ''; position: absolute; inset: -24px; z-index: 0;
   /* Darkened further than the general photo-overlay pattern elsewhere in
@@ -1507,25 +1507,20 @@ section { position: relative; scroll-margin-top: 96px; }
 .workout-block-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .workout-block-count { text-transform: none; letter-spacing: normal; color: var(--muted-2); font-size: 0.78rem; flex-shrink: 0; }
 .workout-block:not([open]) { padding-bottom: var(--space-2); }
-.set-row { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: var(--space-2); align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); border-radius: 8px; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease), padding-inline var(--dur) var(--ease); }
-.set-row:hover { background: rgba(255,255,255,0.03); transform: translateX(3px); padding-inline: var(--space-2); }
+/* One line per set: title/pace/gear all inline on the left (wrapping only
+   if genuinely too long for the width), a single compact interval/rest/total
+   string on the right — replacing the old grid of 3 separately-labeled
+   mini-columns, which cost an extra line of vertical space per row. */
+.set-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: 5px 0; border-bottom: 1px solid var(--border); transition: background var(--dur) var(--ease); }
+.set-row:hover { background: rgba(255,255,255,0.03); }
 .set-row:last-child { border-bottom: none; }
-.set-row.set-row-complete { background: rgba(34,211,238,0.07); }
-.set-check { display: flex; align-items: center; cursor: pointer; position: relative; }
-.set-check input { position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0; cursor: pointer; }
-.set-check-box { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border-strong); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
-.set-check input:checked ~ .set-check-box { background: var(--aqua); border-color: var(--aqua); }
-.set-check input:checked ~ .set-check-box::after { content: ''; width: 5px; height: 9px; border-right: 2px solid var(--bg); border-bottom: 2px solid var(--bg); transform: rotate(45deg) translate(-1px, -1px); }
-.set-main { display: flex; flex-direction: column; gap: 2px; }
-.set-title { font-weight: 600; font-size: 0.86rem; line-height: 1.3; color: var(--fg); }
-.set-pace { font-size: 0.68rem; color: var(--aqua); }
-.set-gear { display: flex; gap: 4px; flex-wrap: wrap; }
-.set-gear .gear-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--muted); background: var(--bg-alt); padding: 2px 6px; border-radius: 999px; border: 1px solid var(--border); }
-.set-gear .gear-chip .icon { width: 11px; height: 11px; }
-.set-interval, .set-rest, .set-total { text-align: right; }
-.set-interval strong, .set-rest strong, .set-total strong { display: block; font-family: var(--font-display); font-size: 0.88rem; }
-.set-interval span, .set-total span { font-size: 0.62rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
-.set-rest strong { font-size: 0.74rem; font-family: var(--font-body); color: var(--muted); }
+.set-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; min-width: 0; flex: 1; }
+.set-title { font-weight: 600; font-size: 0.82rem; line-height: 1.3; color: var(--fg); }
+.set-pace { font-size: 0.66rem; color: var(--aqua); white-space: nowrap; }
+.set-gear { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.set-gear .gear-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.64rem; color: var(--muted); background: var(--bg-alt); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
+.set-gear .gear-chip .icon { width: 10px; height: 10px; }
+.set-stats { font-family: var(--font-display); font-size: 0.7rem; color: var(--muted-2); white-space: nowrap; flex-shrink: 0; }
 
 .coach-tips { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
@@ -1536,14 +1531,20 @@ section { position: relative; scroll-margin-top: 96px; }
 .coach-tips li { display: flex; gap: var(--space-2); align-items: flex-start; font-size: 0.82rem; }
 .coach-tips li .icon { width: 14px; height: 14px; color: var(--green-bright); margin-top: 2px; flex-shrink: 0; }
 
+/* Single "Complete Workout" primary action, replacing the earlier per-set
+   completion checkboxes — one press logs the whole session's total
+   distance to the Tracker instead of a dozen+ individual clicks mid-swim. */
+.btn-complete-workout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: var(--space-3); padding: 0.85em 1em; font-size: 0.92rem; }
+.btn-complete-workout .icon { width: 18px; height: 18px; }
+.btn-complete-workout.btn-workout-logged { background: var(--green-bright); border-color: var(--green-bright); color: var(--on-green); cursor: default; opacity: 0.95; }
+
 @media (max-width: 900px) {
   .generator { grid-template-columns: 1fr; }
   .equipment-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
-  .set-row { grid-template-columns: auto 1fr; }
-  .set-check { grid-row: 1 / 3; }
-  .set-interval, .set-rest, .set-total { text-align: left; display: flex; gap: 6px; align-items: baseline; grid-column: 2; }
+  .set-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .set-stats { align-self: flex-start; }
 }
 
 /* ============================= GYM SELECTOR ============================= */
@@ -2560,7 +2561,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </button>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:24px;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
           <div class="quote-card" data-reveal="right">
             <svg class="icon"><use href="#i-quote"/></svg>
             <blockquote id="quoteText">Every length is a deposit in the bank of race day.</blockquote>
@@ -4338,10 +4339,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     };
   }
   var workoutRng = Math.random;
-  // Gives every rendered set row a unique, stable-within-one-generation id
-  // (see renderBlock/buildSet) so the completion-checkbox wiring below can
-  // look up which row was toggled without re-parsing the DOM structure.
-  var workoutSetSeq = 0;
 
   var GOALS = [
     { key: 'endurance', icon: 'i-wave', label: 'Endurance', quote: 'Every length is a deposit in the bank of race day.' },
@@ -4674,15 +4671,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var rows = round.sets.map(function (s) {
         var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
         var paceLabel = cleanPaceLabel(s.paceTag);
-        var setId = 'set-' + (workoutSetSeq++);
-        return '<div class="set-row" data-set-id="' + setId + '" data-dist="' + (s.reps * s.dist) + '">' +
-          '<label class="set-check"><input type="checkbox" class="set-complete-check" data-set-id="' + setId + '"><span class="set-check-box"></span></label>' +
+        // One line per set: title + pace + gear all inline-wrapped on the
+        // left, a single compact interval/rest/total string on the right —
+        // replacing the previous 3 separate labeled mini-columns, which cost
+        // an extra line of vertical space per row for very little payoff.
+        return '<div class="set-row">' +
           '<div class="set-main"><span class="set-title">' + s.title + '</span>' +
-          '<span class="set-pace">' + (paceLabel || '') + '</span>' +
-          (gearHtml ? '<div class="set-gear">' + gearHtml + '</div>' : '') + '</div>' +
-          '<div class="set-interval"><strong>' + formatTime(s.interval) + '</strong><span>Interval</span></div>' +
-          '<div class="set-rest"><strong>Rest: ' + formatTime(s.rest) + '</strong></div>' +
-          '<div class="set-total"><strong>' + formatTime(s.totalSec) + '</strong><span>Total Time</span></div></div>';
+          (paceLabel ? '<span class="set-pace">' + paceLabel + '</span>' : '') +
+          (gearHtml ? '<span class="set-gear">' + gearHtml + '</span>' : '') + '</div>' +
+          '<div class="set-stats">' + formatTime(s.interval) + ' int &middot; ' + formatTime(s.rest) + ' rest &middot; ' + formatTime(s.totalSec) + ' tot</div></div>';
       }).join('');
       var labelHtml = round.label ? '<div class="round-label"><span class="round-label-badge">' + round.label + '</span></div>' : '';
       return labelHtml + rows;
@@ -5143,7 +5140,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // the swimmer's workout automatically rotates at midnight rather than
     // reshuffling on every click of Generate.
     workoutRng = makeSeededRandom(dailySeed());
-    workoutSetSeq = 0;
     // A separate, throwaway RNG seeded with yesterday's date, used only to
     // simulate "what would today's current settings have produced yesterday"
     // for the Pre-Set and first Main Set archetype — so a swimmer generating
@@ -5253,7 +5249,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false) +
       renderBlock('Pre-Set — ' + preset.name, preset.rounds, false) +
-      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, true); }).join('') +
+      main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, block.rounds, i === 0); }).join('') +
       renderBlock('Cool-Down', [{ label: null, sets: cooldown }], false);
 
     var scalerNoteHtml = '<p style="color:var(--muted); font-size:0.82rem; margin-bottom:4px;">' +
@@ -5269,6 +5265,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
     html += renderCoachTips();
+
+    html += '<button type="button" class="btn btn-primary btn-complete-workout" id="completeWorkoutBtn" data-total-m="' + totalM + '">' +
+      icon('i-check') + ' Complete Workout — Log ' + formatDistanceM(totalM, 1) + '</button>';
 
     document.getElementById('workoutResult').innerHTML = scalerNoteHtml + html;
     document.getElementById('workoutResult').querySelectorAll('[data-tab]').forEach(function (btn) {
@@ -5287,53 +5286,35 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     setTimeout(function () { btn.classList.remove('btn-pulse'); }, 550);
   });
 
-  // Best-effort discipline guess for a completed-set log entry — most set
-  // titles are built as "<stroke>, ..." (see buildSet call sites), but a
-  // few (equipment/pull-focused rounds) have no stroke name in the title at
-  // all, so those fall back to the swimmer's primary selected discipline.
-  function inferSetDiscipline(title) {
-    var names = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke'];
-    for (var i = 0; i < names.length; i++) {
-      if (title.indexOf(names[i]) > -1) return names[i];
-    }
-    if (title.indexOf('IM') > -1) return 'Individual Medley';
-    return strokeLabelSingle(state.disciplines[0]);
-  }
-
-  // Checking a set's completion box logs its distance straight into the
-  // Distance Tracker (swim_logs) via the same bridge the Tracker's own log
-  // form uses — no separate "completed workouts" data model needed.
-  // Unchecking deletes that same entry again, tracked in-memory by the
-  // row's own data-set-id (cleared naturally the next time Generate
-  // replaces #workoutResult's contents, so this never grows unbounded).
-  var completedSetLogIds = {};
-  document.getElementById('workoutResult').addEventListener('change', function (e) {
-    var checkbox = e.target.closest('.set-complete-check');
-    if (!checkbox) return;
-    var row = checkbox.closest('.set-row');
-    if (!row) return;
-    var setId = row.dataset.setId;
-    var dist = parseInt(row.dataset.dist, 10);
-    if (!dist) return;
-    if (checkbox.checked) {
-      if (!window.__firebaseUser || typeof window.__swimLogAdd !== 'function') { checkbox.checked = false; return; }
-      var titleEl = row.querySelector('.set-title');
-      checkbox.disabled = true;
-      window.__swimLogAdd({ distanceMeters: dist, loggedAt: new Date(), discipline: inferSetDiscipline(titleEl ? titleEl.textContent : '') })
-        .then(function (ref) {
-          completedSetLogIds[setId] = ref.id;
-          row.classList.add('set-row-complete');
-        })
-        .catch(function () { checkbox.checked = false; })
-        .finally(function () { checkbox.disabled = false; });
-    } else {
-      row.classList.remove('set-row-complete');
-      var entryId = completedSetLogIds[setId];
-      if (entryId && typeof window.__swimLogDelete === 'function') {
-        delete completedSetLogIds[setId];
-        window.__swimLogDelete(entryId).catch(function () {});
-      }
-    }
+  // "Complete Workout" replaces the earlier per-set completion checkboxes —
+  // swimmers don't want to click through a dozen+ individual boxes mid-set.
+  // One press logs the whole session's total target distance straight into
+  // the Distance Tracker (swim_logs) via the same bridge the Tracker's own
+  // manual log form uses — no new Firestore collection or Cloud Function
+  // needed. The button carries its own state (disabled + "Logged" once
+  // clicked) since re-clicking would double-log the same session; a fresh
+  // Generate re-enables it for the next one. A swimfit:swimlogchange event
+  // tells an already-open Tracker tab to re-fetch immediately, since its own
+  // load-once-per-session guard would otherwise miss this new entry.
+  document.getElementById('workoutResult').addEventListener('click', function (e) {
+    var btn = e.target.closest('#completeWorkoutBtn');
+    if (!btn) return;
+    var totalM = parseInt(btn.dataset.totalM, 10);
+    if (!totalM) return;
+    if (!window.__firebaseUser || typeof window.__swimLogAdd !== 'function') return;
+    btn.disabled = true;
+    var originalHtml = btn.innerHTML;
+    window.__swimLogAdd({ distanceMeters: totalM, loggedAt: new Date(), discipline: strokeLabelSingle(state.disciplines[0]) })
+      .then(function () {
+        btn.innerHTML = icon('i-check') + ' Logged To Tracker — ' + formatDistanceM(totalM, 1);
+        btn.classList.add('btn-workout-logged');
+        document.dispatchEvent(new CustomEvent('swimfit:swimlogchange'));
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        alert('Could not log this workout — please check your connection and try again.');
+      });
   });
 
   /* Slight parallax on the generator's result-panel background photo */
@@ -5974,8 +5955,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
               round: currentRound,
               title: child.querySelector('.set-title').textContent.trim(),
               pace: child.querySelector('.set-pace').textContent.trim(),
-              interval: child.querySelector('.set-interval strong').textContent.trim(),
-              rest: child.querySelector('.set-rest strong').textContent.trim()
+              stats: child.querySelector('.set-stats').textContent.trim()
             });
           }
         });
@@ -6100,7 +6080,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.setTextColor(90, 90, 90);
-          doc.text(row.interval + '  ·  ' + row.rest, pageW - marginX - 120, y);
+          doc.text(row.stats, pageW - marginX - 120, y);
           y += Math.max(titleLines.length * 11, 11) + 3;
           doc.setFontSize(8.5);
           doc.setTextColor(21, 137, 153);
@@ -7997,6 +7977,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         renderStat(); renderEntries(); renderPbChart();
       }
     });
+    // loadEntriesIfNeeded() only ever fetches once per signed-in session
+    // (guarded by loadedForUid) — fine for a normal tab switch, but a swim
+    // logged elsewhere (the Workouts tab's "Complete Workout" button) needs
+    // to show up here even if the Tracker was already opened earlier this
+    // session, so force a re-fetch on this event instead of waiting for a
+    // fresh sign-in.
+    document.addEventListener('swimfit:swimlogchange', function () {
+      loadedForUid = null;
+      loadEntriesIfNeeded();
+    });
     // Switching Meters/Yards in Settings redraws every distance already on
     // screen immediately, rather than only taking effect on the next tab
     // visit or reload.
@@ -8483,7 +8473,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       } else {
         loadedForUid = null;
         if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
-        messagesEl.innerHTML = '';
+        // Re-render the greeting instead of a raw innerHTML wipe — this
+        // signed-out branch fires for EVERY visitor as Firebase Auth
+        // resolves (even ones who turn out to be signed in a moment later),
+        // so clearing to a blank panel here left a real visible gap: the
+        // greeting would flash in at wire-time, vanish the instant this
+        // fired, and only reappear once the real sign-in resolved and
+        // subscribeIfNeeded() ran. The floating widget already got this fix;
+        // the full-screen Support page had been missed.
+        renderMessages([]);
       }
     });
 
