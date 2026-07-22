@@ -1205,11 +1205,10 @@ section { position: relative; scroll-margin-top: 96px; }
 .stat span { color: var(--muted-2); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
 
 /* ============================= ABOUT (persistent, right after hero) ============================= */
-#about { padding-block: var(--space-7); }
-.about-pillar { text-align: center; }
-.about-pillar .icon-tile { margin-inline: auto; }
-.about-pillar h3 { font-size: 1.2rem; text-transform: uppercase; margin: var(--space-1) 0 var(--space-2); }
-.about-pillar p { color: var(--muted); font-size: 0.94rem; }
+#about.about-compact { padding-block: var(--space-5); }
+.about-pillars-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
+.about-pillar-chip { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg); background: var(--bg-alt); border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; }
+.about-pillar-chip .icon { width: 16px; height: 16px; color: var(--aqua); flex-shrink: 0; }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
@@ -1374,8 +1373,31 @@ section { position: relative; scroll-margin-top: 96px; }
 @media (max-width: 480px) { .profile-row { grid-template-columns: 1fr; } }
 .profile-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* A dedicated, more vibrant wash behind the whole signed-in Settings shell —
+   layers on top of both Dark and Light mode's own surface colors rather
+   than replacing them, so the page still respects the swimmer's Appearance
+   choice while reading noticeably less flat/gloomy than a plain surface. */
+#panel-settings .settings-shell[data-auth-signed-in] {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34,211,238,0.12), transparent 55%),
+    radial-gradient(circle at 88% 100%, rgba(46,204,129,0.12), transparent 55%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-4);
+  margin-inline: calc(-1 * var(--space-4));
+}
 .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
-.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
+.settings-card {
+  background: linear-gradient(160deg, var(--surface), var(--bg-alt));
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--aqua);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  box-shadow: 0 14px 32px -20px rgba(0,0,0,0.5);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.settings-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -18px rgba(0,0,0,0.55); }
+.settings-card:nth-of-type(3n+2) { border-top-color: var(--green-bright); }
+.settings-card:nth-of-type(3n+3) { border-top-color: var(--maroon-bright); }
 .settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; margin-bottom: var(--space-3); }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
@@ -1513,23 +1535,25 @@ section { position: relative; scroll-margin-top: 96px; }
 .workout-block-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .workout-block-count { text-transform: none; letter-spacing: normal; color: var(--muted-2); font-size: 0.78rem; flex-shrink: 0; }
 .workout-block:not([open]) { padding-bottom: var(--space-2); }
-.coach-intent { display: flex; gap: 10px; align-items: flex-start; background: var(--bg-alt); border-left: 3px solid var(--aqua); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); }
-.coach-intent .icon { width: 16px; height: 16px; color: var(--aqua); flex-shrink: 0; margin-top: 3px; }
-.coach-intent-label { font-family: var(--font-display); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.07em; color: var(--aqua); display: block; margin-bottom: 3px; }
-.coach-intent-body { font-size: 0.87rem; color: var(--muted); line-height: 1.5; }
-.set-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); border-radius: 8px; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease), padding-inline var(--dur) var(--ease); }
+.set-row { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); border-radius: 8px; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease), padding-inline var(--dur) var(--ease); }
 .set-row:hover { background: rgba(255,255,255,0.03); transform: translateX(3px); padding-inline: var(--space-2); }
 .set-row:last-child { border-bottom: none; }
+.set-row.set-row-complete { background: rgba(34,211,238,0.07); }
+.set-check { display: flex; align-items: center; cursor: pointer; position: relative; }
+.set-check input { position: absolute; opacity: 0; width: 20px; height: 20px; margin: 0; cursor: pointer; }
+.set-check-box { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border-strong); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.set-check input:checked ~ .set-check-box { background: var(--aqua); border-color: var(--aqua); }
+.set-check input:checked ~ .set-check-box::after { content: ''; width: 5px; height: 9px; border-right: 2px solid var(--bg); border-bottom: 2px solid var(--bg); transform: rotate(45deg) translate(-1px, -1px); }
 .set-main { display: flex; flex-direction: column; gap: 4px; }
 .set-title { font-weight: 600; font-size: 1rem; }
 .set-pace { font-size: 0.78rem; color: var(--aqua); }
-.pace-tag { display: inline-block; margin-left: 6px; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-2); background: var(--bg-alt); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); }
 .set-gear { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .set-gear .gear-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted); background: var(--bg-alt); padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .set-gear .gear-chip .icon { width: 13px; height: 13px; }
-.set-interval, .set-rest { text-align: right; }
-.set-interval strong, .set-rest strong { display: block; font-family: var(--font-display); font-size: 1.05rem; }
-.set-interval span, .set-rest span { font-size: 0.7rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.set-interval, .set-rest, .set-total { text-align: right; }
+.set-interval strong, .set-rest strong, .set-total strong { display: block; font-family: var(--font-display); font-size: 1.05rem; }
+.set-interval span, .set-total span { font-size: 0.7rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.set-rest strong { font-size: 0.85rem; font-family: var(--font-body); color: var(--muted); }
 
 .coach-tips { margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
@@ -1545,8 +1569,9 @@ section { position: relative; scroll-margin-top: 96px; }
   .equipment-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
-  .set-row { grid-template-columns: 1fr; text-align: left; }
-  .set-interval, .set-rest { text-align: left; display: flex; gap: 6px; align-items: baseline; }
+  .set-row { grid-template-columns: auto 1fr; }
+  .set-check { grid-row: 1 / 3; }
+  .set-interval, .set-rest, .set-total { text-align: left; display: flex; gap: 6px; align-items: baseline; grid-column: 2; }
 }
 
 /* ============================= GYM SELECTOR ============================= */
@@ -2518,30 +2543,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </header>
 
-<!-- ============================= ABOUT / DEFINITION (persistent, right after Hero) ============================= -->
-<section id="about">
+<!-- ============================= ABOUT / DEFINITION (persistent, right after Hero) =============================
+     Deliberately condensed to a slim single-row strip rather than three full
+     cards — reaching the tab shell (Workouts, Gym, etc.) below used to mean
+     scrolling past a much taller block; the same three ideas now read at a
+     glance without the extra vertical space. -->
+<section id="about" class="about-compact">
   <div class="wrap">
-    <div class="section-head center">
+    <div class="section-head center" style="margin-bottom:20px;">
       <p class="eyebrow" style="justify-content:center">What Is Swimfit?</p>
       <h2>The Dynamic Training Platform For Every Swimmer</h2>
-      <p>Swimfit is the ultimate dynamic training platform for beginner, competitive and elite swimmers — one place that builds your workout, your gym session and your race prep around exactly where you are today.</p>
     </div>
-    <div class="grid grid-3">
-      <div class="card about-pillar" data-reveal="scale">
-        <div class="icon-tile aqua"><svg class="icon"><use href="#i-wave"/></svg></div>
-        <h3>Always Adaptive</h3>
-        <p>Every workout, level and rest interval recalculates around your stage — nothing is one-size-fits-all.</p>
-      </div>
-      <div class="card about-pillar" data-reveal="scale">
-        <div class="icon-tile green"><svg class="icon"><use href="#i-stopwatch"/></svg></div>
-        <h3>Built On Technique Science</h3>
-        <p>Stroke mechanics, race-pace metrics and video review — grounded in how swimmers actually get faster.</p>
-      </div>
-      <div class="card about-pillar" data-reveal="scale">
-        <div class="icon-tile maroon"><svg class="icon"><use href="#i-trophy"/></svg></div>
-        <h3>One Squad, Every Level</h3>
-        <p>Beginners, competitive swimmers and elite athletes train side by side in one community, one platform.</p>
-      </div>
+    <div class="about-pillars-row">
+      <span class="about-pillar-chip"><svg class="icon"><use href="#i-wave"/></svg>Always Adaptive</span>
+      <span class="about-pillar-chip"><svg class="icon"><use href="#i-stopwatch"/></svg>Built On Technique Science</span>
+      <span class="about-pillar-chip"><svg class="icon"><use href="#i-trophy"/></svg>One Squad, Every Level</span>
     </div>
   </div>
 </section>
@@ -4725,6 +4741,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     };
   }
   var workoutRng = Math.random;
+  // Gives every rendered set row a unique, stable-within-one-generation id
+  // (see renderBlock/buildSet) so the completion-checkbox wiring below can
+  // look up which row was toggled without re-parsing the DOM structure.
+  var workoutSetSeq = 0;
 
   var GOALS = [
     { key: 'endurance', icon: 'i-wave', label: 'Endurance', quote: 'Every length is a deposit in the bank of race day.' },
@@ -5014,10 +5034,30 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     };
   }
 
+  // Hard realism cap: no single Butterfly rep/set is ever allowed to exceed
+  // 200m — swimming 400m+ of Butterfly in one continuous rep isn't a
+  // realistic set for almost any swimmer. Every archetype funnels through
+  // this one function to build its sets, so capping here covers every
+  // current and future archetype without auditing each one's hardcoded
+  // distances individually. Reps scale up to preserve the archetype's
+  // intended total volume rather than just silently shrinking the set.
   function buildSet(reps, dist, label, gearList, pace100, restBase, scaler, paceTag) {
+    if (dist > 200 && label.indexOf('Butterfly') === 0) {
+      reps = Math.max(reps, Math.ceil((reps * dist) / 200));
+      dist = 200;
+    }
     var interval = Math.round(((dist / 100) * pace100 + restBase) * scaler.intervalMult);
     var rest = Math.max(10, Math.round(restBase * scaler.intervalMult + scaler.restAdd));
-    return { title: reps + ' x ' + dist + 'm ' + label, interval: interval, rest: rest, gear: gearList, pace: Math.round(pace100), paceTag: paceTag || null };
+    return { title: reps + ' x ' + dist + 'm ' + label, reps: reps, dist: dist, interval: interval, rest: rest, totalSec: reps * interval, gear: gearList, pace: Math.round(pace100), paceTag: paceTag || null };
+  }
+  // Converts an internal pace tag like "200 Pace" into a clean display label
+  // ("200m Pace") with no specific clock time attached — descriptive tags
+  // that are already clock-free (Recovery/Easy/Drill/Cruise/Threshold Pace)
+  // pass through unchanged.
+  function cleanPaceLabel(tag) {
+    if (!tag) return null;
+    var m = tag.match(/^(\d+)\s*Pace$/);
+    return m ? m[1] + 'm Pace' : tag;
   }
 
   // rounds is an array of { label, sets } — label is a short round title
@@ -5030,26 +5070,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // without a second parallel summarized data structure to keep in sync.
   // Main Set stays open by default (the stage a swimmer actually came for);
   // Warm-Up/Pre-Set/Cool-Down start collapsed since they're supporting work.
-  function renderBlock(name, rounds, intent, openByDefault) {
+  function renderBlock(name, rounds, openByDefault) {
     var totalSets = rounds.reduce(function (n, r) { return n + r.sets.length; }, 0);
     if (!totalSets) return '';
     var body = rounds.map(function (round) {
       var rows = round.sets.map(function (s) {
         var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
-        return '<div class="set-row"><div class="set-main"><span class="set-title">' + s.title + '</span>' +
-          '<span class="set-pace">Target Pace: ' + formatTime(s.pace) + ' / 100m' + (s.paceTag ? ' <span class="pace-tag">' + s.paceTag + '</span>' : '') + '</span>' +
+        var paceLabel = cleanPaceLabel(s.paceTag);
+        var setId = 'set-' + (workoutSetSeq++);
+        return '<div class="set-row" data-set-id="' + setId + '" data-dist="' + (s.reps * s.dist) + '">' +
+          '<label class="set-check"><input type="checkbox" class="set-complete-check" data-set-id="' + setId + '"><span class="set-check-box"></span></label>' +
+          '<div class="set-main"><span class="set-title">' + s.title + '</span>' +
+          '<span class="set-pace">' + (paceLabel || '') + '</span>' +
           (gearHtml ? '<div class="set-gear">' + gearHtml + '</div>' : '') + '</div>' +
           '<div class="set-interval"><strong>' + formatTime(s.interval) + '</strong><span>Interval</span></div>' +
-          '<div class="set-rest"><strong>' + formatTime(s.rest) + '</strong><span>Rest</span></div></div>';
+          '<div class="set-rest"><strong>Rest: ' + formatTime(s.rest) + '</strong></div>' +
+          '<div class="set-total"><strong>' + formatTime(s.totalSec) + '</strong><span>Total Time</span></div></div>';
       }).join('');
       var labelHtml = round.label ? '<div class="round-label"><span class="round-label-badge">' + round.label + '</span></div>' : '';
       return labelHtml + rows;
     }).join('');
-    var intentHtml = intent
-      ? '<div class="coach-intent">' + icon('i-target') + '<div><span class="coach-intent-label">Coach’s Intent — Why This Set</span><span class="coach-intent-body">' + intent + '</span></div></div>'
-      : '';
     return '<details class="workout-block"' + (openByDefault ? ' open' : '') + '><summary class="workout-block-title">' + name +
-      '<span class="workout-block-count">' + totalSets + ' set' + (totalSets === 1 ? '' : 's') + '</span></summary>' + intentHtml + body + '</details>';
+      '<span class="workout-block-count">' + totalSets + ' set' + (totalSets === 1 ? '' : 's') + '</span></summary>' + body + '</details>';
   }
 
   function pickN(arr, n) {
@@ -5089,31 +5131,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return fractions.map(function (f) { return Math.max(50, Math.round((totalM * f) / 50) * 50); });
   }
 
-  var WARMUP_INTENTS = {
-    beginner: [
-      'We ease in on purpose — a slow, relaxed swim raises blood flow to the working muscles and lets your breathing settle before we ask for anything harder. Rushing the warm-up is the single biggest reason technique falls apart later in a session.',
-      'This first block isn’t about effort, it’s about feel: reconnecting with the water, checking your body position, and getting your breathing rhythm calm before the pace picks up.'
-    ],
-    competitive: [
-      'Easy swimming into a drill/build progression gradually recruits the faster-twitch fibers you’ll need in the main set, so the first hard rep doesn’t hit your system as a shock.',
-      'This warm-up raises core temperature and rehearses stroke mechanics at low intensity, priming the exact neuromuscular pathways the main set is about to load.'
-    ],
-    elite: [
-      'This sequence is engineered, not casual: low-heart-rate aerobic swimming into a build progression nudges stroke rate up incrementally, rehearsing the precise neuromuscular pattern you’ll hold under load — the warm-up is training too, not just preparation for it.',
-      'The build segment is short and sharp on purpose — just enough to prime fast-twitch recruitment and elevate stroke rate without borrowing energy your main set needs.'
-    ]
-  };
-  var COOLDOWN_INTENTS = {
-    beginner: [
-      'Slow, easy swimming brings your heart rate down gradually and gives you a moment to notice how your stroke felt today — cool-downs are where good habits actually get reinforced.'
-    ],
-    competitive: [
-      'Easy swimming after hard work clears lactate from the muscles faster than resting still would, and settles your nervous system before you leave the pool.'
-    ],
-    elite: [
-      'Active recovery at low intensity accelerates lactate clearance and blood flow to fatigued muscle groups — the physiological work of adaptation happens in the hours after this swim, and how you cool down affects how ready you are tomorrow.'
-    ]
-  };
+  // The Warm-Up's second line always follows the hardcoded Freestyle-easy
+  // opener, but which drill it actually is now rotates daily (via
+  // workoutRng, same day-stable seed as the rest of generateWorkout())
+  // instead of being the same fixed "odd 25 drill, even 25 build" every day.
+  var WARMUP_DRILL_POOL = [
+    'Drill/Build — odd 25 drill, even 25 build',
+    'Kick/Swim — odd 25 kick only, even 25 full stroke',
+    'Catch-Up Drill — exaggerate the front-end extension every length',
+    'Fingertip Drag — brush your fingertips along the surface on recovery',
+    'Build Ladder — each 25 a little faster than the last',
+    '3-3-3 Breathing — 3 lengths breathing every 3, 5, then every 2 strokes'
+  ];
 
   var SPEED_ARCHETYPES = [
     {
@@ -5317,12 +5346,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     {
       name: 'Equipment Strength',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
-        var gear = equipment.length ? equipment : ['Pull Buoy'];
+        var gearOptions = equipment.length ? equipment : ['Pull Buoy'];
+        // Realistic gear use is one piece at a time, never everything
+        // combined onto the same rep — Round 1 and Round 2 each use a
+        // single item (a different one where more than one is selected),
+        // and Round 3 intentionally goes gear-off to test transfer.
+        var gearRound1 = gearOptions[0];
+        var gearRound2 = gearOptions.length > 1 ? gearOptions[1] : gearOptions[0];
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Equipment-Assisted Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Equipment-assisted pace work', gear, pace100 + 10, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Equipment-Assisted Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Equipment-assisted pace work — same gear, faster target', gear, pace100 + 6, 18, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 1 — ' + gearRound1 + ' Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound1 + '-assisted pace work', [gearRound1], pace100 + 10, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 2 — ' + gearRound2 + ' Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound2 + '-assisted pace work — faster target', [gearRound2], pace100 + 6, 18, scaler, '200 Pace')] }; },
           function (m) { return { label: 'Round 3 — Gear Off, Transfer Check', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear — transfer the feel built in Rounds 1-2', [], pace100 + 4, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
@@ -5511,6 +5546,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // the swimmer's workout automatically rotates at midnight rather than
     // reshuffling on every click of Generate.
     workoutRng = makeSeededRandom(dailySeed());
+    workoutSetSeq = 0;
     // A separate, throwaway RNG seeded with yesterday's date, used only to
     // simulate "what would today's current settings have produced yesterday"
     // for the Pre-Set and first Main Set archetype — so a swimmer generating
@@ -5545,15 +5581,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // practice for easing into the water, even for a Butterfly/Backstroke-
     // focused day. The rest of the Warm-Up (and every later stage) still
     // rotates through the swimmer's actual selected discipline(s) via
-    // nextStroke() as before.
+    // nextStroke() as before. The second line's drill itself now rotates
+    // daily too (via workoutRng, the same day-stable seed everything else
+    // in this function draws from) instead of being the same fixed
+    // "odd 25 drill, even 25 build" every single day.
     var warmup = [
       buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
-      buildSet(4, 50, 'Drill/Build — odd 25 drill, even 25 build', state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
+      buildSet(4, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
     ];
     if (state.level !== 'beginner') {
       warmup.push(buildSet(4, 25, nextStroke() + ', quick build — rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
     }
-    var warmupIntent = pickOne(WARMUP_INTENTS[state.level]);
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
@@ -5567,8 +5605,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
     var preset = {
       name: presetArchetype.name,
-      rounds: presetArchetype.build(presetM, pace100, scaler, nextStroke),
-      intent: pickOne(presetArchetype.intents)
+      rounds: presetArchetype.build(presetM, pace100, scaler, nextStroke)
     };
 
     // Multiple selected goals combine their archetype pools into one bigger
@@ -5579,7 +5616,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       ARCHETYPE_POOLS[g].forEach(function (a) { if (acc.indexOf(a) === -1) acc.push(a); });
       return acc;
     }, []);
-    var chosenArchetypes = pickN(pool, Math.min(scaler.blocks, pool.length));
+    // Longer sessions get more distinct Main Set archetypes, not just a
+    // proportionally bigger repeat of the same one or two templates — a
+    // swimmer choosing 3-4km should see genuinely varied, scaled sets, not
+    // the same 500m-style loop stretched out. blockCountForDistance() adds
+    // one extra archetype per additional ~1500m past the base 3000m tier,
+    // capped by how many distinct archetypes actually exist in the pool.
+    function blockCountForDistance(baseBlocks, totalMeters) {
+      var extra = totalMeters >= 3500 ? 1 : 0;
+      return Math.min(pool.length, baseBlocks + extra);
+    }
+    var mainBlockCount = blockCountForDistance(scaler.blocks, totalM);
+    var chosenArchetypes = pickN(pool, mainBlockCount);
     if (pool.length > 1) {
       var priorFirstMainArchetype = pickOneFrom(priorDayRng, pool);
       if (chosenArchetypes[0] === priorFirstMainArchetype) {
@@ -5595,8 +5643,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var shareM = Math.round((mainM * share) / 100) * 100 || 100;
       return {
         name: archetype.name,
-        rounds: archetype.build(shareM, pace100, scaler, nextStroke, state.equipment, totalM),
-        intent: pickOne(archetype.intents)
+        rounds: archetype.build(shareM, pace100, scaler, nextStroke, state.equipment, totalM)
       };
     });
 
@@ -5606,12 +5653,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       buildSet(1, cdParts[1], 'Backstroke, easy — loosen the shoulders, steady 3-stroke breathing rhythm', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
       buildSet(1, cdParts[2], 'easiest pace of the day — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
     ];
-    var cooldownIntent = pickOne(COOLDOWN_INTENTS[state.level]);
 
-    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], warmupIntent, false) +
-      renderBlock('Pre-Set — ' + preset.name, preset.rounds, preset.intent, false) +
-      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, block.intent, true); }).join('') +
-      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], cooldownIntent, false);
+    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false) +
+      renderBlock('Pre-Set — ' + preset.name, preset.rounds, false) +
+      main.map(function (block) { return renderBlock('Main Set — ' + block.name, block.rounds, true); }).join('') +
+      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], false);
 
     var scalerNoteHtml = '<p style="color:var(--muted); margin-bottom:8px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
@@ -5621,8 +5667,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.88rem; margin-bottom:24px;">' +
       (personalPace != null
-        ? 'Pace personalized from your ' + (pb100Sec ? '100m' : '50m') + ' Freestyle PB (' + formatTime(pb100Sec || pb50Sec) + ') — target ' + formatTime(pace100) + '/100m.'
-        : 'Add your 50m or 100m Freestyle PB above for pacing calculated from your own times.') +
+        ? 'Pace personalized from your ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) + ' PB (' + formatTime(pbTimeSec) + ').'
+        : 'Add a Personal Best above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
 
     html += renderCoachTips();
@@ -5642,6 +5688,55 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     void btn.offsetWidth; // restart the animation even on rapid re-clicks
     btn.classList.add('btn-pulse');
     setTimeout(function () { btn.classList.remove('btn-pulse'); }, 550);
+  });
+
+  // Best-effort discipline guess for a completed-set log entry — most set
+  // titles are built as "<stroke>, ..." (see buildSet call sites), but a
+  // few (equipment/pull-focused rounds) have no stroke name in the title at
+  // all, so those fall back to the swimmer's primary selected discipline.
+  function inferSetDiscipline(title) {
+    var names = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke'];
+    for (var i = 0; i < names.length; i++) {
+      if (title.indexOf(names[i]) > -1) return names[i];
+    }
+    if (title.indexOf('IM') > -1) return 'Individual Medley';
+    return strokeLabelSingle(state.disciplines[0]);
+  }
+
+  // Checking a set's completion box logs its distance straight into the
+  // Distance Tracker (swim_logs) via the same bridge the Tracker's own log
+  // form uses — no separate "completed workouts" data model needed.
+  // Unchecking deletes that same entry again, tracked in-memory by the
+  // row's own data-set-id (cleared naturally the next time Generate
+  // replaces #workoutResult's contents, so this never grows unbounded).
+  var completedSetLogIds = {};
+  document.getElementById('workoutResult').addEventListener('change', function (e) {
+    var checkbox = e.target.closest('.set-complete-check');
+    if (!checkbox) return;
+    var row = checkbox.closest('.set-row');
+    if (!row) return;
+    var setId = row.dataset.setId;
+    var dist = parseInt(row.dataset.dist, 10);
+    if (!dist) return;
+    if (checkbox.checked) {
+      if (!window.__firebaseUser || typeof window.__swimLogAdd !== 'function') { checkbox.checked = false; return; }
+      var titleEl = row.querySelector('.set-title');
+      checkbox.disabled = true;
+      window.__swimLogAdd({ distanceMeters: dist, loggedAt: new Date(), discipline: inferSetDiscipline(titleEl ? titleEl.textContent : '') })
+        .then(function (ref) {
+          completedSetLogIds[setId] = ref.id;
+          row.classList.add('set-row-complete');
+        })
+        .catch(function () { checkbox.checked = false; })
+        .finally(function () { checkbox.disabled = false; });
+    } else {
+      row.classList.remove('set-row-complete');
+      var entryId = completedSetLogIds[setId];
+      if (entryId && typeof window.__swimLogDelete === 'function') {
+        delete completedSetLogIds[setId];
+        window.__swimLogDelete(entryId).catch(function () {});
+      }
+    }
   });
 
   /* Slight parallax on the generator's result-panel background photo */
