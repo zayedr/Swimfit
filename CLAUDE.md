@@ -1529,6 +1529,46 @@ via Playwright that a sent message renders and persists with no error; any remai
 connection error is the separately-deployed-`firestore.rules` caveat, not a client bug this
 sandbox can reach.
 
+**A "make it modern, bright, premium" round: glassmorphism, brighter tokens, hero chips, and a
+free-Academy banner.** No JS/data-shape/Cloud-Function changes — every edit is CSS, a small hero
+markup swap, or a copy addition; the whole re-skin rides on the fact that every rule already reads
+color through `var(--...)`.
+
+- **Hero**: the sub-paragraph was deleted outright (per an explicit "no placeholder paragraph"
+  ask). To keep the hero feeling full rather than empty, three compact glassy value-prop chips
+  (`.hero-chips`/`.hero-chip` — "Daily-rotating swim sets", "Tailored dryland training", "Instant
+  progress tracking") now sit between the headline and the CTAs. The old `hero.sub` `I18N` keys
+  are now unused but harmless. The headline's bottom margin was bumped (`--space-4` → `--space-5`)
+  to breathe without the paragraph.
+- **Glassmorphism**: new design tokens `--glass-bg`/`--glass-bg-2`/`--glass-border`/`--glass-blur`
+  (defined for both dark and light themes) drive a frosted-translucent + backdrop-blur + inner
+  top-highlight + real-drop-shadow treatment, applied to the shared `.card` (gear/video/Academy/
+  gym-focus/gym-exercise cards, since gym cards use `card gym-card`) and opted into by the
+  bespoke `.config-card`, `.price-card`, `.tracker-stat-card`/`-log-form`/`-goal-card`/`-chart-card`.
+  The translucency lets the dashboard's ambient background show faintly through, which is what
+  reads as "glass" rather than a flat panel. `.settings-card` (already a bespoke gradient+accent-
+  bar card) and `.result-panel` (has its own photo background) were deliberately left as-is.
+- **Brighter/airier dark tokens**: `--bg` `#0A0F18`→`#0C1220`, `--surface` `#131B2A`→`#172033`,
+  `--surface-2`→`#202C45`, borders a touch stronger, and `--muted`/`--muted-2` lifted
+  (`#94A3B8`→`#AEBBCC`, `#64748B`→`#7C8AA0`) for higher-contrast, more readable body text. The
+  **default theme is still dark** — flipping the default to light was deliberately NOT done
+  because the hero/Workouts/Gym photo+video backgrounds are dark-tuned and light text over them
+  would break (a limitation this file has documented since the Light theme shipped); instead the
+  dark theme was made less gloomy and the Light theme was fixed to actually be usable (below).
+- **Light-mode dashboard fix (real bug)**: the `.dash-ambient-bg::before` base gradient was
+  hardcoded dark (`rgba(13,20,32,...)`), so in Light mode the whole dashboard section stayed dark
+  while section headings (now dark `--fg`) rendered dark-on-dark and unreadable. A
+  `:root[data-theme="light"]` override swaps that base for a light wash (plus softens the caustic
+  overlay to `mix-blend-mode: multiply` and lightens `.dash-bg-overlay`), so Light mode is now
+  genuinely bright and legible. The dark sidebar is intentionally kept in Light mode (a deliberate
+  dark-rail-on-light-content premium pattern, à la Linear/Vercel).
+- **Academy (already 100% free — no gating existed)**: Academy was already a public tab with no
+  tier locks (the "Elite/Competitive" labels are difficulty tags, not paywalls), so nothing had to
+  be un-gated. To make that unmistakable it gained an `.academy-free-banner` ("Every guide is 100%
+  free — no tiers, no locks, no categories held back") above the grid and a green "Free" pill on
+  every video card (`.video-free-badge`). Verified via Playwright: 7 free badges render, banner
+  present, all tabs load with zero page errors, PDF export and Support send still work.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
