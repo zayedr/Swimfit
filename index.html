@@ -1516,13 +1516,25 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= WORKOUT GENERATOR ============================= */
 .generator { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: var(--space-5); align-items: start; }
+/* The left "Generator Hub" is now a light container whose child config-groups
+   are each their own glass sub-card — a modular, SaaS-dashboard stack rather
+   than one long flat form. */
 .config-card {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-6);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  background: transparent; border: none; border-radius: var(--radius-lg); padding: 0;
+  display: flex; flex-direction: column; gap: var(--space-3);
 }
-.config-group { margin-bottom: var(--space-5); }
-.config-group:last-child { margin-bottom: 0; }
+.config-group {
+  margin-bottom: 0;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 14px 34px -26px rgba(0,0,0,0.6);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.config-group:hover {
+  border-color: rgba(22,214,115,0.30);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(22,214,115,0.12), 0 18px 40px -24px rgba(0,0,0,0.65);
+}
 .config-label { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
 
@@ -1539,14 +1551,19 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .slider-row { display: flex; align-items: center; gap: var(--space-4); }
 .slider-row input[type="range"] {
-  flex: 1; appearance: none; height: 6px; border-radius: 999px; background: var(--bg-alt); outline: none;
+  flex: 1; appearance: none; height: 8px; border-radius: 999px; outline: none; cursor: pointer;
+  /* --fill (set in JS) paints an emerald→aqua filled portion up to the thumb;
+     the remainder stays a recessive track. */
+  background: linear-gradient(90deg, var(--green) 0%, var(--aqua) var(--fill, 20%), rgba(148,163,184,0.16) var(--fill, 20%), rgba(148,163,184,0.16) 100%);
 }
 .slider-row input[type="range"]::-webkit-slider-thumb {
-  appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--aqua); cursor: pointer;
-  border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--aqua);
+  appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--green-bright); cursor: pointer;
+  border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(57,255,158,0.65);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
+.slider-row input[type="range"]:hover::-webkit-slider-thumb, .slider-row input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 2px var(--green), 0 0 20px rgba(57,255,158,0.85); }
 .slider-row input[type="range"]::-moz-range-thumb {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--aqua); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--aqua);
+  width: 24px; height: 24px; border-radius: 50%; background: var(--green-bright); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(57,255,158,0.65);
 }
 .slider-value { font-family: var(--font-display); font-size: 1.4rem; min-width: 84px; text-align: right; color: var(--green-bright); display: inline-block; }
 @keyframes valuePulse { 0% { transform: scale(1.35); color: var(--aqua); } 100% { transform: scale(1); color: var(--green-bright); } }
@@ -1612,17 +1629,21 @@ section { position: relative; scroll-margin-top: 96px; }
 .pb-stroke-row input:focus { border-color: var(--aqua); }
 @media (max-width: 480px) { .pb-stroke-row { grid-template-columns: 1fr; } }
 
-.equipment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
+/* Equipment as high-end pill toggles — the native checkbox is hidden (the
+   label still toggles it, since it wraps the input), and the pill fills with
+   emerald + glows when active, matching the discipline chips' language. */
+.equipment-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .equip-check {
-  display: flex; align-items: center; gap: var(--space-2); padding: 0.7em 0.9em; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  display: inline-flex; align-items: center; gap: 8px; padding: 0.55em 1.05em; border-radius: 999px;
+  border: 1px solid var(--border-strong); cursor: pointer; color: var(--muted); font-size: 0.9rem; font-weight: 500; min-height: 40px;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.equip-check:has(input:checked) { border-color: var(--green); background: rgba(22,214,115,0.08); }
-.equip-check:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-.equip-check { transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur) var(--ease); }
-.equip-check input { accent-color: var(--green); width: 18px; height: 18px; }
-.equip-check .icon { width: 18px; height: 18px; color: var(--muted); transition: color var(--dur) var(--ease); }
-.equip-check:has(input:checked) .icon { color: var(--green-bright); }
+.equip-check input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
+.equip-check:hover:not(:has(input:checked)) { border-color: var(--aqua); color: var(--fg); transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 16px rgba(34,211,238,0.12); }
+.equip-check:has(input:checked) { border-color: var(--green); background: var(--green); color: var(--on-green); box-shadow: 0 6px 18px rgba(22,214,115,0.30); }
+.equip-check:has(input:checked):hover { transform: translateY(-2px) scale(1.03); }
+.equip-check .icon { width: 16px; height: 16px; color: var(--aqua); transition: color var(--dur) var(--ease); }
+.equip-check:has(input:checked) .icon { color: var(--on-green); }
 
 .quote-card {
   background: linear-gradient(160deg, rgba(22,214,115,0.12), rgba(34,211,238,0.06));
@@ -1633,15 +1654,32 @@ section { position: relative; scroll-margin-top: 96px; }
 .quote-card blockquote { font-family: var(--font-display); font-size: 1rem; line-height: 1.25; margin-bottom: 2px; }
 .quote-card cite { color: var(--muted-2); font-size: 0.72rem; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; }
 
-.result-panel { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); overflow: hidden; min-height: 100%; }
+.result-panel {
+  position: relative; border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); overflow: hidden; min-height: 100%;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(22,214,115,0.08), 0 26px 60px -28px rgba(0,0,0,0.7);
+  /* The result panel is a deliberate dark "whiteboard" surface in BOTH themes
+     (like a code-editor panel on a light page). Scoping the text/accent tokens
+     here means every descendant that reads var(--fg)/--muted/--aqua stays
+     light-on-dark and high-contrast even when the site is in Light mode —
+     without this, Light mode's dark --fg text would sit on this dark panel and
+     be unreadable. */
+  --fg: #F8FAFC; --muted: #AEBBCC; --muted-2: #7C8AA0;
+  --aqua: #4EE9FF; --green: #16D673; --green-bright: #39FF9E; --maroon-bright: #E06A82;
+  --border: rgba(148,163,184,0.16); --border-strong: rgba(148,163,184,0.28);
+}
 .result-panel::before {
-  content: ''; position: absolute; inset: -24px; z-index: 0;
-  /* Darkened further than the general photo-overlay pattern elsewhere in
-     this file — a generated workout is read-heavy (a dozen+ set rows), so
-     text legibility over the ambient photo matters more here than the
-     decorative effect. */
-  background-image: linear-gradient(160deg, rgba(10,15,24,0.97) 25%, rgba(10,15,24,0.92) 100%), var(--generator-photo, none);
-  background-size: cover; background-position: center 25%;
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  /* Clean slate + radiant emerald wash — replaced the old dark olive-green
+     photo backdrop. A generated workout is read-heavy (a dozen+ rows), so a
+     calm, high-contrast gradient beats a busy photo for legibility while
+     still feeling premium (a soft emerald glow top-left, aqua bottom-right,
+     over a deep-obsidian slate base). */
+  background:
+    radial-gradient(70% 55% at 8% 0%, rgba(22,214,115,0.16), transparent 60%),
+    radial-gradient(60% 55% at 100% 100%, rgba(34,211,238,0.12), transparent 60%),
+    linear-gradient(160deg, #0E1626 0%, #0B121F 55%, #0E1626 100%);
   transform: translateY(var(--parallax-y, 0px));
   transition: transform 0.08s linear;
 }
@@ -4719,6 +4757,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var v = +distanceSlider.value;
     distanceValue.textContent = formatDistanceM(v, 1) + (v >= 6000 ? '+' : '');
     state.distance = v;
+    // Drive the emerald "filled" portion of the slider track — the CSS reads
+    // --fill (0-100%) to paint a gradient up to the thumb, giving the range
+    // input a modern filled-track look instead of a flat bar.
+    var min = +distanceSlider.min, max = +distanceSlider.max;
+    var pct = max > min ? Math.round(((v - min) / (max - min)) * 100) : 0;
+    distanceSlider.style.setProperty('--fill', pct + '%');
     distanceValue.classList.remove('value-pulse');
     void distanceValue.offsetWidth;
     distanceValue.classList.add('value-pulse');
