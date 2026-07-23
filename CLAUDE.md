@@ -1504,6 +1504,31 @@ only `console.warn`s, never surfaces to the caller. This does not fix a genuinel
 caveat) — it fixes the *client* conflating a non-critical write's failure with the actual message
 never sending, which is the one piece actually fixable from here.
 
+**Hero polish: left-aligned copy, new tagline, and a seam-free background blend.** The hero copy
+block (`.hero-content`) is a `.wrap` capped narrower (now 820px) than the wrap's own 1240px, so
+`.wrap`'s `margin-inline: auto` was *centering* the whole block within the content area — very
+visible once the sidebar took over the left edge, reading as centered rather than left-aligned.
+Pinning `margin-inline-start: 0; margin-inline-end: auto` (logical, so it still flips correctly in
+RTL) hugs the copy to the LEFT of the content area; the text itself was already left-aligned by
+default, this just stops the *container* from being centered. The old hero sub-paragraph ("A live
+training platform — build your own swim set…without a single long scroll") was replaced everywhere
+it lived — the inline HTML plus both the `I18N.en` and `I18N.ar` `hero.sub` dictionary entries —
+with a shorter, higher-energy tagline: "Unleash your potential with high-performance swim sets,
+tailored dryland training, and instant progress tracking." The hero background's hard edges were
+softened with a single new `.hero::after` edge-blend layer (`z-index: -1` — above the photo/video
+at `-2` so it can actually blend them, below the copy so text stays crisp): a left→right
+`linear-gradient` fades the hero's photo/video/wave layers into `var(--bg)` over the leftmost ~15%
+so there's no hard vertical seam against the fixed sidebar, and a bottom→up gradient fades the
+same layers into `var(--bg)` over the bottom ~24% so the hero melts into the dashboard section
+below instead of cutting off on a visible horizontal line. Both the photo (`background-size:
+cover`) and video (`object-fit: cover`) already spanned the full container — the visible "seam"
+was the un-blended edges, not a cover/tiling gap, so no image-sizing change was needed. The
+Support-chat "connection error" was re-audited this round and found already correctly fixed
+client-side (the non-blocking-metadata-write change documented directly above) — verified again
+via Playwright that a sent message renders and persists with no error; any remaining *production*
+connection error is the separately-deployed-`firestore.rules` caveat, not a client bug this
+sandbox can reach.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
