@@ -83,7 +83,7 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
     setPersistence, browserLocalPersistence, browserSessionPersistence,
     createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
-    sendEmailVerification, updateProfile
+    sendEmailVerification, updateProfile, getAdditionalUserInfo
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
@@ -117,6 +117,126 @@
   setPersistence(auth, browserLocalPersistence).catch(function () {
     return setPersistence(auth, browserSessionPersistence);
   });
+
+  /* ============================= CUSTOM WELCOME EMAIL (frontend trigger) =============================
+     Sends a branded HTML welcome email the moment a brand-new account is
+     created, entirely from the client via EmailJS (https://www.emailjs.com) —
+     no server, and completely independent of Firebase Auth's built-in
+     (Console-locked) verification/reset templates.
+
+     SETUP (one-time, all in the EmailJS dashboard — takes ~5 min):
+       1. Create a free EmailJS account and connect an email service
+          (Gmail/Outlook/SMTP) → note the *Service ID*.
+       2. Create an Email Template whose body is exactly:  {{{message_html}}}
+          (triple braces = render raw HTML), subject:  {{subject}} , and set
+          the "To email" field to  {{to_email}} . → note the *Template ID*.
+       3. Copy your *Public Key* (Account → General / API Keys).
+       4. Paste all three below. Until then this no-ops (never blocks signup).
+
+     NOTE: This is a *client-side* sender — the Public Key is visible in page
+     source (that is by design for EmailJS), so anyone could in principle reuse
+     it to send your template; EmailJS's own rate-limits/allowed-origins are the
+     mitigation. The more robust path is the existing server-side
+     `onUserCreated` Cloud Function (functions/index.js), which already sends a
+     custom welcome email over SMTP once per account. Enable only ONE of the two
+     to avoid sending two welcome emails. */
+  const EMAILJS_PUBLIC_KEY  = '';   // e.g. 'AbC12dEfGh34IjKlM'
+  const EMAILJS_SERVICE_ID  = '';   // e.g. 'service_xxxxxxx'
+  const EMAILJS_TEMPLATE_ID = '';   // e.g. 'template_xxxxxxx'
+  const EMAILJS_SDK_URL = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+
+  function buildWelcomeEmailHtml(firstName) {
+    var name = (firstName || 'Swimmer').replace(/[<>&]/g, '');
+    return '' +
+      '<div style="margin:0;padding:0;background:#0A0F18;font-family:Arial,Helvetica,sans-serif;">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0A0F18;padding:28px 12px;"><tr><td align="center">' +
+      '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#131B2A;border:1px solid rgba(148,163,184,0.18);border-radius:16px;overflow:hidden;">' +
+        // Header
+        '<tr><td style="padding:32px 36px 20px;border-bottom:1px solid rgba(148,163,184,0.14);">' +
+          '<div style="font-size:26px;font-weight:800;letter-spacing:1px;color:#F8FAFC;">SWIM<span style="color:#39FF9E;">FIT</span></div>' +
+        '</td></tr>' +
+        // Hero / welcome
+        '<tr><td style="padding:32px 36px 8px;">' +
+          '<h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;color:#F8FAFC;">Welcome aboard, ' + name + '! 🏊</h1>' +
+          '<p style="margin:0;font-size:15px;line-height:1.6;color:#AEBBCC;">You just joined Swimfit — your personal, always-adaptive swim &amp; dryland training platform. Every day you get a fresh, coach-built workout and the tools to actually track your progress. Let’s command the water.</p>' +
+        '</td></tr>' +
+        // Trial offer banner
+        '<tr><td style="padding:20px 36px 4px;">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(22,214,115,0.16),rgba(34,211,238,0.12));border:1px solid rgba(22,214,115,0.35);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#39FF9E;">Your 3-day free trial is live</div>' +
+            '<div style="font-size:14px;line-height:1.5;color:#E7EDF3;margin-top:4px;">Full access to every feature — no card needed to start. Dive in today.</div>' +
+          '</td></tr></table>' +
+        '</td></tr>' +
+        // Feature highlights
+        '<tr><td style="padding:24px 36px 8px;">' +
+          '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4EE9FF;margin-bottom:12px;">What’s waiting for you</div>' +
+          [
+            ['🏊', 'Daily-rotating swim workouts', 'A full warm-up-to-cool-down set built from your discipline, distance, gear &amp; goals — new every day.'],
+            ['🏋️', 'Tailored dryland &amp; gym focus', 'Muscle-group routines with live technique demos, matched to your swimming.'],
+            ['🤖', 'AI Swim Coach', 'Ask anything about technique, pacing or your log — attach a photo for real feedback.'],
+            ['📊', 'Distance Tracker', 'Log every swim and watch your weekly &amp; monthly volume, pace and PBs climb.'],
+            ['🎓', 'Technique Academy', 'Stroke-by-stroke video breakdowns — 100% free, no tiers.']
+          ].map(function (f) {
+            return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;"><tr>' +
+              '<td width="34" valign="top" style="font-size:20px;padding-top:2px;">' + f[0] + '</td>' +
+              '<td valign="top"><div style="font-size:15px;font-weight:700;color:#F8FAFC;">' + f[1] + '</div>' +
+              '<div style="font-size:13px;line-height:1.5;color:#AEBBCC;margin-top:2px;">' + f[2] + '</div></td>' +
+            '</tr></table>';
+          }).join('') +
+        '</td></tr>' +
+        // CTA
+        '<tr><td align="center" style="padding:12px 36px 34px;">' +
+          '<a href="https://swimfit.online" style="display:inline-block;background:#16D673;color:#04120A;font-size:15px;font-weight:800;letter-spacing:0.5px;text-decoration:none;padding:14px 34px;border-radius:999px;">Start Training →</a>' +
+        '</td></tr>' +
+        // Footer
+        '<tr><td style="padding:20px 36px;border-top:1px solid rgba(148,163,184,0.14);">' +
+          '<p style="margin:0;font-size:12px;line-height:1.6;color:#7C8AA0;">You’re receiving this because you created a Swimfit account at swimfit.online. Questions? Just reply to this email.</p>' +
+        '</td></tr>' +
+      '</table></td></tr></table></div>';
+  }
+
+  var emailjsLoadPromise = null;
+  function loadEmailJs() {
+    if (window.emailjs) return Promise.resolve(window.emailjs);
+    if (emailjsLoadPromise) return emailjsLoadPromise;
+    emailjsLoadPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = EMAILJS_SDK_URL; s.async = true;
+      s.onload = function () { resolve(window.emailjs); };
+      s.onerror = function () { reject(new Error('EmailJS SDK failed to load')); };
+      document.head.appendChild(s);
+    });
+    return emailjsLoadPromise;
+  }
+
+  // Fires exactly once per brand-new account (called only from the two
+  // account-creation success paths below, never from a plain sign-in). A
+  // per-uid localStorage guard is belt-and-suspenders against a double submit.
+  function sendWelcomeEmail(user, fullName) {
+    try {
+      if (!user || !user.email) return;
+      if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID) {
+        console.info('[Swimfit] Welcome email skipped — EmailJS not configured yet (set EMAILJS_* constants in index.html).');
+        return;
+      }
+      var guardKey = 'swimfit_welcome_email_' + user.uid;
+      try { if (localStorage.getItem(guardKey)) return; } catch (e) { /* private mode — proceed */ }
+      var first = ((fullName || user.displayName || '').trim().split(' ')[0]) || 'Swimmer';
+      loadEmailJs().then(function (emailjs) {
+        return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email: user.email,
+          to_name: first,
+          subject: 'Welcome to Swimfit — your 3-day free trial is live 🏊',
+          message_html: buildWelcomeEmailHtml(first)
+        }, { publicKey: EMAILJS_PUBLIC_KEY });
+      }).then(function () {
+        try { localStorage.setItem(guardKey, String(Date.now())); } catch (e) { /* ignore */ }
+        console.info('[Swimfit] Welcome email sent to', user.email);
+      }).catch(function (err) {
+        console.warn('[Swimfit] Welcome email failed (non-fatal):', err);
+      });
+    } catch (e) { console.warn('[Swimfit] Welcome email error (non-fatal):', e); }
+  }
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
   // Firebase ID token to its Cloud Function call without importing the SDK
@@ -586,6 +706,12 @@
       statusNote.textContent = 'Waiting for Google sign-in…';
       signInWithPopup(auth, googleProvider).then(function (result) {
         statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
+        // Only send the welcome email when Google actually created a brand-new
+        // account (not on every returning-user Google sign-in).
+        try {
+          var info = getAdditionalUserInfo(result);
+          if (info && info.isNewUser) sendWelcomeEmail(result.user, result.user.displayName);
+        } catch (e) { /* non-fatal */ }
         setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
       }).catch(function (error) {
         statusNote.style.color = '#e5484d';
@@ -711,6 +837,9 @@
         // to strand them mid-signup if one of these calls fails.
         updateProfile(cred.user, { displayName: fullName }).catch(function () {});
         sendEmailVerification(cred.user).catch(function () {});
+        // Custom branded welcome email (frontend trigger) — fires once, here,
+        // on genuine account creation. Best-effort; never blocks signup.
+        sendWelcomeEmail(cred.user, fullName);
         claimUsernameAndProfile(cred.user.uid, email, fullName, username).then(function () {
           statusNote.style.color = '';
           statusNote.textContent = 'Account created — welcome to Swimfit!';

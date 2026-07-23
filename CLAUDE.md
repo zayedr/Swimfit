@@ -1664,6 +1664,33 @@ rather than rebuilt; the Hero/Academy were heavily redesigned in the immediately
 were likewise not re-touched — this round concentrated effort on the specifically-flagged result
 card plus the Coach/Tracker upgrades.)
 
+**A frontend-triggered custom Welcome Email (EmailJS) was wired into the sign-up flow.** The
+head-module now imports `getAdditionalUserInfo` alongside the other Auth functions and defines an
+`EMAILJS_PUBLIC_KEY`/`EMAILJS_SERVICE_ID`/`EMAILJS_TEMPLATE_ID` config trio (blank by default) plus
+`buildWelcomeEmailHtml(firstName)` (a full inline-styled branded HTML email — warm welcome, the
+3-day-trial banner, five feature highlights, a "Start Training" CTA to swimfit.online, footer),
+`loadEmailJs()` (lazy-injects `@emailjs/browser@4` from jsDelivr on first use), and
+`sendWelcomeEmail(user, fullName)`. The sender **no-ops safely** (a single `console.info`) whenever
+the three IDs are blank, so it never blocks or breaks signup before it's configured; when
+configured it calls `emailjs.send(service, template, { to_email, to_name, subject, message_html },
+{ publicKey })` — the EmailJS template is expected to render `{{{message_html}}}` (triple-brace raw
+HTML), documented inline. It's called from exactly the two genuine account-creation success paths:
+right after `createUserWithEmailAndPassword` resolves (email/password signup), and inside the
+`signInWithPopup` `.then` **only when `getAdditionalUserInfo(result).isNewUser` is true** (so a
+returning Google user never re-triggers it) — never from a plain sign-in. A per-uid
+`localStorage['swimfit_welcome_email_' + uid]` guard is belt-and-suspenders against a double
+submit. **This deliberately duplicates functionality the server already has**: the pre-existing
+`onUserCreated` Cloud Function (`functions/index.js`) already sends a custom SMTP welcome email
+once per account, fully independent of Firebase's Console-locked built-in templates — so **enable
+only ONE** of the two or a new swimmer gets two welcome emails, and note the client-side EmailJS
+Public Key is visible in page source by design (EmailJS's own allowed-origins / rate limits are
+the mitigation; the server-side function is the more robust path). If the drafted CSP is ever
+switched on, it must allow `cdn.jsdelivr.net` (script) and `api.emailjs.com` (connect). Verified
+via Playwright against the mock SDK (which gained a `getAdditionalUserInfo` export so the new
+named import resolves): the module loads with zero errors, a real email/password signup fires
+`sendWelcomeEmail` which logs the "not configured yet" skip cleanly, and all 9 tabs, PDF export and
+Support send still work.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
