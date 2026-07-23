@@ -1718,10 +1718,10 @@ section { position: relative; scroll-margin-top: 96px; }
   .result-panel-water-bg::before, .result-panel-water-bg::after { animation: none; }
 }
 .result-watermark { position: absolute; top: -30px; right: -30px; width: 220px; height: 220px; color: var(--aqua); opacity: 0.08; pointer-events: none; z-index: 0; }
-.round-label { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 6px; }
-.round-label-badge { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.66rem; color: var(--bg); background: var(--aqua); padding: 3px 10px; border-radius: 999px; }
-.round-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.workout-block .round-label:first-of-type { margin-top: 0; }
+.round-label { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 8px; }
+.round-label-badge { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.66rem; color: var(--fg); background: rgba(148,163,184,0.14); border: 1px solid var(--stage-color, var(--aqua)); padding: 3px 11px; border-radius: 999px; }
+.round-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-strong), transparent); }
+.set-group:first-child .round-label:first-of-type { margin-top: 0; }
 .result-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 280px; text-align: center; color: var(--muted); gap: var(--space-3); }
 .result-empty .icon { width: 44px; height: 44px; color: var(--muted-2); }
 
@@ -1741,42 +1741,84 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .workout-ai-signed-out .icon { width: 26px; height: 26px; color: var(--muted-2); }
 
-.workout-block { animation: blockIn 460ms var(--ease) both; }
-.workout-block + .workout-block { margin-top: var(--space-3); }
+/* ---------- Generated workout: color-coded stage cards ---------- */
+@keyframes blockIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+.workout-block {
+  --stage-color: var(--aqua-bright);
+  animation: blockIn 460ms var(--ease) both;
+  background: rgba(148,163,184,0.05);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--stage-color);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  box-shadow: 0 10px 30px -24px rgba(0,0,0,0.7);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.workout-block:hover { box-shadow: -6px 10px 34px -22px var(--stage-color), 0 10px 30px -24px rgba(0,0,0,0.7); }
+.workout-block[data-stage="warmup"]   { --stage-color: #4EE9FF; }
+.workout-block[data-stage="preset"]   { --stage-color: #E7B65B; }
+.workout-block[data-stage="main"]     { --stage-color: #39FF9E; }
+.workout-block[data-stage="cooldown"] { --stage-color: #A5B4FC; }
 .workout-block:nth-of-type(1) { animation-delay: 0ms; }
 .workout-block:nth-of-type(2) { animation-delay: 90ms; }
 .workout-block:nth-of-type(3) { animation-delay: 180ms; }
 .workout-block:nth-of-type(4) { animation-delay: 270ms; }
 .workout-block:nth-of-type(5) { animation-delay: 360ms; }
-@keyframes blockIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
 .workout-block-title {
-  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: var(--aqua);
-  margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.92rem; font-weight: 700; color: var(--fg);
+  display: flex; align-items: center; gap: var(--space-2);
   cursor: pointer; list-style: none;
 }
 .workout-block-title::-webkit-details-marker { display: none; }
-.workout-block-title::before {
-  content: ''; width: 9px; height: 9px; flex-shrink: 0; border-right: 2px solid var(--aqua); border-bottom: 2px solid var(--aqua);
+/* A colored circular icon badge stamps each stage with its own identity. */
+.workout-stage-icon {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--stage-color) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-color) 45%, transparent);
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--stage-color) 55%, transparent);
+}
+.workout-stage-icon .icon { width: 15px; height: 15px; color: var(--stage-color); }
+.workout-block-dist {
+  font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--stage-color); background: color-mix(in srgb, var(--stage-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-color) 30%, transparent);
+  padding: 2px 9px; border-radius: 999px; flex-shrink: 0; text-transform: none;
+}
+.workout-block-title::after {
+  content: ''; width: 8px; height: 8px; flex-shrink: 0; margin-left: 2px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
   transform: rotate(-45deg); transition: transform var(--dur) var(--ease);
 }
-.workout-block[open] > .workout-block-title::before { transform: rotate(45deg); }
-.workout-block-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.workout-block-count { text-transform: none; letter-spacing: normal; color: var(--muted-2); font-size: 0.78rem; flex-shrink: 0; }
-.workout-block:not([open]) { padding-bottom: var(--space-2); }
-/* One line per set: title/pace/gear all inline on the left (wrapping only
-   if genuinely too long for the width), a single compact interval/rest/total
-   string on the right — replacing the old grid of 3 separately-labeled
-   mini-columns, which cost an extra line of vertical space per row. */
-.set-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: 5px 0; border-bottom: 1px solid var(--border); transition: background var(--dur) var(--ease); }
+.workout-block[open] > .workout-block-title::after { transform: rotate(45deg); }
+.workout-block-count { text-transform: none; letter-spacing: normal; color: var(--muted-2); font-size: 0.76rem; font-weight: 500; flex-shrink: 0; margin-left: auto; }
+.workout-block-body { margin-top: var(--space-3); }
+.set-group + .set-group { margin-top: var(--space-2); }
+
+.set-row {
+  display: flex; align-items: center; gap: var(--space-3); padding: 7px 0;
+  border-bottom: 1px solid var(--border); transition: background var(--dur) var(--ease);
+}
 .set-row:hover { background: rgba(255,255,255,0.03); }
-.set-row:last-child { border-bottom: none; }
+.set-group:last-child .set-row:last-child { border-bottom: none; }
+/* A monospace-feel reps×distance chip anchors every row at a fixed left edge
+   so the eye can scan the volume column straight down. */
+.set-rep {
+  font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; line-height: 1; color: var(--stage-color);
+  min-width: 66px; flex-shrink: 0; white-space: nowrap; letter-spacing: 0.01em;
+}
+.set-rep-x { color: var(--muted-2); margin: 0 2px; font-weight: 500; }
 .set-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; min-width: 0; flex: 1; }
-.set-title { font-weight: 600; font-size: 0.82rem; line-height: 1.3; color: var(--fg); }
-.set-pace { font-size: 0.66rem; color: var(--aqua); white-space: nowrap; }
+.set-title { font-weight: 500; font-size: 0.84rem; line-height: 1.35; color: var(--fg); }
+.set-pace { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--stage-color); background: color-mix(in srgb, var(--stage-color) 12%, transparent); border: 1px solid color-mix(in srgb, var(--stage-color) 26%, transparent); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
 .set-gear { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .set-gear .gear-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.64rem; color: var(--muted); background: var(--bg-alt); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
 .set-gear .gear-chip .icon { width: 10px; height: 10px; }
-.set-stats { font-family: var(--font-display); font-size: 0.7rem; color: var(--muted-2); white-space: nowrap; flex-shrink: 0; }
+.set-stats { display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap; flex-shrink: 0; }
+.set-stat { font-family: var(--font-display); font-size: 0.82rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: baseline; gap: 3px; }
+.set-stat em { font-style: normal; font-size: 0.6rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-2); }
+.set-stat-total { color: var(--fg); }
 
 .coach-tips { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
@@ -2297,12 +2339,21 @@ body.paywall-locked { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .coach-status-dot { animation: none; } }
 
-.coach-page-prompts { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-4) var(--space-5) 0; }
+.coach-page-prompts { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-5) 0; }
+.coach-prompt-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.coach-prompt-group-label { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.68rem; color: var(--muted-2); }
+.coach-prompt-group-label .icon { width: 13px; height: 13px; color: var(--aqua); }
+.coach-prompt-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .coach-prompt-chip {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; color: var(--fg);
-  font-size: 0.8rem; padding: 0.5em 1em; cursor: pointer; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  font-size: 0.8rem; padding: 0.5em 1em; cursor: pointer; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.coach-prompt-chip:hover { border-color: var(--aqua); transform: translateY(-1px); }
+.coach-prompt-chip:hover { border-color: var(--aqua); transform: translateY(-1px) scale(1.02); box-shadow: 0 6px 16px rgba(34,211,238,0.14); }
+/* Stroke-analysis presets read as a distinct, more "expert" set — a subtle
+   aqua tint + a leading dot so they stand apart from the general quick-starts. */
+.coach-prompt-chip-stroke { background: color-mix(in srgb, var(--aqua) 10%, var(--surface-2)); border-color: color-mix(in srgb, var(--aqua) 30%, var(--border)); }
+.coach-prompt-chip-stroke::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--aqua); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 8px var(--aqua); }
+.coach-prompt-chip-stroke:hover { border-color: var(--aqua); box-shadow: 0 6px 18px rgba(34,211,238,0.22); }
 
 .coach-page-messages { padding: var(--space-5); }
 .coach-page-messages .coach-bubble { max-width: 74%; font-size: 0.95rem; }
@@ -2350,17 +2401,26 @@ body.paywall-locked { overflow: hidden; }
   box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
 }
 .tracker-stat-card .pill-tabs { justify-content: center; margin-bottom: var(--space-4); }
-.tracker-stat-value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--aqua); line-height: 1; }
+/* Financial-dashboard-style glowing headline metric (Robinhood/TradingView
+   feel) — the big number gets a soft neon aqua text-glow. */
+.tracker-stat-value { font-family: var(--font-display); font-size: 2.8rem; font-weight: 700; color: var(--aqua-bright); line-height: 1; letter-spacing: -0.01em; text-shadow: 0 0 22px rgba(34,211,238,0.45); }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
 
 .tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+/* Glass "ticker" tiles with a top hairline accent + glowing value, like a
+   trading terminal's metric row. */
 .tracker-analytics-tile {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4);
-  display: flex; flex-direction: column; gap: 6px; text-align: center;
+  position: relative; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: 6px; text-align: center; overflow: hidden;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 14px 34px -26px rgba(0,0,0,0.6);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
+.tracker-analytics-tile::before { content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 2px; background: linear-gradient(90deg, transparent, var(--green-bright), transparent); opacity: 0.55; }
+.tracker-analytics-tile:hover { transform: translateY(-3px); border-color: rgba(22,214,115,0.32); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(22,214,115,0.12), 0 20px 44px -24px rgba(0,0,0,0.7); }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
-.tracker-analytics-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--green); }
-.tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; }
+.tracker-analytics-value { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; color: var(--green-bright); text-shadow: 0 0 16px rgba(57,255,158,0.4); }
+.tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; text-shadow: none; }
 @media (max-width: 900px) {
   .tracker-analytics-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -3034,10 +3094,25 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               </div>
             </div>
             <div class="coach-page-prompts" id="coachPagePrompts">
-              <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
-              <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
-              <button type="button" class="coach-prompt-chip" data-prompt="Suggest a dryland recovery routine for a rest day.">Recovery day routine</button>
-              <button type="button" class="coach-prompt-chip" data-prompt="Review my last logged swim and suggest one improvement.">Review my last swim</button>
+              <div class="coach-prompt-group">
+                <span class="coach-prompt-group-label"><svg class="icon"><use href="#i-bolt"/></svg> Quick starts</span>
+                <div class="coach-prompt-row">
+                  <button type="button" class="coach-prompt-chip" data-prompt="Build me a taper plan for my next competition.">Build a taper plan</button>
+                  <button type="button" class="coach-prompt-chip" data-prompt="Explain my lactate threshold pace and how to train it.">Explain lactate threshold</button>
+                  <button type="button" class="coach-prompt-chip" data-prompt="Suggest a dryland recovery routine for a rest day.">Recovery day routine</button>
+                  <button type="button" class="coach-prompt-chip" data-prompt="Review my last logged swim and suggest one improvement.">Review my last swim</button>
+                </div>
+              </div>
+              <div class="coach-prompt-group">
+                <span class="coach-prompt-group-label"><svg class="icon"><use href="#i-wave"/></svg> Stroke analysis</span>
+                <div class="coach-prompt-row">
+                  <button type="button" class="coach-prompt-chip coach-prompt-chip-stroke" data-prompt="Analyze my freestyle technique — what are the most common catch and body-position faults, and how do I fix them?">Freestyle catch &amp; pull</button>
+                  <button type="button" class="coach-prompt-chip coach-prompt-chip-stroke" data-prompt="Break down butterfly timing — the two-kick rhythm, undulation, and arm recovery. What drills build it?">Butterfly timing</button>
+                  <button type="button" class="coach-prompt-chip coach-prompt-chip-stroke" data-prompt="How do I fix a wide, slipping breaststroke kick and improve my streamline glide?">Breaststroke kick</button>
+                  <button type="button" class="coach-prompt-chip coach-prompt-chip-stroke" data-prompt="Coach my backstroke body roll and straight-arm recovery, and how to swim straight without a lane line.">Backstroke body roll</button>
+                  <button type="button" class="coach-prompt-chip coach-prompt-chip-stroke" data-prompt="Walk me through a faster, tighter freestyle flip turn and underwater streamline off the wall.">Flip turn &amp; walls</button>
+                </div>
+              </div>
             </div>
             <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
             <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
@@ -4970,28 +5045,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // without a second parallel summarized data structure to keep in sync.
   // Main Set stays open by default (the stage a swimmer actually came for);
   // Warm-Up/Pre-Set/Cool-Down start collapsed since they're supporting work.
-  function renderBlock(name, rounds, openByDefault) {
+  // Per-stage identity: an icon + accent color so the Warm-Up / Pre-Set /
+  // Main Set / Cool-Down blocks read as four visually distinct, color-coded
+  // stages at a glance rather than four identical grey blocks.
+  var STAGE_META = {
+    warmup:   { icon: 'i-droplet',   label: 'Warm-Up' },
+    preset:   { icon: 'i-stopwatch', label: 'Pre-Set' },
+    main:     { icon: 'i-bolt',      label: 'Main Set' },
+    cooldown: { icon: 'i-wave',      label: 'Cool-Down' }
+  };
+  function renderBlock(name, rounds, openByDefault, stage) {
     var totalSets = rounds.reduce(function (n, r) { return n + r.sets.length; }, 0);
     if (!totalSets) return '';
+    // Total distance across this stage — a genuinely useful at-a-glance figure
+    // in each stage header (a swimmer wants to know "how much warm-up?").
+    var stageMeters = rounds.reduce(function (m, r) {
+      return m + r.sets.reduce(function (mm, s) { return mm + (s.reps || 1) * (s.dist || 0); }, 0);
+    }, 0);
     var body = rounds.map(function (round) {
       var rows = round.sets.map(function (s) {
         var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
         var paceLabel = cleanPaceLabel(s.paceTag);
-        // One line per set: title + pace + gear all inline-wrapped on the
-        // left, a single compact interval/rest/total string on the right —
-        // replacing the previous 3 separate labeled mini-columns, which cost
-        // an extra line of vertical space per row for very little payoff.
+        // A leading reps×distance "rep-chip" gives every row an instant,
+        // scannable anchor (e.g. "7 × 50m") before the descriptive title, and
+        // the interval/rest/total collapse into a compact right-aligned stat.
+        var repChip = (s.reps && s.dist)
+          ? '<span class="set-rep">' + s.reps + '<span class="set-rep-x">×</span>' + s.dist + 'm</span>'
+          : '';
         return '<div class="set-row">' +
+          repChip +
           '<div class="set-main"><span class="set-title">' + s.title + '</span>' +
           (paceLabel ? '<span class="set-pace">' + paceLabel + '</span>' : '') +
           (gearHtml ? '<span class="set-gear">' + gearHtml + '</span>' : '') + '</div>' +
-          '<div class="set-stats">' + formatTime(s.interval) + ' int &middot; ' + formatTime(s.rest) + ' rest &middot; ' + formatTime(s.totalSec) + ' tot</div></div>';
+          '<div class="set-stats"><span class="set-stat">' + formatTime(s.interval) + '<em>int</em></span><span class="set-stat">' + formatTime(s.rest) + '<em>rest</em></span><span class="set-stat set-stat-total">' + formatTime(s.totalSec) + '<em>tot</em></span></div></div>';
       }).join('');
       var labelHtml = round.label ? '<div class="round-label"><span class="round-label-badge">' + round.label + '</span></div>' : '';
-      return labelHtml + rows;
+      return '<div class="set-group">' + labelHtml + rows + '</div>';
     }).join('');
-    return '<details class="workout-block"' + (openByDefault ? ' open' : '') + '><summary class="workout-block-title">' + name +
-      '<span class="workout-block-count">' + totalSets + ' set' + (totalSets === 1 ? '' : 's') + '</span></summary>' + body + '</details>';
+    var st = STAGE_META[stage] || null;
+    var iconHtml = st ? icon(st.icon) : '';
+    var distHtml = stageMeters > 0 ? '<span class="workout-block-dist">' + formatDistanceM(stageMeters, 1) + '</span>' : '';
+    return '<details class="workout-block"' + (stage ? ' data-stage="' + stage + '"' : '') + (openByDefault ? ' open' : '') +
+      '><summary class="workout-block-title"><span class="workout-stage-icon">' + iconHtml + '</span>' + name +
+      distHtml + '<span class="workout-block-count">' + totalSets + ' set' + (totalSets === 1 ? '' : 's') + '</span></summary>' +
+      '<div class="workout-block-body">' + body + '</div></details>';
   }
 
   function pickN(arr, n) {
@@ -5591,10 +5688,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       buildSet(1, cdParts[2], 'easiest pace of the day — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
     ];
 
-    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false) +
-      renderBlock('Pre-Set — ' + preset.name, preset.rounds, false) +
-      main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, block.rounds, i === 0); }).join('') +
-      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], false);
+    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false, 'warmup') +
+      renderBlock('Pre-Set — ' + preset.name, preset.rounds, false, 'preset') +
+      main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, block.rounds, i === 0, 'main'); }).join('') +
+      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], false, 'cooldown');
 
     var scalerNoteHtml = '<p style="color:var(--muted); font-size:0.82rem; margin-bottom:4px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
@@ -6292,15 +6389,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var intentEl = block.querySelector('.coach-intent-body');
         var rows = [];
         var currentRound = null;
-        Array.prototype.forEach.call(block.children, function (child) {
+        // Set rows and round labels are nested inside .workout-block-body >
+        // .set-group, so walk them in document order via querySelectorAll
+        // (a combined selector preserves ordering, letting us still attach
+        // each set to the round-label that precedes it).
+        Array.prototype.forEach.call(block.querySelectorAll('.round-label, .set-row'), function (child) {
           if (child.classList.contains('round-label')) currentRound = child.textContent.trim();
-          else if (child.classList.contains('set-row')) {
+          else {
             var paceEl = child.querySelector('.set-pace');
+            var repEl = child.querySelector('.set-rep');
+            var titleText = child.querySelector('.set-title').textContent.trim();
+            // Prefix the reps×distance chip (e.g. "7 × 50m") onto the title so
+            // the PDF keeps the same at-a-glance anchor the on-screen row shows.
+            if (repEl) titleText = repEl.textContent.replace(/\s+/g, ' ').trim() + '  ' + titleText;
+            // .set-stats is now a set of <span class="set-stat">value<em>label</em></span>
+            // chunks; join each stat's own text with " · " so the PDF reads
+            // "1:45 int · 15s rest · 7:00 tot" instead of a mashed-together run.
+            var statParts = Array.prototype.map.call(child.querySelectorAll('.set-stat'), function (st) {
+              var em = st.querySelector('em');
+              var label = em ? em.textContent.trim() : '';
+              var value = (em ? st.textContent.replace(em.textContent, '') : st.textContent).trim();
+              return value + (label ? ' ' + label : '');
+            });
             rows.push({
               round: currentRound,
-              title: child.querySelector('.set-title').textContent.trim(),
+              title: titleText,
               pace: paceEl ? paceEl.textContent.trim() : '',
-              stats: child.querySelector('.set-stats').textContent.trim()
+              stats: statParts.join(' · ')
             });
           }
         });
