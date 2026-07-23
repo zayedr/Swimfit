@@ -848,16 +848,26 @@ input, textarea, select { font: inherit; color: inherit; }
      dashboard rather than a dark, murky one. Every rule in this file reads
      color exclusively through these custom properties, so this block (plus
      the light-theme override below) is the entire re-skin. */
-  --bg:        #0A0F18;
-  --bg-alt:    #0D1420;
-  --surface:   #131B2A;
-  --surface-2: #1A2438;
-  --border:    rgba(148,163,184,0.14);
-  --border-strong: rgba(148,163,184,0.26);
+  --bg:        #0C1220;
+  --bg-alt:    #101828;
+  --surface:   #172033;
+  --surface-2: #202C45;
+  --border:    rgba(148,163,184,0.18);
+  --border-strong: rgba(148,163,184,0.32);
 
   --fg:      #F8FAFC;
-  --muted:   #94A3B8;
-  --muted-2: #64748B;
+  --muted:   #AEBBCC;
+  --muted-2: #7C8AA0;
+
+  /* Glassmorphism — a frosted translucent card surface (plus a slightly
+     brighter hairline border and a top inner highlight) used across the
+     dashboard cards for the "expensive, airy, modern" look. Translucent so
+     the ambient dashboard background shows faintly through, which is what
+     reads as glass rather than a flat panel. */
+  --glass-bg:     rgba(28, 39, 61, 0.62);
+  --glass-bg-2:   rgba(34, 47, 72, 0.72);
+  --glass-border: rgba(148, 163, 184, 0.24);
+  --glass-blur:   blur(16px) saturate(140%);
 
   --on-green:  #04120A;
   --on-aqua:   #04191D;
@@ -950,6 +960,14 @@ html.announce-dismissed { --announce-h: 0px; }
 
   --glow-green: 0 0 16px rgba(16,145,85,0.28);
   --glow-aqua:  0 0 16px rgba(8,145,168,0.24);
+
+  /* Light-mode glass — frosted white, so the same glassmorphic card rules
+     read as clean, airy, "expensive" panels in light mode too rather than
+     flat white boxes. */
+  --glass-bg:     rgba(255, 255, 255, 0.72);
+  --glass-bg-2:   rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-blur:   blur(16px) saturate(130%);
 
   --shadow-1: 0 8px 24px rgba(15,23,42,0.08);
   --shadow-2: 0 20px 60px rgba(15,23,42,0.12);
@@ -1322,7 +1340,20 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-content > [data-reveal]:nth-child(3) { transition-delay: 200ms; }
 .hero-content > [data-reveal]:nth-child(4) { transition-delay: 340ms; }
 .hero-content > [data-reveal]:nth-child(5) { transition-delay: 480ms; }
-.hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-4); }
+.hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-5); }
+/* Compact value-prop chips under the headline — keeps the hero feeling full
+   and "high-converting" without a placeholder paragraph. Glassy pills that
+   echo the site's neon accent. */
+.hero-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
+.hero-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(148,163,184,0.10); border: 1px solid var(--border-strong);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: var(--fg); font-family: var(--font-display); font-weight: 600;
+  font-size: 0.82rem; letter-spacing: 0.02em; white-space: nowrap;
+}
+.hero-chip .icon { width: 15px; height: 15px; color: var(--aqua-bright); }
 .hero-content h1 .accent {
   background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -1376,6 +1407,21 @@ section { position: relative; scroll-margin-top: 96px; }
   0% { background-position: 0px 0px; }
   100% { background-position: 140px 90px; }
 }
+/* Light-mode dashboard ambient — the base gradient above is hardcoded dark
+   (rgba(13,20,32,...)), which left the whole dashboard section dark in Light
+   mode and made the (dark, in light mode) section headings unreadable
+   dark-on-dark. This override swaps that base for a light wash so Light mode
+   is genuinely bright and readable, while keeping softer tinted accent
+   glows. */
+:root[data-theme="light"] .dash-ambient-bg::before {
+  background:
+    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(8,145,168,0.10), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 88% 25%, rgba(16,145,85,0.09), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 30% 95%, rgba(8,145,168,0.08), transparent 60%),
+    linear-gradient(180deg, #EEF2F6 0%, #E7EDF3 50%, #EEF2F6 100%);
+}
+:root[data-theme="light"] .dash-ambient-bg::after { mix-blend-mode: multiply; opacity: 0.4; }
+:root[data-theme="light"] .dash-bg-overlay { background: linear-gradient(160deg, rgba(238,242,246,0.7) 0%, rgba(231,237,243,0.55) 55%, rgba(238,242,246,0.7) 100%); }
 @media (prefers-reduced-motion: reduce) {
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
 }
@@ -1416,9 +1462,21 @@ section { position: relative; scroll-margin-top: 96px; }
 .tab-panel.active { display: block; }
 .reveal-ready .tab-panel.active.in { opacity: 1; transform: none; transition: opacity 420ms var(--ease), transform 420ms var(--ease); }
 
-/* ============================= CARDS (shared) ============================= */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
-.card:hover { transform: translateY(-6px); border-color: var(--border-strong); background: var(--surface-2); box-shadow: var(--shadow-1); }
+/* ============================= CARDS (shared) =============================
+   Glassmorphic frosted surface — translucent so the ambient dashboard
+   background shows faintly through (that faint show-through is what reads as
+   "glass" rather than a flat panel), a brighter hairline border, a soft inner
+   top highlight, and a real drop shadow for depth. Used by the gear, video/
+   academy, gym-focus and discipline cards; the bespoke dashboard cards
+   (settings/price/tracker/gym-exercise) opt in via .glass-card below. */
+.card, .glass-card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.card:hover { transform: translateY(-6px); border-color: var(--border-strong); background: var(--glass-bg-2); box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 26px 60px -22px rgba(0,0,0,0.7); }
 
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
 .tag-green { background: rgba(22,214,115,0.16); color: var(--green-bright); }
@@ -1447,7 +1505,11 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= WORKOUT GENERATOR ============================= */
 .generator { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: var(--space-5); align-items: start; }
-.config-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); }
+.config-card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-6);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+}
 .config-group { margin-bottom: var(--space-5); }
 .config-group:last-child { margin-bottom: 0; }
 .config-label { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); }
@@ -1759,12 +1821,35 @@ section { position: relative; scroll-margin-top: 96px; }
 .video-card-featured .video-thumb { aspect-ratio: 21/7; }
 .video-card-featured .video-info h3 { font-size: 1.2rem; }
 .video-featured-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
+.video-free-badge { position: absolute; top: var(--space-3); right: var(--space-3); box-shadow: 0 2px 10px rgba(22,214,115,0.35); }
+.video-card-featured .video-free-badge { left: var(--space-3); right: auto; top: var(--space-3); }
+.video-card-featured .video-featured-badge { left: calc(var(--space-3) + 62px); }
 @media (max-width: 640px) { .video-card-featured .video-thumb { aspect-ratio: 16/10; } }
+
+/* Academy "everything's free" banner — a clean, reassuring strip above the
+   library grid making it unmistakable there are no tiers or locked
+   categories. */
+.academy-free-banner {
+  display: flex; align-items: center; gap: var(--space-3);
+  background: linear-gradient(120deg, rgba(22,214,115,0.14), rgba(34,211,238,0.10));
+  border: 1px solid var(--glass-border); border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+}
+.academy-free-banner > .icon { width: 26px; height: 26px; color: var(--green-bright); flex-shrink: 0; }
+.academy-free-banner div { display: flex; flex-direction: column; gap: 2px; }
+.academy-free-banner strong { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; color: var(--fg); }
+.academy-free-banner span { color: var(--muted); font-size: 0.88rem; }
 
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
-.price-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); position: relative; }
-.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(22,214,115,0.09), var(--surface) 40%); }
+.price-card {
+  display: flex; flex-direction: column; background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); padding: var(--space-6); position: relative;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 44px -24px rgba(0,0,0,0.6);
+}
+.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(22,214,115,0.14), var(--glass-bg) 45%); box-shadow: 0 0 0 1px rgba(22,214,115,0.25), 0 24px 60px -22px rgba(22,214,115,0.28); }
 .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--green); color: var(--on-green); font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
 .price-badge-maroon { background: var(--maroon); color: var(--on-maroon); }
 .price-tier { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.1rem; color: var(--muted); }
@@ -2210,7 +2295,11 @@ body.paywall-locked { overflow: hidden; }
 .tracker-log-row .btn { min-height: 46px; }
 .tracker-log-status { margin: var(--space-3) 0 0; font-size: 0.85rem; min-height: 1.2em; color: var(--muted-2); }
 
-.tracker-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); text-align: center; margin-bottom: var(--space-5); }
+.tracker-stat-card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: var(--space-5); text-align: center; margin-bottom: var(--space-5);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+}
 .tracker-stat-card .pill-tabs { justify-content: center; margin-bottom: var(--space-4); }
 .tracker-stat-value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--aqua); line-height: 1; }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
@@ -2281,6 +2370,15 @@ body.paywall-locked { overflow: hidden; }
 .admin-stat-tile {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; text-align: center;
+}
+/* Consolidated glassmorphic upgrade for the remaining dashboard panels that
+   set their own opaque surface background (the Distance Tracker's log/goal/
+   chart cards) — kept as one rule rather than editing each so they stay in
+   lockstep with the shared .card glass look. */
+.tracker-log-form, .tracker-goal-card, .tracker-chart-card {
+  background: var(--glass-bg); border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
 }
 .admin-stat-value { font-family: var(--font-display); font-size: 1.7rem; color: var(--aqua); }
 .admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -2551,7 +2649,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="wrap hero-content">
     <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training</p>
     <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Command the Water.<br>Own the <span class="accent">Race.</span></h1>
-    <p data-reveal data-i18n="hero.sub">Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.</p>
+    <div class="hero-chips" data-reveal>
+      <span class="hero-chip"><svg class="icon"><use href="#i-stopwatch"/></svg> Daily-rotating swim sets</span>
+      <span class="hero-chip"><svg class="icon"><use href="#i-dumbbell"/></svg> Tailored dryland training</span>
+      <span class="hero-chip"><svg class="icon"><use href="#i-droplet"/></svg> Instant progress tracking</span>
+    </div>
     <div class="hero-actions" data-reveal>
       <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1">Build My Workout</button>
       <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
@@ -2835,7 +2937,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <h2 data-i18n="academy.heading">Watch. Break Down. Improve.</h2>
         <p>Stroke-by-stroke video breakdowns, turns, starts and race-transition drills.</p>
       </div>
-      <div class="grid grid-3" id="videoGrid"></div>
+      <div class="academy-free-banner">
+        <svg class="icon"><use href="#i-bolt"/></svg>
+        <div>
+          <strong>Every guide is 100% free</strong>
+          <span>No tiers, no locks, no categories held back — watch anything, anytime, on any plan.</span>
+        </div>
+      </div>
+      <div class="grid grid-3 academy-grid" id="videoGrid"></div>
     </div>
 
     <!-- ---------- AI COACH (full page) ---------- -->
@@ -4162,7 +4271,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
       '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.15), rgba(10,15,24,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
-      '<span class="video-duration">YouTube</span></div>' +
+      '<span class="video-duration">YouTube</span><span class="tag tag-green video-free-badge">Free</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
   }).join('') + (function () {
     var v = FEATURED_VIDEO;
@@ -4170,7 +4279,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     VIDEOS.push(v);
     return '<article class="card video-card video-card-featured" data-reveal data-video-index="' + i + '">' +
       '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.1), rgba(10,15,24,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
-      '<span class="video-duration">YouTube</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
+      '<span class="video-duration">YouTube</span><span class="tag tag-green video-free-badge">Free</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-maroon">' + v.level + '</span></div></article>';
   })();
 
