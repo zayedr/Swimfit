@@ -1569,6 +1569,33 @@ color through `var(--...)`.
   every video card (`.video-free-badge`). Verified via Playwright: 7 free badges render, banner
   present, all tabs load with zero page errors, PDF export and Support send still work.
 
+**A "framer-motion / high-end motion polish" request, delivered in pure CSS.** The user asked for
+framer-motion `initial`/`animate`/`whileHover` props, but this app is a single static `index.html`
+with **no build step, no bundler, and no React** — framer-motion (a React library) cannot be added
+without converting the whole app to React, which was explicitly *not* done. Instead the exact
+visual outcome framer-motion compiles those props down to was implemented in CSS, on top of the
+motion infrastructure this file already had:
+- **Entry animations** (`initial={{opacity:0,y:15}} → animate={{opacity:1,y:0}}`) were already
+  covered by the pre-existing `[data-reveal]` IntersectionObserver system (`opacity:0
+  translateY(22px)` → `.is-visible` `opacity:1 transform:none`, staggered `transition-delay`s,
+  plus `left`/`right`/`scale` directional variants) and the generated workout blocks' own
+  `blockIn` keyframe (replays on every regenerate, so a fresh Generate fades/rises in rather than
+  popping) — verified still intact, not rebuilt.
+- **`whileHover={{scale:1.02}}`** was added as CSS `:hover` transforms: every `.btn-*` variant now
+  lifts *and* scales (`translateY(-2px) scale(1.02)`), the shared glass `.card:hover` does
+  `translateY(-6px) scale(1.02)` plus an **emerald-tinted glowing border + shadow** (the
+  `border-emerald-500/20` look — `rgba(22,214,115,...)` ring/glow, resting state untouched), and
+  the desktop **sidebar links** slide+tint on hover (`translateX(4px)` + `--surface-2`, the
+  vertical-list equivalent of a scale nudge; `.nav-links button`'s transition was widened from
+  `color` to also cover `transform`/`background`). All respect the existing global
+  `prefers-reduced-motion` reset.
+- Glassmorphism, rounded corners, deep shadows, brighter tokens and tab-switch transitions were
+  already shipped in the two prior rounds and needed no change. Confirmed via CSSOM inspection
+  that all three new `:hover` rules parse correctly (headless `page.hover()` + `getComputedStyle`
+  is unreliable for `:hover`, so the rules were verified by walking `document.styleSheets`
+  instead), and via Playwright that all 9 tabs, PDF export and Support send still work with zero
+  page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
