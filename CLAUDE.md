@@ -1628,6 +1628,42 @@ Workouts *presentation*):
   slider `--fill` computes (80% at 5000m), PDF export and Support send work, all 9 tabs load with
   zero page errors, and the result panel is legible in both themes.
 
+**Generated workout result card rebuilt into color-coded stage cards.** `renderBlock()` now takes a
+`stage` key (`warmup`/`preset`/`main`/`cooldown`) and each stage `<details>` is a mini-card with its
+own accent color (`--stage-color`: warm-up aqua, pre-set gold, main-set emerald, cool-down
+periwinkle) driving a left accent border, a glowing circular stage-icon badge, a per-stage total-
+distance pill (computed from the sets), and stage-tinted pace pills. Every set row gained a leading
+monospace `reps × dist` "rep-chip" (a fixed-width scan anchor down the left edge) and the
+interval/rest/total figure became three labeled `.set-stat` chunks (value + tiny `<em>` label)
+instead of a run-on string. The block body is wrapped in `.workout-block-body > .set-group`, so
+`extractStructuredWorkout()` (the PDF reader) was updated to gather `.round-label`/`.set-row` via a
+combined `querySelectorAll` (they're no longer direct children) and to rebuild the stats string
+from the per-`.set-stat` chunks (joined with ` · `) plus prefix the rep-chip onto the PDF title —
+verified the PDF still exports correctly (real `download` event) with the new markup. Stage colors
+use `color-mix(in srgb, var(--stage-color) N%, transparent)` for tints/borders (Chromium 111+).
+This directly addressed the "result card still looks poor and cluttered" complaint — the four
+stages are now instantly distinguishable at a glance with a clear volume/pace/time hierarchy.
+
+**AI Coach prompts grouped into "Quick starts" + "Stroke analysis" preset rows.** `#coachPagePrompts`
+went from a flat chip list to two labeled `.coach-prompt-group`s: the original four quick-start
+chips, plus five new stroke-analysis presets (`Freestyle catch & pull`, `Butterfly timing`,
+`Breaststroke kick`, `Backstroke body roll`, `Flip turn & walls`) each carrying a rich technique-
+coaching `data-prompt`. The stroke chips get a subtle aqua tint + a glowing leading dot
+(`.coach-prompt-chip-stroke`). No JS change was needed — the prompt click handler already delegates
+from `#coachPagePrompts` via `e.target.closest('.coach-prompt-chip')`, and the show/hide-on-first-
+message logic toggles the whole container, both of which are agnostic to the new nested grouping.
+
+**Distance Tracker restyled toward a financial-terminal look.** The headline `.tracker-stat-value`
+got a neon aqua text-glow, and the `.tracker-analytics-tile`s became frosted glass "ticker" tiles
+(`--glass-bg` + blur, a hover lift with an emerald ring, and a `::before` top hairline accent bar)
+with glowing green metric values — the Robinhood/TradingView-for-swimming direction. The existing
+hand-rolled SVG charts (weekly-volume bars, pace-trend line, PB progression) were left as-is; only
+the surrounding stat/analytics cards were reskinned. (The Gym tab already uses interactive
+muscle-group focus chips + modern glass exercise cards from earlier rounds, so it was left intact
+rather than rebuilt; the Hero/Academy were heavily redesigned in the immediately prior rounds and
+were likewise not re-touched — this round concentrated effort on the specifically-flagged result
+card plus the Coach/Tracker upgrades.)
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
