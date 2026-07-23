@@ -1596,6 +1596,38 @@ motion infrastructure this file already had:
   instead), and via Playwright that all 9 tabs, PDF export and Support send still work with zero
   page errors.
 
+**A focused "million-dollar" redesign of the Workouts tab** (CSS + one small JS line + one markup
+class; the generator's logic, archetypes and data shapes are all untouched — this is purely the
+Workouts *presentation*):
+- **Left "Generator Hub" is now a stack of glass sub-cards** instead of one flat form. `.config-card`
+  became a transparent flex column (`gap`) and each `.config-group` (Swimmer Profile, Personal
+  Bests, Discipline, Target Distance, Equipment, Fitness Goals, Level) is now its own glass card
+  (`--glass-bg` + `--glass-blur` + border + inner-highlight/drop shadow) with an emerald-tinted
+  hover glow. The Generate button is a direct child of `.config-card` (not a group), so it keeps
+  its full-width CTA styling with no card chrome.
+- **Equipment checkboxes → emerald pill toggles.** `.equip-check` was rebuilt from a checkbox+box
+  into a rounded-full pill: the native `<input>` is visually hidden (the wrapping `<label>` still
+  toggles it), and the pill fills emerald + glows when `:has(input:checked)`, matching the
+  discipline/goal chips' language. No JS/markup change — the render still emits the same
+  `<label class="equip-check"><input type=checkbox>…</label>`.
+- **Distance slider is now a filled emerald→aqua track with a glowing thumb.** `updateDistanceLabel()`
+  computes a 0-100% `--fill` from the value and sets it on the input; the CSS paints a
+  `linear-gradient(90deg, green 0%, aqua var(--fill), track var(--fill), track 100%)` so the
+  filled portion follows the thumb, and the thumb got bigger with a neon-green glow + hover scale.
+- **Result panel dropped the gloomy olive-green photo backdrop** (`--generator-photo`, now an
+  unused-but-harmless `:root` hook) for a clean deep-obsidian slate gradient with a soft emerald
+  glow top-left + aqua bottom-right, and the panel itself became a glass card with a faint emerald
+  ring. Critically, `.result-panel` now **scopes light text/accent tokens onto itself**
+  (`--fg`/`--muted`/`--aqua`/`--green-bright`/… pinned to their bright values) so it reads as a
+  deliberate dark "whiteboard" surface — high-contrast light-on-dark — in **both** Dark and Light
+  mode (without this, Light mode's dark `--fg` text would have sat on this dark panel unreadable).
+  This is the same "dark rail on light content" premium pattern the sidebar already uses.
+- The framer-motion ask was again handled in CSS (no React/build step exists): entrance uses the
+  existing `data-reveal` observer + `blockIn` keyframe, hover uses the `whileHover`-equivalent
+  scale/lift rules from the prior round. Verified via Playwright: equipment pill toggle flips,
+  slider `--fill` computes (80% at 5000m), PDF export and Support send work, all 9 tabs load with
+  zero page errors, and the result panel is legible in both themes.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
