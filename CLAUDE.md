@@ -1389,6 +1389,121 @@ instead of crashing the whole export. Verified via Playwright: PDF export now su
 (confirmed via a real `download` event) on a workout that includes the new Distance Ladder
 archetype, where it previously threw on every attempt.
 
+**A full UI/UX overhaul: a new color theme, a real desktop sidebar + mobile bottom nav, and
+another Support-chat send bug.** This was the largest single-round visual/structural change to
+the site since its initial build, touching color tokens, the nav's entire DOM/CSS role, and every
+tab's outer layout — but deliberately did **not** touch any JS business logic, Firestore
+read/write shapes, or Cloud Functions; every fix below is either a CSS/markup change or a narrowly
+scoped bug fix uncovered while verifying the visual work.
+
+**Color theme**: `:root`'s design tokens were rewritten from a near-black, slightly murky
+green-black (`--bg:#070B0A`, `--surface:#101A19`) to a crisp, cool **slate** (`--bg:#0A0F18`,
+`--surface:#131B2A`, `--border` now slate-tinted via `rgba(148,163,184,...)` instead of
+white-based) with punchier neon accents (`--green:#16D673`, `--green-bright:#39FF9E`,
+`--aqua-bright:#4EE9FF` added) and two new glow-shadow tokens, `--glow-green`/`--glow-aqua`, used
+by the sidebar's active-tab indicator. The Light theme (`:root[data-theme="light"]`) got the same
+treatment in its own register (a cooler slate-white `--bg:#EEF2F6` instead of a warm off-white,
+slightly more saturated `--green`/`--aqua`) so both themes read as the same energetic "athletic
+SaaS" product rather than one being an afterthought. Every hardcoded RGB literal in the file that
+was baking in the *old* `--bg`/`--green`/`--green-bright` values directly (photo duotone overlays,
+the nav blur backdrop, `.tag-green`/`.icon-tile.green`, the coach-bubble shadow, the Hero's
+fallback gradient) was found via grep and updated to the new palette's equivalents — otherwise
+those spots would have kept rendering the old murky near-black/dim-green underneath an otherwise
+brand-new color system. `<meta name="theme-color">` was updated to match. This is a pure token
+swap: every rule in the file already read color exclusively through `var(--...)`, so no per-page
+CSS rewrite was needed to reskin the whole site.
+
+**Desktop sidebar.** Above a new `@media (min-width: 981px)` breakpoint, `.nav` (the exact same
+markup/JS-driven element that's a horizontal top bar below it) becomes a `position: fixed` left
+column (`--sidebar-w: 232px`) running the full height below the announcement bar, with `.wrap`
+switched to a column flex layout (brand at top, the full `#navLinks` tab list filling the middle,
+`.nav-cta` — trial badge/Log Out — pinned to the bottom via `margin-top: auto`). The active tab's
+indicator changed from an underline (works for a horizontal row) to a left inset bar with a
+`box-shadow: var(--glow-green)` glow, plus a `--surface-2` background highlight — reads correctly
+for a vertical list instead of reusing the horizontal metaphor. `body` gets `margin-left:
+var(--sidebar-w)` at this breakpoint so every tab's content shifts right into the remaining space;
+zero JS changes were needed for tab-switching since `switchTab()` already worked by
+`data-tab`/`aria-current` regardless of which physical element the button lives in. **A real,
+easy-to-repeat CSS bug was hit and fixed while building this**: the first attempt included
+`inset-inline: auto;` *after* `left: 0; right: auto;` in the same rule — since `inset-inline` is a
+shorthand that also sets the physical left/right, and CSS applies declarations in the order
+written, the later `inset-inline: auto` silently cancelled the explicit `left: 0`, leaving the nav
+positioned by its fallback "static position" (which, with `body` already carrying `margin-left:
+232px`, coincidentally placed it flush *against* the correct-looking spot from a `0` starting
+offset — i.e. it LOOKED plausible at a glance but was actually double-offset). Fixed by dropping
+the redundant `inset-inline: auto` entirely.
+
+**`.panel-wide`'s full-bleed breakout math needed a real correction for the sidebar, not just a
+naive offset.** `.panel-wide` (Workouts/Coach/Tracker/Support/Settings/Admin) escapes its centered
+`.wrap` parent via the classic `width: 100vw; margin-inline-start: calc(50% - 50vw)` trick. The
+first attempt at a sidebar-aware version added the *full* `var(--sidebar-w)` to the margin
+correction and got the panel positioned overlapping the sidebar and overflowing past the right
+edge by the sidebar's width — confirmed by measuring the actual rendered box via a Playwright
+`getBoundingClientRect()` check rather than guessing. The correct correction is **half** of
+`--sidebar-w` (`calc(50% - 50vw + var(--sidebar-w) / 2)`): the parent `.wrap` is itself centered
+within the space *already* narrowed by the sidebar, so only half of that narrowing shows up on
+each side of the standard centering formula. Also had to be declared in a `@media (min-width:
+981px)` block placed *after* the base unconditional `.panel-wide` rule in the file — with equal
+selector specificity, source order decides the winner regardless of which rule sits inside a
+media query, so a sidebar-aware override written *earlier* in the file (as the first attempt was)
+loses to the plain rule below it at every qualifying width.
+
+**Mobile bottom nav.** Below the same breakpoint, a new `<nav class="mobile-bottom-nav">` (sticky,
+`--bottom-nav-h: 64px`) shows four thumb-reachable icon+label buttons — Workouts, Gym, Tracker,
+Coach — plus a "More" button, per the standard "keep a bottom bar to ~5 destinations" UX
+guideline; every other tab (Gear, Academy, Support, Settings, Pricing, Admin) plus Sign In/Join
+Now/Log Out stays one tap away behind "More", which simply calls `navToggle.click()` — reusing
+the exact same `#navLinks` slide-in drawer the old hamburger already drove, so there's only ever
+one open/close state machine, not two competing nav implementations. The four bottom-bar buttons
+live outside `#navLinks`, so each carries its own `aria-current="false"` up front —
+`switchTab()`'s existing sync loop (`if (btn.hasAttribute('aria-current') ...)`) already updates
+any button that has the attribute, regardless of which bar or drawer it's actually in, so no
+change to that function was needed. **Two real overlap bugs were found and fixed** while
+screenshot-testing this: (1) the pre-existing floating Support (`.admin-msg-fab`, bottom-left) and
+AI Coach (`.coach-fab`, bottom-right) widget buttons sat exactly where the new bottom bar now
+lives, intercepting its taps — fixed by lifting both FABs' `bottom` offset by `--bottom-nav-h` in
+a `@media (max-width: 980px)` block placed *after* both FABs' existing rules (including the
+pre-existing `max-width:480px` one) so it wins at every width in range, not just the ones the
+narrower query doesn't also match; (2) on desktop, that same Support FAB's default `left:
+var(--space-4)` now put it directly on top of the sidebar's own bottom-pinned Log Out
+button/trial badge — fixed with a parallel `@media (min-width: 981px)` rule moving it to `left:
+calc(var(--sidebar-w) + var(--space-3))`. Both were caught by literally reading a Playwright
+screenshot rather than trusting the CSS in isolation, and neither would have been obvious from
+code alone.
+
+**The mobile top bar's signed-in state (trial badge + "Log Out (Name)" + hamburger) could overflow
+a narrow phone and squeeze the brand logo down to zero width** — a second real, screenshot-caught
+bug, most visible at an iPhone-mini-class 390px viewport. `.nav-cta`'s three-item cluster measured
+~410px wide against a 390px viewport in the worst case, with the overflow eating into `.brand`'s
+own space via flexbox's default shrink behavior (only `.brand`, not `.nav-cta`'s own children, had
+no `flex-shrink:0`, so it was the one flex sibling that gave). Fixed with a `@media (max-width:
+980px)` pass shrinking the trial badge (font-size, padding, icon size), the Log Out button, and
+the brand's own logo image height, plus `flex-shrink: 0` on both `.brand` and `.nav-toggle` so
+neither is ever what collapses; a further `@media (max-width: 400px)` fully hides the trial badge
+(still visible in Settings/Pricing) as the one piece a signed-in swimmer can live without in the
+cramped top bar itself, rather than trying to abbreviate its text further. The mobile drawer's own
+z-index was also bumped to sit above the new bottom bar (`.nav-links.open` to `145`, vs. the
+bottom bar's `140`) — previously the bottom bar rendered visually on top of an open drawer since
+neither had an explicit z-index relative to the other.
+
+**A second, independent Support-chat send bug was found and fixed** — distinct from the previous
+round's optimistic-render fix, which stayed correct and untouched. `window.__adminChatReply`
+bundled the swimmer's message write (`addDoc` into `admin_chats/{uid}/messages`, the part that
+actually delivers the text) and the metadata-doc write (`setDoc` on `admin_chats/{uid}` itself,
+which only feeds the Admin Panel's unread-dot/preview) into one `Promise.all([...])` — so if
+*either* write rejected, the whole send reported as failed to the swimmer, even when the message
+itself had already gone through. This is a real, previously-documented failure mode for exactly
+the metadata write specifically (a firestore.rules deploy that predates the write-path this doc
+needs, per this file's own extensively-documented "rules must be deployed separately from GitHub
+Pages" caveat) — meaning a swimmer could see "Could not send — please check your connection and
+try again" on a message that had, in fact, already landed in the thread. Fixed by re-sequencing
+`__adminChatReply` so the messages-subcollection write is the sole determinant of success/failure;
+the metadata write now runs as a best-effort `.then()` continuation with its own `.catch()` that
+only `console.warn`s, never surfaces to the caller. This does not fix a genuinely undeployed
+`firestore.rules` file on the live project (still outside this sandbox's reach, per the same
+caveat) — it fixes the *client* conflating a non-critical write's failure with the actual message
+never sending, which is the one piece actually fixable from here.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
