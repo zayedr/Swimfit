@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Swimfit — Premium Swim Training Platform</title>
 <meta name="description" content="Swimfit is a premium swim-training platform: build a custom daily workout by discipline, distance, equipment and goal, pick your dryland focus, and manage your membership — for beginners through elite athletes.">
-<meta name="theme-color" content="#070B0A">
+<meta name="theme-color" content="#0A0F18">
 <script>
   // Runs synchronously, before first paint, so a visitor who already dismissed
   // the announcement bar in a prior visit never sees it flash in and collapse
@@ -273,15 +273,23 @@
     if (!auth.currentUser) return Promise.reject(new Error('Not signed in'));
     var uid = auth.currentUser.uid;
     var now = serverTimestamp();
-    // Mirrors __adminPanelSendMessage's two-write shape below — without the
-    // second write the admin's inbox list (which reads this metadata doc,
-    // not the messages subcollection, for its unread dot/last-message
-    // preview) never reflects a swimmer's reply unless that thread is
-    // already open.
-    return Promise.all([
-      addDoc(collection(db, 'admin_chats', uid, 'messages'), { sender: 'user', text: text, createdAt: now }),
+    // The message write (into the /messages subcollection) is the only part
+    // that actually delivers the swimmer's text — that's what the caller's
+    // success/failure branch should be judged on. The metadata doc write
+    // (mirroring __adminPanelSendMessage's two-write shape below) only
+    // updates the Admin Panel's unread-dot/last-message-preview; it's a
+    // real, historically-documented case that this specific write path can
+    // be rejected by a firestore.rules deploy that predates it while the
+    // message write itself still succeeds under any rules version. Bundling
+    // both into one Promise.all meant that lag alone made a genuinely-sent
+    // message get reported to the swimmer as "could not send" — so the
+    // metadata write now runs best-effort, logged but never surfaced as a
+    // send failure.
+    return addDoc(collection(db, 'admin_chats', uid, 'messages'), { sender: 'user', text: text, createdAt: now }).then(function (ref) {
       setDoc(doc(db, 'admin_chats', uid), { lastMessageText: text, lastMessageAt: now, lastSender: 'user', unreadForAdmin: true }, { merge: true })
-    ]);
+        .catch(function (err) { console.warn('admin_chats metadata update failed (non-fatal, message itself was sent):', err); });
+      return ref;
+    });
   };
 
   // Admin Panel direct-message thread — the admin's own side. Real-time on
@@ -829,25 +837,37 @@ input, textarea, select { font: inherit; color: inherit; }
   --maroon:        #9C2A44;
   --maroon-bright: #C43B5C;
   --green-deep:    #146833;
-  --green:         #1FA35A;
-  --green-bright:  #2ECC81;
+  --green:         #16D673;
+  --green-bright:  #39FF9E;
   --aqua:          #22D3EE;
+  --aqua-bright:   #4EE9FF;
   --gold:          #E7B65B;
 
-  --bg:        #070B0A;
-  --bg-alt:    #0B1312;
-  --surface:   #101A19;
-  --surface-2: #16221F;
-  --border:    rgba(255,255,255,0.09);
-  --border-strong: rgba(255,255,255,0.16);
+  /* Crisp cool slate — no green/brown tint — replacing the previous
+     near-black background so the site reads as an energetic athletic
+     dashboard rather than a dark, murky one. Every rule in this file reads
+     color exclusively through these custom properties, so this block (plus
+     the light-theme override below) is the entire re-skin. */
+  --bg:        #0A0F18;
+  --bg-alt:    #0D1420;
+  --surface:   #131B2A;
+  --surface-2: #1A2438;
+  --border:    rgba(148,163,184,0.14);
+  --border-strong: rgba(148,163,184,0.26);
 
-  --fg:      #F3F7F5;
-  --muted:   #97A9A3;
-  --muted-2: #6D827B;
+  --fg:      #F8FAFC;
+  --muted:   #94A3B8;
+  --muted-2: #64748B;
 
   --on-green:  #04120A;
   --on-aqua:   #04191D;
   --on-maroon: #FBEDEF;
+
+  /* Glow shadows for the "energetic" accent treatment — active nav items,
+     primary CTAs, key stat numbers. Kept as tokens (not one-off box-shadow
+     literals) so every glow stays visually consistent and re-themeable. */
+  --glow-green: 0 0 20px rgba(22,214,115,0.45), 0 0 4px rgba(22,214,115,0.6);
+  --glow-aqua:  0 0 20px rgba(34,211,238,0.4), 0 0 4px rgba(34,211,238,0.55);
 
   --radius-sm: 10px;
   --radius: 18px;
@@ -869,6 +889,16 @@ input, textarea, select { font: inherit; color: inherit; }
      closed it) zeroes this out before anything ever lays out assuming
      otherwise. */
   --announce-h: 44px;
+
+  /* Width of the fixed left sidebar nav becomes on desktop/landscape widths
+     (see the @media (min-width: 981px) block near .nav below) — a single
+     token so the body/panel-wide offset math and the sidebar's own width
+     can never drift apart. */
+  --sidebar-w: 232px;
+  /* Height of the mobile bottom tab bar (see .mobile-bottom-nav below) —
+     content needs matching bottom padding so the last on-screen element in
+     any tab is never hidden behind it. */
+  --bottom-nav-h: 64px;
 
   --font-display: 'Barlow Condensed', sans-serif;
   --font-body: 'Barlow', sans-serif;
@@ -895,30 +925,34 @@ html.announce-dismissed { --announce-h: 0px; }
    were designed against the dark palette and are left as-is; they still
    read fine over the lighter chrome but aren't independently re-tuned. */
 :root[data-theme="light"] {
-  --bg:        #F4F8F7;
+  --bg:        #EEF2F6;
   --bg-alt:    #FFFFFF;
   --surface:   #FFFFFF;
-  --surface-2: #EEF4F2;
-  --border:    rgba(10,20,18,0.10);
-  --border-strong: rgba(10,20,18,0.20);
+  --surface-2: #F1F5F9;
+  --border:    rgba(15,23,42,0.10);
+  --border-strong: rgba(15,23,42,0.20);
 
-  --fg:      #0B1312;
-  --muted:   #4B5D58;
-  --muted-2: #6D827B;
+  --fg:      #0F172A;
+  --muted:   #475569;
+  --muted-2: #64748B;
 
   --maroon:        #9C2A44;
   --maroon-bright: #B22D4E;
-  --green:         #157A42;
-  --green-bright:  #189A57;
-  --aqua:          #0E7C90;
+  --green:         #109155;
+  --green-bright:  #0EA968;
+  --aqua:          #0891A8;
+  --aqua-bright:   #0BA9C4;
   --gold:          #A8791F;
 
   --on-green:  #FFFFFF;
   --on-aqua:   #FFFFFF;
   --on-maroon: #FFFFFF;
 
-  --shadow-1: 0 8px 24px rgba(10,20,18,0.10);
-  --shadow-2: 0 20px 60px rgba(10,20,18,0.14);
+  --glow-green: 0 0 16px rgba(16,145,85,0.28);
+  --glow-aqua:  0 0 16px rgba(8,145,168,0.24);
+
+  --shadow-1: 0 8px 24px rgba(15,23,42,0.08);
+  --shadow-2: 0 20px 60px rgba(15,23,42,0.12);
 }
 
 /* ============================= RTL (Settings → Language) =============================
@@ -998,8 +1032,8 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .btn:active { transform: scale(0.96); }
 .btn-primary { background: var(--green); color: var(--on-green); }
-.btn-primary:hover { background: var(--green-bright); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(46,204,129,0.35); }
-@keyframes btnPulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,129,0.55); } 100% { box-shadow: 0 0 0 18px rgba(46,204,129,0); } }
+.btn-primary:hover { background: var(--green-bright); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(57,255,158,0.35); }
+@keyframes btnPulse { 0% { box-shadow: 0 0 0 0 rgba(57,255,158,0.55); } 100% { box-shadow: 0 0 0 18px rgba(57,255,158,0); } }
 .btn-pulse { animation: btnPulse 550ms ease-out; }
 .btn-ghost { background: transparent; color: var(--fg); border: 1px solid var(--border-strong); }
 .btn-ghost:hover { border-color: var(--aqua); color: var(--aqua); transform: translateY(-2px); }
@@ -1013,24 +1047,24 @@ section { position: relative; scroll-margin-top: 96px; }
    .btn-pulse above) that draws the eye to the plan buttons without being
    obnoxious. Color matches each button's own existing accent so it reads as
    a natural extension of the button, not a mismatched effect. */
-@keyframes ctaGlowGreen { 0%, 100% { box-shadow: 0 4px 18px rgba(46,204,129,0.25); } 50% { box-shadow: 0 4px 28px rgba(46,204,129,0.55); } }
+@keyframes ctaGlowGreen { 0%, 100% { box-shadow: 0 4px 18px rgba(57,255,158,0.25); } 50% { box-shadow: 0 4px 28px rgba(57,255,158,0.55); } }
 @keyframes ctaGlowAqua { 0%, 100% { box-shadow: 0 4px 18px rgba(34,211,238,0.18); } 50% { box-shadow: 0 4px 28px rgba(34,211,238,0.45); } }
 @keyframes ctaGlowMaroon { 0%, 100% { box-shadow: 0 4px 18px rgba(196,59,92,0.18); } 50% { box-shadow: 0 4px 28px rgba(196,59,92,0.45); } }
 .btn-cta-glow { animation: ctaGlowGreen 2.6s ease-in-out infinite; }
 .btn-ghost.btn-cta-glow { animation-name: ctaGlowAqua; }
 .btn-outline-maroon.btn-cta-glow { animation-name: ctaGlowMaroon; }
-@media (prefers-reduced-motion: reduce) { .btn-cta-glow { animation: none; box-shadow: 0 4px 20px rgba(46,204,129,0.35); } }
+@media (prefers-reduced-motion: reduce) { .btn-cta-glow { animation: none; box-shadow: 0 4px 20px rgba(57,255,158,0.35); } }
 .btn-sm { padding: 0.6em 1.2em; font-size: 0.85rem; min-height: 38px; }
 
 /* ============================= NAV (also the app's tab controller) ============================= */
 .nav { position: fixed; inset-inline: 0; top: var(--announce-h); z-index: 100; padding-block: var(--space-3); border-bottom: 1px solid transparent; transition: border-color var(--dur) var(--ease), top var(--dur) var(--ease); }
 .nav::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
-  background: rgba(7,11,10,0.7); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: rgba(10,15,24,0.7); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
   transition: background var(--dur) var(--ease);
 }
 .nav.scrolled { border-bottom-color: var(--border); }
-.nav.scrolled::before { background: rgba(7,11,10,0.92); }
+.nav.scrolled::before { background: rgba(10,15,24,0.92); }
 .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .brand { display: flex; align-items: center; gap: var(--space-2); }
 .brand img { height: 30px; width: auto; }
@@ -1098,15 +1132,94 @@ section { position: relative; scroll-margin-top: 96px; }
     position: fixed; top: calc(68px + var(--announce-h)); left: 0; right: 0; bottom: 0; flex-direction: column;
     align-items: flex-start; justify-content: flex-start; padding: var(--space-6) var(--space-4); gap: var(--space-5);
     background: var(--bg); transform: translateX(100%); transition: transform var(--dur) var(--ease); overflow-y: auto;
+    z-index: 145;
   }
   .nav-links.open { transform: translateX(0); }
   .nav-links button { font-size: 1.4rem; }
-  .nav-toggle { display: inline-flex; }
+  .nav-toggle { display: inline-flex; flex-shrink: 0; }
   .nav-cta .btn-ghost { display: none; }
   .nav-social { display: none; }
   .nav-social-li { display: flex; gap: var(--space-3); margin-top: var(--space-2); }
   .nav-social-li a { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center; color: var(--fg); }
   .nav-social-li .icon { width: 20px; height: 20px; }
+  /* The signed-in top bar's trio (trial badge + Log Out + hamburger) could
+     overflow a narrow phone width and squeeze .brand down to nothing — the
+     badge text ("Trial — 2d 23h 59m left") is the widest single piece, so it
+     shrinks first; brand/toggle get flex-shrink:0 so they're never what
+     gives. */
+  .brand { flex-shrink: 0; }
+  .brand img { height: 22px; }
+  .nav-cta { gap: 6px; }
+  .nav-status-badge { font-size: 0.58rem; padding: 4px 7px; gap: 3px; white-space: nowrap; }
+  .nav-status-badge .icon { width: 11px; height: 11px; }
+  .nav-cta #navLogoutBtn { padding: 0.45em 0.7em; font-size: 0.66rem; }
+  .nav-toggle { width: 38px; height: 38px; }
+}
+@media (max-width: 400px) {
+  /* Below ~400px even the shrunk trio above is tight — the trial countdown
+     badge is the one piece a signed-in swimmer can live without seeing in
+     the top bar itself (it's still shown inside Settings/Pricing), so it's
+     the one that goes fully hidden rather than trying to abbreviate its
+     text further. */
+  .nav-status-badge { display: none; }
+}
+
+/* ============================= MOBILE BOTTOM NAV ============================= */
+.mobile-bottom-nav { display: none; }
+@media (max-width: 980px) {
+  body { padding-bottom: var(--bottom-nav-h); }
+  .mobile-bottom-nav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 140;
+    height: var(--bottom-nav-h); background: var(--surface); border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.3);
+  }
+  .mobile-bottom-nav button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    color: var(--muted-2); font-family: var(--font-display); font-weight: 600; font-size: 0.6rem;
+    text-transform: uppercase; letter-spacing: 0.03em; min-height: 44px; transition: color var(--dur) var(--ease);
+  }
+  .mobile-bottom-nav button .icon { width: 20px; height: 20px; transition: filter var(--dur) var(--ease); }
+  .mobile-bottom-nav button[aria-current="true"] { color: var(--green-bright); }
+  .mobile-bottom-nav button[aria-current="true"] .icon { filter: drop-shadow(0 0 6px rgba(57,255,158,0.65)); }
+  .mobile-bottom-nav button:active { transform: scale(0.94); }
+}
+
+/* ============================= DESKTOP SIDEBAR =============================
+   Above the mobile breakpoint, .nav (the same element/markup that's a top bar
+   below it) becomes a fixed left sidebar instead — full nav list always
+   visible, zero scrolling to reach any tool. Only geometry/layout properties
+   are overridden here; colors, hover states, and the tab-switching JS are
+   completely untouched. */
+@media (min-width: 981px) {
+  body { margin-left: var(--sidebar-w); }
+  .hero { padding-top: 56px; }
+
+  .nav {
+    left: 0; right: auto; top: var(--announce-h); bottom: 0;
+    width: var(--sidebar-w); height: auto; padding-block: var(--space-4); padding-inline: 0;
+    border-bottom: none; border-right: 1px solid transparent; overflow-y: auto;
+  }
+  .nav.scrolled { border-right-color: var(--border); border-bottom-color: transparent; }
+  .nav .wrap {
+    flex-direction: column; align-items: stretch; justify-content: flex-start;
+    height: 100%; max-width: none; margin-inline: 0; padding-inline: var(--space-3); gap: var(--space-4);
+  }
+  .brand { padding-inline: var(--space-1); }
+  .nav-links { flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
+  .nav-links button { width: 100%; padding: 11px 12px; border-radius: var(--radius-sm); font-size: 0.82rem; gap: 10px; }
+  .nav-links button::after {
+    content: ''; position: absolute; left: 0; right: auto; top: 6px; bottom: 6px; width: 3px; height: auto;
+    background: var(--green-bright); opacity: 0; transition: opacity var(--dur) var(--ease); border-radius: 2px;
+    box-shadow: var(--glow-green);
+  }
+  .nav-links button:hover::after, .nav-links button[aria-current="true"]::after { opacity: 1; }
+  .nav-links button[aria-current="true"] { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); border-radius: var(--radius-sm); }
+  .nav-social, .nav-social-li { display: none; }
+  .nav-cta { flex-direction: column; align-items: stretch; width: 100%; margin-top: auto; gap: var(--space-2); }
+  .nav-cta .btn { width: 100%; }
+  .nav-status-badge { justify-content: center; }
+  .nav-toggle { display: none; }
+  .mobile-bottom-nav { display: none; }
 }
 
 /* ============================= HERO ============================= */
@@ -1115,14 +1228,14 @@ section { position: relative; scroll-margin-top: 96px; }
   radial-gradient(60% 50% at 15% 20%, rgba(20,104,51,0.35), transparent 60%),
   radial-gradient(50% 45% at 85% 15%, rgba(156,42,68,0.3), transparent 60%),
   radial-gradient(70% 60% at 50% 100%, rgba(34,211,238,0.12), transparent 60%),
-  linear-gradient(180deg, #050807 0%, #070B0A 60%, #081311 100%);
+  linear-gradient(180deg, #060A11 0%, #0A0F18 60%, #0C1420 100%);
 }
 /* Photographic-style panel: shows var(--hero-photo) if set (duotone-tinted), else a
    light-ray / water-depth gradient standing in for real athlete photography. */
 .hero-photo {
   position: absolute; inset: 0; z-index: -2;
   background-image:
-    linear-gradient(120deg, rgba(7,11,10,0.94) 0%, rgba(7,11,10,0.55) 45%, rgba(7,19,17,0.4) 100%),
+    linear-gradient(120deg, rgba(10,15,24,0.94) 0%, rgba(10,15,24,0.55) 45%, rgba(13,20,32,0.4) 100%),
     var(--hero-photo),
     repeating-linear-gradient(115deg, rgba(34,211,238,0.05) 0 2px, transparent 2px 140px),
     linear-gradient(200deg, #0c211d 0%, #081312 55%, #050807 100%);
@@ -1131,7 +1244,7 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .hero-photo::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(5,8,7,0.9) 100%);
+  background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.9) 100%);
 }
 .hero-video {
   position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover;
@@ -1141,15 +1254,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-video-overlay {
   position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background:
-    linear-gradient(120deg, rgba(7,11,10,0.9) 0%, rgba(7,11,10,0.5) 45%, rgba(7,19,17,0.35) 100%),
-    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(5,8,7,0.92) 100%);
+    linear-gradient(120deg, rgba(10,15,24,0.9) 0%, rgba(10,15,24,0.5) 45%, rgba(13,20,32,0.35) 100%),
+    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.92) 100%);
 }
 @media (prefers-reduced-motion: reduce) { .hero-video { display: none; } }
 .hero-caustics {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(38% 30% at 20% 30%, rgba(34,211,238,0.16), transparent 70%),
-    radial-gradient(30% 26% at 70% 60%, rgba(46,204,129,0.14), transparent 70%),
+    radial-gradient(30% 26% at 70% 60%, rgba(57,255,158,0.14), transparent 70%),
     radial-gradient(24% 22% at 45% 80%, rgba(34,211,238,0.10), transparent 70%);
   background-size: 160% 160%;
   animation: causticDrift 16s ease-in-out infinite alternate;
@@ -1222,7 +1335,7 @@ section { position: relative; scroll-margin-top: 96px; }
     radial-gradient(ellipse 50% 35% at 88% 25%, rgba(34,211,238,0.12), transparent 60%),
     radial-gradient(ellipse 60% 45% at 30% 95%, rgba(56,224,196,0.12), transparent 60%),
     radial-gradient(ellipse 55% 40% at 90% 90%, rgba(120,200,255,0.10), transparent 60%),
-    linear-gradient(180deg, rgba(11,19,18,0.97) 0%, rgba(11,19,18,0.88) 45%, rgba(11,19,18,0.97) 100%);
+    linear-gradient(180deg, rgba(13,20,32,0.97) 0%, rgba(13,20,32,0.88) 45%, rgba(13,20,32,0.97) 100%);
   filter: blur(4px);
   animation: dashAmbientDrift 28s ease-in-out infinite alternate;
 }
@@ -1256,7 +1369,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .dash-bg-video.is-playing[data-for="gym"] { opacity: 0; }
 #dashboard[data-active-tab="workouts"] .dash-bg-video[data-for="workouts"].is-playing,
 #dashboard[data-active-tab="gym"] .dash-bg-video[data-for="gym"].is-playing { opacity: 0.5; }
-.dash-bg-overlay { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; background: linear-gradient(160deg, rgba(7,11,10,0.82) 0%, rgba(7,11,10,0.65) 55%, rgba(7,11,10,0.82) 100%); }
+.dash-bg-overlay { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; background: linear-gradient(160deg, rgba(10,15,24,0.82) 0%, rgba(10,15,24,0.65) 55%, rgba(10,15,24,0.82) 100%); }
 #dashboard[data-active-tab="workouts"] .dash-bg-overlay,
 #dashboard[data-active-tab="gym"] .dash-bg-overlay { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .dash-bg-video { display: none; } }
@@ -1266,6 +1379,17 @@ section { position: relative; scroll-margin-top: 96px; }
    other tabs. */
 .panel-wide { width: 100vw; margin-inline-start: calc(50% - 50vw); }
 .panel-wide-inner { max-width: 1560px; margin-inline: auto; padding-inline: var(--space-4); }
+/* Same breakout trick, adjusted for the desktop sidebar's left offset — must
+   be declared after the unconditional rule above (equal specificity, so
+   source order decides) or the plain rule would win and the panel would
+   render 100vw wide starting from x:0, sliding underneath the sidebar and
+   overflowing past the right edge by --sidebar-w. The correction term is
+   half of --sidebar-w, not the full value: the parent wrap is itself
+   centered within the space already narrowed by the sidebar, so only half
+   of that narrowing shows up on each side of the centering math. */
+@media (min-width: 981px) {
+  .panel-wide { width: calc(100vw - var(--sidebar-w)); margin-inline-start: calc(50% - 50vw + var(--sidebar-w) / 2); }
+}
 
 .tab-panel { display: none; opacity: 0; transform: translateY(14px); }
 .tab-panel.active { display: block; }
@@ -1276,19 +1400,19 @@ section { position: relative; scroll-margin-top: 96px; }
 .card:hover { transform: translateY(-6px); border-color: var(--border-strong); background: var(--surface-2); box-shadow: var(--shadow-1); }
 
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
-.tag-green { background: rgba(31,163,90,0.16); color: var(--green-bright); }
+.tag-green { background: rgba(22,214,115,0.16); color: var(--green-bright); }
 .tag-maroon { background: rgba(156,42,68,0.2); color: var(--maroon-bright); }
 .tag-aqua { background: rgba(34,211,238,0.14); color: var(--aqua); }
 
 .icon-tile { width: 52px; height: 52px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: var(--space-4); }
-.icon-tile.green { background: rgba(31,163,90,0.14); color: var(--green-bright); }
+.icon-tile.green { background: rgba(22,214,115,0.14); color: var(--green-bright); }
 .icon-tile.maroon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
 .icon-tile.aqua { background: rgba(34,211,238,0.12); color: var(--aqua); }
 
 /* Reusable photo banner for tab headers */
 .tab-banner {
   height: 190px; border-radius: var(--radius-lg); margin-bottom: var(--space-6);
-  background-image: linear-gradient(100deg, rgba(7,11,10,0.88) 10%, rgba(7,11,10,0.35) 60%, rgba(7,19,17,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-image: linear-gradient(100deg, rgba(10,15,24,0.88) 10%, rgba(10,15,24,0.35) 60%, rgba(13,20,32,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
   background-size: cover; background-position: center;
   border: 1px solid var(--border);
 }
@@ -1317,7 +1441,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .chip .icon { width: 15px; height: 15px; }
 .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--on-green); }
 .chip:hover:not([aria-pressed="true"]) { border-color: var(--aqua); color: var(--fg); transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 16px rgba(34,211,238,0.12); }
-.chip[aria-pressed="true"]:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 20px rgba(46,204,129,0.3); }
+.chip[aria-pressed="true"]:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 20px rgba(57,255,158,0.3); }
 
 .slider-row { display: flex; align-items: center; gap: var(--space-4); }
 .slider-row input[type="range"] {
@@ -1348,7 +1472,7 @@ section { position: relative; scroll-margin-top: 96px; }
 #panel-settings .settings-shell[data-auth-signed-in] {
   background:
     radial-gradient(circle at 12% 0%, rgba(34,211,238,0.12), transparent 55%),
-    radial-gradient(circle at 88% 100%, rgba(46,204,129,0.12), transparent 55%);
+    radial-gradient(circle at 88% 100%, rgba(57,255,158,0.12), transparent 55%);
   border-radius: var(--radius-lg);
   padding: var(--space-6) var(--space-4);
   margin-inline: calc(-1 * var(--space-4));
@@ -1399,7 +1523,7 @@ section { position: relative; scroll-margin-top: 96px; }
   display: flex; align-items: center; gap: var(--space-2); padding: 0.7em 0.9em; border-radius: var(--radius-sm);
   border: 1px solid var(--border); cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.equip-check:has(input:checked) { border-color: var(--green); background: rgba(31,163,90,0.08); }
+.equip-check:has(input:checked) { border-color: var(--green); background: rgba(22,214,115,0.08); }
 .equip-check:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .equip-check { transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur) var(--ease); }
 .equip-check input { accent-color: var(--green); width: 18px; height: 18px; }
@@ -1407,7 +1531,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .equip-check:has(input:checked) .icon { color: var(--green-bright); }
 
 .quote-card {
-  background: linear-gradient(160deg, rgba(31,163,90,0.12), rgba(34,211,238,0.06));
+  background: linear-gradient(160deg, rgba(22,214,115,0.12), rgba(34,211,238,0.06));
   border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3) var(--space-4);
   position: relative; overflow: hidden;
 }
@@ -1422,7 +1546,7 @@ section { position: relative; scroll-margin-top: 96px; }
      this file — a generated workout is read-heavy (a dozen+ set rows), so
      text legibility over the ambient photo matters more here than the
      decorative effect. */
-  background-image: linear-gradient(160deg, rgba(10,16,15,0.97) 25%, rgba(10,16,15,0.92) 100%), var(--generator-photo, none);
+  background-image: linear-gradient(160deg, rgba(10,15,24,0.97) 25%, rgba(10,15,24,0.92) 100%), var(--generator-photo, none);
   background-size: cover; background-position: center 25%;
   transform: translateY(var(--parallax-y, 0px));
   transition: transform 0.08s linear;
@@ -1579,7 +1703,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .gym-phase-banner {
   width: 64px; height: 64px; border-radius: var(--radius-sm); flex-shrink: 0;
-  background-image: linear-gradient(160deg, rgba(7,11,10,0.2), rgba(7,11,10,0.6)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-image: linear-gradient(160deg, rgba(10,15,24,0.2), rgba(10,15,24,0.6)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
   background-size: cover; background-position: center;
 }
 .gym-phase-title { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1589,7 +1713,7 @@ section { position: relative; scroll-margin-top: 96px; }
 .gear-card { text-align: center; padding: 0; overflow: hidden; }
 .gear-photo { height: 120px; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: transform 550ms var(--ease); }
 .gear-card:hover .gear-photo { transform: scale(1.06); }
-.gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,11,10,0.05), rgba(16,26,25,0.96)); }
+.gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,15,24,0.05), rgba(19,27,42,0.96)); }
 .gear-photo .icon-tile { position: relative; z-index: 1; transform: translateY(45%); margin: 0; width: 64px; height: 64px; }
 .gear-photo .icon-tile .icon { width: 32px; height: 32px; }
 .gear-body { padding: var(--space-6) var(--space-4) var(--space-5); }
@@ -1619,7 +1743,7 @@ section { position: relative; scroll-margin-top: 96px; }
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
 .price-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); position: relative; }
-.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(31,163,90,0.09), var(--surface) 40%); }
+.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(22,214,115,0.09), var(--surface) 40%); }
 .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--green); color: var(--on-green); font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
 .price-badge-maroon { background: var(--maroon); color: var(--on-maroon); }
 .price-tier { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.1rem; color: var(--muted); }
@@ -1688,7 +1812,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .grid > [data-reveal]:nth-child(9) { transition-delay: 560ms; }
 
 /* ============================= MODAL ============================= */
-.modal-overlay { position: fixed; inset: 0; background: rgba(3,6,5,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-4); opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,8,13,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-4); opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease); }
 .modal-overlay.open { opacity: 1; pointer-events: auto; }
 .modal-box { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); max-width: 480px; width: 100%; padding: var(--space-6); text-align: center; position: relative; }
 .modal-close { position: absolute; top: var(--space-3); right: var(--space-3); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
@@ -1748,7 +1872,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 /* ============================= ENTRANCE MARKETING POPUP ============================= */
 .promo-popup-overlay {
   position: fixed; inset: 0; z-index: 190; display: flex; align-items: center; justify-content: center;
-  background: rgba(3,6,5,0.78); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  background: rgba(5,8,13,0.78); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
   padding: var(--space-4); overflow-y: auto;
 }
 .promo-popup-overlay[hidden] { display: none; }
@@ -1782,7 +1906,7 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 /* ============================= GLOBAL PAYWALL (post-trial lock) ============================= */
 .paywall-overlay {
   position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center;
-  padding: var(--space-4); background: rgba(4,7,6,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: var(--space-4); background: rgba(6,10,16,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   overflow-y: auto;
 }
 .paywall-overlay[hidden] { display: none; }
@@ -1845,7 +1969,7 @@ body.paywall-locked { overflow: hidden; }
 }
 @keyframes coachBubbleIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .coach-bubble { animation: none; } }
-.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(19,168,102,0.22); }
+.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(22,214,115,0.22); }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .coach-bubble.coach-typing { color: var(--muted); font-style: italic; box-shadow: none; }
 .coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); box-shadow: none; }
@@ -1889,6 +2013,25 @@ body.paywall-locked { overflow: hidden; }
   .admin-msg-panel { left: var(--space-2); right: var(--space-2); width: auto; bottom: calc(var(--space-2) + 72px); max-height: min(520px, calc(100vh - 120px)); }
   .admin-msg-fab { left: var(--space-3); bottom: var(--space-3); }
 }
+/* Placed after both FAB blocks above so it wins at every width in this
+   range (including <480px) regardless of the narrower query's own rule —
+   the mobile bottom tab bar (.mobile-bottom-nav, same 980px breakpoint)
+   would otherwise sit directly on top of both floating widget FABs,
+   visually overlapping them and intercepting their taps. */
+@media (max-width: 980px) {
+  .coach-fab, .admin-msg-fab { bottom: calc(var(--bottom-nav-h) + var(--space-3)); }
+  .coach-panel { bottom: calc(var(--bottom-nav-h) + var(--space-3) + 76px); }
+  .admin-msg-panel { bottom: calc(var(--bottom-nav-h) + var(--space-3) + 72px); }
+}
+/* On desktop the Support widget's own bottom-left corner is now where the
+   sidebar's auth controls (trial badge/logout button) live — .admin-msg-fab
+   and .admin-msg-panel move clear of the sidebar's width instead of
+   overlapping it. .coach-fab (bottom-right) is untouched; nothing sits in
+   its corner. */
+@media (min-width: 981px) {
+  .admin-msg-fab { left: calc(var(--sidebar-w) + var(--space-3)); }
+  .admin-msg-panel { left: calc(var(--sidebar-w) + var(--space-3)); }
+}
 
 /* ============================= AI SWIM COACH — FULL PAGE ============================= */
 .coach-page-shell {
@@ -1928,12 +2071,12 @@ body.paywall-locked { overflow: hidden; }
 .support-page-header-status { display: flex; align-items: center; gap: 0.4em; font-size: 0.78rem; color: var(--muted); }
 .support-status-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0;
-  box-shadow: 0 0 0 0 rgba(19,168,102,0.6); animation: support-pulse 2s infinite;
+  box-shadow: 0 0 0 0 rgba(22,214,115,0.6); animation: support-pulse 2s infinite;
 }
 @keyframes support-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(19,168,102,0.55); }
-  70% { box-shadow: 0 0 0 6px rgba(19,168,102,0); }
-  100% { box-shadow: 0 0 0 0 rgba(19,168,102,0); }
+  0% { box-shadow: 0 0 0 0 rgba(22,214,115,0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(22,214,115,0); }
+  100% { box-shadow: 0 0 0 0 rgba(22,214,115,0); }
 }
 @media (prefers-reduced-motion: reduce) { .support-status-dot { animation: none; } }
 
@@ -2017,7 +2160,7 @@ body.paywall-locked { overflow: hidden; }
 .coach-page-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .coach-page-thumb-remove {
   position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%;
-  background: rgba(7,11,10,0.75); color: var(--fg); display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
+  background: rgba(10,15,24,0.75); color: var(--fg); display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
 }
 .coach-page-thumb-remove .icon { width: 12px; height: 12px; }
 .coach-page-thumb-remove:hover { background: var(--maroon); }
@@ -2314,6 +2457,29 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </button>
     </div>
   </div>
+</nav>
+
+<!-- ============================= MOBILE BOTTOM NAV =============================
+     Shown only below the sidebar breakpoint (see .mobile-bottom-nav's CSS,
+     @media max-width:980px) — the four most-used tabs get a direct
+     thumb-reachable icon+label here, matching the "no more than ~5
+     destinations in a bottom bar" UX guideline; everything else stays one
+     tap away behind "More", which just opens the exact same #navLinks
+     drawer the hamburger toggle above already used (see the tiny
+     mobileMoreBtn wiring near switchTab()) — no second nav data source to
+     keep in sync. These buttons are outside #navLinks, so each one carries
+     its own aria-current="false" up front — switchTab()'s sync loop updates
+     any button that already has the attribute, regardless of which drawer
+     or bar it lives in. -->
+<nav class="mobile-bottom-nav" aria-label="Primary">
+  <button type="button" data-tab="workouts" aria-current="false">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/><path d="M2 15c2 0 2-3 4-3s2 3 4 3 2-3 4-3 2 3 4 3 2-3 4-3"/></svg>
+    <span data-i18n="nav.workouts">Workouts</span>
+  </button>
+  <button type="button" data-tab="gym" aria-current="false"><svg class="icon" aria-hidden="true"><use href="#i-dumbbell"/></svg><span data-i18n="nav.gym">Gym</span></button>
+  <button type="button" data-tab="tracker" aria-current="false"><svg class="icon" aria-hidden="true"><use href="#i-droplet"/></svg><span data-i18n="nav.tracker">Tracker</span></button>
+  <button type="button" data-tab="coach" aria-current="false"><svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg><span data-i18n="nav.coach">Coach</span></button>
+  <button type="button" id="mobileMoreBtn" aria-haspopup="true" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg><span>More</span></button>
 </nav>
 
 <!-- ============================= HERO ============================= -->
@@ -3873,6 +4039,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var navToggle = document.getElementById('navToggle');
   var navLinks = document.getElementById('navLinks');
   var navToggleIcon = document.getElementById('navToggleIcon');
+  var mobileMoreBtn = document.getElementById('mobileMoreBtn');
   var dashboard = document.getElementById('dashboard');
   var tabButtons = document.querySelectorAll('[data-tab]');
   var tabPanels = document.querySelectorAll('.tab-panel');
@@ -3885,7 +4052,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var open = navLinks.classList.toggle('open');
     navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     navToggleIcon.innerHTML = '<use href="#' + (open ? 'i-close' : 'i-menu') + '"/>';
+    if (mobileMoreBtn) mobileMoreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
+  // The mobile bottom bar's "More" button opens the exact same #navLinks
+  // drawer the old hamburger toggle already drove — reusing navToggle's own
+  // click handler means there is only ever one open/close state machine to
+  // keep correct, not two nav implementations drifting apart.
+  if (mobileMoreBtn) mobileMoreBtn.addEventListener('click', function () { navToggle.click(); });
 
   function switchTab(id, opts) {
     tabPanels.forEach(function (p) { p.classList.remove('active', 'in'); });
@@ -3967,7 +4140,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(7,11,10,0.15), rgba(7,11,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.15), rgba(10,15,24,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
   }).join('') + (function () {
@@ -3975,7 +4148,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var i = VIDEOS.length;
     VIDEOS.push(v);
     return '<article class="card video-card video-card-featured" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(7,11,10,0.1), rgba(7,11,10,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.1), rgba(10,15,24,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-maroon">' + v.level + '</span></div></article>';
   })();
