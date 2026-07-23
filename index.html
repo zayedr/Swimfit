@@ -2209,34 +2209,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   .announce-cta-short { display: inline; }
 }
 
-/* ============================= SOCIAL: FOLLOW CARDS ============================= */
-.follow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-.follow-card {
-  position: relative; overflow: hidden; border-radius: var(--radius); padding: var(--space-5);
-  display: flex; align-items: center; gap: var(--space-4); border: 1px solid var(--border);
-  background: var(--surface); transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.follow-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-1); }
-.follow-icon-tile {
-  width: 56px; height: 56px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; color: #fff; transition: transform var(--dur) var(--ease);
-}
-.follow-icon-tile .icon { width: 28px; height: 28px; }
-.follow-card:hover .follow-icon-tile { transform: scale(1.08) rotate(-4deg); }
-.follow-card.follow-instagram .follow-icon-tile { background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af, #515bd4); }
-.follow-card.follow-instagram:hover { border-color: #dd2a7b; }
-.follow-card.follow-tiktok .follow-icon-tile { background: #010101; }
-.follow-card.follow-tiktok .follow-icon-tile .icon { color: #25F4EE; }
-.follow-card.follow-tiktok:hover { border-color: #25F4EE; }
-.follow-card-body h4 { font-size: 1rem; margin-bottom: 2px; }
-.follow-card-body p { font-size: 0.82rem; color: var(--muted-2); }
-.follow-card-body .follow-handle { color: var(--aqua); font-weight: 600; }
-.follow-card-arrow { margin-left: auto; color: var(--muted-2); transition: transform var(--dur) var(--ease), color var(--dur) var(--ease); flex-shrink: 0; }
-.follow-card:hover .follow-card-arrow { transform: translateX(4px); color: var(--fg); }
-@media (max-width: 780px) {
-  .follow-grid { grid-template-columns: 1fr; }
-}
-
 </style>
 </head>
 <body>
@@ -2404,30 +2376,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </header>
 
-
-<!-- ============================= SOCIAL: FOLLOW CARDS ============================= -->
-<section class="section-alt" id="socialProof">
-  <div class="wrap">
-    <div class="follow-grid">
-      <a class="follow-card follow-instagram" href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" data-reveal>
-        <div class="follow-icon-tile"><svg class="icon"><use href="#i-insta"/></svg></div>
-        <div class="follow-card-body">
-          <h4>Follow on Instagram</h4>
-          <p>Technique clips &amp; race highlights — <span class="follow-handle">@swimfit.ae</span></p>
-        </div>
-        <svg class="icon follow-card-arrow"><use href="#i-chevron" style="transform:rotate(-90deg)"/></svg>
-      </a>
-      <a class="follow-card follow-tiktok" href="https://www.tiktok.com/@swimfit.ae" target="_blank" rel="noopener" data-reveal>
-        <div class="follow-icon-tile"><svg class="icon"><use href="#i-tiktok"/></svg></div>
-        <div class="follow-card-body">
-          <h4>Follow on TikTok</h4>
-          <p>Quick drills &amp; behind-the-scenes — <span class="follow-handle">@swimfit.ae</span></p>
-        </div>
-        <svg class="icon follow-card-arrow"><use href="#i-chevron" style="transform:rotate(-90deg)"/></svg>
-      </a>
-    </div>
-  </div>
-</section>
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
@@ -3065,12 +3013,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center" data-i18n="pricing.eyebrow">Membership</p>
         <h2 data-i18n="pricing.heading">Simple Pricing, Serious Results</h2>
-        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access. Billed in AED after that. Cancel anytime.</p>
+        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access. Billed in USD after that. Cancel anytime.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card" data-reveal>
           <span class="price-tier">Pro</span>
-          <div class="price-amount"><span class="num">49</span><span class="cur">AED</span></div>
+          <div class="price-amount"><span class="cur">$</span><span class="num">13</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Swim Workouts — Beginner &amp; Competitive tracks</li>
@@ -3083,7 +3031,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="price-card featured" data-reveal>
           <span class="price-badge">Most Popular</span>
           <span class="price-tier">Elite</span>
-          <div class="price-amount"><span class="num">79</span><span class="cur">AED</span></div>
+          <div class="price-amount"><span class="cur">$</span><span class="num">21</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Everything unlocked, full stop</li>
@@ -3099,7 +3047,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="price-card" data-reveal>
           <span class="price-badge price-badge-maroon">Includes 2 Months Free!</span>
           <span class="price-tier">Ultra</span>
-          <div class="price-amount"><span class="num">499</span><span class="cur">AED</span></div>
+          <div class="price-amount"><span class="cur">$</span><span class="num">135</span></div>
           <p class="price-period">per year · best value</p>
           <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Everything in Elite</li>
@@ -3111,7 +3059,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <button type="button" class="btn btn-outline-maroon btn-block btn-cta-glow" data-plan="ultra">Get Started</button>
         </div>
       </div>
-      <p class="price-note">Prices shown in AED · VAT where applicable · Email us anytime to manage or cancel your membership.</p>
+      <p class="price-note">Prices shown in USD · tax where applicable · Email us anytime to manage or cancel your membership.</p>
 
       <div class="faq-list">
         <details class="faq-item">
@@ -3131,8 +3079,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="faq-body">No — goggles and a suit are enough. Leave every equipment box unchecked and the generator builds a plain-swim set; check off fins, a board, a buoy or paddles as you acquire them.</div>
         </details>
         <details class="faq-item">
-          <summary>How does AED billing work?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">All plans are priced and billed directly in AED through our secure checkout — no currency conversion surprises.</div>
+          <summary>How does USD billing work?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+          <div class="faq-body">All plans are priced and billed directly in USD through our secure checkout — no currency conversion surprises.</div>
         </details>
         <details class="faq-item">
           <summary>What happens when my free trial ends?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -4917,6 +4865,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       intents: [
         'Shifting gears within one continuous swim, rather than resting between reps, trains the more specific skill of changing pace mid-race without losing stroke length or rhythm. Each round raises the baseline, so the same shift gets harder to execute cleanly.'
       ]
+    },
+    {
+      name: 'Distance Ladder',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        // A genuine descending-distance ladder (e.g. 400-300-200-100) rather
+        // than the same rep distance repeated more times as volume grows —
+        // the rung sizes themselves scale with shareM, so a big-volume day
+        // actually carries larger rungs (400s, 300s) instead of just more
+        // reps of a small fixed distance.
+        var unit = Math.max(50, Math.round((shareM / 10) / 50) * 50);
+        var rungs = [4, 3, 2, 1].map(function (m) { return unit * m; });
+        var stroke = nextStroke();
+        var offsets = [8, 5, 2, -2];
+        var sets = rungs.map(function (dist, idx) {
+          var tail = idx === rungs.length - 1 ? 'fastest, shortest rung — empty the tank' : 'hold strong, honest pace';
+          return buildSet(1, dist, stroke + ', ladder rung ' + (idx + 1) + ' of ' + rungs.length + ' — ' + tail, [], pace100 + offsets[idx], 15, scaler, idx === rungs.length - 1 ? '100 Pace' : null);
+        });
+        return [{ label: 'Distance Ladder ' + rungs.join('-') + 'm', sets: sets }];
+      },
+      intents: [
+        'Descending through real distance rungs — 400 down to 100 — asks for a completely different pacing skill than repeating the same rep over and over: you have to genuinely shift gears as the rung shrinks, which is exactly what a race\'s closing stages demand.'
+      ]
     }
   ];
 
@@ -5084,11 +5054,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       name: 'Choice Drill Ladder',
       build: function (shareM, pace100, scaler, nextStroke) {
         var stroke = nextStroke();
-        var rungs = [25, 50, 75, 100];
+        // The ladder's own rung sizes scale with shareM instead of staying
+        // a fixed 25-50-75-100 regardless of session size — a big-volume
+        // day's Pre-Set should carry more actual distance here, not just
+        // repeat the same small ladder every time.
+        var unit = Math.max(25, Math.round((shareM / 10) / 25) * 25);
+        var rungs = [1, 2, 3, 4].map(function (m) { return unit * m; });
         var sets = rungs.map(function (d) {
           return buildSet(1, d, stroke + ', choice drill — pick whichever drill needs the most work today', [], pace100 + 10, 15, scaler, 'Drill Pace');
         });
-        return [{ label: 'Choice Drill Ladder 25-50-75-100', sets: sets }];
+        return [{ label: 'Choice Drill Ladder ' + rungs.join('-'), sets: sets }];
       },
       intents: [
         'Letting you choose the drill at every rung keeps this set self-correcting — you\'ll naturally gravitate toward whatever flaw is bothering you most that day, exactly the kind of targeted work a fixed drill list can\'t offer.'
@@ -5097,7 +5072,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     {
       name: 'Heart-Rate Target Pace',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var n = roundCountFor(scaler);
+        // Reps scale with the actual share of distance this archetype
+        // received, not just the level's base round count — previously this
+        // came out to the same 2-4 x 100m set regardless of shareM, so a
+        // huge Pre-Set allocation and a tiny one produced an identical set.
+        var n = Math.max(roundCountFor(scaler), Math.round(shareM / 100));
         var stroke = nextStroke();
         var sets = [buildSet(n, 100, stroke + ', hold Zone 3 effort — moderate-hard, "comfortably uncomfortable," not a sprint', [], pace100 + 4, 20, scaler, '200 Pace')];
         return [{ label: null, sets: sets }];
@@ -5178,12 +5157,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // daily too (via workoutRng, the same day-stable seed everything else
     // in this function draws from) instead of being the same fixed
     // "odd 25 drill, even 25 build" every single day.
+    // The drill/build blocks' rep counts scale with warmupM (itself 10% of
+    // the chosen total distance) instead of staying fixed at "4 x 50m" /
+    // "4 x 25m" regardless of session size — a 6km day's warm-up should
+    // genuinely carry more volume than a 1km day's, not just a bigger
+    // opening swim with identical supporting blocks.
+    var warmupDrillReps = Math.max(4, Math.min(8, Math.round(warmupM / 100) + 2));
+    var warmupBuildReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
     var warmup = [
       buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
-      buildSet(4, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
+      buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
     ];
     if (state.level !== 'beginner') {
-      warmup.push(buildSet(4, 25, nextStroke() + ', quick build — rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
+      warmup.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
     }
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
@@ -5951,10 +5937,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         Array.prototype.forEach.call(block.children, function (child) {
           if (child.classList.contains('round-label')) currentRound = child.textContent.trim();
           else if (child.classList.contains('set-row')) {
+            var paceEl = child.querySelector('.set-pace');
             rows.push({
               round: currentRound,
               title: child.querySelector('.set-title').textContent.trim(),
-              pace: child.querySelector('.set-pace').textContent.trim(),
+              pace: paceEl ? paceEl.textContent.trim() : '',
               stats: child.querySelector('.set-stats').textContent.trim()
             });
           }
@@ -6082,9 +6069,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           doc.setTextColor(90, 90, 90);
           doc.text(row.stats, pageW - marginX - 120, y);
           y += Math.max(titleLines.length * 11, 11) + 3;
-          doc.setFontSize(8.5);
-          doc.setTextColor(21, 137, 153);
-          doc.splitTextToSize(row.pace, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          if (row.pace) {
+            doc.setFontSize(8.5);
+            doc.setTextColor(21, 137, 153);
+            doc.splitTextToSize(row.pace, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
+          }
           y += 6;
         });
         y += 6;
@@ -8322,6 +8311,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // a swimmer opens the panel, not just "usually fast."
     renderMessages([]);
 
+    // Renders the swimmer's own message immediately on submit, without
+    // waiting for the Firestore round-trip — the live subscription below
+    // still owns the authoritative list and will reconcile this bubble away
+    // (renderMessages() fully rebuilds messagesEl every time it fires), but
+    // a swimmer should see their message land the instant they hit send
+    // rather than staring at nothing until the network catches up.
+    function appendOptimisticMessage(text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-user';
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
     function openPanel() {
       panel.classList.add('open');
       fab.setAttribute('aria-expanded', 'true');
@@ -8343,8 +8349,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       e.preventDefault();
       var text = (input.value || '').trim();
       if (!text || typeof window.__adminChatReply !== 'function') return;
+      input.value = '';
       sendBtn.disabled = true;
-      window.__adminChatReply(text).then(function () { input.value = ''; }).finally(function () { sendBtn.disabled = false; });
+      appendOptimisticMessage(text);
+      window.__adminChatReply(text).catch(function () {
+        // A previously-silent failure: the promise rejecting (not signed
+        // in, a permission-denied write, a network drop) was never
+        // surfaced — the button just re-enabled with no explanation, which
+        // reads as the chat silently swallowing the message. Now it's a
+        // visible, honest failure instead.
+        var errNote = document.createElement('p');
+        errNote.style.cssText = 'text-align:center;color:#e5484d;padding:6px 0;font-size:0.78rem;';
+        errNote.textContent = 'Could not send — please check your connection and try again.';
+        messagesEl.appendChild(errNote);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }).finally(function () { sendBtn.disabled = false; });
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
@@ -8441,6 +8460,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // catches up.
     renderMessages([]);
 
+    // Renders the swimmer's own message immediately on submit, without
+    // waiting for the Firestore round-trip — the live subscription still
+    // owns the authoritative list and will reconcile this bubble away
+    // (renderMessages() fully rebuilds messagesEl every time it fires), but
+    // a swimmer should see their message land the instant they hit send
+    // rather than staring at nothing until the network catches up.
+    function appendOptimisticMessage(text) {
+      var row = document.createElement('div');
+      row.className = 'coach-msg coach-msg-user';
+      var bubble = document.createElement('div');
+      bubble.className = 'coach-bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
     function subscribeIfNeeded() {
       var user = window.__firebaseUser;
       if (!user || loadedForUid === user.uid || typeof window.__adminChatSubscribeMessages !== 'function') return;
@@ -8489,8 +8525,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       e.preventDefault();
       var text = (input.value || '').trim();
       if (!text || typeof window.__adminChatReply !== 'function') return;
+      input.value = '';
       sendBtn.disabled = true;
-      window.__adminChatReply(text).then(function () { input.value = ''; }).finally(function () { sendBtn.disabled = false; });
+      appendOptimisticMessage(text);
+      window.__adminChatReply(text).catch(function () {
+        // A previously-silent failure: the promise rejecting (not signed
+        // in, a permission-denied write, a network drop) was never
+        // surfaced — the button just re-enabled with no explanation, which
+        // reads as the chat silently swallowing the message. Now it's a
+        // visible, honest failure instead.
+        var errNote = document.createElement('p');
+        errNote.style.cssText = 'text-align:center;color:#e5484d;padding:6px 0;font-size:0.78rem;';
+        errNote.textContent = 'Could not send — please check your connection and try again.';
+        messagesEl.appendChild(errNote);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }).finally(function () { sendBtn.disabled = false; });
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
