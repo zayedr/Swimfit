@@ -1311,6 +1311,84 @@ dead code alongside it. Verified via Playwright: zero checkboxes render, clickin
 writes exactly one correctly-sized `swim_logs` entry and updates the button state, with no page
 errors.
 
+**Pricing display switched from AED to USD** — Pro/Elite/Ultra now show `$13`/`$21`/`$135` (the
+`.price-amount` markup was reordered so the `<span class="cur">$</span>` prefix renders before the
+`<span class="num">` instead of the old `<span class="num">AED</span>` suffix layout), and every
+piece of surrounding copy ("Billed in USD," the price note, the FAQ item) was reworded to match.
+**This is a display-only change and carries a real, disclosed risk**: `PADDLE_PRICE_IDS` (the real,
+live Paddle Price object ids Checkout actually charges against) were deliberately left untouched,
+since a Price object's own currency/amount is configured server-side in the Paddle dashboard — not
+something this sandbox can read or change (no Paddle MCP connector available, consistent with every
+earlier Paddle-related limitation already documented above). If those Price objects are still
+AED-denominated, the page now visually promises $13/$21/$135 while checkout may still charge
+whatever AED amount they're actually configured for — reconciling this requires the user's own
+Paddle dashboard access to either confirm the Price objects are already USD, or update them (and
+swap in the new Price ids here) to match.
+
+**The Workout Generator's "same set repeated at every distance" complaint was fixed at its actual
+root causes**, found via direct empirical comparison (Playwright, full workout structure at 1000m
+vs. 4500m/6000m) rather than a wholesale archetype rewrite. Three genuine non-scaling bugs: the
+Warm-Up's supporting Drill/Build blocks were hardcoded `4 x 50m`/`4 x 25m` regardless of
+`warmupM`, now `Math.max(4, Math.min(8, Math.round(warmupM / 100) + 2))` (and an equivalent for
+the build reps) so a bigger session's warm-up genuinely carries more volume; the Pre-Set "Choice
+Drill Ladder" always used fixed rungs `25-50-75-100` regardless of `shareM`, now derives its own
+`unit` from `shareM` so the ladder itself scales; and the Pre-Set "Heart-Rate Target Pace" read
+only the swimmer's level for its rep count and never looked at `shareM` at all, producing an
+identical 2-4x100m set regardless of how much distance the archetype was actually allocated — now
+`Math.max(roundCountFor(scaler), Math.round(shareM / 100))`. A brand-new Main Set archetype,
+**Distance Ladder**, was also added to `ENDURANCE_ARCHETYPES` — a genuine descending-distance
+ladder (rungs scale from `shareM`, e.g. 400-300-200-100 at high volume, 200-150-100-50 at low
+volume) rather than the same rep distance repeated more times as volume grows, matching the user's
+explicit "400s, 200s, 100s breakdown ladder" ask. `SWOLF Efficiency Set` was investigated and
+deliberately left untouched — it already scales its rep count with `shareM`, and its fixed 50m
+distance is intentional/coaching-correct (SWOLF compares stroke-count+time over a *constant*
+distance, so scaling the distance would break the whole point of the drill). This was a targeted
+fix of the specific broken archetypes plus one new genuinely-varied one, not a rewrite of the
+entire archetype library.
+
+**The Instagram/TikTok follow-card section was removed** — `#socialProof` (two `.follow-card`
+links plus all their supporting CSS) sat directly between the Hero and the tab shell and was
+judged redundant with the nav bar's and footer's own Instagram/TikTok icon links, which already
+existed independently. The Hero's `</header>` now flows straight into the tab shell with nothing in
+between. This is unrelated to, and did not touch, the earlier-removed About/Offers/AppPreview/
+PlanPreview sections — Social Proof was the one marketing block a previous round had explicitly
+left in place, and this round is what finally removed it, at the user's explicit request that it
+was redundant with the navbar/footer icons.
+
+**A real Support/floating-widget chat send bug was found and fixed.** Both `wireSupportPage()`
+(full-screen Support tab) and `wireAdminMessagesWidget()` (floating widget) sent a swimmer's
+message purely by awaiting `window.__adminChatReply(text)` with no `.catch()` and no optimistic
+rendering — the sent bubble only ever appeared once the `onSnapshot` listener re-fired with the
+new message from Firestore. Verified via Playwright that this was a real, reproducible failure:
+sending a message via button click, a second click, or Enter all cleared the input (proving the
+write promise resolved) but the message never appeared in the chat stream. Fixed identically on
+both surfaces: a new `appendOptimisticMessage(text)` helper renders the swimmer's own bubble
+immediately at submit time (before the async Firestore write), `input.value = ''` now fires
+synchronously at submit rather than inside `.then()`, and a `.catch()` was added that appends a
+visible "Could not send — please check your connection and try again" note instead of silently
+swallowing a rejected write. The live `onSnapshot` subscription is still the authoritative source
+of truth — it fully rebuilds the message list on every fire, so the optimistic bubble is simply
+reconciled away once the real snapshot lands; this only closes the gap where a slow, stale, or
+non-refiring subscription (a real risk given this codebase's own documented history of permission-
+denied/undeployed-rules failures) left a successfully-sent message invisible with no feedback at
+all.
+
+**A real bug in the PDF export's `extractStructuredWorkout()` was found and fixed while
+regression-testing the above.** `renderBlock()`'s set-row markup only renders a `.set-pace` span
+when a set actually has a pace label (`(paceLabel ? '<span class="set-pace">'... : '')` — see the
+formatting-revamp entry above), but `extractStructuredWorkout()` called
+`child.querySelector('.set-pace').textContent` unconditionally, throwing a bare `TypeError` the
+instant any rendered set had no pace label. This was a real, reachable crash: the new Distance
+Ladder archetype's non-final rungs pass `null` as their `paceTag` by design (only the last, fastest
+rung gets a `'100 Pace'` label), so generating a workout that included Distance Ladder and then
+clicking "Save as PDF" failed every time with the generic "Could not generate the PDF right now"
+alert. Fixed by guarding the lookup (`var paceEl = child.querySelector('.set-pace'); ... paceEl ?
+paceEl.textContent.trim() : ''`) and making `buildWorkoutPdf()`'s pace-line rendering conditional
+on `row.pace` being non-empty, so a set with no pace label simply omits that line in the PDF
+instead of crashing the whole export. Verified via Playwright: PDF export now succeeds
+(confirmed via a real `download` event) on a workout that includes the new Distance Ladder
+archetype, where it previously threw on every attempt.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
