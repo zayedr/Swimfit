@@ -1741,6 +1741,53 @@ card.** No new Firestore collections, Cloud Functions, or rules — all client-s
   Pre-Set, the correct 4-stage order, all 12 gym cards carrying muscle tags, working PDF export, and
   zero page errors.
 
+**The 3-day trial paywall was RE-INTRODUCED as a real enforcement gate, reversing the earlier
+"there is no paywall anywhere on this site" stance** (which had itself been done at the user's
+request; the user has now explicitly asked for the opposite, so every "no paywall / purely
+informational trial" statement earlier in this file is superseded by this entry). `recomputeAccessLevel()`
+now resolves a signed-in, non-admin, non-subscribed swimmer to `level: 'expired'` once
+`Date.now()` passes their `trialEndsAt` (`trialStartedAt` + `TRIAL_DAYS`), instead of the old
+cosmetic `'unlocked'`. The `swimfit:accesschange` handler full-screen-locks the site
+(`#paywallOverlay` at `z-index:400` over a blurred backdrop + `body.paywall-locked`) for **both**
+`'expired'` and the pre-existing `'locked'` (admin `accessDisabled` suspension) states, swapping the
+overlay's copy/CTAs per case: `'expired'` shows a "Your Free Trial Has Ended" card with three
+Pro/Elite/Ultra plan buttons (`#paywallPlans [data-paywall-plan]`) wired to the same
+`goToPaddleCheckout()` the Pricing tab uses — a successful Paddle subscription flips the level off
+`'expired'` and drops the lock; `'locked'` shows the contact-support-only suspension card (no billing
+path), unchanged. The overlay is deliberately non-closable (no X, no backdrop-dismiss — only Log Out,
+or subscribing) so an out-of-trial swimmer cannot bypass it to reach Workouts/Gym/AI Coach/Tracker.
+The **admin bypass** (`window.__isAdminAccount` → `level:'admin'`, checked first) and an **active
+Paddle plan** (`['active','trialing']`) are the only two ways a signed-in account stays out of the
+lock once its 3 days elapse. The swimmer's bottom-left support-inbox FAB is intentionally still
+reachable above the overlay (a locked-out swimmer can still message the team); the bottom-right AI
+Coach FAB is hidden while locked. **Server-side enforcement was NOT added this round** — this is a
+client-side gate only; `aiSwimCoach`'s own server check still fires only for `accessDisabled`
+(`'locked'`), so re-adding a real server-side trial check in `functions/index.js` (`getAccessLevel`)
+is the follow-up if the paywall needs to be tamper-proof rather than just UI-enforced.
+
+**Google-vs-Email/Password sign-in conflict now shows a clear, specific message.** When a swimmer
+who originally signed up with "Continue with Google" (no password on the account) tries Email/Password
+sign-in, Firebase returns a generic credential error (`auth/invalid-credential`/`wrong-password`/
+`user-not-found`) — or, on a sign-up attempt with that address, `auth/email-already-in-use`. The
+password-form catch now calls `fetchSignInMethodsForEmail()` (newly imported) on exactly those error
+codes and, if the address resolves to `['google.com']` without `'password'`, shows **"This account
+was created with Google. Please click 'Continue with Google' to sign in."** instead of a confusing
+"incorrect password". Falls back cleanly to the normal error copy if the lookup is inconclusive
+(e.g. Firebase email-enumeration protection returning an empty method list). `createUserWithEmailAndPassword`
+was verified to still create the account and run `claimUsernameAndProfile` correctly; a
+`console.error('[Swimfit] Password auth error:', error)` was added so auth failures are visible in
+the console rather than only in the status note.
+
+**The EmailJS welcome-email failure path now `console.error`s the raw error** (was `console.warn`) with
+a "check EmailJS Service/Template/Public Key IDs" hint, so a bad Service ID / Template ID / Public Key
+or a template-variable mismatch is immediately visible in the console instead of being quietly
+swallowed. The trigger itself is unchanged and still fires once per genuine account creation on both
+paths (email/password signup after `createUserWithEmailAndPassword`; Google only when
+`getAdditionalUserInfo(result).isNewUser`), guarded per-uid in localStorage. Verified via Playwright:
+an expired-trial account is hard-locked with working plan CTAs, an active trial and the admin account
+are not, the Google-conflict message renders verbatim, and a rejected EmailJS send logs a
+`console.error` — all with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
