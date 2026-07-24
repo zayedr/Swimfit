@@ -82,8 +82,7 @@
   import {
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
     setPersistence, browserLocalPersistence, browserSessionPersistence,
-    createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
-    sendEmailVerification, updateProfile, getAdditionalUserInfo, fetchSignInMethodsForEmail
+    getAdditionalUserInfo
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
@@ -157,14 +156,14 @@
         '</td></tr>' +
         // Hero / welcome
         '<tr><td style="padding:32px 36px 8px;">' +
-          '<h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;color:#F8FAFC;">Welcome aboard, ' + name + '! 🏊</h1>' +
-          '<p style="margin:0;font-size:15px;line-height:1.6;color:#AEBBCC;">You just joined Swimfit — your personal, always-adaptive swim &amp; dryland training platform. Every day you get a fresh, coach-built workout and the tools to actually track your progress. Let’s command the water.</p>' +
+          '<h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;color:#F8FAFC;">Welcome to the squad, ' + name + '! 🏊</h1>' +
+          '<p style="margin:0;font-size:15px;line-height:1.6;color:#AEBBCC;">This is the day your training gets serious. Swimfit is your personal, always-adaptive swim &amp; dryland coach — a fresh, professionally-structured workout every single day, plus the tools to actually watch yourself get faster. No more guessing what to swim. Just show up, and we’ll have the set ready. Let’s command the water together. 💪</p>' +
         '</td></tr>' +
         // Trial offer banner
         '<tr><td style="padding:20px 36px 4px;">' +
           '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(22,214,115,0.16),rgba(34,211,238,0.12));border:1px solid rgba(22,214,115,0.35);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
-            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#39FF9E;">Your 3-day free trial is live</div>' +
-            '<div style="font-size:14px;line-height:1.5;color:#E7EDF3;margin-top:4px;">Full access to every feature — no card needed to start. Dive in today.</div>' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#39FF9E;">Your 3 days of full access are live — right now</div>' +
+            '<div style="font-size:14px;line-height:1.5;color:#E7EDF3;margin-top:4px;">Every feature unlocked, no card needed. The swimmers who improve fastest start on day one — so dive in today while it’s all open.</div>' +
           '</td></tr></table>' +
         '</td></tr>' +
         // Feature highlights
@@ -184,9 +183,17 @@
             '</tr></table>';
           }).join('') +
         '</td></tr>' +
+        // Upsell — keep access after the trial
+        '<tr><td style="padding:8px 36px 4px;">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(224,106,130,0.14),rgba(34,211,238,0.10));border:1px solid rgba(224,106,130,0.32);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#E06A82;">Don’t lose your momentum on day 4</div>' +
+            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your 3-day trial is the on-ramp — real progress comes from the weeks that follow. Lock in a plan <strong>before your trial ends</strong> to keep your daily workouts, AI Coach and progress tracking without a single interruption. Plans start at just <strong>$13/month</strong>, and Ultra gives you two months free on annual.</div>' +
+            '<div style="margin-top:12px;"><a href="https://swimfit.online" style="display:inline-block;background:transparent;color:#4EE9FF;border:1px solid rgba(78,233,255,0.5);font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:999px;">See plans &amp; keep training →</a></div>' +
+          '</td></tr></table>' +
+        '</td></tr>' +
         // CTA
-        '<tr><td align="center" style="padding:12px 36px 34px;">' +
-          '<a href="https://swimfit.online" style="display:inline-block;background:#16D673;color:#04120A;font-size:15px;font-weight:800;letter-spacing:0.5px;text-decoration:none;padding:14px 34px;border-radius:999px;">Start Training →</a>' +
+        '<tr><td align="center" style="padding:18px 36px 34px;">' +
+          '<a href="https://swimfit.online" style="display:inline-block;background:#16D673;color:#04120A;font-size:15px;font-weight:800;letter-spacing:0.5px;text-decoration:none;padding:14px 34px;border-radius:999px;">Start Training Today →</a>' +
         '</td></tr>' +
         // Footer
         '<tr><td style="padding:20px 36px;border-top:1px solid rgba(148,163,184,0.14);">' +
@@ -469,18 +476,29 @@
         provider: (user.providerData[0] && user.providerData[0].providerId) || 'password',
         lastLoginAt: serverTimestamp()
       };
+      // STRICT 3-day trial measured from the account's REAL creation time.
+      // Firebase Auth exposes that on user.metadata.creationTime (an RFC date
+      // string), which is authoritative and identical on every device/session
+      // — so the trial can't be reset by clearing storage, and it applies
+      // uniformly to old and new accounts alike. We no longer "grandfather" a
+      // pre-existing account to a fresh trial starting now: an account created
+      // more than 3 days ago with no active plan is correctly expired.
+      var creationTime = (user.metadata && user.metadata.creationTime) ? new Date(user.metadata.creationTime) : null;
+      if (creationTime && isNaN(creationTime.getTime())) creationTime = null;
       var existingTrialStart = snap.exists() && snap.data().trialStartedAt ? snap.data().trialStartedAt.toDate() : null;
+      // The access decision's source of truth for "when did the trial start":
+      // real creation time first, then any stored trialStartedAt, then now.
+      var trialStart = creationTime || existingTrialStart || new Date();
       if (!snap.exists()) {
-        payload.createdAt = serverTimestamp();
-        payload.trialStartedAt = serverTimestamp();
+        payload.createdAt = creationTime ? Timestamp.fromDate(creationTime) : serverTimestamp();
+        payload.trialStartedAt = Timestamp.fromDate(trialStart);
       } else if (!existingTrialStart) {
-        // Pre-existing account from before the trial system shipped — grandfather
-        // a fresh 3-day trial starting now instead of retroactively locking them
-        // out based on a signup date from before this feature existed.
-        payload.trialStartedAt = serverTimestamp();
+        // Backfill from the real creation time (not "now"), so the Admin Panel's
+        // trial column matches the strict-from-creation lock the swimmer sees.
+        payload.trialStartedAt = Timestamp.fromDate(trialStart);
       }
       await setDoc(ref, payload, { merge: true });
-      window.__swimfitTrialStartedAt = existingTrialStart || new Date();
+      window.__swimfitTrialStartedAt = trialStart;
       recomputeAccessLevel();
     } catch (e) {
       // Non-fatal — the user stays signed in either way; this only affects
@@ -654,35 +672,29 @@
 
   // Real Google sign-in: clicking the button opens Google's own native popup,
   // which handles the entire login (including any 2-step verification) itself —
-  // this page never sees or asks for a password. Email sign-in is a real
-  // password (createUserWithEmailAndPassword/signInWithEmailAndPassword) —
-  // Google's Identity Platform hashes/verifies/stores it entirely server-side,
-  // this app never sees or persists the raw password itself. The legacy
-  // 6-digit-email-OTP mechanic has been removed entirely.
+  // this page never sees or asks for a password. Google is now the ONLY
+  // sign-in/sign-up mechanic on the whole site: the Email/Password forms,
+  // fields and logic were removed entirely (along with the legacy email-OTP
+  // path before them), so there are no password-related errors to hit and
+  // every account is guaranteed a real, Google-verified email address.
 
   function wireFirebaseAuthUI() {
     var googleBtn = document.getElementById('googleLoginBtn');
     var statusNote = document.getElementById('authStatusNote');
     var authModal = document.getElementById('authModal');
     var logoutBtn = document.getElementById('navLogoutBtn');
-    var passwordAuthForm = document.getElementById('passwordAuthForm');
-    var passwordSignupFields = document.getElementById('passwordSignupFields');
-    var pwFullNameInput = document.getElementById('pwFullNameInput');
-    var pwUsernameInput = document.getElementById('pwUsernameInput');
-    var pwUsernameNote = document.getElementById('pwUsernameNote');
-    var pwEmailInput = document.getElementById('pwEmailInput');
-    var pwPasswordInput = document.getElementById('pwPasswordInput');
-    var pwConfirmInput = document.getElementById('pwConfirmInput');
-    var pwPasswordNote = document.getElementById('pwPasswordNote');
-    var passwordAuthBtn = document.getElementById('passwordAuthBtn');
-    var forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
     if (!googleBtn || !logoutBtn) return;
 
     onAuthStateChanged(auth, function (user) {
       window.__firebaseUser = user; // mirrored globally so the plain <script> (pricing Subscribe buttons) can read it
       window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase().trim() === SWIMFIT_ADMIN_EMAIL);
       document.querySelectorAll('[data-admin-only]').forEach(function (el) { el.style.display = window.__isAdminAccount ? '' : 'none'; });
-      window.__swimfitTrialStartedAt = null;
+      // Seed the trial start synchronously from the account's real creation
+      // time (Firebase Auth metadata) so an already-expired account locks the
+      // instant auth resolves, without waiting on the ensureUserProfile
+      // Firestore round-trip. ensureUserProfile reconciles/persists it below.
+      var __creation = (user && user.metadata && user.metadata.creationTime) ? new Date(user.metadata.creationTime) : null;
+      window.__swimfitTrialStartedAt = (__creation && !isNaN(__creation.getTime())) ? __creation : null;
       latestSubscriptionDoc = null;
       latestAccessDisabled = false;
       if (unsubscribeSubscriptionDoc) { unsubscribeSubscriptionDoc(); unsubscribeSubscriptionDoc = null; }
@@ -730,198 +742,7 @@
 
     logoutBtn.addEventListener('click', function () { signOut(auth); });
 
-    if (!passwordAuthForm) { wireRegisteredUsersCounter(); wireActiveSubscribersCounter(); return; }
-
-    // ============================= PASSWORD AUTH =============================
-    // The only registration/sign-in path: Full Name + Username + Email +
-    // Password (+ confirm) in Create Account mode, Email + Password in Sign
-    // In mode. createUserWithEmailAndPassword/signInWithEmailAndPassword are
-    // real Firebase Auth SDK calls — the password is verified by Google's
-    // Identity Platform itself, this app never sees, hashes, or stores it
-    // anywhere. The legacy 6-digit-email-OTP mechanic has been removed
-    // entirely (frontend and backend) now that every account signs in with a
-    // real password or Google.
-    var PASSWORD_USERNAME_RE = /^[a-z0-9_]{3,20}$/;
-    var PASSWORD_STRENGTH_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
-    function normalizePasswordUsername(raw) { return (raw || '').trim().toLowerCase(); }
-
-    var pwUsernameCheckTimer = null;
-    if (pwUsernameInput && pwUsernameNote) {
-      pwUsernameInput.addEventListener('input', function () {
-        var value = normalizePasswordUsername(pwUsernameInput.value);
-        clearTimeout(pwUsernameCheckTimer);
-        pwUsernameNote.style.color = '';
-        if (!value) { pwUsernameNote.textContent = ''; return; }
-        if (!PASSWORD_USERNAME_RE.test(value)) {
-          pwUsernameNote.style.color = '#e5484d';
-          pwUsernameNote.textContent = '3–20 characters: lowercase letters, numbers, underscore only.';
-          return;
-        }
-        pwUsernameNote.textContent = 'Checking availability…';
-        pwUsernameCheckTimer = setTimeout(function () {
-          window.__checkUsernameTaken(value).then(function (taken) {
-            if (normalizePasswordUsername(pwUsernameInput.value) !== value) return; // stale response
-            if (taken) {
-              pwUsernameNote.style.color = '#e5484d';
-              pwUsernameNote.textContent = 'That username is already taken.';
-            } else {
-              pwUsernameNote.style.color = '#2ECC81';
-              pwUsernameNote.textContent = 'Username available.';
-            }
-          }).catch(function () { pwUsernameNote.textContent = ''; });
-        }, 450);
-      });
-    }
-
-    // Atomic username claim + profile write, run right after a brand-new
-    // password account is created (mirrors the same usernames/{name}
-    // create-only guarantee firestore.rules already enforces for every other
-    // sign-up path in this app) — the swimmer is already authenticated by
-    // this point, so this needs no Cloud Function round-trip.
-    function claimUsernameAndProfile(uid, email, fullName, username) {
-      var usernameRef = doc(db, 'usernames', username);
-      var userRef = doc(db, 'users', uid);
-      return runTransaction(db, function (tx) {
-        return tx.get(usernameRef).then(function (existing) {
-          if (existing.exists()) throw new Error('USERNAME_TAKEN');
-          tx.set(usernameRef, { uid: uid, createdAt: serverTimestamp() });
-          tx.set(userRef, { fullName: fullName, username: username, email: email }, { merge: true });
-        });
-      });
-    }
-
-    passwordAuthForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var isSignup = passwordSignupFields && passwordSignupFields.style.display !== 'none';
-      var email = (pwEmailInput.value || '').trim();
-      var password = pwPasswordInput.value || '';
-      var fullName = '';
-      var username = '';
-
-      if (isSignup) {
-        fullName = (pwFullNameInput.value || '').trim();
-        username = normalizePasswordUsername(pwUsernameInput.value);
-        var confirm = pwConfirmInput.value || '';
-        if (!fullName) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Please enter your full name.';
-          return;
-        }
-        if (!PASSWORD_USERNAME_RE.test(username)) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Username must be 3–20 characters: lowercase letters, numbers, underscore only.';
-          return;
-        }
-        if (!PASSWORD_STRENGTH_RE.test(password)) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Password must be at least 8 characters, with at least one letter and one number.';
-          return;
-        }
-        if (password !== confirm) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Passwords don’t match.';
-          return;
-        }
-      }
-
-      passwordAuthBtn.disabled = true;
-      statusNote.style.color = '';
-      statusNote.textContent = isSignup ? 'Creating your account…' : 'Signing in…';
-
-      var authPromise = isSignup
-        ? createUserWithEmailAndPassword(auth, email, password)
-        : signInWithEmailAndPassword(auth, email, password);
-
-      authPromise.then(function (cred) {
-        if (!isSignup) {
-          statusNote.style.color = '';
-          statusNote.textContent = 'Signed in as ' + (cred.user.email || email) + '.';
-          setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
-          return;
-        }
-        // The account already exists and the swimmer is already signed in at
-        // this point — everything below is best-effort polish, never allowed
-        // to strand them mid-signup if one of these calls fails.
-        updateProfile(cred.user, { displayName: fullName }).catch(function () {});
-        sendEmailVerification(cred.user).catch(function () {});
-        // Custom branded welcome email (frontend trigger) — fires once, here,
-        // on genuine account creation. Best-effort; never blocks signup.
-        sendWelcomeEmail(cred.user, fullName);
-        claimUsernameAndProfile(cred.user.uid, email, fullName, username).then(function () {
-          statusNote.style.color = '';
-          statusNote.textContent = 'Account created — welcome to Swimfit!';
-        }).catch(function (err) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = (err && err.message === 'USERNAME_TAKEN')
-            ? 'Account created, but "' + username + '" was already taken — you can pick a different username later.'
-            : 'Account created! (Your name/username couldn’t be saved — please try again later.)';
-        });
-        setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
-      }).catch(function (error) {
-        console.error('[Swimfit] Password auth error:', error);
-        passwordAuthBtn.disabled = false;
-        var fallback = isSignup ? 'Could not create your account — please try again.' : 'Could not sign in — please check your email and password.';
-        // Google/password conflict: a swimmer who originally signed up with
-        // "Continue with Google" has no password on their account, so an
-        // Email/Password attempt fails with a generic credential error (on
-        // sign-in) or "email already in use" (on sign-up). Look up which
-        // providers the address actually has and, if it's Google-only, tell
-        // them exactly what to do instead of a confusing "wrong password".
-        var credErrorCodes = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found'];
-        var mightBeGoogleOnly = (!isSignup && credErrorCodes.indexOf(error.code) > -1) ||
-                                (isSignup && error.code === 'auth/email-already-in-use');
-        if (mightBeGoogleOnly && typeof fetchSignInMethodsForEmail === 'function') {
-          fetchSignInMethodsForEmail(auth, email).then(function (methods) {
-            statusNote.style.color = '#e5484d';
-            if (methods && methods.indexOf('google.com') > -1 && methods.indexOf('password') === -1) {
-              statusNote.textContent = 'This account was created with Google. Please click "Continue with Google" to sign in.';
-            } else {
-              statusNote.textContent = describeAuthError(error, fallback);
-            }
-          }).catch(function () {
-            statusNote.style.color = '#e5484d';
-            statusNote.textContent = describeAuthError(error, fallback);
-          });
-          return;
-        }
-        statusNote.style.color = '#e5484d';
-        statusNote.textContent = describeAuthError(error, fallback);
-      });
-    });
-
-    if (forgotPasswordBtn) {
-      forgotPasswordBtn.addEventListener('click', function () {
-        var email = (pwEmailInput.value || '').trim();
-        if (!email) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = 'Enter your email above first, then tap "Forgot password?".';
-          return;
-        }
-        statusNote.style.color = '';
-        statusNote.textContent = 'Sending a password reset link…';
-        sendPasswordResetEmail(auth, email).then(function () {
-          statusNote.style.color = '';
-          statusNote.textContent = 'Check your inbox for a link to reset your password.';
-        }).catch(function (error) {
-          statusNote.style.color = '#e5484d';
-          statusNote.textContent = describeAuthError(error, 'Could not send a reset email — please check the address and try again.');
-        });
-      });
-    }
-
-    // Exposed so openAuthModal (in the other <script>, at the bottom of the
-    // page) can reset this UI whenever the modal is reopened, mirroring how
-    // it already resets googleBtn.
-    window.__resetPasswordAuthUI = function () {
-      if (passwordAuthBtn) passwordAuthBtn.disabled = false;
-      if (pwPasswordInput) pwPasswordInput.value = '';
-      if (pwConfirmInput) pwConfirmInput.value = '';
-      if (pwFullNameInput) pwFullNameInput.value = '';
-      if (pwUsernameInput) pwUsernameInput.value = '';
-      if (pwUsernameNote) { pwUsernameNote.textContent = ''; pwUsernameNote.style.color = ''; }
-      if (pwPasswordNote) { pwPasswordNote.textContent = ''; pwPasswordNote.style.color = ''; }
-    };
-
+    // Google is the only sign-in path — no password form to wire up.
     wireRegisteredUsersCounter();
     wireActiveSubscribersCounter();
   }
@@ -1261,6 +1082,25 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .nav-status-badge[hidden] { display: none; }
 .nav-status-badge .icon { width: 13px; height: 13px; }
+/* Trial-countdown urgency: amber under 24h, pulsing red under 2h — a clear,
+   live visual cue that the free-access window is closing before the lock. */
+.nav-status-badge.is-urgent {
+  background: linear-gradient(135deg, #E7B65B, #F5C542);
+  color: #1A1206;
+  box-shadow: 0 0 0 1px rgba(245,197,66,0.4), 0 0 14px -2px rgba(245,197,66,0.55);
+}
+.nav-status-badge.is-critical {
+  background: linear-gradient(135deg, #E0455B, #FF6A82);
+  color: #200308;
+  animation: trialPulse 1.6s ease-in-out infinite;
+}
+@keyframes trialPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224,69,91,0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(224,69,91,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-status-badge.is-critical { animation: none; box-shadow: 0 0 0 1px rgba(224,69,91,0.5), 0 0 14px -2px rgba(224,69,91,0.6); }
+}
 
 .nav-links { display: flex; align-items: center; gap: var(--space-5); }
 .nav-links button {
@@ -1353,7 +1193,9 @@ section { position: relative; scroll-margin-top: 96px; }
   body { padding-bottom: var(--bottom-nav-h); }
   .mobile-bottom-nav {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 140;
-    height: var(--bottom-nav-h); background: var(--surface); border-top: 1px solid var(--border);
+    height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--surface); border-top: 1px solid var(--border);
     box-shadow: 0 -8px 24px rgba(0,0,0,0.3);
   }
   .mobile-bottom-nav button {
@@ -1627,9 +1469,15 @@ section { position: relative; scroll-margin-top: 96px; }
   .panel-wide { width: calc(100vw - var(--sidebar-w)); margin-inline-start: calc(50% - 50vw + var(--sidebar-w) / 2); }
 }
 
-.tab-panel { display: none; opacity: 0; transform: translateY(14px); }
+.tab-panel { display: none; opacity: 0; transform: translateY(16px) scale(0.994); }
 .tab-panel.active { display: block; }
-.reveal-ready .tab-panel.active.in { opacity: 1; transform: none; transition: opacity 420ms var(--ease), transform 420ms var(--ease); }
+/* Smoother tab switch: a gentle fade + rise + micro-scale on a soft
+   ease-out-cubic curve, so switching tabs settles in rather than snapping. */
+.reveal-ready .tab-panel.active.in { opacity: 1; transform: none; transition: opacity 460ms cubic-bezier(0.22, 1, 0.36, 1), transform 460ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel { transform: none; }
+  .reveal-ready .tab-panel.active.in { transition: opacity 200ms linear; }
+}
 
 /* ============================= CARDS (shared) =============================
    Glassmorphic frosted surface — translucent so the ambient dashboard
@@ -3847,14 +3695,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
 
-    <div class="auth-mode-toggle" id="authModeToggle" role="tablist" aria-label="Sign in or create an account">
-      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signin" aria-selected="true" data-i18n="auth.signin">Sign In</button>
-      <button type="button" class="auth-mode-btn" role="tab" data-auth-mode="signup" aria-selected="false" data-i18n="auth.signup">Create Account</button>
-    </div>
-
     <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
     <h3 id="authModalTitle">Sign In to Swimfit</h3>
-    <p id="authModalSubtitle">Quick access to your training platform.</p>
+    <p id="authModalSubtitle">One tap with Google — that&rsquo;s it. Your 3-day full-access trial starts the moment you join.</p>
     <button type="button" class="google-btn" id="googleLoginBtn">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -3865,31 +3708,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <span id="googleLoginBtnLabel">Continue with Google</span>
     </button>
 
-    <div class="auth-divider"><span>or</span></div>
-
-    <form class="email-link-form" id="passwordAuthForm">
-      <div class="signup-only-fields" id="passwordSignupFields" style="display:none">
-        <label for="pwFullNameInput" class="sr-only">Full name</label>
-        <input type="text" id="pwFullNameInput" class="email-link-input" placeholder="Full name" maxlength="80" autocomplete="name">
-        <label for="pwUsernameInput" class="sr-only">Username</label>
-        <input type="text" id="pwUsernameInput" class="email-link-input" placeholder="Username" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <p class="onboarding-username-note" id="pwUsernameNote"></p>
-      </div>
-      <label for="pwEmailInput" class="sr-only">Email address</label>
-      <input type="email" id="pwEmailInput" class="email-link-input" placeholder="you@gmail.com" required autocomplete="email">
-      <label for="pwPasswordInput" class="sr-only">Password</label>
-      <input type="password" id="pwPasswordInput" class="email-link-input" placeholder="Password" required autocomplete="current-password" minlength="8">
-      <input type="password" id="pwConfirmInput" class="email-link-input" placeholder="Confirm password" autocomplete="new-password" style="display:none">
-      <p class="onboarding-username-note" id="pwPasswordNote"></p>
-      <button type="submit" class="btn btn-outline-aqua btn-sm" id="passwordAuthBtn">
-        <svg class="icon"><use href="#i-comment"/></svg> <span id="passwordAuthBtnLabel">Sign In</span>
-      </button>
-      <div class="otp-secondary-row" id="passwordSecondaryRow">
-        <button type="button" class="otp-secondary-link" id="forgotPasswordBtn">Forgot password?</button>
-      </div>
-    </form>
-
-    <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window.</p>
+    <p class="auth-modal-note" id="authStatusNote">Google handles sign-in and verification in its own secure window — no password to remember.</p>
   </div>
 </div>
 
@@ -4645,60 +4464,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      handled by Firebase, see the <script type="module"> in <head>) ============================= */
   var authModal = document.getElementById('authModal');
 
-  // Sign In / Create Account share Google sign-in, but otherwise Create
-  // Account is password-only (Full Name + Username + Email + Password, all
-  // mandatory — see passwordSignupFields, wired in the module <script> in
-  // <head>); Sign In only needs Email + Password.
+  // Google is the ONLY sign-in/sign-up method now — no password form, no
+  // toggle. setAuthMode just swaps the modal's headline copy between a
+  // "Sign In" and a "Create Account / Join" framing (both hand off to the
+  // same single Google button); every data-open-auth entry point still passes
+  // 'signin' or 'signup' so the copy reads right for the context it opened from.
   var AUTH_MODE_COPY = {
     signin: {
-      title: 'Sign In to Swimfit', subtitle: 'Quick access to your training platform.',
-      google: 'Continue with Google', password: 'Sign In'
+      title: 'Sign In to Swimfit',
+      subtitle: 'One tap with Google — that’s it. No password to remember.',
+      google: 'Continue with Google'
     },
     signup: {
-      title: 'Create Your Swimfit Account', subtitle: 'Free to join — set up your training profile in a minute.',
-      google: 'Sign up with Google', password: 'Create Account'
+      title: 'Join Swimfit — Free',
+      subtitle: 'Sign up in one tap with Google and start your 3-day full-access trial.',
+      google: 'Sign up with Google'
     }
   };
   var currentAuthMode = 'signin';
   function setAuthMode(mode) {
-    if (!AUTH_MODE_COPY[mode]) return;
+    if (!AUTH_MODE_COPY[mode]) mode = 'signin';
     currentAuthMode = mode;
     var copy = AUTH_MODE_COPY[mode];
-    document.getElementById('authModalTitle').textContent = copy.title;
-    document.getElementById('authModalSubtitle').textContent = copy.subtitle;
-    document.getElementById('googleLoginBtnLabel').textContent = copy.google;
-    document.getElementById('passwordAuthBtnLabel').textContent = copy.password;
-    document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
-      btn.setAttribute('aria-selected', btn.dataset.authMode === mode ? 'true' : 'false');
-    });
-    var isSignup = mode === 'signup';
-    var signupFields = document.getElementById('passwordSignupFields');
-    if (signupFields) signupFields.style.display = isSignup ? 'flex' : 'none';
-    // required is only ever set while these fields are actually visible —
-    // Chromium's native constraint validation still blocks a form's submit
-    // event over a required field that's merely display:none, so toggling it
-    // in lockstep with visibility is what keeps Sign In mode submittable.
-    var fullNameEl = document.getElementById('pwFullNameInput');
-    var usernameEl = document.getElementById('pwUsernameInput');
-    var confirmEl = document.getElementById('pwConfirmInput');
-    var passwordEl = document.getElementById('pwPasswordInput');
-    if (fullNameEl) fullNameEl.required = isSignup;
-    if (usernameEl) usernameEl.required = isSignup;
-    if (confirmEl) { confirmEl.style.display = isSignup ? '' : 'none'; confirmEl.required = isSignup; }
-    if (passwordEl) passwordEl.autocomplete = isSignup ? 'new-password' : 'current-password';
-    var secondaryRow = document.getElementById('passwordSecondaryRow');
-    if (secondaryRow) secondaryRow.style.display = isSignup ? 'none' : '';
+    var titleEl = document.getElementById('authModalTitle');
+    var subEl = document.getElementById('authModalSubtitle');
+    var gLabel = document.getElementById('googleLoginBtnLabel');
+    if (titleEl) titleEl.textContent = copy.title;
+    if (subEl) subEl.textContent = copy.subtitle;
+    if (gLabel) gLabel.textContent = copy.google;
   }
-  document.querySelectorAll('#authModeToggle [data-auth-mode]').forEach(function (btn) {
-    btn.addEventListener('click', function () { setAuthMode(btn.dataset.authMode); });
-  });
 
   function openAuthModal(mode) {
     var statusNote = document.getElementById('authStatusNote');
-    statusNote.style.color = '';
-    statusNote.textContent = 'Google handles sign-in and verification in its own secure window.';
-    document.getElementById('googleLoginBtn').disabled = false;
-    if (typeof window.__resetPasswordAuthUI === 'function') window.__resetPasswordAuthUI();
+    if (statusNote) {
+      statusNote.style.color = '';
+      statusNote.textContent = 'Google handles sign-in and verification in its own secure window — no password to remember.';
+    }
+    var gBtn = document.getElementById('googleLoginBtn');
+    if (gBtn) gBtn.disabled = false;
     setAuthMode(mode || 'signin');
     authModal.classList.add('open');
   }
@@ -4895,6 +4698,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     var badge = document.getElementById('navStatusBadge');
     if (badge) {
+      // Reset urgency state each recompute; the trial branch re-adds it as due.
+      badge.classList.remove('is-urgent', 'is-critical');
       if (!access || locked) {
         badge.hidden = true;
       } else if (access.level === 'admin') {
@@ -4904,8 +4709,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         // A real countdown, not a once-a-page-load day count — days+hours
         // (minutes too, in the final hour) recomputed every time this runs,
         // which is now frequent enough (see the 30s interval below) that it
-        // reads as live rather than static. Purely informational — nothing
-        // locks when it reaches zero.
+        // reads as live rather than static. It now also shifts color as the
+        // deadline nears — amber under 24h, pulsing red under 2h — so a
+        // swimmer feels the urgency to subscribe before the hard lock lands.
         var msLeft = Math.max(0, access.trialEndsAt.getTime() - Date.now());
         var daysLeft = Math.floor(msLeft / 86400000);
         var hoursLeft = Math.floor((msLeft % 86400000) / 3600000);
@@ -4915,12 +4721,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           : (minutesLeft + 'm left');
         badge.hidden = false;
         badge.innerHTML = '<svg class="icon"><use href="#i-clock"/></svg> Trial — ' + countdownLabel;
+        if (msLeft <= 2 * 3600000) badge.classList.add('is-critical');
+        else if (msLeft <= 24 * 3600000) badge.classList.add('is-urgent');
       } else if (['pro', 'elite', 'ultra'].indexOf(access.level) > -1) {
         badge.hidden = false;
         badge.innerHTML = '<svg class="icon"><use href="#i-trophy"/></svg> ' + access.level.charAt(0).toUpperCase() + access.level.slice(1) + ' Plan';
       } else {
-        // 'unlocked' — trial elapsed, no paid plan, nothing to show; every
-        // feature stays fully available regardless.
+        // 'expired' handled by the overlay above; any other level: nothing to show.
         badge.hidden = true;
       }
     }

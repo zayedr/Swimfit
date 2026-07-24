@@ -1788,6 +1788,62 @@ an expired-trial account is hard-locked with working plan CTAs, an active trial 
 are not, the Google-conflict message renders verbatim, and a rejected EmailJS send logs a
 `console.error` — all with zero page errors.
 
+**Authentication was simplified to Google-only — the entire Email/Password mechanic was removed,
+front to back.** Google (`signInWithPopup`) is now the sole sign-in/sign-up path on the whole site.
+Removed: the `#passwordAuthForm` markup (Full Name/Username/Email/Password/Confirm inputs, the
+"Forgot password?" link, the Sign In / Create Account `#authModeToggle` and the `.auth-divider`),
+the entire password-auth JS block inside `wireFirebaseAuthUI()` (the submit handler,
+`claimUsernameAndProfile`, the live username-availability check wiring, `PASSWORD_USERNAME_RE`/
+`PASSWORD_STRENGTH_RE`, `normalizePasswordUsername`, `window.__resetPasswordAuthUI`, the
+forgot-password handler), and the now-unused Firebase Auth imports
+(`createUserWithEmailAndPassword`/`signInWithEmailAndPassword`/`sendPasswordResetEmail`/
+`sendEmailVerification`/`updateProfile`/`fetchSignInMethodsForEmail`) — only `getAdditionalUserInfo`
+remains alongside the core Google/session functions. `setAuthMode()` was reduced to just swapping the
+modal's headline/subtitle/Google-button copy between a "Sign In" and a "Join" framing (both hand off
+to the same single Google button); `openAuthModal()` no longer resets any password UI. This
+supersedes every earlier "Email/Password is the only path" / "two sign-in mechanics" statement in
+this file. Consequence: **every account now has a real, Google-verified email**, and there are no
+password-related error states left to hit. `window.__checkUsernameTaken` and Settings' own
+`__renameUsername` atomic rename are untouched — a Google swimmer still sets/changes a username from
+Settings (the same "no username at signup for Google" gap noted earlier still applies, just now for
+100% of accounts).
+
+**The 3-day trial is now measured strictly from the account's real creation timestamp
+(`user.metadata.creationTime`), applied uniformly to old and new accounts.** `onAuthStateChanged`
+seeds `window.__swimfitTrialStartedAt` synchronously from `user.metadata.creationTime` so an
+already-expired account hard-locks the instant auth resolves (before any Firestore round-trip), and
+`ensureUserProfile()` reconciles/persists the same value. The previous "grandfather a pre-existing
+account to a fresh trial starting now" branch was **removed** — an account created more than 3 days
+ago with no active plan correctly resolves to `'expired'` and gets the full-screen paywall lock,
+rather than being handed a brand-new trial. `trialStartedAt` is now written to Firestore as the real
+creation time (`Timestamp.fromDate(creationTime)`) so the Admin Panel's trial column matches what the
+swimmer's lock actually uses. The paywall overlay/`'expired'` lock itself (blurred, non-closable,
+z-index 400, Pro/Elite/Ultra CTAs → Paddle checkout, admin + active-plan bypass) is unchanged from
+the round that introduced it — this round only changed *when* an account counts as expired.
+
+**The EmailJS welcome email got warmer, more motivational copy plus a real upsell block.** The hero
+line now opens "Welcome to the squad, {name}! 🏊" with inspiring "this is the day your training gets
+serious" framing; the trial banner emphasizes starting on day one; and a new maroon-accented upsell
+section ("Don't lose your momentum on day 4") urges the swimmer to lock in a plan **before** the
+3-day trial ends, with a "See plans & keep training" link and the $13/mo starting price. It still
+fires exactly once per genuine new-account creation — now only via the Google path
+(`getAdditionalUserInfo(result).isNewUser`), since Email/Password signup no longer exists — guarded
+per-uid in localStorage, and the failure path already `console.error`s the raw error with an
+ID-check hint.
+
+**Three smart UX enhancements shipped alongside:** (1) a **live trial-countdown urgency cue** — the
+nav status badge turns amber under 24h and pulsing red (`is-critical`, a `trialPulse` keyframe,
+disabled under `prefers-reduced-motion`) under 2h left, so the closing trial window is felt, not just
+read; (2) **smoother tab transitions** — the existing `.tab-panel.active.in` fade was retuned to a
+gentle fade + rise + micro-scale on an ease-out-cubic curve (`cubic-bezier(0.22,1,0.36,1)`), with a
+reduced-motion fallback; and (3) a **mobile safe-area fix** — `.mobile-bottom-nav` now adds
+`env(safe-area-inset-bottom)` to its height/padding so its buttons aren't clipped behind the iOS
+home indicator on notched phones. All three are CSS/DOM-class only, no logic changes. Verified via
+Playwright: the auth modal renders Google-only (no password form/toggle/email/forgot), a new Google
+signup fires `emailjs.send` and stays on `'trial'`, a 5-day-old account hard-locks to `'expired'`, a
+~1h-left trial badge carries `is-critical`, workouts/gym/PDF still work, and there are zero page
+errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
