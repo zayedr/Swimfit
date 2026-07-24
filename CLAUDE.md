@@ -1883,6 +1883,45 @@ grew a live "Your Personal Bests" grid.**
   a subsequent 1:10 is correctly not a record and the best stays 1:02; a second event adds a second
   tile — all appearing immediately with zero page errors.
 
+**A final master pass: single send-off interval on-screen, a real Elite power block, full
+untruncated PDF descriptions, and the EmailJS error log tightened.**
+
+- **On-screen set rows now show ONE send-off interval only.** `renderBlock()`'s set row dropped the
+  three-column int/rest/tot cluster (`.set-stat`×3) for a single `.set-sendoff` element — `@ 1:15`
+  in the stage accent color, matching how a coach writes a send-off on the board. The old
+  `.set-stat`/`.set-stat-total` CSS was replaced with `.set-sendoff`. `extractStructuredWorkout()`
+  (the PDF reader) now reads the interval from `.set-sendoff` (stripping the leading `@ `) instead of
+  the removed `int` stat chunk.
+- **Elite level is now a genuine step up, not just more distance.** When `state.level === 'elite'`,
+  `generateWorkout()` prepends a dedicated **"Elite Power & Underwater"** block to the Main Set
+  (rendered first, open by default, so the highest-CNS work is done while freshest): **Underwater
+  Dolphin Speed** (8×25, max 15m underwater dolphin off the wall), **Race-Start Reaction Power**
+  (6×25 explosive push-start, max first 3 strokes), and **Power Breakouts** (4×50 fast approach →
+  explosive turn → powerful breakout), all on the elite scaler's tight intervals (`intervalMult`
+  tightened to `0.85`, `restAdd -8`). The block's set labels deliberately don't start with a capped
+  stroke name, so the 200m realism cap never touches these short power reps. `LEVEL_SCALERS` notes
+  were rewritten to describe the sharper beginner→competitive→elite progression (beginner
+  `intervalMult` loosened to `1.35`/`restAdd 20` for foundational technique work).
+- **PDF exports now print the FULL technical description of every set/drill — no more `…`
+  truncation.** `extractStructuredWorkout()` stopped capping the label at 48 chars / dropping the
+  em-dash tail; it keeps the entire set line (only normalizing `N x Dist` → `N×Dist`).
+  `buildWorkoutPdf()` was rewritten to **pre-measure** each block's wrapped (multi-line) text with
+  `doc.splitTextToSize()` so the stage card's background is drawn at the correct dynamic height
+  before the text renders on top, with the send-off interval right-aligned on each set's first line;
+  a fallback path paginates a pathologically tall block without a single card background so text is
+  never clipped. `buildGymPdf()` likewise pre-measures and now **restores the full exercise cue**
+  (the technical execution notes), wrapped under each exercise name, alongside the prescription and
+  suggested load. Both remain the dark 9:16 "story" cards from the prior round. Verified by rendering
+  the produced PDF: full multi-line descriptions, the Elite Power block, `@ m:ss` send-offs, both
+  exports download with zero errors.
+- **EmailJS failure logging tightened to `console.error('EmailJS error:', err)`** (both the send
+  `.catch` and the outer `try/catch`) so a bad Service/Template/Public-Key ID surfaces in the console
+  in exactly that form. The trigger is unchanged — still fires once per genuinely new Google account
+  (`getAdditionalUserInfo(result).isNewUser`), guarded per-uid in localStorage. Verified via
+  Playwright: a rejected send logs `EmailJS error: …`, the elite block renders with underwater/start/
+  breakout sets, every set row shows a single `@`-interval with zero `int/rest/tot` remnants, and both
+  PDFs export full-text with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
