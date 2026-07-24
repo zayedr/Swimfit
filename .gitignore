@@ -1,0 +1,19 @@
+# Build / deploy caches — never commit these to the deploy branch.
+# (They were accidentally committed once before; this keeps main clean.)
+.firebase/
+.vite/
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Local environment / secrets (functions/ has its own .gitignore too)
+.env
+.env.local
+.env.*.local
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
