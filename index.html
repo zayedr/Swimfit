@@ -1874,17 +1874,33 @@ section { position: relative; scroll-margin-top: 96px; }
 @keyframes blockIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
 .workout-block {
   --stage-color: var(--aqua-bright);
+  position: relative;
   animation: blockIn 460ms var(--ease) both;
-  background: rgba(148,163,184,0.05);
-  border: 1px solid var(--border);
+  /* Sleek glassmorphism stage card: a frosted translucent surface, faintly
+     washed with the stage's own accent color (top-left glow → transparent),
+     a stage-color left rail, an inner top highlight and a real drop shadow. */
+  background:
+    linear-gradient(158deg, color-mix(in srgb, var(--stage-color) 10%, transparent) 0%, transparent 42%),
+    var(--glass-bg);
+  border: 1px solid color-mix(in srgb, var(--stage-color) 22%, var(--glass-border));
   border-left: 3px solid var(--stage-color);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-3);
-  box-shadow: 0 10px 30px -24px rgba(0,0,0,0.7);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 14px 34px -26px rgba(0,0,0,0.85);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
-.workout-block:hover { box-shadow: -6px 10px 34px -22px var(--stage-color), 0 10px 30px -24px rgba(0,0,0,0.7); }
+.workout-block:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--stage-color) 42%, var(--glass-border));
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.08) inset,
+    -6px 14px 40px -24px color-mix(in srgb, var(--stage-color) 70%, transparent),
+    0 16px 40px -26px rgba(0,0,0,0.8);
+}
 .workout-block[data-stage="warmup"]   { --stage-color: #4EE9FF; }
 .workout-block[data-stage="preset"]   { --stage-color: #E7B65B; }
 .workout-block[data-stage="main"]     { --stage-color: #39FF9E; }
@@ -2001,6 +2017,29 @@ section { position: relative; scroll-margin-top: 96px; }
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
 .gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 .gym-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--shadow-2); border-color: var(--green); }
+
+/* Visual muscle tags — a color-coded chip row under each exercise name so a
+   swimmer can see at a glance which muscle groups a movement trains. Colors
+   are keyed to the region (pull vs. push vs. legs vs. core vs. mobility). */
+.gym-muscle-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.muscle-tag {
+  font-family: var(--font-display); font-size: 0.62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  color: var(--m-color, var(--aqua));
+  background: color-mix(in srgb, var(--m-color, var(--aqua)) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m-color, var(--aqua)) 34%, transparent);
+}
+.muscle-tag[data-m="back"]       { --m-color: #4EE9FF; }
+.muscle-tag[data-m="chest"]      { --m-color: #FF9E64; }
+.muscle-tag[data-m="shoulders"]  { --m-color: #FFD166; }
+.muscle-tag[data-m="arms"]       { --m-color: #C792EA; }
+.muscle-tag[data-m="posterior"]  { --m-color: #E06A82; }
+.muscle-tag[data-m="legs"]       { --m-color: #39FF9E; }
+.muscle-tag[data-m="core"]       { --m-color: #F5C542; }
+.muscle-tag[data-m="mobility"]   { --m-color: #A5B4FC; }
+.muscle-tag[data-m="cardio"]     { --m-color: #5EEAD4; }
+.muscle-tag[data-m="full"]       { --m-color: #9FB0C3; }
 
 .gym-phase + .gym-phase { margin-top: var(--space-7); }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
@@ -5138,17 +5177,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     };
   }
 
-  // Hard realism cap: no single Butterfly rep/set is ever allowed to exceed
-  // 200m — swimming 400m+ of Butterfly in one continuous rep isn't a
-  // realistic set for almost any swimmer. Every archetype funnels through
-  // this one function to build its sets, so capping here covers every
-  // current and future archetype without auditing each one's hardcoded
-  // distances individually. Reps scale up to preserve the archetype's
-  // intended total volume rather than just silently shrinking the set.
+  // Hard realism cap: no single rep of Backstroke, Breaststroke, or Butterfly
+  // is ever allowed to exceed 200m — swimming 300m+ of any of the three "off"
+  // strokes in one continuous rep isn't a realistic set for almost any
+  // swimmer, whereas Freestyle (and mixed-stroke IM) genuinely can go 400m,
+  // 800m and beyond. Every archetype funnels through this one function to
+  // build its sets, so capping here covers every current and future archetype
+  // without auditing each one's hardcoded distances individually. When a rep
+  // is capped its rep count scales up (ceil of total-volume ÷ 200) so the
+  // archetype's intended total meterage is preserved rather than silently
+  // shrunk.
+  var STROKE_REP_CAP_M = 200;
+  var CAPPED_STROKES = ['Backstroke', 'Breaststroke', 'Butterfly'];
   function buildSet(reps, dist, label, gearList, pace100, restBase, scaler, paceTag) {
-    if (dist > 200 && label.indexOf('Butterfly') === 0) {
-      reps = Math.max(reps, Math.ceil((reps * dist) / 200));
-      dist = 200;
+    var isCappedStroke = CAPPED_STROKES.some(function (s) { return label.indexOf(s) === 0; });
+    if (dist > STROKE_REP_CAP_M && isCappedStroke) {
+      reps = Math.max(reps, Math.ceil((reps * dist) / STROKE_REP_CAP_M));
+      dist = STROKE_REP_CAP_M;
     }
     var interval = Math.round(((dist / 100) * pace100 + restBase) * scaler.intervalMult);
     var rest = Math.max(10, Math.round(restBase * scaler.intervalMult + scaler.restAdd));
@@ -5568,105 +5613,89 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   // Pre-Set archetypes: the second of four stages in every generated workout
   // (Warm-Up → Pre-Set → Main Set → Cool-Down), always exactly one per
-  // session — a short, purposeful bridge that primes the specific energy
-  // system/stroke feel the Main Set is about to demand, using the kind of
-  // set-type vocabulary a real head coach actually writes on a whiteboard
-  // rather than a generic "medium effort swim."
+  // session. Its job is narrow and singular — pure ACTIVATION: short, sharp
+  // work that primes the nervous system, opens the underwater/turn/start
+  // mechanics, and lifts the heart rate into the working zone the Main Set is
+  // about to demand. Every archetype here is built around one of those
+  // activation levers (speed build, HR activation, underwater dolphin kick,
+  // turns, start/reaction power) and each carries an explicit technical focus
+  // — underwater kick distance, turn execution, breakout timing, stroke count
+  // — rather than being a generic "medium effort swim." Reps scale with the
+  // Pre-Set's share of the session's distance, so a bigger day genuinely gets
+  // a bigger activation block, not the same fixed set every time.
   var PRESET_ARCHETYPES = [
     {
-      name: 'Descending 1-4',
+      name: 'Speed-Build Activation',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var repDist = Math.max(50, Math.round((shareM / 4) / 50) * 50);
+        var ladder = paceLadder(pace100);
+        var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var offsets = [10, 6, 2, -2];
-        var sets = offsets.map(function (off, idx) {
-          var tail = idx === 3 ? 'fastest of the four' : 'faster than the last';
-          return buildSet(1, repDist, stroke + ', Descend ' + (idx + 1) + ' of 4 — ' + tail, [], pace100 + off, 15, scaler, idx === 3 ? '200 Pace' : null);
-        });
-        return [{ label: 'Descending 1-4', sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ', build each 25 from easy to fast — accelerate into the wall, fastest 5m of every rep is the last 5m', [], ladder.p50 + 4, 25, scaler, '50 Pace')];
+        return [{ label: 'Speed Build — 25s', sets: sets }];
       },
       intents: [
-        'A classic descending set — each rep lands faster than the one before it, which only works if you deliberately hold something back on Descend 1. It teaches pace control better than any flat repeat set, since there\'s nowhere left to hide by the fourth rep.'
+        'Short build reps wake up the fast-twitch fibers and rehearse acceleration without redlining — the point of activation is to switch the sprint system on, not to fatigue it before the Main Set.'
       ]
     },
     {
-      name: 'Broken Build-Up',
+      name: 'Heart-Rate Activation',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var n = 4;
-        var repDist = Math.max(50, Math.round((shareM / n) / 50) * 50);
+        var reps = Math.max(3, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var totalDist = repDist * n;
-        var sets = [];
-        for (var i = 0; i < n; i++) {
-          var off = 8 - i * 2;
-          sets.push(buildSet(1, repDist, stroke + ', broken ' + totalDist + 'm — segment ' + (i + 1) + ' of ' + n + ', build the effort each one', [], pace100 + off, 8, scaler, null));
-        }
-        return [{ label: 'Broken ' + totalDist + ' Build', sets: sets }];
+        var sets = [buildSet(reps, 50, stroke + ', descend to Zone 4 by the final rep — lift the heart rate step by step so the first Main Set rep isn\'t a cold-start shock', [], pace100 + 2, 20, scaler, '100 Pace')];
+        return [{ label: 'HR Lift — Descending 50s', sets: sets }];
       },
       intents: [
-        'Breaking a longer swim into short-rest segments lets you hold a faster overall pace than swimming it continuously would allow — the 8-second rest is just enough to keep the effort honest without turning into a real recovery. It bridges short-rep speed and true distance-per-effort swimming.'
+        'Stepping the heart rate up before the Main Set means your aerobic system is already open when the real work starts — a cold first rep wastes the hardest set of the day warming you up.'
       ]
     },
     {
-      name: 'Negative Split Swim',
+      name: 'Underwater Dolphin Activation',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var half = Math.max(50, Math.round((shareM / 2) / 50) * 50);
+        var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [
-          buildSet(1, half, stroke + ', negative split — first half, controlled and relaxed', [], pace100 + 6, 15, scaler, null),
-          buildSet(1, half, stroke + ', negative split — second half, faster than the first', [], pace100, 15, scaler, '200 Pace')
-        ];
-        return [{ label: 'Negative Split ' + (half * 2) + 'm', sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ', 6–8 strong underwater dolphin kicks off the wall, then break out and swim the length — count your kicks, hold a tight streamline', [], pace100 + 6, 20, scaler, 'Drill Pace')];
+        return [{ label: 'Underwater Dolphin — Off Every Wall', sets: sets }];
       },
       intents: [
-        'Negative splitting — swimming the second half faster than the first — is the pacing discipline behind almost every well-executed race. Practicing it here builds the habit of holding back early rather than paying for it at the finish.'
+        'The underwater dolphin off each wall is the fastest part of any race — activating it in the Pre-Set means the fifth stroke of hidden speed is switched on and streamlined before the Main Set, not something you rediscover halfway through.'
       ]
     },
     {
-      name: 'SWOLF Efficiency Set',
+      name: 'Turn & Breakout Activation',
       build: function (shareM, pace100, scaler, nextStroke) {
-        var reps = Math.max(6, Math.round(shareM / 50));
+        var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ', SWOLF focus — add your stroke count and time for each length, aim to lower that total every couple of reps', [], pace100 + 8, 20, scaler, 'Drill Pace')];
-        return [{ label: null, sets: sets }];
+        var sets = [buildSet(reps, 50, stroke + ', fast approach into the wall, explosive turn, tight streamline, then a strong breakout — the middle 25 is about the wall, not the swim', [], pace100 + 4, 25, scaler, '100 Pace')];
+        return [{ label: 'Turns — Fast In, Fast Out', sets: sets }];
       },
       intents: [
-        'SWOLF — stroke count plus time, added together — is the single best number for tracking efficiency, since a lower score means covering the same water with less wasted effort rather than just swimming harder. This set asks you to chase a lower number, not a faster clock.'
+        'Most swimmers lose more time to a lazy turn than to a slow middle length. Rehearsing the fast approach, the turn, and the breakout at speed before the Main Set means every wall in the main work is already sharp.'
       ]
     },
     {
-      name: 'Choice Drill Ladder',
+      name: 'Start & Reaction Power',
       build: function (shareM, pace100, scaler, nextStroke) {
+        var ladder = paceLadder(pace100);
+        var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        // The ladder's own rung sizes scale with shareM instead of staying
-        // a fixed 25-50-75-100 regardless of session size — a big-volume
-        // day's Pre-Set should carry more actual distance here, not just
-        // repeat the same small ladder every time.
-        var unit = Math.max(25, Math.round((shareM / 10) / 25) * 25);
-        var rungs = [1, 2, 3, 4].map(function (m) { return unit * m; });
-        var sets = rungs.map(function (d) {
-          return buildSet(1, d, stroke + ', choice drill — pick whichever drill needs the most work today', [], pace100 + 10, 15, scaler, 'Drill Pace');
-        });
-        return [{ label: 'Choice Drill Ladder ' + rungs.join('-'), sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ', push-start explosive — max first 10–15m off the wall, then hold form to the flags; full recovery between reps', [], ladder.p50, 35, scaler, '50 Pace')];
+        return [{ label: 'Start Power — Explosive 15s', sets: sets }];
       },
       intents: [
-        'Letting you choose the drill at every rung keeps this set self-correcting — you\'ll naturally gravitate toward whatever flaw is bothering you most that day, exactly the kind of targeted work a fixed drill list can\'t offer.'
+        'Start and reaction power is trained fresh, with real rest between reps, or not at all — activating the explosive push-off and first strokes here primes maximal power without the fatigue that would blunt it.'
       ]
     },
     {
-      name: 'Heart-Rate Target Pace',
+      name: 'Stroke-Rate Activation',
       build: function (shareM, pace100, scaler, nextStroke) {
-        // Reps scale with the actual share of distance this archetype
-        // received, not just the level's base round count — previously this
-        // came out to the same 2-4 x 100m set regardless of shareM, so a
-        // huge Pre-Set allocation and a tiny one produced an identical set.
-        var n = Math.max(roundCountFor(scaler), Math.round(shareM / 100));
+        var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(n, 100, stroke + ', hold Zone 3 effort — moderate-hard, "comfortably uncomfortable," not a sprint', [], pace100 + 4, 20, scaler, '200 Pace')];
-        return [{ label: null, sets: sets }];
+        var sets = [buildSet(reps, 50, stroke + ', first 25 relaxed and long, second 25 turn the arms over fast at the same stroke count — feel the tempo shift the Main Set will need', [], pace100 + 2, 20, scaler, '100 Pace')];
+        return [{ label: 'Tempo Switch — 25 easy / 25 fast', sets: sets }];
       },
       intents: [
-        'Training by effort zone rather than pure pace keeps the workload honest on a day your stroke feels off or the water\'s choppy — "Zone 3, comfortably uncomfortable" always means the same physiological demand, even when the clock doesn\'t cooperate.'
+        'Flipping between a long relaxed tempo and a fast turnover on the same rep rehearses the exact gear-change the Main Set demands — activation is teaching the body where the higher gear lives before you need it under fatigue.'
       ]
     }
   ];
@@ -5725,6 +5754,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (age && age < 12 && totalM > 2000) { totalM = 2000; ageCapApplied = true; }
 
     var nextStroke = makeStrokeRotator(state.disciplines);
+    // CLEAN SET ISOLATION: the Pre-Set and each Main Set block are each locked
+    // to ONE stroke for the whole block, rather than letting nextStroke()
+    // advance rep-to-rep inside a single set — a Fly set is 100% Fly, a Back
+    // set is 100% Back. The block-level rotator advances once per block (not
+    // once per rep), so with multiple disciplines selected the *blocks*
+    // alternate strokes while each individual set stays on one clean stroke.
+    // Individual Medley is the sole intentional multi-stroke exception (its
+    // single "stroke" label already means the four-stroke IM order). Warm-Up
+    // and Cool-Down keep the free-rotating nextStroke() — easy choice work
+    // across strokes is standard there and isn't the "random mixing" the
+    // isolation rule targets.
+    var nextBlockStroke = makeStrokeRotator(state.disciplines);
+    function fixedStrokeFn(strokeLabel) { return function () { return strokeLabel; }; }
     var disciplinesLabel = state.disciplines.map(strokeLabelSingle).join(' + ');
     var warmupM = Math.round((totalM * 0.10) / 100) * 100 || 200;
     var presetM = Math.round((totalM * 0.15) / 100) * 100 || 200;
@@ -5766,9 +5808,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         presetArchetype = pickOne(PRESET_ARCHETYPES.filter(function (a) { return a !== priorPresetArchetype; }));
       }
     }
+    // Pre-Set is locked to one stroke for the whole activation block.
+    var presetStroke = nextBlockStroke();
     var preset = {
       name: presetArchetype.name,
-      rounds: presetArchetype.build(presetM, pace100, scaler, nextStroke)
+      rounds: presetArchetype.build(presetM, pace100, scaler, fixedStrokeFn(presetStroke))
     };
 
     // Multiple selected goals combine their archetype pools into one bigger
@@ -5804,9 +5848,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var share = 1 / chosenArchetypes.length;
     var main = chosenArchetypes.map(function (archetype) {
       var shareM = Math.round((mainM * share) / 100) * 100 || 100;
+      // Each Main Set block is locked to a single stroke (rotating across
+      // blocks), so a 3-block session for a Free+Fly+Back swimmer reads as
+      // one clean Free block, one clean Fly block, one clean Back block —
+      // never three strokes randomly blended inside one set.
+      var blockStroke = nextBlockStroke();
       return {
         name: archetype.name,
-        rounds: archetype.build(shareM, pace100, scaler, nextStroke, state.equipment, totalM)
+        stroke: blockStroke,
+        rounds: archetype.build(shareM, pace100, scaler, fixedStrokeFn(blockStroke), state.equipment, totalM)
       };
     });
 
@@ -6402,6 +6452,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     setInterval(advanceGymAnims, 420);
   }
 
+  // Visual muscle tags per exercise, derived from the exercise name via a
+  // keyword map (same lightweight pattern as GYM_ANIM_MAP) so no per-row data
+  // entry is needed across the whole GYM_FOCUS matrix. Returns up to 3 colored
+  // {key,label} chips; key drives the chip's accent color in CSS. Falls back
+  // to a plain "Full Body" tag when nothing specific matches.
+  var MUSCLE_KEYWORDS = [
+    { re: /pulldown|pull-?up|rows?\b|rowing|face pull|lat pull|lats\b/i, key: 'back', label: 'Back / Lats' },
+    { re: /bench|chest|push-?up|\bdip\b/i, key: 'chest', label: 'Chest' },
+    { re: /overhead press|shoulder|arm circle|band pull/i, key: 'shoulders', label: 'Shoulders' },
+    { re: /tricep|pushdown|bicep|skull ?crusher/i, key: 'arms', label: 'Arms' },
+    { re: /deadlift|romanian|hinge|pull-?through|kettlebell swing|good morning|turkish|get-?up/i, key: 'posterior', label: 'Posterior Chain' },
+    { re: /hamstring|ham curl|leg curl/i, key: 'posterior', label: 'Hamstrings' },
+    { re: /squat|lunge|leg press|split squat|step-?up|box jump|calf|leg extension|glute/i, key: 'legs', label: 'Legs / Glutes' },
+    { re: /plank|dead ?bug|hollow|pallof|bird dog|90\/90|woodchop|russian twist|hanging leg|v-?up|sit-?up|crunch/i, key: 'core', label: 'Core' },
+    { re: /stretch|foam roll|mobility|child|cobra|pigeon|forward fold|straddle|open book|thoracic|hip flexor|cat-?cow|breathing|leg swing|world.s greatest|deep squat hold/i, key: 'mobility', label: 'Mobility' },
+    { re: /jump rope|burpee|mountain climber|battle rope|jumping jack|ladder|cone|shuffle|bound|skater|sprint|\bwalk/i, key: 'cardio', label: 'Conditioning' }
+  ];
+  function inferMuscleTags(name) {
+    var tags = [];
+    MUSCLE_KEYWORDS.forEach(function (m) {
+      if (m.re.test(name) && !tags.some(function (t) { return t.key === m.key; })) tags.push({ key: m.key, label: m.label });
+    });
+    if (!tags.length) tags.push({ key: 'full', label: 'Full Body' });
+    return tags.slice(0, 3);
+  }
+
   function renderGymCard(g, tone, focusLabel, age, refMax) {
     var prescription = (age && age < 12) ? scaleDownPrescription(g.prescription) : g.prescription;
     var loadNote = '';
@@ -6410,9 +6486,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var suggested = Math.max(4, Math.round(refMax * pct / 2) * 2);
       loadNote = '<p style="color:var(--green-bright); font-size:0.82rem; margin-top:4px;">Suggested load: ~' + suggested + 'kg (' + Math.round(pct * 100) + '% of your listed max)</p>';
     }
+    var muscleHtml = '<div class="gym-muscle-tags">' + inferMuscleTags(g.name).map(function (t) {
+      return '<span class="muscle-tag" data-m="' + t.key + '">' + t.label + '</span>';
+    }).join('') + '</div>';
     return '<article class="card gym-card" data-reveal>' +
       '<span class="tag tag-' + tone + '">' + focusLabel + '</span>' +
       '<h3 style="margin-top:12px">' + g.name + '</h3>' +
+      muscleHtml +
       '<p class="prescription">' + prescription + '</p>' + loadNote +
       '<p class="cue">' + g.cue + '</p>' +
       renderGymAnim(g.name) +

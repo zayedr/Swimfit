@@ -1691,6 +1691,56 @@ named import resolves): the module loads with zero errors, a real email/password
 `sendWelcomeEmail` which logs the "not configured yet" skip cleanly, and all 9 tabs, PDF export and
 Support send still work.
 
+**A professional-swimming-standards overhaul of the workout generation logic, plus a
+glassmorphism pass on the Workouts result card and visual muscle tags on every Gym exercise
+card.** No new Firestore collections, Cloud Functions, or rules — all client-side logic and CSS.
+
+- **The 200m single-rep cap now covers Backstroke and Breaststroke too, not just Butterfly.**
+  `buildSet()`'s cap (the one funnel every archetype's sets pass through) was generalized from a
+  Butterfly-only check to a `CAPPED_STROKES = ['Backstroke','Breaststroke','Butterfly']` list with
+  a shared `STROKE_REP_CAP_M = 200`: any rep of one of the three "off" strokes over 200m has its
+  rep count scaled up (`ceil(total ÷ 200)`) and its distance clamped to 200m, preserving the
+  archetype's intended total volume. Freestyle and Individual Medley are deliberately left uncapped
+  — Free genuinely swims 400/800/1500 in one rep, and an IM "stroke" label already means the
+  four-stroke medley order, so neither should ever be clamped. (A cooldown's easy Backstroke leg on
+  a very long session is now cleanly split into 2×200 rather than one 360m rep, a free side benefit
+  of capping in the one shared function.)
+- **Clean set isolation — each Main Set block and the Pre-Set are locked to ONE stroke.**
+  Previously `generateWorkout()` passed a single per-rep `nextStroke()` rotator into every
+  archetype's `build()`, so a swimmer with Free+Fly+Back selected could get three different strokes
+  blended inside one Main Set block. Now a separate block-level rotator (`nextBlockStroke`)
+  advances once *per block*, and each block (and the Pre-Set) is handed a constant
+  `fixedStrokeFn(stroke)` so every set inside it stays on that one stroke — a Fly block is 100% Fly,
+  a Back block is 100% Back, and the *blocks* alternate strokes across a multi-discipline session.
+  Individual Medley is the sole intentional multi-stroke exception. Warm-Up and Cool-Down keep the
+  free-rotating `nextStroke()` (easy choice work across strokes is standard there and isn't the
+  "random mixing" the rule targets).
+- **The Pre-Set is now purely ACTIVATION.** `PRESET_ARCHETYPES` was rewritten from a grab-bag
+  (Descending 1-4, SWOLF, Negative Split, Choice Drill Ladder, HR Target) into six activation-only
+  archetypes, each built around one activation lever and carrying an explicit technical focus:
+  **Speed-Build Activation** (build-to-fast 25s, accelerate into the wall), **Heart-Rate
+  Activation** (descending 50s to lift HR into the working zone), **Underwater Dolphin Activation**
+  (6–8 UW dolphin kicks off every wall, count kicks, tight streamline), **Turn & Breakout
+  Activation** (fast approach, explosive turn, strong breakout), **Start & Reaction Power**
+  (explosive max first 10–15m with full recovery between reps), and **Stroke-Rate Activation** (25
+  easy / 25 fast tempo switch). Rep counts scale with the Pre-Set's share of the session distance.
+  The no-repeat-vs-yesterday guard and daily-seeded rotation already in place apply unchanged.
+- **Workouts result card → glassmorphism stage cards.** Each `.workout-block` (Warm-Up / Pre-Set /
+  Main / Cool-Down) is now a frosted translucent card — `--glass-bg` + `backdrop-filter`, a faint
+  wash of its own `--stage-color` (aqua / gold / emerald / periwinkle) in the top-left, a
+  stage-color left rail, an inner top highlight, a real drop shadow, and a lift + stage-tinted glow
+  on hover. Purely CSS; the `renderBlock()` DOM and `extractStructuredWorkout()` PDF reader are
+  untouched, so the PDF export still matches the on-screen card exactly.
+- **Gym cards gained color-coded muscle tags.** A keyword-map helper (`inferMuscleTags()`, same
+  lightweight pattern as `GYM_ANIM_MAP`, so no per-row data entry across the whole `GYM_FOCUS`
+  matrix) derives up to three muscle-group chips per exercise from its name — Back/Lats, Chest,
+  Shoulders, Arms, Posterior Chain/Hamstrings, Legs/Glutes, Core, Mobility, Conditioning, or a
+  Full-Body fallback — each rendered as a `.muscle-tag[data-m=…]` pill in its region's accent color
+  right under the exercise name. Verified via Playwright: a 4500m Free+Fly+Back+Breast workout
+  produced zero Back/Breast/Fly reps over 200m, zero multi-stroke Main Set blocks, an activation
+  Pre-Set, the correct 4-stage order, all 12 gym cards carrying muscle tags, working PDF export, and
+  zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
