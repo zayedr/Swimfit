@@ -243,9 +243,11 @@
         // Surface the raw EmailJS error so a bad Service ID / Template ID /
         // Public Key or template-variable mismatch is immediately visible in
         // the console rather than being swallowed. Still non-fatal to signup.
-        console.error('[Swimfit] Welcome email failed — check EmailJS Service/Template/Public Key IDs:', err);
+        // A bad Service ID / Template ID / Public Key or a template-variable
+        // mismatch shows up here immediately as "EmailJS error: ...".
+        console.error('EmailJS error:', err);
       });
-    } catch (e) { console.error('[Swimfit] Welcome email error (non-fatal):', e); }
+    } catch (e) { console.error('EmailJS error:', e); }
   }
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
@@ -1840,10 +1842,10 @@ section { position: relative; scroll-margin-top: 96px; }
 .set-gear { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .set-gear .gear-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.64rem; color: var(--muted); background: var(--bg-alt); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
 .set-gear .gear-chip .icon { width: 10px; height: 10px; }
-.set-stats { display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap; flex-shrink: 0; }
-.set-stat { font-family: var(--font-display); font-size: 0.82rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: baseline; gap: 3px; }
-.set-stat em { font-style: normal; font-size: 0.6rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-2); }
-.set-stat-total { color: var(--fg); }
+.set-stats { display: inline-flex; align-items: baseline; white-space: nowrap; flex-shrink: 0; }
+/* One clean send-off interval per set row (e.g. "@ 1:15"), in the stage's
+   accent color — replaces the old int/rest/tot three-column stat cluster. */
+.set-sendoff { font-family: var(--font-display); font-size: 0.98rem; font-weight: 700; color: var(--stage-color, var(--aqua)); letter-spacing: 0.01em; }
 
 .coach-tips { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(34,211,238,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
@@ -4964,10 +4966,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     el.addEventListener('change', persistField);
   });
 
+  // Sharp, meaningful progression between the three levels — not just more
+  // distance. Beginner gets generous rest and foundational technique/body-
+  // position work; Competitive gets race-relevant intervals and race-pace
+  // build sets; Elite gets the tightest intervals AND a dedicated explosive-
+  // power / start-reaction / power-breakout / 15m-underwater-dolphin block
+  // (see ELITE_POWER_BLOCK below, injected into the Main Set for elite only).
   var LEVEL_SCALERS = {
-    beginner:    { intervalMult: 1.25, restAdd: 15, blocks: 2, minRounds: 2, maxRounds: 2, note: 'We’ve built extra rest into every interval today — the goal is clean, repeatable technique, not the clock. Speed always follows good technique, never the other way around.' },
-    competitive: { intervalMult: 1.0,  restAdd: 0,  blocks: 3, minRounds: 2, maxRounds: 3, note: 'Intervals and rest are set at full race-relevant volume today — enough load to create a real training stimulus, enough rest to hit every rep with quality.' },
-    elite:       { intervalMult: 0.9,  restAdd: -5, blocks: 4, minRounds: 3, maxRounds: 3, note: 'Tightened intervals and a bonus set today — the margins that matter at this level. Includes personalized video review.' }
+    beginner:    { intervalMult: 1.35, restAdd: 20, blocks: 2, minRounds: 2, maxRounds: 2, note: 'Generous rest on every interval today — the goal is clean, repeatable technique and a strong body position, not the clock. Speed always follows good technique, never the other way around.' },
+    competitive: { intervalMult: 1.0,  restAdd: 0,  blocks: 3, minRounds: 2, maxRounds: 3, note: 'Race-relevant intervals and structured, descending build sets today — enough load to create a real training stimulus, enough rest to hit every rep at quality race pace.' },
+    elite:       { intervalMult: 0.85, restAdd: -8, blocks: 4, minRounds: 3, maxRounds: 3, note: 'Tightened intervals plus a dedicated high-performance block today — explosive starts, race-start reaction, power breakouts and 15m max-effort underwater dolphin kick under a tight clock. This is where the margins that matter are won.' }
   };
 
   function formatTime(sec) {
@@ -5151,8 +5159,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var gearHtml = s.gear.map(function (g) { return '<span class="gear-chip">' + icon(GEAR_ICON[g] || 'i-fin') + g + '</span>'; }).join('');
         var paceLabel = cleanPaceLabel(s.paceTag);
         // A leading reps×distance "rep-chip" gives every row an instant,
-        // scannable anchor (e.g. "7 × 50m") before the descriptive title, and
-        // the interval/rest/total collapse into a compact right-aligned stat.
+        // scannable anchor (e.g. "7 × 50m") before the descriptive title. On
+        // the right, ONE clean send-off interval only ("@ 1:15") — no separate
+        // REST or TOTAL columns, matching how a coach writes a send-off on the
+        // board and keeping every row uncluttered.
         var repChip = (s.reps && s.dist)
           ? '<span class="set-rep">' + s.reps + '<span class="set-rep-x">×</span>' + s.dist + 'm</span>'
           : '';
@@ -5161,7 +5171,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           '<div class="set-main"><span class="set-title">' + s.title + '</span>' +
           (paceLabel ? '<span class="set-pace">' + paceLabel + '</span>' : '') +
           (gearHtml ? '<span class="set-gear">' + gearHtml + '</span>' : '') + '</div>' +
-          '<div class="set-stats"><span class="set-stat">' + formatTime(s.interval) + '<em>int</em></span><span class="set-stat">' + formatTime(s.rest) + '<em>rest</em></span><span class="set-stat set-stat-total">' + formatTime(s.totalSec) + '<em>tot</em></span></div></div>';
+          '<div class="set-stats"><span class="set-sendoff">@ ' + formatTime(s.interval) + '</span></div></div>';
       }).join('');
       var labelHtml = round.label ? '<div class="round-label"><span class="round-label-badge">' + round.label + '</span></div>' : '';
       return '<div class="set-group">' + labelHtml + rows + '</div>';
@@ -5777,6 +5787,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         rounds: archetype.build(shareM, pace100, scaler, fixedStrokeFn(blockStroke), state.equipment, totalM)
       };
     });
+
+    // ELITE ONLY: prepend a dedicated high-performance power block — this is
+    // what makes the elite level a genuine step up rather than just more
+    // distance. Explosive max-effort underwater dolphin (15m off the wall),
+    // race-start reaction power, and power breakouts, all under the elite
+    // scaler's tight intervals. It leads the Main Set (rendered first, open by
+    // default) so the highest-CNS-demand work is done while freshest. Labels
+    // deliberately don't start with a capped stroke name (Back/Breast/Fly), so
+    // the 200m realism cap never touches these short power reps.
+    if (state.level === 'elite') {
+      var eliteLadder = paceLadder(pace100);
+      var eliteFins = state.equipment.indexOf('Fins') > -1;
+      var elitePowerRounds = [
+        { label: 'Underwater Dolphin Speed', sets: [buildSet(8, 25, 'Max 15m underwater dolphin kick off the wall — count kicks, hold a rocket streamline, break out clean and finish easy', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, scaler, '50 Pace')] },
+        { label: 'Race-Start Reaction Power', sets: [buildSet(6, 25, 'Explosive push-start — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, scaler, '50 Pace')] },
+        { label: 'Power Breakouts', sets: [buildSet(4, 50, 'Fast approach into the wall, explosive turn, powerful underwater breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, scaler, '100 Pace')] }
+      ];
+      main.unshift({ name: 'Elite Power & Underwater', stroke: null, rounds: elitePowerRounds });
+    }
 
     var cdParts = splitProportional(cooldownM, [0.5, 0.3, 0.2]);
     var cooldown = [
@@ -6519,16 +6548,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           if (child.classList.contains('round-label')) { currentRound = child.textContent.trim(); return; }
           var titleNode = child.querySelector('.set-title');
           var full = titleNode ? titleNode.textContent.trim() : '';
-          // Drop the descriptive coaching tail after the em-dash, use a compact
-          // "reps×dist" glyph, and cap length so every set is one clean line.
-          var label = full.split(' — ')[0].replace(/(\d)\s*[x×]\s*(\d)/g, '$1×$2').trim();
-          if (label.length > 48) label = label.slice(0, 46).trim() + '…';
-          // Interval only (the send-off), read from the 'int' stat chunk.
-          var interval = '';
-          Array.prototype.forEach.call(child.querySelectorAll('.set-stat'), function (st) {
-            var em = st.querySelector('em');
-            if (em && em.textContent.trim() === 'int') interval = st.textContent.replace(em.textContent, '').trim();
-          });
+          // FULL set description — no truncation. The whole set line (including
+          // the technical execution notes after the em-dash) is kept so the
+          // swimmer can read exact execution steps straight off the PDF; only
+          // the "N x Dist" is normalized to a compact "N×Dist" glyph.
+          var label = full.replace(/(\d)\s*[x×]\s*(\d)/g, '$1×$2').trim();
+          // The single send-off interval, read from the ".set-sendoff" element
+          // (its text is "@ 1:15"); strip the leading "@ " so the PDF renders it.
+          var sendoffEl = child.querySelector('.set-sendoff');
+          var interval = sendoffEl ? sendoffEl.textContent.replace(/^@\s*/, '').trim() : '';
           var paceEl = child.querySelector('.set-pace');
           rows.push({ round: currentRound, label: label, interval: interval, pace: paceEl ? paceEl.textContent.trim() : '' });
         });
@@ -6627,6 +6655,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 46;
       var subtitle;
       try {
         subtitle = state.disciplines.map(strokeLabelSingle).join(' + ') + '   ·   ' + formatDistanceM(state.distance, 1) +
@@ -6638,40 +6667,84 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         if (y + need > pageH - 60) { doc.addPage(); pdfFillPage(doc); y = 60; }
       }
 
+      var headH = 66, roundH = 24, padB = 20, lineLead = 16, rowGap = 9;
+
       data.blocks.forEach(function (block) {
         var accent = STAGE_RGB[block.stage] || PDF.aqua;
-        var lineH = 30, roundH = 26, headH = 46, padB = 18;
-        var lastR = null, height = headH;
+        var cardX = marginX, cardW = pageW - marginX * 2;
+        // The interval sits on the FIRST line of each set; reserve room for it.
+        var labelW = cardW - 26 - 92;
+
+        // Pre-measure so the card background can be drawn at the correct height
+        // BEFORE the (multi-line, full-length) text is rendered on top of it.
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+        var lastR = null, height = headH, measured = [];
         block.rows.forEach(function (r) {
-          if (r.round && r.round !== lastR) { height += roundH; lastR = r.round; }
-          height += lineH;
+          var roundBefore = (r.round && r.round !== lastR) ? r.round : null;
+          if (roundBefore) lastR = r.round;
+          var lines = doc.splitTextToSize(r.label, labelW);
+          var rowH = lines.length * lineLead + rowGap;
+          measured.push({ r: r, lines: lines, rowH: rowH, roundBefore: roundBefore });
+          height += (roundBefore ? roundH : 0) + rowH;
         });
         height += padB;
-        ensureSpace(height + 16);
 
-        var c = pdfStageCard(doc, { y: y, height: height, title: block.title, accent: accent });
-        var ry = c.ry;
-        lastR = null;
-        block.rows.forEach(function (r) {
-          if (r.round && r.round !== lastR) {
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-            doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
-            doc.text(String(r.round).toUpperCase(), c.tx, ry);
-            ry += roundH; lastR = r.round;
-          }
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5);
-          doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
-          var lines = doc.splitTextToSize(r.label, c.cardW - 26 - 96);
-          doc.text(lines[0], c.tx, ry);
-          if (r.interval) {
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5);
-            doc.setTextColor(accent[0], accent[1], accent[2]);
-            doc.text('@ ' + r.interval, c.cardX + c.cardW - 22, ry, { align: 'right' });
-          }
-          ry += lineH;
-        });
+        function renderRows(startY, tx, contentRight) {
+          var ry = startY;
+          measured.forEach(function (m) {
+            if (m.roundBefore) {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+              doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
+              doc.text(String(m.roundBefore).toUpperCase(), tx, ry);
+              ry += roundH;
+            }
+            if (m.r.interval) {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+              doc.setTextColor(accent[0], accent[1], accent[2]);
+              doc.text('@ ' + m.r.interval, contentRight, ry, { align: 'right' });
+            }
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+            doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+            m.lines.forEach(function (ln, i) { doc.text(ln, tx, ry + i * lineLead); });
+            ry += m.lines.length * lineLead + rowGap;
+          });
+          return ry;
+        }
 
-        y += height + 16;
+        var usable = pageH - 60 - 60;
+        if (height <= usable) {
+          ensureSpace(height + 16);
+          var c = pdfStageCard(doc, { y: y, height: height, title: block.title, accent: accent });
+          renderRows(c.ry, c.tx, c.cardX + c.cardW - 22);
+          y += height + 16;
+        } else {
+          // Extremely long block (rare): render header + rows with per-row
+          // pagination and no single background card, so full text is never
+          // clipped even if it spans more than one page.
+          ensureSpace(headH);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+          doc.setTextColor(accent[0], accent[1], accent[2]);
+          doc.text(String(block.title).toUpperCase(), marginX + 26, y + 36);
+          y += headH;
+          measured.forEach(function (m) {
+            ensureSpace((m.roundBefore ? roundH : 0) + m.rowH);
+            if (m.roundBefore) {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+              doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
+              doc.text(String(m.roundBefore).toUpperCase(), marginX + 26, y); y += roundH;
+            }
+            if (m.r.interval) {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+              doc.setTextColor(accent[0], accent[1], accent[2]);
+              doc.text('@ ' + m.r.interval, pageW - marginX - 22, y, { align: 'right' });
+            }
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+            doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+            m.lines.forEach(function (ln, i) { doc.text(ln, marginX + 26, y + i * lineLead); });
+            y += m.lines.length * lineLead + rowGap;
+          });
+          y += 16;
+        }
       });
 
       pdfStoryFooter(doc);
@@ -6680,10 +6753,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     function buildGymPdf(jsPDFCtor, data, focusLabel) {
       var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
+      var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
+      var marginX = 46;
       var subtitle = focusLabel + '   ·   ' + new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
       var y = pdfWordmarkHeader(doc, subtitle);
       var phaseAccents = [PDF.aqua, PDF.gold, PDF.green, PDF.peri];
+      var headH = 66, padB = 20, nameLead = 16, cueLead = 14, exGap = 12;
 
       function ensureSpace(need) {
         if (y + need > pageH - 60) { doc.addPage(); pdfFillPage(doc); y = 60; }
@@ -6691,20 +6767,46 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
       data.phases.forEach(function (phase, pi) {
         var accent = phaseAccents[pi % phaseAccents.length];
-        var lineH = 34, headH = 46, padB = 18;
-        var height = headH + phase.exercises.length * lineH + padB;
-        ensureSpace(height + 16);
+        var cardX = marginX, cardW = pageW - marginX * 2;
+        var textW = cardW - 26 - 90;
+
+        // Pre-measure: name (1 line) + FULL wrapped cue lines + load line.
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+        var height = headH, measured = [];
+        phase.exercises.forEach(function (ex) {
+          var cueLines = ex.cue ? doc.splitTextToSize(ex.cue, textW + 60) : [];
+          var loadH = ex.load ? cueLead : 0;
+          var exH = nameLead + (cueLines.length * cueLead) + loadH + exGap;
+          measured.push({ ex: ex, cueLines: cueLines, exH: exH, loadH: loadH });
+          height += exH;
+        });
+        height += padB;
+
+        ensureSpace(Math.min(height, pageH - 120) + 16);
         var c = pdfStageCard(doc, { y: y, height: height, title: phase.title, accent: accent });
         var ry = c.ry;
-        phase.exercises.forEach(function (ex) {
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+        measured.forEach(function (m) {
+          // Exercise name (left) + prescription (right, accent).
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
           doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
-          var lines = doc.splitTextToSize(ex.name, c.cardW - 26 - 110);
-          doc.text(lines[0], c.tx, ry);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+          var nameLines = doc.splitTextToSize(m.ex.name, textW);
+          doc.text(nameLines[0], c.tx, ry);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
           doc.setTextColor(accent[0], accent[1], accent[2]);
-          doc.text(ex.prescription, c.cardX + c.cardW - 22, ry, { align: 'right' });
-          ry += lineH;
+          doc.text(m.ex.prescription, c.cardX + c.cardW - 22, ry, { align: 'right' });
+          ry += nameLead;
+          if (m.ex.load) {
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+            doc.setTextColor(PDF.green[0], PDF.green[1], PDF.green[2]);
+            doc.text(m.ex.load, c.tx, ry); ry += cueLead;
+          }
+          if (m.cueLines.length) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+            doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
+            m.cueLines.forEach(function (ln, i) { doc.text(ln, c.tx, ry + i * cueLead); });
+            ry += m.cueLines.length * cueLead;
+          }
+          ry += exGap;
         });
         y += height + 16;
       });
