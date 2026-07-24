@@ -139,9 +139,9 @@
      `onUserCreated` Cloud Function (functions/index.js), which already sends a
      custom welcome email over SMTP once per account. Enable only ONE of the two
      to avoid sending two welcome emails. */
-  const EMAILJS_PUBLIC_KEY  = 'sxcX3ruBKP8Iys3RI';   // EmailJS Public Key (Account → API Keys)
+  const EMAILJS_PUBLIC_KEY  = 'sxcX3ruBKP8lys3RI';   // EmailJS Public Key (Account → API Keys)
   const EMAILJS_SERVICE_ID  = 'service_vdzwomv';     // EmailJS Email Service ID
-  const EMAILJS_TEMPLATE_ID = 'template_2077979';    // EmailJS Email Template ID
+  const EMAILJS_TEMPLATE_ID = 'template_s7rp3m6';    // EmailJS Email Template ID
   const EMAILJS_SDK_URL = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
 
   function buildWelcomeEmailHtml(firstName) {
@@ -229,10 +229,19 @@
       var guardKey = 'swimfit_welcome_email_' + user.uid;
       try { if (localStorage.getItem(guardKey)) return; } catch (e) { /* private mode — proceed */ }
       var first = ((fullName || user.displayName || '').trim().split(' ')[0]) || 'Swimmer';
+      var displayName = user.displayName || 'Swimmer';
       loadEmailJs().then(function (emailjs) {
+        // Send EVERY common EmailJS variable name for the recipient's email and
+        // name, so the send succeeds regardless of how the "Welcome" template's
+        // fields happen to be defined (to_email / user_email / email, and
+        // to_name / user_name). reply_to routes replies to the team inbox.
         return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
           to_email: user.email,
-          to_name: first,
+          user_email: user.email,
+          email: user.email,
+          to_name: displayName,
+          user_name: displayName,
+          reply_to: 'swimfit.ae@gmail.com',
           subject: 'Welcome to Swimfit — your 3-day free trial is live 🏊',
           message_html: buildWelcomeEmailHtml(first)
         }, { publicKey: EMAILJS_PUBLIC_KEY });
