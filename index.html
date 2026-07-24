@@ -140,9 +140,9 @@
      `onUserCreated` Cloud Function (functions/index.js), which already sends a
      custom welcome email over SMTP once per account. Enable only ONE of the two
      to avoid sending two welcome emails. */
-  const EMAILJS_PUBLIC_KEY  = '';   // e.g. 'AbC12dEfGh34IjKlM'
-  const EMAILJS_SERVICE_ID  = '';   // e.g. 'service_xxxxxxx'
-  const EMAILJS_TEMPLATE_ID = '';   // e.g. 'template_xxxxxxx'
+  const EMAILJS_PUBLIC_KEY  = 'sxcX3ruBKP8Iys3RI';   // EmailJS Public Key (Account → API Keys)
+  const EMAILJS_SERVICE_ID  = 'service_vdzwomv';     // EmailJS Email Service ID
+  const EMAILJS_TEMPLATE_ID = 'template_2077979';    // EmailJS Email Template ID
   const EMAILJS_SDK_URL = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
 
   function buildWelcomeEmailHtml(firstName) {
