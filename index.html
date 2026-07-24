@@ -256,21 +256,36 @@
       var displayName = user.displayName || 'Swimmer';
       // Live execution marker so the send can be verified in the console.
       console.log('SENDING WELCOME EMAIL TO:', user.email);
+      var brandedHtml = buildWelcomeEmailHtml(first);
       loadEmailJs().then(function (emailjs) {
-        // Send EVERY common EmailJS variable name for the recipient's email and
-        // name, so the send succeeds regardless of how the "Welcome" template's
-        // fields happen to be defined (to_email / user_email / email, and
-        // to_name / user_name). reply_to routes replies to the team inbox.
-        return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        // Send EVERY common EmailJS variable name so the send succeeds and the
+        // full SwimFit branding renders regardless of how the "Welcome"
+        // template's fields happen to be defined:
+        //   • recipient email: to_email / user_email / email
+        //   • recipient name:  to_name / user_name / name
+        //   • the branded body (SWIMFIT wordmark, aqua/green colors, 3-day-trial
+        //     banner, feature list, upsell, "Start Training" CTA to
+        //     swimfit.online) is passed under BOTH message_html and message, so
+        //     a template using {{{message_html}}} OR {{{message}}} renders it.
+        //   • logo_url / company_name / site_url for templates with their own
+        //     branded header slots.
+        var templateParams = {
           to_email: user.email,
           user_email: user.email,
           email: user.email,
           to_name: displayName,
           user_name: displayName,
+          name: displayName,
           reply_to: 'swimfit.ae@gmail.com',
           subject: 'Welcome to Swimfit — your 3-day free trial is live 🏊',
-          message_html: buildWelcomeEmailHtml(first)
-        }, { publicKey: EMAILJS_PUBLIC_KEY });
+          title: 'Welcome to Swimfit 🏊',
+          company_name: 'Swimfit',
+          site_url: 'https://swimfit.online',
+          logo_url: 'https://swimfit.online',
+          message_html: brandedHtml,
+          message: brandedHtml
+        };
+        return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, { publicKey: EMAILJS_PUBLIC_KEY });
       }).then(function (resp) {
         try { localStorage.setItem(guardKey, String(Date.now())); } catch (e) { /* ignore */ }
         console.log('WELCOME EMAIL SENT:', (resp && resp.status) || 'OK', '→', user.email);
