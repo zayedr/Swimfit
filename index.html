@@ -216,9 +216,16 @@
     return emailjsLoadPromise;
   }
 
-  // Fires exactly once per brand-new account (called only from the two
-  // account-creation success paths below, never from a plain sign-in). A
-  // per-uid localStorage guard is belt-and-suspenders against a double submit.
+  // TESTING FLAG: while true, the welcome email fires on EVERY Google sign-in
+  // (not just brand-new accounts) and the per-uid "already sent" guard is
+  // bypassed, so a repeated sign-in during testing always re-sends. Set back to
+  // false to restore production behavior (send once, only on genuine new-account
+  // creation via getAdditionalUserInfo(result).isNewUser).
+  var WELCOME_EMAIL_TEST_MODE = true;
+
+  // Fires per account-creation success path (and, while WELCOME_EMAIL_TEST_MODE
+  // is on, on every Google sign-in for live testing). A per-uid localStorage
+  // guard is belt-and-suspenders against a double submit — skipped in test mode.
   function sendWelcomeEmail(user, fullName) {
     try {
       if (!user || !user.email) return;
@@ -227,9 +234,13 @@
         return;
       }
       var guardKey = 'swimfit_welcome_email_' + user.uid;
-      try { if (localStorage.getItem(guardKey)) return; } catch (e) { /* private mode — proceed */ }
+      if (!WELCOME_EMAIL_TEST_MODE) {
+        try { if (localStorage.getItem(guardKey)) return; } catch (e) { /* private mode — proceed */ }
+      }
       var first = ((fullName || user.displayName || '').trim().split(' ')[0]) || 'Swimmer';
       var displayName = user.displayName || 'Swimmer';
+      // Live execution marker so the send can be verified in the console.
+      console.log('SENDING WELCOME EMAIL TO:', user.email);
       loadEmailJs().then(function (emailjs) {
         // Send EVERY common EmailJS variable name for the recipient's email and
         // name, so the send succeeds regardless of how the "Welcome" template's
@@ -736,12 +747,17 @@
       statusNote.textContent = 'Waiting for Google sign-in…';
       signInWithPopup(auth, googleProvider).then(function (result) {
         statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
-        // Only send the welcome email when Google actually created a brand-new
-        // account (not on every returning-user Google sign-in).
+        // Welcome email trigger. In production this is gated to brand-new
+        // accounts only (getAdditionalUserInfo(result).isNewUser). While
+        // WELCOME_EMAIL_TEST_MODE is on it fires on EVERY Google sign-in so the
+        // send can be tested live without needing a fresh account each time.
         try {
           var info = getAdditionalUserInfo(result);
-          if (info && info.isNewUser) sendWelcomeEmail(result.user, result.user.displayName);
-        } catch (e) { /* non-fatal */ }
+          var isNewUser = !!(info && info.isNewUser);
+          if (WELCOME_EMAIL_TEST_MODE || isNewUser) {
+            sendWelcomeEmail(result.user, result.user.displayName);
+          }
+        } catch (e) { console.error('EmailJS error:', e); }
         setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
       }).catch(function (error) {
         statusNote.style.color = '#e5484d';
