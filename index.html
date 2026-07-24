@@ -202,26 +202,41 @@
       '</table></td></tr></table></div>';
   }
 
+  // Registers the EmailJS public key on the loaded SDK. In v4, send() also
+  // accepts { publicKey } as its 4th argument, but some SDK builds/paths only
+  // honor a key registered via init() — calling both is belt-and-suspenders and
+  // a common fix for "send silently does nothing / rejects with a public-key
+  // error". Safe to call more than once.
+  function initEmailJs(emailjs) {
+    if (!emailjs || !EMAILJS_PUBLIC_KEY) return;
+    try {
+      // v4 signature (object). Falls back to the v3 string signature if needed.
+      emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    } catch (e) {
+      try { emailjs.init(EMAILJS_PUBLIC_KEY); } catch (e2) { console.error('WELCOME EMAIL ERROR: emailjs.init failed:', e2); }
+    }
+  }
+
   var emailjsLoadPromise = null;
   function loadEmailJs() {
-    if (window.emailjs) return Promise.resolve(window.emailjs);
+    if (window.emailjs) { initEmailJs(window.emailjs); return Promise.resolve(window.emailjs); }
     if (emailjsLoadPromise) return emailjsLoadPromise;
     emailjsLoadPromise = new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = EMAILJS_SDK_URL; s.async = true;
-      s.onload = function () { resolve(window.emailjs); };
-      s.onerror = function () { reject(new Error('EmailJS SDK failed to load')); };
+      s.onload = function () { initEmailJs(window.emailjs); resolve(window.emailjs); };
+      s.onerror = function () { reject(new Error('EmailJS SDK failed to load — check network / ad-blocker / CSP for cdn.jsdelivr.net')); };
       document.head.appendChild(s);
     });
     return emailjsLoadPromise;
   }
 
-  // TESTING FLAG: while true, the welcome email fires on EVERY Google sign-in
-  // (not just brand-new accounts) and the per-uid "already sent" guard is
-  // bypassed, so a repeated sign-in during testing always re-sends. Set back to
-  // false to restore production behavior (send once, only on genuine new-account
-  // creation via getAdditionalUserInfo(result).isNewUser).
-  var WELCOME_EMAIL_TEST_MODE = true;
+  // PRODUCTION: false — the welcome email is sent ONCE per genuinely new
+  // account only (gated by getAdditionalUserInfo(result).isNewUser in the
+  // Google sign-in handler), and the per-uid localStorage guard prevents a
+  // double-send. Flip to true only for temporary live testing (fires on every
+  // sign-in and bypasses the guard).
+  var WELCOME_EMAIL_TEST_MODE = false;
 
   // Fires per account-creation success path (and, while WELCOME_EMAIL_TEST_MODE
   // is on, on every Google sign-in for live testing). A per-uid localStorage
@@ -256,18 +271,21 @@
           subject: 'Welcome to Swimfit — your 3-day free trial is live 🏊',
           message_html: buildWelcomeEmailHtml(first)
         }, { publicKey: EMAILJS_PUBLIC_KEY });
-      }).then(function () {
+      }).then(function (resp) {
         try { localStorage.setItem(guardKey, String(Date.now())); } catch (e) { /* ignore */ }
-        console.info('[Swimfit] Welcome email sent to', user.email);
+        console.log('WELCOME EMAIL SENT:', (resp && resp.status) || 'OK', '→', user.email);
       }).catch(function (err) {
-        // Surface the raw EmailJS error so a bad Service ID / Template ID /
-        // Public Key or template-variable mismatch is immediately visible in
-        // the console rather than being swallowed. Still non-fatal to signup.
-        // A bad Service ID / Template ID / Public Key or a template-variable
-        // mismatch shows up here immediately as "EmailJS error: ...".
-        console.error('EmailJS error:', err);
+        // Surface the EXACT EmailJS failure — an EmailJS reject carries a
+        // numeric `.status` (e.g. 400/403/422) and a human `.text` explaining
+        // the exact cause (bad Public Key, unknown template, blocked origin,
+        // template-variable mismatch, etc.). Log all of it so the real reason a
+        // send fails is never hidden. Still non-fatal to sign-in.
+        console.error('WELCOME EMAIL ERROR:', err);
+        if (err && (err.status !== undefined || err.text !== undefined)) {
+          console.error('WELCOME EMAIL ERROR — status:', err.status, '| text:', err.text);
+        }
       });
-    } catch (e) { console.error('EmailJS error:', e); }
+    } catch (e) { console.error('WELCOME EMAIL ERROR:', e); }
   }
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
@@ -747,17 +765,19 @@
       statusNote.textContent = 'Waiting for Google sign-in…';
       signInWithPopup(auth, googleProvider).then(function (result) {
         statusNote.textContent = 'Signed in as ' + (result.user.displayName || result.user.email) + '.';
-        // Welcome email trigger. In production this is gated to brand-new
-        // accounts only (getAdditionalUserInfo(result).isNewUser). While
-        // WELCOME_EMAIL_TEST_MODE is on it fires on EVERY Google sign-in so the
-        // send can be tested live without needing a fresh account each time.
+        // Welcome email trigger — PRODUCTION behavior: send ONLY to genuinely
+        // new accounts, detected via getAdditionalUserInfo(result).isNewUser
+        // (Firebase's own "was this account just created?" flag). A returning
+        // Google sign-in never re-triggers it. (WELCOME_EMAIL_TEST_MODE, off in
+        // production, can force it on every sign-in for live testing.)
         try {
           var info = getAdditionalUserInfo(result);
           var isNewUser = !!(info && info.isNewUser);
+          console.log('[Swimfit] Google sign-in — isNewUser:', isNewUser, '| email:', result.user.email);
           if (WELCOME_EMAIL_TEST_MODE || isNewUser) {
             sendWelcomeEmail(result.user, result.user.displayName);
           }
-        } catch (e) { console.error('EmailJS error:', e); }
+        } catch (e) { console.error('WELCOME EMAIL ERROR:', e); }
         setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 700);
       }).catch(function (error) {
         statusNote.style.color = '#e5484d';
