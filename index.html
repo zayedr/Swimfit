@@ -83,7 +83,7 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
     setPersistence, browserLocalPersistence, browserSessionPersistence,
     createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
-    sendEmailVerification, updateProfile, getAdditionalUserInfo
+    sendEmailVerification, updateProfile, getAdditionalUserInfo, fetchSignInMethodsForEmail
   } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp,
@@ -233,9 +233,12 @@
         try { localStorage.setItem(guardKey, String(Date.now())); } catch (e) { /* ignore */ }
         console.info('[Swimfit] Welcome email sent to', user.email);
       }).catch(function (err) {
-        console.warn('[Swimfit] Welcome email failed (non-fatal):', err);
+        // Surface the raw EmailJS error so a bad Service ID / Template ID /
+        // Public Key or template-variable mismatch is immediately visible in
+        // the console rather than being swallowed. Still non-fatal to signup.
+        console.error('[Swimfit] Welcome email failed — check EmailJS Service/Template/Public Key IDs:', err);
       });
-    } catch (e) { console.warn('[Swimfit] Welcome email error (non-fatal):', e); }
+    } catch (e) { console.error('[Swimfit] Welcome email error (non-fatal):', e); }
   }
 
   // Exposed so the plain <script> (AI Swim Coach widget) can attach a fresh
@@ -607,9 +610,13 @@
     } else if (Date.now() < trialEndsAt.getTime()) {
       level = 'trial';
     } else {
-      // Trial elapsed, no paid plan — still fully unlocked, just nothing
-      // specific to show on the nav badge.
-      level = 'unlocked';
+      // Trial elapsed with no active paid plan → hard lock. This is a real
+      // access gate now (re-introduced at the user's explicit request): the
+      // paywall overlay below full-screen-locks the site for an 'expired'
+      // swimmer, blocking every interactive section until they subscribe. Only
+      // the admin bypass and an active Paddle plan (both handled above) can
+      // keep a signed-in account out of this state once its 3 days are up.
+      level = 'expired';
     }
     window.__swimfitAccess = { level: level, trialEndsAt: trialEndsAt };
     document.dispatchEvent(new CustomEvent('swimfit:accesschange', { detail: { access: window.__swimfitAccess } }));
@@ -851,9 +858,34 @@
         });
         setTimeout(function () { if (authModal) authModal.classList.remove('open'); }, 900);
       }).catch(function (error) {
+        console.error('[Swimfit] Password auth error:', error);
         passwordAuthBtn.disabled = false;
+        var fallback = isSignup ? 'Could not create your account — please try again.' : 'Could not sign in — please check your email and password.';
+        // Google/password conflict: a swimmer who originally signed up with
+        // "Continue with Google" has no password on their account, so an
+        // Email/Password attempt fails with a generic credential error (on
+        // sign-in) or "email already in use" (on sign-up). Look up which
+        // providers the address actually has and, if it's Google-only, tell
+        // them exactly what to do instead of a confusing "wrong password".
+        var credErrorCodes = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found'];
+        var mightBeGoogleOnly = (!isSignup && credErrorCodes.indexOf(error.code) > -1) ||
+                                (isSignup && error.code === 'auth/email-already-in-use');
+        if (mightBeGoogleOnly && typeof fetchSignInMethodsForEmail === 'function') {
+          fetchSignInMethodsForEmail(auth, email).then(function (methods) {
+            statusNote.style.color = '#e5484d';
+            if (methods && methods.indexOf('google.com') > -1 && methods.indexOf('password') === -1) {
+              statusNote.textContent = 'This account was created with Google. Please click "Continue with Google" to sign in.';
+            } else {
+              statusNote.textContent = describeAuthError(error, fallback);
+            }
+          }).catch(function () {
+            statusNote.style.color = '#e5484d';
+            statusNote.textContent = describeAuthError(error, fallback);
+          });
+          return;
+        }
         statusNote.style.color = '#e5484d';
-        statusNote.textContent = describeAuthError(error, isSignup ? 'Could not create your account — please try again.' : 'Could not sign in — please check your email and password.');
+        statusNote.textContent = describeAuthError(error, fallback);
       });
     });
 
@@ -2284,8 +2316,12 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .paywall-card h2 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: var(--space-2); }
 .paywall-card > p { color: var(--muted); max-width: 44ch; margin-inline: auto; margin-bottom: var(--space-5); }
 .paywall-note { font-size: 0.8rem; color: var(--muted-2); margin-bottom: var(--space-4); }
+.paywall-plans { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-5); }
+.paywall-plans[hidden] { display: none; }
+.paywall-plans .btn { flex: 1 1 auto; min-width: 150px; }
 @media (max-width: 560px) {
   .paywall-card { padding: var(--space-5) var(--space-4); }
+  .paywall-plans { flex-direction: column; }
 }
 body.paywall-locked { overflow: hidden; }
 
@@ -3880,17 +3916,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </div>
 
-<!-- ============================= ACCOUNT SUSPENSION OVERLAY =============================
-     Shown only when an admin has manually suspended this account
-     (accessDisabled). There is no trial/subscription paywall anywhere on
-     this site — this is the one remaining access gate, and it has nothing
-     to do with billing, so there's no "subscribe to fix this" path here. -->
+<!-- ============================= ACCESS-LOCK OVERLAY =============================
+     A full-screen, non-closable lock shown in two cases, driven entirely by
+     the swimmit:accesschange handler which swaps the copy/CTAs per case:
+       • 'expired' — the 3-day free trial has ended with no active plan:
+         shows the plan CTAs so the swimmer can subscribe to regain access.
+       • 'locked'  — an admin has manually suspended the account
+         (accessDisabled): shows a contact-support note, no billing path.
+     The overlay sits at z-index 400 over a blurred backdrop and locks body
+     scroll, so an out-of-trial swimmer cannot bypass it to reach Workouts,
+     Gym, AI Coach or the Tracker. -->
 <div class="paywall-overlay" id="paywallOverlay" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" hidden>
   <div class="paywall-card">
     <div class="paywall-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
-    <h2 id="paywallTitle">Account Access Suspended</h2>
-    <p>Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.</p>
-    <p class="paywall-note">Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.</p>
+    <h2 id="paywallTitle">Your Free Trial Has Ended</h2>
+    <p id="paywallBody">Your 3-day free trial is over. Choose a plan below to unlock Workouts, Gym, the AI Swim Coach and your Distance Tracker again.</p>
+    <div class="paywall-plans" id="paywallPlans">
+      <button type="button" class="btn btn-ghost btn-sm" data-paywall-plan="pro">Pro — $13/mo</button>
+      <button type="button" class="btn btn-primary btn-sm" data-paywall-plan="elite">Elite — $21/mo</button>
+      <button type="button" class="btn btn-outline-maroon btn-sm" data-paywall-plan="ultra">Ultra — $135/yr</button>
+    </div>
+    <p class="paywall-note" id="paywallNote">Questions? Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.</p>
     <button type="button" class="btn btn-ghost btn-sm" id="paywallLogoutBtn">Log Out</button>
   </div>
 </div>
@@ -4791,12 +4837,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
   });
 
-  /* ============================= ACCOUNT SUSPENSION OVERLAY =============================
-     There is no paywall on this site — this overlay exists purely for the
-     one remaining access gate, an admin-issued manual suspension
-     (accessDisabled / adminToggleAccess). It has nothing to do with trial
-     status or subscriptions, so it offers no "subscribe to fix this" path —
-     just a contact-support note and Log Out. */
+  /* ============================= ACCESS-LOCK OVERLAY =============================
+     Full-screen lock shown in two cases (see the overlay markup comment):
+       • 'expired' — trial over, no active plan → subscribe-to-unlock CTAs.
+       • 'locked'  — admin suspension (accessDisabled) → contact-support only.
+     Both hard-lock the page so an out-of-trial swimmer can't reach any
+     interactive section; only Log Out (or, for 'expired', subscribing) exits
+     the state. */
   var paywallLogoutBtn = document.getElementById('paywallLogoutBtn');
   if (paywallLogoutBtn) {
     paywallLogoutBtn.addEventListener('click', function () {
@@ -4804,12 +4851,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (navLogout) navLogout.click();
     });
   }
+  // The paywall's own plan buttons open the exact same Paddle checkout the
+  // Pricing tab's Subscribe buttons use — a successful payment writes the
+  // subscription, which flips access level off 'expired' and drops the lock.
+  document.querySelectorAll('#paywallPlans [data-paywall-plan]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var plan = btn.dataset.paywallPlan;
+      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
+      if (window.__firebaseUser) { goToPaddleCheckout(plan); return; }
+      openAuthModal();
+    });
+  });
   document.addEventListener('swimfit:accesschange', function (e) {
     var access = e.detail.access;
-    var locked = !!(access && access.level === 'locked');
+    var expired = !!(access && access.level === 'expired');
+    var suspended = !!(access && access.level === 'locked');
+    var locked = expired || suspended;
     var overlay = document.getElementById('paywallOverlay');
     if (overlay) overlay.hidden = !locked;
     document.body.classList.toggle('paywall-locked', locked);
+
+    // Swap the overlay's copy/CTAs to match which lock is active.
+    var pTitle = document.getElementById('paywallTitle');
+    var pBody = document.getElementById('paywallBody');
+    var pPlans = document.getElementById('paywallPlans');
+    var pNote = document.getElementById('paywallNote');
+    if (pTitle && pBody && pPlans && pNote) {
+      if (suspended) {
+        pTitle.textContent = 'Account Access Suspended';
+        pBody.textContent = 'Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.';
+        pPlans.hidden = true;
+        pNote.innerHTML = 'Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.';
+      } else {
+        pTitle.textContent = 'Your Free Trial Has Ended';
+        pBody.textContent = 'Your 3-day free trial is over. Choose a plan below to unlock Workouts, Gym, the AI Swim Coach and your Distance Tracker again.';
+        pPlans.hidden = false;
+        pNote.innerHTML = 'Questions? Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.';
+      }
+    }
 
     var fab = document.getElementById('coachFab');
     if (fab) fab.style.display = locked ? 'none' : '';
