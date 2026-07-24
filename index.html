@@ -2501,10 +2501,31 @@ body.paywall-locked { overflow: hidden; }
 .tracker-svg-chart .chart-line { fill: none; stroke: var(--aqua); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tracker-svg-chart .chart-dot { fill: var(--surface); stroke: var(--aqua); stroke-width: 2; }
 .tracker-svg-chart .chart-dot:hover, .tracker-svg-chart .chart-dot.pb-latest { fill: var(--aqua); }
-.tracker-pb-form { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); align-items: center; }
+.tracker-pb-form { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); align-items: center; }
 .tracker-pb-form .form-select, .tracker-pb-form .form-input { padding: 8px 10px; font-size: 0.85rem; width: auto; }
+/* New-PB feedback + the "Your Personal Bests" summary grid — best time per
+   event, rendered the instant a record is logged. A responsive auto-fill grid
+   so stats never get cut off or hidden at any width. */
+.tracker-pb-status { font-size: 0.86rem; font-weight: 600; color: var(--muted); margin-bottom: var(--space-3); }
+.tracker-pb-status.is-record { color: var(--green-bright); }
+.tracker-pb-status[hidden] { display: none; }
+.tracker-pb-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2); margin-bottom: var(--space-4);
+}
+.tracker-pb-grid:empty { display: none; }
+.tracker-pb-item {
+  background: var(--glass-bg, rgba(148,163,184,0.06)); border: 1px solid var(--glass-border, var(--border));
+  border-radius: var(--radius-sm); padding: 10px 12px; min-width: 0;
+}
+.tracker-pb-item-event { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tracker-pb-item-time { font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; color: var(--aqua); line-height: 1.1; margin-top: 3px; text-shadow: 0 0 14px rgba(78,233,255,0.35); }
+.tracker-pb-item-date { font-size: 0.68rem; color: var(--muted-2); margin-top: 2px; }
+.tracker-pb-empty { color: var(--muted-2); font-size: 0.82rem; margin-bottom: var(--space-4); }
+.tracker-pb-empty[hidden] { display: none; }
 @media (max-width: 900px) {
   .tracker-charts-grid { grid-template-columns: 1fr; }
+  .tracker-pb-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
 
 .tracker-entries-head { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--space-3); }
@@ -3318,6 +3339,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <input type="date" id="trackerPbDate" class="form-input" required>
             <button type="submit" class="btn btn-outline-aqua btn-sm">Log PB</button>
           </form>
+          <p class="tracker-pb-status" id="trackerPbStatus" hidden></p>
+          <div class="tracker-pb-grid" id="trackerPbList"></div>
+          <p class="tracker-pb-empty" id="trackerPbListEmpty">Log your first personal best above — your fastest time for each stroke &amp; distance will show here instantly.</p>
           <div id="trackerPbChart"></div>
           <p class="tracker-chart-empty" id="trackerPbEmpty">Log at least two times for the same discipline + distance to see a progression trend.</p>
         </div>
@@ -5676,12 +5700,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // opening swim with identical supporting blocks.
     var warmupDrillReps = Math.max(4, Math.min(8, Math.round(warmupM / 100) + 2));
     var warmupBuildReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
+    // Every warm-up now includes a dedicated KICK SET with an underwater-dolphin
+    // focus — one of the elite fundamentals (explosive power, starts & turns,
+    // kick, underwater dolphin) this generator deliberately emphasizes. The
+    // Pre-Set activation archetypes cover starts/turns/explosive power; the
+    // kick + underwater work lives here so it appears in every single session.
+    var warmupKickReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
+    var hasKickboard = state.equipment.indexOf('Kickboard') > -1;
     var warmup = [
       buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
-      buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace')
+      buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
+      buildSet(warmupKickReps, 50, 'Kick — 6–8 underwater dolphin kicks off every wall, then strong flutter, tight streamline', hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
     ];
     if (state.level !== 'beginner') {
-      warmup.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
+      warmup.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
     }
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
@@ -6468,56 +6500,41 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // recomputing the workout a second time) so the PDF always matches
     // exactly what's on screen.
     function extractStructuredWorkout(rootEl) {
-      var planNotes = Array.prototype.filter.call(rootEl.children, function (el) { return el.tagName === 'P'; })
-        .map(function (p) { return p.textContent.trim(); });
+      // Social-ready PDF: keep ONLY the core structure — stage, each set's
+      // reps×distance + stroke, and the INTERVAL send-off (e.g. "4×200 @ 3:00").
+      // The coaching blurbs (plan notes, per-block intents, technical tips) and
+      // the rest/total clock figures are deliberately dropped for a clean,
+      // glanceable, photo-ready card.
       var blocks = Array.prototype.map.call(rootEl.querySelectorAll('.workout-block'), function (block) {
         var titleEl = block.querySelector('.workout-block-title');
-        // The title element also carries a "N sets" count span (see
-        // renderBlock's <summary>) purely for the on-screen collapsed view —
-        // strip it before reading the title text so the PDF title doesn't
-        // come out as e.g. "Warm-Up3 sets" with no separator.
         var titleText = '';
         if (titleEl) {
           titleText = Array.prototype.filter.call(titleEl.childNodes, function (n) { return n.nodeType === 3; })
             .map(function (n) { return n.textContent; }).join('').trim();
         }
-        var intentEl = block.querySelector('.coach-intent-body');
+        var stage = block.getAttribute('data-stage') || '';
         var rows = [];
         var currentRound = null;
-        // Set rows and round labels are nested inside .workout-block-body >
-        // .set-group, so walk them in document order via querySelectorAll
-        // (a combined selector preserves ordering, letting us still attach
-        // each set to the round-label that precedes it).
         Array.prototype.forEach.call(block.querySelectorAll('.round-label, .set-row'), function (child) {
-          if (child.classList.contains('round-label')) currentRound = child.textContent.trim();
-          else {
-            var paceEl = child.querySelector('.set-pace');
-            var repEl = child.querySelector('.set-rep');
-            var titleText = child.querySelector('.set-title').textContent.trim();
-            // Prefix the reps×distance chip (e.g. "7 × 50m") onto the title so
-            // the PDF keeps the same at-a-glance anchor the on-screen row shows.
-            if (repEl) titleText = repEl.textContent.replace(/\s+/g, ' ').trim() + '  ' + titleText;
-            // .set-stats is now a set of <span class="set-stat">value<em>label</em></span>
-            // chunks; join each stat's own text with " · " so the PDF reads
-            // "1:45 int · 15s rest · 7:00 tot" instead of a mashed-together run.
-            var statParts = Array.prototype.map.call(child.querySelectorAll('.set-stat'), function (st) {
-              var em = st.querySelector('em');
-              var label = em ? em.textContent.trim() : '';
-              var value = (em ? st.textContent.replace(em.textContent, '') : st.textContent).trim();
-              return value + (label ? ' ' + label : '');
-            });
-            rows.push({
-              round: currentRound,
-              title: titleText,
-              pace: paceEl ? paceEl.textContent.trim() : '',
-              stats: statParts.join(' · ')
-            });
-          }
+          if (child.classList.contains('round-label')) { currentRound = child.textContent.trim(); return; }
+          var titleNode = child.querySelector('.set-title');
+          var full = titleNode ? titleNode.textContent.trim() : '';
+          // Drop the descriptive coaching tail after the em-dash, use a compact
+          // "reps×dist" glyph, and cap length so every set is one clean line.
+          var label = full.split(' — ')[0].replace(/(\d)\s*[x×]\s*(\d)/g, '$1×$2').trim();
+          if (label.length > 48) label = label.slice(0, 46).trim() + '…';
+          // Interval only (the send-off), read from the 'int' stat chunk.
+          var interval = '';
+          Array.prototype.forEach.call(child.querySelectorAll('.set-stat'), function (st) {
+            var em = st.querySelector('em');
+            if (em && em.textContent.trim() === 'int') interval = st.textContent.replace(em.textContent, '').trim();
+          });
+          var paceEl = child.querySelector('.set-pace');
+          rows.push({ round: currentRound, label: label, interval: interval, pace: paceEl ? paceEl.textContent.trim() : '' });
         });
-        return { title: titleText, intent: intentEl ? intentEl.textContent.trim() : null, rows: rows };
+        return { title: titleText, stage: stage, rows: rows };
       });
-      var tips = Array.prototype.map.call(rootEl.querySelectorAll('.coach-tips li'), function (li) { return li.textContent.trim(); });
-      return { planNotes: planNotes, blocks: blocks, tips: tips };
+      return { blocks: blocks };
     }
 
     function extractStructuredGym(rootEl) {
@@ -6539,180 +6556,160 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return { phases: phases };
     }
 
-    // Shared branded header/footer so both PDFs (swim workout + gym
-    // routine) look like the same product, not two one-off exports.
-    function pdfHeaderBand(doc) {
-      var pageW = doc.internal.pageSize.getWidth();
-      doc.setFillColor(34, 211, 238); // --aqua
-      doc.rect(0, 0, pageW, 6, 'F');
+    // ---- Social-ready dark "story" PDF theme, matching the SwimFit app ----
+    // A 9:16 portrait "card" layout on a deep-slate background with neon stage
+    // accents — photo-ready for an Instagram/TikTok story, not a plain A4 sheet.
+    var PDF_PAGE = [720, 1280]; // 9:16 portrait
+    var PDF = {
+      bg: [12, 18, 32], card: [23, 32, 51], border: [42, 56, 84],
+      white: [248, 250, 252], muted: [174, 187, 204], dim: [124, 138, 160],
+      aqua: [78, 233, 255], green: [57, 255, 158], gold: [231, 182, 91],
+      peri: [165, 180, 252], maroon: [224, 106, 130]
+    };
+    var STAGE_RGB = { warmup: PDF.aqua, preset: PDF.gold, main: PDF.green, cooldown: PDF.peri };
+
+    function pdfFillPage(doc) {
+      var w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+      doc.setFillColor(PDF.bg[0], PDF.bg[1], PDF.bg[2]); doc.rect(0, 0, w, h, 'F');
+      // Two-tone top accent band (aqua -> green) for the SwimFit identity.
+      doc.setFillColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.rect(0, 0, w, 9, 'F');
+      doc.setFillColor(PDF.aqua[0], PDF.aqua[1], PDF.aqua[2]); doc.rect(0, 0, w * 0.52, 9, 'F');
     }
-    function pdfTitleBlock(doc, pageTitle) {
-      var pageW = doc.internal.pageSize.getWidth();
-      pdfHeaderBand(doc);
-      var y = 42;
-      var logoImg = document.querySelector('.brand img');
-      if (logoImg && logoImg.src) {
-        try { doc.addImage(logoImg.src, 'PNG', 40, y - 14, 105, 18); } catch (e) { /* logo optional */ }
+    function pdfWordmarkHeader(doc, subtitle) {
+      pdfFillPage(doc);
+      var w = doc.internal.pageSize.getWidth();
+      var hx = 46, hy = 78;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(34);
+      doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]); doc.text('SWIM', hx, hy);
+      var ww = doc.getTextWidth('SWIM');
+      doc.setTextColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.text('FIT', hx + ww + 2, hy);
+      if (subtitle) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5);
+        doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
+        doc.text(subtitle, hx, hy + 24);
       }
-      y += 34;
-      doc.setTextColor(20, 20, 20);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text(pageTitle, 40, y);
-      y += 10;
-      doc.setDrawColor(156, 42, 68); // --maroon
-      doc.setLineWidth(1.2);
-      doc.line(40, y, pageW - 40, y);
-      return y + 20;
+      doc.setDrawColor(PDF.border[0], PDF.border[1], PDF.border[2]); doc.setLineWidth(1);
+      doc.line(hx, hy + 40, w - hx, hy + 40);
+      return hy + 68;
     }
-    function pdfFooterOnAllPages(doc) {
-      var pageW = doc.internal.pageSize.getWidth();
-      var pageH = doc.internal.pageSize.getHeight();
-      var pageCount = doc.internal.getNumberOfPages();
-      for (var p = 1; p <= pageCount; p++) {
+    function pdfStoryFooter(doc) {
+      var w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+      var n = doc.internal.getNumberOfPages();
+      for (var p = 1; p <= n; p++) {
         doc.setPage(p);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Generated by Swimfit — swimfit.online', 40, pageH - 20);
-        doc.text(String(p) + ' / ' + pageCount, pageW - 70, pageH - 20);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.setTextColor(PDF.aqua[0], PDF.aqua[1], PDF.aqua[2]);
+        doc.text('swimfit.online', w / 2, h - 30, { align: 'center' });
       }
+    }
+    // Draws one accent-railed stage card and returns the new y below it.
+    function pdfStageCard(doc, opts) {
+      var pageW = doc.internal.pageSize.getWidth();
+      var marginX = 46, cardX = marginX, cardW = pageW - marginX * 2;
+      var accent = opts.accent;
+      doc.setFillColor(PDF.card[0], PDF.card[1], PDF.card[2]);
+      doc.roundedRect(cardX, opts.y, cardW, opts.height, 16, 16, 'F');
+      doc.setFillColor(accent[0], accent[1], accent[2]);
+      doc.roundedRect(cardX, opts.y + 10, 6, opts.height - 20, 3, 3, 'F');
+      var tx = cardX + 26, ty = opts.y + 36;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+      doc.setTextColor(accent[0], accent[1], accent[2]);
+      doc.text(String(opts.title).toUpperCase(), tx, ty);
+      if (opts.badge) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
+        doc.text(opts.badge, cardX + cardW - 22, ty, { align: 'right' });
+      }
+      return { tx: tx, cardX: cardX, cardW: cardW, ry: ty + 30 };
     }
 
     function buildWorkoutPdf(jsPDFCtor, data) {
-      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+      var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
-      var marginX = 40;
-      var y = pdfTitleBlock(doc, 'Swim Workout');
+      var subtitle;
+      try {
+        subtitle = state.disciplines.map(strokeLabelSingle).join(' + ') + '   ·   ' + formatDistanceM(state.distance, 1) +
+          '   ·   ' + new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      } catch (e) { subtitle = new Date().toLocaleDateString(); }
+      var y = pdfWordmarkHeader(doc, subtitle);
 
       function ensureSpace(need) {
-        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+        if (y + need > pageH - 60) { doc.addPage(); pdfFillPage(doc); y = 60; }
       }
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9.5);
-      doc.setTextColor(90, 90, 90);
-      data.planNotes.forEach(function (line) {
-        doc.splitTextToSize(line, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
-        y += 4;
-      });
-      y += 8;
 
       data.blocks.forEach(function (block) {
-        ensureSpace(28);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12.5);
-        doc.setTextColor(21, 137, 153);
-        doc.text(block.title.toUpperCase(), marginX, y);
-        y += 15;
-
-        if (block.intent) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(9);
-          doc.setTextColor(110, 110, 110);
-          doc.splitTextToSize('Coach’s Intent: ' + block.intent, pageW - marginX * 2).forEach(function (l) { ensureSpace(12); doc.text(l, marginX, y); y += 11; });
-          y += 4;
-        }
-
-        var lastRound = null;
-        block.rows.forEach(function (row) {
-          if (row.round && row.round !== lastRound) {
-            ensureSpace(15);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9.5);
-            doc.setTextColor(156, 42, 68);
-            doc.text(row.round, marginX, y);
-            y += 13;
-            lastRound = row.round;
-          }
-          ensureSpace(26);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(10);
-          doc.setTextColor(20, 20, 20);
-          var titleLines = doc.splitTextToSize(row.title, pageW - marginX * 2 - 130);
-          titleLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 11); });
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.setTextColor(90, 90, 90);
-          doc.text(row.stats, pageW - marginX - 120, y);
-          y += Math.max(titleLines.length * 11, 11) + 3;
-          if (row.pace) {
-            doc.setFontSize(8.5);
-            doc.setTextColor(21, 137, 153);
-            doc.splitTextToSize(row.pace, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
-          }
-          y += 6;
+        var accent = STAGE_RGB[block.stage] || PDF.aqua;
+        var lineH = 30, roundH = 26, headH = 46, padB = 18;
+        var lastR = null, height = headH;
+        block.rows.forEach(function (r) {
+          if (r.round && r.round !== lastR) { height += roundH; lastR = r.round; }
+          height += lineH;
         });
-        y += 6;
+        height += padB;
+        ensureSpace(height + 16);
+
+        var c = pdfStageCard(doc, { y: y, height: height, title: block.title, accent: accent });
+        var ry = c.ry;
+        lastR = null;
+        block.rows.forEach(function (r) {
+          if (r.round && r.round !== lastR) {
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+            doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
+            doc.text(String(r.round).toUpperCase(), c.tx, ry);
+            ry += roundH; lastR = r.round;
+          }
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5);
+          doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+          var lines = doc.splitTextToSize(r.label, c.cardW - 26 - 96);
+          doc.text(lines[0], c.tx, ry);
+          if (r.interval) {
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5);
+            doc.setTextColor(accent[0], accent[1], accent[2]);
+            doc.text('@ ' + r.interval, c.cardX + c.cardW - 22, ry, { align: 'right' });
+          }
+          ry += lineH;
+        });
+
+        y += height + 16;
       });
 
-      if (data.tips.length) {
-        ensureSpace(24);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12.5);
-        doc.setTextColor(196, 59, 92);
-        doc.text('COACH’S TECHNICAL TIPS', marginX, y);
-        y += 16;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.5);
-        doc.setTextColor(40, 40, 40);
-        data.tips.forEach(function (tip) {
-          doc.splitTextToSize('• ' + tip, pageW - marginX * 2).forEach(function (l) { ensureSpace(13); doc.text(l, marginX, y); y += 13; });
-          y += 2;
-        });
-      }
-
-      pdfFooterOnAllPages(doc);
+      pdfStoryFooter(doc);
       return doc;
     }
 
     function buildGymPdf(jsPDFCtor, data, focusLabel) {
-      var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
-      var pageW = doc.internal.pageSize.getWidth();
+      var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
       var pageH = doc.internal.pageSize.getHeight();
-      var marginX = 40;
-      var y = pdfTitleBlock(doc, 'Gym Routine — ' + focusLabel);
+      var subtitle = focusLabel + '   ·   ' + new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      var y = pdfWordmarkHeader(doc, subtitle);
+      var phaseAccents = [PDF.aqua, PDF.gold, PDF.green, PDF.peri];
 
       function ensureSpace(need) {
-        if (y + need > pageH - 40) { doc.addPage(); pdfHeaderBand(doc); y = 40; }
+        if (y + need > pageH - 60) { doc.addPage(); pdfFillPage(doc); y = 60; }
       }
 
-      data.phases.forEach(function (phase) {
-        ensureSpace(28);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12.5);
-        doc.setTextColor(21, 137, 153);
-        doc.text(phase.title.toUpperCase(), marginX, y);
-        y += 16;
-
+      data.phases.forEach(function (phase, pi) {
+        var accent = phaseAccents[pi % phaseAccents.length];
+        var lineH = 34, headH = 46, padB = 18;
+        var height = headH + phase.exercises.length * lineH + padB;
+        ensureSpace(height + 16);
+        var c = pdfStageCard(doc, { y: y, height: height, title: phase.title, accent: accent });
+        var ry = c.ry;
         phase.exercises.forEach(function (ex) {
-          ensureSpace(34);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(10.5);
-          doc.setTextColor(20, 20, 20);
-          var nameLines = doc.splitTextToSize(ex.name, pageW - marginX * 2 - 110);
-          nameLines.forEach(function (l, i) { doc.text(l, marginX, y + i * 12); });
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9.5);
-          doc.setTextColor(21, 137, 153);
-          doc.text(ex.prescription, pageW - marginX - 100, y);
-          y += Math.max(nameLines.length * 12, 12) + 2;
-          if (ex.load) {
-            doc.setFontSize(8.5);
-            doc.setTextColor(46, 160, 90);
-            doc.splitTextToSize(ex.load, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
-          }
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(8.5);
-          doc.setTextColor(110, 110, 110);
-          doc.splitTextToSize(ex.cue, pageW - marginX * 2).forEach(function (l) { ensureSpace(11); doc.text(l, marginX, y); y += 10; });
-          y += 6;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+          doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+          var lines = doc.splitTextToSize(ex.name, c.cardW - 26 - 110);
+          doc.text(lines[0], c.tx, ry);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+          doc.setTextColor(accent[0], accent[1], accent[2]);
+          doc.text(ex.prescription, c.cardX + c.cardW - 22, ry, { align: 'right' });
+          ry += lineH;
         });
-        y += 6;
+        y += height + 16;
       });
 
-      pdfFooterOnAllPages(doc);
+      pdfStoryFooter(doc);
       return doc;
     }
 
@@ -8365,6 +8362,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       container.innerHTML = svgChart(caption + '<path class="chart-line" d="' + pathD + '"/>' + dots, W, H, 'Personal best time progression for ' + parts[0] + ' ' + parts[1]);
     }
 
+    // "Your Personal Bests" grid — the swimmer's single fastest time for every
+    // discipline+distance they've ever logged, sorted by distance. Re-rendered
+    // the instant a new PB is logged, so a new record shows on the dashboard
+    // immediately without a reload.
+    var PB_DIST_ORDER = ['50m', '100m', '200m', '400m', '800m', '1500m'];
+    function renderPbList() {
+      var listEl = document.getElementById('trackerPbList');
+      var emptyEl = document.getElementById('trackerPbListEmpty');
+      if (!listEl) return;
+      var best = {}; // "discipline|distance" -> { discipline, distanceLabel, timeSeconds, loggedAt }
+      cachedPbEntries.forEach(function (e) {
+        var key = e.discipline + '|' + e.distanceLabel;
+        if (!best[key] || e.timeSeconds < best[key].timeSeconds) best[key] = e;
+      });
+      var items = Object.keys(best).map(function (k) { return best[k]; });
+      if (!items.length) {
+        listEl.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      items.sort(function (a, b) {
+        if (a.discipline !== b.discipline) return a.discipline < b.discipline ? -1 : 1;
+        return PB_DIST_ORDER.indexOf(a.distanceLabel) - PB_DIST_ORDER.indexOf(b.distanceLabel);
+      });
+      listEl.innerHTML = items.map(function (e) {
+        return '<div class="tracker-pb-item">' +
+          '<div class="tracker-pb-item-event">' + e.discipline + ' · ' + e.distanceLabel + '</div>' +
+          '<div class="tracker-pb-item-time">' + formatTime(e.timeSeconds) + '</div>' +
+          '<div class="tracker-pb-item-date">' + e.loggedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + '</div>' +
+          '</div>';
+      }).join('');
+    }
+
     function renderEntries() {
       entriesList.innerHTML = '';
       if (!cachedEntries.length) {
@@ -8441,6 +8472,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       window.__pbLogQueryAll().then(function (entries) {
         cachedPbEntries = entries;
         renderPbChart();
+        renderPbList();
       }).catch(function () {});
     }
 
@@ -8506,12 +8538,29 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           timeSeconds: timeSeconds,
           loggedAt: loggedDate
         };
+        // Is this a NEW personal best for this exact event (faster than any
+        // previously-logged time for the same discipline+distance)?
+        var eventKey = entry.discipline + '|' + entry.distanceLabel;
+        var priorBest = null;
+        cachedPbEntries.forEach(function (pe) {
+          if (pe.discipline + '|' + pe.distanceLabel === eventKey && (priorBest === null || pe.timeSeconds < priorBest)) priorBest = pe.timeSeconds;
+        });
+        var isNewBest = priorBest === null || timeSeconds < priorBest;
         var submitBtn = pbForm.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.disabled = true;
         window.__pbLogAdd(entry).then(function (ref) {
           cachedPbEntries.push({ id: ref.id, discipline: entry.discipline, distanceLabel: entry.distanceLabel, timeSeconds: timeSeconds, loggedAt: loggedDate });
           renderPbChart();
+          renderPbList();
           pbTimeInput.value = '';
+          var pbStatus = document.getElementById('trackerPbStatus');
+          if (pbStatus) {
+            pbStatus.hidden = false;
+            pbStatus.classList.toggle('is-record', isNewBest);
+            pbStatus.textContent = isNewBest
+              ? '🎉 New personal best! ' + entry.discipline + ' ' + entry.distanceLabel + ' — ' + formatTime(timeSeconds)
+              : 'Logged ' + entry.discipline + ' ' + entry.distanceLabel + ' — ' + formatTime(timeSeconds) + ' (your best is ' + formatTime(priorBest) + ').';
+          }
         }).catch(function () {}).finally(function () {
           if (submitBtn) submitBtn.disabled = false;
         });
@@ -8531,7 +8580,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       } else {
         loadedForUid = null; pbLoadedForUid = null;
         cachedEntries = []; cachedPbEntries = [];
-        renderStat(); renderEntries(); renderPbChart();
+        renderStat(); renderEntries(); renderPbChart(); renderPbList();
       }
     });
     // loadEntriesIfNeeded() only ever fetches once per signed-in session

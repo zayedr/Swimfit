@@ -1844,6 +1844,45 @@ signup fires `emailjs.send` and stays on `'trial'`, a 5-day-old account hard-loc
 ~1h-left trial badge carries `is-critical`, workouts/gym/PDF still work, and there are zero page
 errors.
 
+**Both PDF exports (swim + gym) were redesigned into a dark, social-media / story-ready card
+layout, the generated warm-up gained a dedicated kick + underwater-dolphin set, and the Tracker
+grew a live "Your Personal Bests" grid.**
+
+- **PDF redesign (swim + gym).** `wirePdfExport()`'s builders were rewritten from a plain white A4
+  sheet into a **9:16 portrait** (`PDF_PAGE = [720,1280]`) deep-slate "story" card, matching the
+  app's own dark identity. Shared helpers `pdfFillPage()` (dark bg + aqua→green top accent band),
+  `pdfWordmarkHeader()` (SWIM/FIT wordmark + a one-line `discipline · distance · date` subtitle),
+  `pdfStageCard()` (a rounded card with a stage-accent left rail), and `pdfStoryFooter()`
+  (`swimfit.online`, centered aqua) drive both. Each swim stage (Warm-Up aqua / Pre-Set gold /
+  Main green / Cool-Down periwinkle) and each gym phase is one accent-railed card. **All fluff was
+  removed** — plan-note paragraphs, per-block "Coach's Intent", and the "Coach's Technical Tips"
+  list are gone from the export, as are the **rest/total clock figures**; each set now renders as a
+  single clean line — `4×200m Freestyle` on the left, the **interval send-off `@ 3:00` on the
+  right** (read from the row's `int` stat only). `extractStructuredWorkout()` was rewritten to
+  return `{title, stage, rows:[{round,label,interval,pace}]}` — `label` is the set title truncated
+  at the em-dash and capped to ~48 chars with a compact `×` glyph, so every set is one glanceable
+  line. `extractStructuredGym()` is unchanged (name + prescription used; the cue is intentionally
+  not rendered). The old `pdfHeaderBand`/`pdfTitleBlock`/`pdfFooterOnAllPages` helpers were
+  removed. Verified by rendering the produced PDF: dark theme, color-coded stage cards, `@ m:ss`
+  intervals, both exports download with zero errors.
+- **Warm-up now always includes a kick set with underwater-dolphin focus** (`'Kick — 6–8 underwater
+  dolphin kicks off every wall, then strong flutter, tight streamline'`, using a Kickboard when
+  selected), and the non-beginner "quick build" 25s line now names the explosive push-off / fast
+  breakout. Together with the Pre-Set activation archetypes (which already cover explosive power,
+  starts, and turns), every generated session now hits the four elite fundamentals — explosive
+  power, starts & turns, kick, and underwater dolphin — with the kick+underwater work guaranteed in
+  every warm-up rather than only when an activation archetype rolls it.
+- **Tracker "Your Personal Bests" grid.** A new `renderPbList()` renders the swimmer's single
+  fastest time per discipline+distance (best-of, sorted by distance) into `#trackerPbList` — a
+  responsive `auto-fill minmax` grid of glass tiles (event label, neon-aqua time, date) that never
+  clips or hides a stat at any width. It re-renders the instant a PB is logged (wired alongside
+  `renderPbChart()` at load, on submit, and on sign-out), and the submit handler now detects whether
+  the new time beats the prior best for that exact event and shows a `#trackerPbStatus` line —
+  "🎉 New personal best! …" (green `is-record`) or a "logged … (your best is …)" note otherwise.
+  Verified via Playwright: logging 1:05 then 1:02 (faster) flags a record and the tile shows 1:02;
+  a subsequent 1:10 is correctly not a record and the best stays 1:02; a second event adds a second
+  tile — all appearing immediately with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
