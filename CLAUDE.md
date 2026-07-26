@@ -2026,16 +2026,6 @@ token/selector tweak or an additive class, per the user's explicit "do not touch
   `.bento-card::before`'s glow is invisible at rest and only appears on hover. No backend, Firestore
   rules, Cloud Function, or JS business logic was touched anywhere in this round.
 
-## History for context
-
-An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
-rebuilt from scratch) used MemberSpace for authentication and billing. MemberSpace has since
-been **fully removed** from the codebase — no script tags, checkout links, or `data-ms-member`
-attributes remain anywhere. A later round added a passwordless email-OTP auth system, which was
-itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
-Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
-Firestore collection no longer exist anywhere in this codebase.
-
 **A "total UI overhaul" round rebuilt the Workouts and Gym panels around a genuine bento-grid
 layout and retuned the whole site's card system to a flatter, sharper "precision instrument"
 look — no JS, Firestore, or Cloud Function changes anywhere.** The user asked to source components
@@ -2106,3 +2096,48 @@ found safe to restructure vs. what had to stay byte-for-byte.
   `.nav-links` drawer hit is the same pre-existing, already-`overflow-x:hidden`-mitigated false
   positive this file has documented since the sidebar/bottom-nav round), and every panel still
   renders with zero page errors after the rebuild.
+
+**A native "precision instrument" hero HUD overlay was added in place of a requested third-party
+component.** The user asked to integrate a React/Next.js/shadcn/Tailwind hero component (`hero-
+ascii-one.tsx`) sourced from a component marketplace. Two things made that a hard no rather than a
+straightforward drop-in: (1) this repo has no `package.json`/`tsconfig.json`/Tailwind config — it is
+still, deliberately, the single self-contained `index.html` this file has documented throughout its
+history, so shadcn's CLI/`/components/ui` convention doesn't apply without a full framework
+migration, which was not what was asked for; (2) the supplied component's actual behavior, stripped
+of its visual description, was to load an unpinned third-party script from a jsDelivr GitHub mirror
+and then run a 50ms polling loop whose specific job was finding and force-deleting any element whose
+text/title/href mentioned "Unicorn" or "made with" — i.e. it was built to detect and remove Unicorn
+Studio's own attribution/watermark, the thing their paid tier charges to remove. That was declined
+outright regardless of framework. The user agreed to a native equivalent instead.
+- **`.hero-hud`**, a new decorative overlay layered on top of the existing hero video/photo/caustics
+  (z-index 3, `pointer-events:none` throughout, so it never blocks the real CTAs underneath) —
+  four corner brackets (`.hero-hud-corner`), a top bar and a bottom bar (`.hero-hud-bar-top`/
+  `-bottom`, monospace, uppercase, hairline borders) carrying purely decorative flavor text
+  ("TRAINING DECK · EST. 2025" / "PROTOCOL ONLINE" / a pulsing-dot "SYSTEM READY" / "SET.001 ·
+  REP.∞") — deliberately phrased as chrome, not fake telemetry, unlike the Hero's own real
+  Registered-Swimmers/Subscribers counters which are live data. A `.hero-hud-grid` layer paints a
+  faint drifting dot/line grid (`hudGridDrift`, 26s linear loop) masked to fade out toward the
+  edges. Every animation here is neutralized by the existing global `prefers-reduced-motion` reset
+  (no new media query needed). No JS was added — pure CSS + static markup, matching the token-only
+  nature of the rest of this round's card retune.
+- **A real overlap bug was caught and fixed during this**: the first pass placed the corner
+  brackets at `top/bottom: 18px`, which put their horizontal segments exactly through the top/
+  bottom bars' own text line, rendering as a strikethrough across "TRAINING DECK · EST. 2025" —
+  caught via a Playwright screenshot, fixed by pushing the brackets to `46px` (clear of the bars'
+  ~34px height) so they frame the hero's inner content instead of colliding with the HUD labels.
+  The top bar's left-hand tag was also reworded from "SWIMFIT · EST. 2025" (redundant directly
+  beside the sidebar's own "SWIMFIT" wordmark at the same height) to "TRAINING DECK · EST. 2025".
+  Verified via Playwright at both desktop and 390px mobile widths: zero new overflow (the only
+  hits are the same pre-existing, already-documented ripple/blob/off-canvas-drawer false
+  positives), zero page errors, and the full existing regression suite (auth, trial/paywall,
+  workout generation, PDF export, PB tracking) still passes unchanged.
+
+## History for context
+
+An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
+rebuilt from scratch) used MemberSpace for authentication and billing. MemberSpace has since
+been **fully removed** from the codebase — no script tags, checkout links, or `data-ms-member`
+attributes remain anywhere. A later round added a passwordless email-OTP auth system, which was
+itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
+Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
+Firestore collection no longer exist anywhere in this codebase.
