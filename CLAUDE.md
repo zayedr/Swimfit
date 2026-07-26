@@ -2222,6 +2222,78 @@ Auth changes anywhere.**
   on both surfaces, the Pricing count-up, and the mobile bottom-nav + off-canvas drawer) with zero
   page errors throughout.
 
+**A "borderless/frameless, unified background" round reversed most of the "precision instrument"
+card styling from the immediately preceding rounds, per explicit user request.** Pure CSS/markup —
+no JS logic, Firestore shape, or Cloud Function changes anywhere.
+
+- **One shared background across every tab.** `.dash-ambient-bg::after` (the technical grid-line
+  layer sitting behind `#dashboard`, i.e. every tab panel) was rewritten from a diagonal
+  repeating-stripe pattern to the exact same dot/line grid the Hero's own `.hero-hud-grid` uses
+  (`42px` linear-gradient grid, `dashAmbientCaustic` drift), so Workouts/Gym/Tracker/Gear/Academy/
+  Admin/Settings/Support/Pricing all read as a continuous extension of the landing page's dark
+  tactical-grid identity instead of each tab having its own distinct ambient treatment.
+- **Every "card" container lost its background, border, and box-shadow — content now sits directly
+  on that shared background.** Stripped down to plain padding (usually with a single thin
+  `border-top`/`border-bottom` hairline as the only remaining "next section" separator):
+  `.card`/`.glass-card`, `.bento-card` (kept only a 2px hover-only bottom accent line, no resting
+  chrome), `.quote-card`, `.result-panel` (also dropped its light-on-dark token-rescoping block —
+  see below — and the animated `.result-panel-water-bg` layers entirely, keeping only the single
+  `.result-watermark` icon), `.workout-ai-panel`/`.workout-ai-signed-out`, `.workout-block` (the
+  generated workout's stage cards — kept a bare `border-left: 3px solid var(--stage-color)` as the
+  sole surviving visual cue for the warmup/preset/main/cooldown color-coding, since that's
+  functional identity-encoding rather than decorative container chrome), every Tracker card class
+  (`.tracker-log-form`/`-stat-card`/`-analytics-tile`/`-goal-card`/`-chart-card`), `.admin-stat-tile`,
+  `.settings-card` (kept its aqua/green/maroon rotating top accent bar as the one remaining "card
+  family" cue), and the Admin Panel's two-column shell (`.admin-users-col`/`.admin-chat-col`, plus
+  `.admin-chat-header`/`.admin-chat-form`'s own `background: var(--bg-alt)` fills, which were
+  rendering as a visibly boxed message panel even after the outer shell was stripped — caught via a
+  Playwright screenshot, not just a code read). A **consolidated override rule**
+  (`.tracker-log-form, .tracker-goal-card, .tracker-chart-card { background: var(--glass-bg); ... }`)
+  that would have silently re-applied the old glass-card look to three just-stripped classes,
+  because it appeared later in the stylesheet and would have won the cascade, was found by reading
+  forward past each edit before considering it done, and deleted outright. `.result-panel`'s old
+  light-on-dark token-rescoping block (`--fg`/`--muted`/`--aqua`/etc. pinned to fixed bright values)
+  existed only to keep text readable against that panel's own always-dark background in Light
+  mode; once the background is gone the panel just inherits the shared page background (dark in
+  Dark mode, light in Light mode, both already legible), so the rescoping block became actively
+  harmful rather than merely unnecessary and was deleted rather than kept. The chat-thread surfaces
+  (`.coach-page-shell`/`.support-page-shell`) were deliberately left as bounded scrollable panels —
+  a messaging-app thread list needs a defined boundary to read correctly, unlike a config form or
+  stat tile, so this is a disclosed scope boundary rather than an oversight; Pricing's `.price-card`
+  plan-comparison cards were left alone for the same reason (a plan comparison table, not an "input
+  panel," per the user's own framing of the ask).
+- **Workouts was re-architected into a literal 2-column split**, replacing the previous 12-column
+  bento-grid arrangement (`.workouts-bento`) with `.workouts-columns` (flex row ≥1000px, stacks to
+  one column below it) wrapping two new `.workouts-col-left`/`.workouts-col-right` containers.
+  Every input control (Swimmer Profile, Personal Bests, Discipline, Target Distance, Equipment,
+  Fitness Goals, Level + the Generate button) now stacks vertically in the left column in source
+  order, separated only by a thin `border-top` hairline between items (`.workouts-col-left >
+  .bento-card`) instead of occupying its own grid cell; the Quote card, the generated-workout result
+  panel, and the inline AI assistant panel all moved into the right column. Every JS-referenced
+  element id inside these cells (`swimmerAge`, `pbDistance*`/`pbTime*`, `disciplineChips`,
+  `distanceSlider`/`distanceValue`, `equipmentGrid`, `goalChips`, `levelTabs`, `generateBtn`,
+  `quoteText`/`quoteGoal`, `workoutResult`, `workoutPdfBtn`, the `workoutAi*` ids) was left
+  completely untouched — only the wrapping `<div>` structure and CSS changed, never the JS-rendered
+  content those wrappers hold.
+- **A real, previously-invisible mobile wrapping bug was caught and fixed while screenshotting the
+  new left column at 390px**: `.config-label` (the small-caps heading + parenthetical hint row atop
+  each input group, e.g. "PERSONAL BESTS (optional — pick your best race distance per stroke...)")
+  had no `flex-wrap`, so on a narrow viewport the long hint text ran off the right edge of the
+  screen instead of wrapping — masked in every earlier bento-grid round because each cell's grid
+  column was narrower at desktop widths where this was tested, and only became visible now that the
+  left column is a full-width flex item at mobile widths. Fixed with `flex-wrap: wrap; max-width:
+  100%` on `.config-label`; verified via a re-screenshot that both "Swimmer Profile" and "Personal
+  Bests"'s hint text now wraps cleanly inside the column instead of overflowing.
+- Verified via Playwright: the two columns render genuinely side-by-side at desktop width (right
+  column's left edge sits ~500px right of the left column's), every stripped card's computed
+  `background-color`/`border-width` is transparent/`0px`, generating a workout still produces the
+  correct 5 stage blocks and enables the PDF/Complete-Workout buttons, the PDF export still fires a
+  real `download` event, "Complete Workout" still logs the correct distance to `swim_logs` and
+  flips to "Logged To Tracker," all 9 tabs (including a fresh Admin Panel screenshot after the
+  chat-header background fix) render with zero page errors, and the only mobile-width "overflow"
+  hit is the same pre-existing, already-`overflow-x:hidden`-mitigated off-canvas `.nav-links` drawer
+  false positive this file has documented since the sidebar/bottom-nav round — not a new regression.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

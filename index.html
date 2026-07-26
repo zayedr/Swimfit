@@ -1494,12 +1494,22 @@ section { position: relative; scroll-margin-top: 96px; }
   filter: blur(4px);
   animation: dashAmbientDrift 28s ease-in-out infinite alternate;
 }
+/* The same technical dot/line grid the Hero's .hero-hud-grid uses — applied
+   here too so every tab (Workouts, Gym, Tracker, Gear, Academy, Admin, …)
+   shares the identical "tactical grid" background as the landing page,
+   rather than each surface having its own distinct ambient treatment. */
 .dash-ambient-bg::after {
-  content: ''; position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(124deg, transparent 0px, transparent 34px, rgba(255,255,255,0.03) 34px, rgba(255,255,255,0.03) 38px, transparent 38px, transparent 76px);
-  background-size: 220% 220%;
-  animation: dashAmbientCaustic 20s linear infinite;
-  mix-blend-mode: screen;
+  content: ''; position: absolute; inset: -12%;
+  background-image:
+    linear-gradient(rgba(78,233,255,0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78,233,255,0.055) 1px, transparent 1px);
+  background-size: 42px 42px;
+  animation: dashAmbientCaustic 26s linear infinite;
+}
+:root[data-theme="light"] .dash-ambient-bg::after {
+  background-image:
+    linear-gradient(rgba(8,145,168,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8,145,168,0.07) 1px, transparent 1px);
 }
 @keyframes dashAmbientDrift {
   0% { transform: translate(-2%, -1%) scale(1.04); }
@@ -1523,7 +1533,6 @@ section { position: relative; scroll-margin-top: 96px; }
     radial-gradient(ellipse 60% 45% at 30% 95%, rgba(8,145,168,0.08), transparent 60%),
     linear-gradient(180deg, #EEF2F6 0%, #E7EDF3 50%, #EEF2F6 100%);
 }
-:root[data-theme="light"] .dash-ambient-bg::after { mix-blend-mode: multiply; opacity: 0.4; }
 :root[data-theme="light"] .dash-bg-overlay { background: linear-gradient(160deg, rgba(238,242,246,0.7) 0%, rgba(231,237,243,0.55) 55%, rgba(238,242,246,0.7) 100%); }
 @media (prefers-reduced-motion: reduce) {
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
@@ -1582,21 +1591,10 @@ section { position: relative; scroll-margin-top: 96px; }
    bespoke dashboard cards (settings/price/tracker/gym-exercise) opt in via
    .glass-card below. */
 .card, .glass-card {
-  position: relative; overflow: hidden;
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  border-radius: var(--radius); padding: var(--space-5);
-  box-shadow: 0 12px 28px -18px rgba(0,0,0,0.5);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  position: relative; padding: var(--space-5);
+  transition: transform var(--dur) var(--ease);
 }
-.card::before, .glass-card::before {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
-  background: var(--green); opacity: 0; transition: opacity var(--dur) var(--ease);
-}
-.card:hover::before, .glass-card:hover::before { opacity: 1; }
-.card:hover, .glass-card:hover {
-  transform: translateY(-3px); border-color: var(--border-strong); background: var(--glass-bg-2);
-  box-shadow: 0 16px 32px -18px rgba(0,0,0,0.55);
-}
+.card:hover, .glass-card:hover { transform: translateY(-2px); }
 
 /* ============================= BENTO GRID SYSTEM =============================
    A reusable asymmetric grid + card pattern (the "bento box" layout seen
@@ -1614,24 +1612,20 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .bento-card {
   --bento-accent: var(--aqua-bright);
-  position: relative; overflow: hidden; text-align: start; width: 100%;
+  position: relative; text-align: start; width: 100%;
   display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5);
-  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
-  box-shadow: 0 12px 28px -18px rgba(0,0,0,0.5);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  transition: transform var(--dur) var(--ease);
 }
-/* A thin top-accent rail, revealed only on hover/focus — the "distinct card
-   family" signal now comes from a crisp colored line, not an ambient blurred
-   glow, so cards read as calm, deliberate instrument panels at rest. */
+/* Borderless/cardless by explicit request — no fill, no border, no shadow.
+   The only remaining "card family" signal is a thin bottom rule in the
+   section's own accent color, revealed on hover/focus, so a group of
+   related fields still reads as one unit without a boxed container. */
 .bento-card::before {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--bento-accent);
+  content: ''; position: absolute; inset: auto 0 0 0; height: 2px; background: var(--bento-accent);
   opacity: 0; transition: opacity var(--dur) var(--ease);
 }
 .bento-card:hover::before, .bento-card:focus-within::before { opacity: 1; }
-.bento-card:hover {
-  transform: translateY(-3px); background: var(--glass-bg-2); border-color: var(--border-strong);
-  box-shadow: 0 16px 32px -18px rgba(0,0,0,0.55);
-}
+.bento-card:hover { transform: translateY(-2px); }
 .bento-card-icon {
   width: 52px; height: 52px; border-radius: var(--radius-sm); flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1691,26 +1685,27 @@ section { position: relative; scroll-margin-top: 96px; }
    is its own .bento-card cell rather than a flat stacked form, and the Quote/
    Result/AI cells sit in the same grid so the generated set genuinely reads
    as the "featured" cell rather than a bolted-on sidebar result. */
-.workouts-bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); }
-.workouts-bento > * { grid-column: span 12; }
-@media (min-width: 700px) { .workouts-bento > * { grid-column: span 6; } }
-@media (min-width: 1100px) {
-  .wb-profile, .wb-pb, .wb-discipline, .wb-quote { grid-column: span 4; }
-  .wb-distance, .wb-equipment, .wb-goals, .wb-level { grid-column: span 3; }
-  .wb-result { grid-column: span 8; }
-  .wb-ai { grid-column: span 12; }
+/* A plain, literal 2-column split — every input control stacked in one left
+   column, the generated plan in one right column — replacing the earlier
+   12-column bento arrangement per an explicit "clean, frameless" redesign
+   ask. Each former .bento-card cell is still a .bento-card (keeps its
+   hover-only bottom accent line and padding), it just stacks in source order
+   inside .workouts-col-left instead of occupying its own grid cell; a thin
+   top hairline (var(--border)) between stacked items is the only separator,
+   replacing the old card backgrounds/borders as the sole "you've moved to
+   the next section" cue. */
+.workouts-columns { display: flex; flex-direction: column; gap: var(--space-5); align-items: flex-start; }
+@media (min-width: 1000px) {
+  .workouts-columns { flex-direction: row; }
+  .workouts-col-left { flex: 0 0 40%; max-width: 40%; }
+  .workouts-col-right { flex: 1 1 60%; min-width: 0; }
 }
+.workouts-col-left, .workouts-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.workouts-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.workouts-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
 .wb-level { display: flex; flex-direction: column; }
-/* The config-card rows (Profile/PBs/Discipline, Distance/Equipment/Goals/
-   Level) stretch to equal height by default now — cards with less content
-   (e.g. Target Distance's single slider) no longer end short and jagged
-   next to a taller neighbor (e.g. Personal Bests' four rows), which read as
-   "chaotic offsets" rather than an engineered grid. The Quote/Result/AI row
-   is intentionally exempted: its content genuinely varies a lot (a one-line
-   quote vs. a full generated workout vs. a chat panel), so stretching them
-   to match would leave mostly-empty cards rather than fix anything. */
-.wb-quote, .wb-result, .wb-ai { align-self: start; display: flex; flex-direction: column; }
-.config-label { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); }
+.wb-quote, .wb-result, .wb-ai { display: flex; flex-direction: column; }
+.config-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); max-width: 100%; }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
 
 .chip-group { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -1755,25 +1750,13 @@ section { position: relative; scroll-margin-top: 96px; }
    layers on top of both Dark and Light mode's own surface colors rather
    than replacing them, so the page still respects the swimmer's Appearance
    choice while reading noticeably less flat/gloomy than a plain surface. */
-#panel-settings .settings-shell[data-auth-signed-in] {
-  background:
-    radial-gradient(circle at 12% 0%, rgba(34,211,238,0.12), transparent 55%),
-    radial-gradient(circle at 88% 100%, rgba(57,255,158,0.12), transparent 55%);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6) var(--space-4);
-  margin-inline: calc(-1 * var(--space-4));
-}
 .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
 .settings-card {
-  background: linear-gradient(160deg, var(--surface), var(--bg-alt));
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--aqua);
-  border-radius: var(--radius);
-  padding: var(--space-5);
-  box-shadow: 0 14px 32px -20px rgba(0,0,0,0.5);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  padding: var(--space-4) 0;
+  border-top: 2px solid var(--aqua);
+  transition: transform var(--dur) var(--ease);
 }
-.settings-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -18px rgba(0,0,0,0.55); }
+.settings-card:hover { transform: translateY(-2px); }
 .settings-card:nth-of-type(3n+2) { border-top-color: var(--green-bright); }
 .settings-card:nth-of-type(3n+3) { border-top-color: var(--maroon-bright); }
 .settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; margin-bottom: var(--space-3); }
@@ -1821,78 +1804,19 @@ section { position: relative; scroll-margin-top: 96px; }
 .equip-check:has(input:checked) .icon { color: var(--on-green); }
 
 .quote-card {
-  background: linear-gradient(160deg, rgba(22,214,115,0.12), rgba(34,211,238,0.06));
-  border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3) var(--space-4);
-  position: relative; overflow: hidden;
+  padding: var(--space-3) 0;
+  position: relative;
+  border-top: 1px solid var(--border);
 }
 .quote-card .icon { width: 18px; height: 18px; color: var(--aqua); opacity: 0.5; margin-bottom: 4px; }
 .quote-card blockquote { font-family: var(--font-display); font-size: 1rem; line-height: 1.25; margin-bottom: 2px; }
 .quote-card cite { color: var(--muted-2); font-size: 0.72rem; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; }
 
 .result-panel {
-  position: relative; border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); overflow: hidden; min-height: 100%;
-  background: var(--glass-bg-2); border: 1px solid var(--glass-border);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(22,214,115,0.08), 0 26px 60px -28px rgba(0,0,0,0.7);
-  /* The result panel is a deliberate dark "whiteboard" surface in BOTH themes
-     (like a code-editor panel on a light page). Scoping the text/accent tokens
-     here means every descendant that reads var(--fg)/--muted/--aqua stays
-     light-on-dark and high-contrast even when the site is in Light mode —
-     without this, Light mode's dark --fg text would sit on this dark panel and
-     be unreadable. */
-  --fg: #F8FAFC; --muted: #AEBBCC; --muted-2: #7C8AA0;
-  --aqua: #4EE9FF; --green: #16D673; --green-bright: #39FF9E; --maroon-bright: #E06A82;
-  --border: rgba(148,163,184,0.16); --border-strong: rgba(148,163,184,0.28);
-}
-.result-panel::before {
-  content: ''; position: absolute; inset: 0; z-index: 0;
-  /* Clean slate + radiant emerald wash — replaced the old dark olive-green
-     photo backdrop. A generated workout is read-heavy (a dozen+ rows), so a
-     calm, high-contrast gradient beats a busy photo for legibility while
-     still feeling premium (a soft emerald glow top-left, aqua bottom-right,
-     over a deep-obsidian slate base). */
-  background:
-    radial-gradient(70% 55% at 8% 0%, rgba(22,214,115,0.16), transparent 60%),
-    radial-gradient(60% 55% at 100% 100%, rgba(34,211,238,0.12), transparent 60%),
-    linear-gradient(160deg, #0E1626 0%, #0B121F 55%, #0E1626 100%);
-  transform: translateY(var(--parallax-y, 0px));
-  transition: transform 0.08s linear;
+  position: relative; padding: 0; min-height: 100%;
 }
 .result-panel > * { position: relative; z-index: 1; }
-.result-panel .result-panel-water-bg { position: absolute; inset: -24px; z-index: 0; overflow: hidden; pointer-events: none; }
-.result-panel-water-bg::before {
-  content: ''; position: absolute; inset: -40%;
-  background:
-    radial-gradient(ellipse 60% 40% at 22% 28%, rgba(56,224,196,0.32), transparent 62%),
-    radial-gradient(ellipse 50% 35% at 78% 68%, rgba(56,224,196,0.24), transparent 62%),
-    radial-gradient(ellipse 45% 30% at 50% 92%, rgba(120,200,255,0.20), transparent 62%);
-  filter: blur(3px);
-  animation: waterReflectionDrift 16s ease-in-out infinite alternate;
-}
-.result-panel-water-bg::after {
-  content: ''; position: absolute; inset: 0;
-  background-image:
-    repeating-linear-gradient(122deg, transparent 0px, transparent 22px, rgba(255,255,255,0.07) 22px, rgba(255,255,255,0.07) 26px, transparent 26px, transparent 50px),
-    linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.09) 48%, rgba(255,255,255,0.17) 50%, rgba(255,255,255,0.09) 52%, transparent 58%);
-  background-size: 160% 160%, 260% 260%;
-  background-position: 0px 0px, 0% 0%;
-  animation: waterCausticMotion 11s linear infinite;
-  mix-blend-mode: screen;
-}
-@keyframes waterReflectionDrift {
-  0% { transform: translate(-3%, -3%) scale(1.02); }
-  50% { transform: translate(3%, 4%) scale(1.1); }
-  100% { transform: translate(-4%, 2%) scale(1.04); }
-}
-@keyframes waterCausticMotion {
-  0% { background-position: 0px 0px, 0% 0%; }
-  50% { background-position: 45px 32px, 50% 50%; }
-  100% { background-position: 90px 64px, 100% 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .result-panel-water-bg::before, .result-panel-water-bg::after { animation: none; }
-}
-.result-watermark { position: absolute; top: -30px; right: -30px; width: 220px; height: 220px; color: var(--aqua); opacity: 0.08; pointer-events: none; z-index: 0; }
+.result-watermark { position: absolute; top: -30px; right: -30px; width: 220px; height: 220px; color: var(--aqua); opacity: 0.06; pointer-events: none; z-index: 0; }
 .round-label { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 8px; }
 .round-label-badge { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.66rem; color: var(--fg); background: rgba(148,163,184,0.14); border: 1px solid var(--stage-color, var(--aqua)); padding: 3px 11px; border-radius: 999px; }
 .round-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-strong), transparent); }
@@ -1901,8 +1825,8 @@ section { position: relative; scroll-margin-top: 96px; }
 .result-empty .icon { width: 44px; height: 44px; color: var(--muted-2); }
 
 .workout-ai-panel {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
   display: flex; flex-direction: column; overflow: hidden;
+  border-top: 1px solid var(--border);
 }
 .workout-ai-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-4) 0; }
 .workout-ai-head .icon { width: 18px; height: 18px; color: var(--aqua); }
@@ -1910,9 +1834,9 @@ section { position: relative; scroll-margin-top: 96px; }
 .workout-ai-messages { max-height: 260px; min-height: 60px; padding: var(--space-3) var(--space-4); }
 .workout-ai-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
 .workout-ai-signed-out {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  padding: var(--space-5); text-align: center; color: var(--muted); display: flex; flex-direction: column;
+  padding: var(--space-5) 0; text-align: center; color: var(--muted); display: flex; flex-direction: column;
   align-items: center; gap: var(--space-2);
+  border-top: 1px solid var(--border);
 }
 .workout-ai-signed-out .icon { width: 26px; height: 26px; color: var(--muted-2); }
 
@@ -1922,30 +1846,17 @@ section { position: relative; scroll-margin-top: 96px; }
   --stage-color: var(--aqua-bright);
   position: relative;
   animation: blockIn 460ms var(--ease) both;
-  /* Sleek glassmorphism stage card: a frosted translucent surface, faintly
-     washed with the stage's own accent color (top-left glow → transparent),
-     a stage-color left rail, an inner top highlight and a real drop shadow. */
-  background:
-    linear-gradient(158deg, color-mix(in srgb, var(--stage-color) 10%, transparent) 0%, transparent 42%),
-    var(--glass-bg);
-  border: 1px solid color-mix(in srgb, var(--stage-color) 22%, var(--glass-border));
+  /* No card container — just a thin left rail in the stage's own accent
+     color, the sole remaining visual cue for the warmup/preset/main/cooldown
+     color-coding once the boxed background/border/shadow are gone. */
   border-left: 3px solid var(--stage-color);
-  border-radius: var(--radius-lg);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) 0 var(--space-3) var(--space-4);
   margin-bottom: var(--space-3);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.06) inset,
-    0 14px 34px -26px rgba(0,0,0,0.85);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .workout-block:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--stage-color) 42%, var(--glass-border));
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.08) inset,
-    -6px 14px 40px -24px color-mix(in srgb, var(--stage-color) 70%, transparent),
-    0 16px 40px -26px rgba(0,0,0,0.8);
+  transform: translateX(2px);
+  border-color: color-mix(in srgb, var(--stage-color) 70%, transparent);
 }
 .workout-block[data-stage="warmup"]   { --stage-color: #4EE9FF; }
 .workout-block[data-stage="preset"]   { --stage-color: #E7B65B; }
@@ -2658,34 +2569,28 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= DISTANCE TRACKER ============================= */
-.tracker-log-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); margin-bottom: var(--space-5); }
+.tracker-log-form { padding: var(--space-4) 0; margin-bottom: var(--space-5); }
 .tracker-log-row { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-3); align-items: end; }
 .tracker-log-row .btn { min-height: 46px; }
 .tracker-log-status { margin: var(--space-3) 0 0; font-size: 0.85rem; min-height: 1.2em; color: var(--muted-2); }
 
-.tracker-stat-card {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: var(--space-5); text-align: center; margin-bottom: var(--space-5);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
-}
+.tracker-stat-card { padding: var(--space-4) 0; text-align: center; margin-bottom: var(--space-5); }
 .tracker-stat-card .pill-tabs { justify-content: center; margin-bottom: var(--space-4); }
 /* Financial-dashboard-style glowing headline metric (Robinhood/TradingView
    feel) — the big number gets a soft neon aqua text-glow. */
 .tracker-stat-value { font-family: var(--font-mono); font-size: 2.5rem; font-weight: 700; color: var(--aqua-bright); line-height: 1; letter-spacing: -0.01em; text-shadow: 0 0 14px rgba(34,211,238,0.28); }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
 
-.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
-/* Glass "ticker" tiles with a top hairline accent + glowing value, like a
-   trading terminal's metric row. */
+.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
+/* Borderless "ticker" tiles — no fill, no border — separated purely by grid
+   gap and a thin bottom rule, per the site-wide cardless request. */
 .tracker-analytics-tile {
-  position: relative; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: var(--space-4);
-  display: flex; flex-direction: column; gap: 6px; text-align: center; overflow: hidden;
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 14px 34px -26px rgba(0,0,0,0.6);
-  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  position: relative; padding: var(--space-2) 0;
+  display: flex; flex-direction: column; gap: 6px; text-align: center;
+  border-bottom: 1px solid var(--border);
+  transition: transform var(--dur) var(--ease);
 }
-.tracker-analytics-tile::before { content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 2px; background: linear-gradient(90deg, transparent, var(--green-bright), transparent); opacity: 0.55; }
-.tracker-analytics-tile:hover { transform: translateY(-3px); border-color: rgba(22,214,115,0.32); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(22,214,115,0.12), 0 20px 44px -24px rgba(0,0,0,0.7); }
+.tracker-analytics-tile:hover { transform: translateY(-2px); }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
 .tracker-analytics-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: var(--green-bright); text-shadow: 0 0 10px rgba(57,255,158,0.25); }
 .tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; text-shadow: none; }
@@ -2695,7 +2600,7 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= TRACKER: GOAL PROGRESS ============================= */
-.tracker-goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); }
+.tracker-goal-card { padding: var(--space-4) 0; margin-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
 .tracker-goal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .tracker-goal-input-row { display: flex; align-items: center; gap: 6px; }
 .tracker-goal-input-row .form-input { width: 80px; padding: 6px 10px; text-align: right; }
@@ -2706,7 +2611,7 @@ body.paywall-locked { overflow: hidden; }
 
 /* ============================= TRACKER: CHARTS ============================= */
 .tracker-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); }
-.tracker-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-5); }
+.tracker-chart-card { padding: var(--space-4) 0; }
 .tracker-chart-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: var(--space-4); }
 .tracker-chart-empty { color: var(--muted-2); font-size: 0.85rem; text-align: center; padding: var(--space-4) 0; }
 .tracker-svg-chart { width: 100%; height: auto; overflow: visible; }
@@ -2765,19 +2670,10 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= ADMIN PANEL ============================= */
-.admin-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+.admin-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
 .admin-stat-tile {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; text-align: center;
-}
-/* Consolidated glassmorphic upgrade for the remaining dashboard panels that
-   set their own opaque surface background (the Distance Tracker's log/goal/
-   chart cards) — kept as one rule rather than editing each so they stay in
-   lockstep with the shared .card glass look. */
-.tracker-log-form, .tracker-goal-card, .tracker-chart-card {
-  background: var(--glass-bg); border-color: var(--glass-border);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  padding: var(--space-2) 0; display: flex; flex-direction: column; gap: 4px; text-align: center;
+  border-bottom: 1px solid var(--border);
 }
 .admin-stat-value { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--aqua); }
 .admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -2787,12 +2683,12 @@ body.paywall-locked { overflow: hidden; }
 .admin-time-remaining.is-expired { color: var(--muted-2); }
 @media (max-width: 900px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
-.admin-users-col, .admin-chat-col { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.admin-users-col, .admin-chat-col { display: flex; flex-direction: column; overflow: hidden; }
+.admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .admin-users-count { font-size: 0.85rem; color: var(--muted); }
 .admin-users-table-wrap { flex: 1; overflow-y: auto; }
 .admin-users-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.admin-users-table th { text-align: left; padding: var(--space-2) var(--space-4); color: var(--muted-2); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.admin-users-table th { text-align: left; padding: var(--space-2) var(--space-4) var(--space-2) 0; color: var(--muted-2); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); }
 .admin-users-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .admin-users-table tr:last-child td { border-bottom: none; }
 .admin-users-table tr.is-selected { background: rgba(34,211,238,0.08); }
@@ -2811,9 +2707,9 @@ body.paywall-locked { overflow: hidden; }
 .admin-access-toggle[data-disabled="true"] { border-color: var(--maroon-bright); color: var(--maroon-bright); }
 .admin-extend-btn { background: none; border: none; color: var(--aqua); font-size: 0.72rem; cursor: pointer; text-decoration: underline; white-space: nowrap; }
 .admin-extend-btn:hover { color: var(--fg); }
-.admin-chat-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-alt); font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
+.admin-chat-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
 .admin-chat-messages { flex: 1; }
-.admin-chat-form { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border); background: var(--bg-alt); flex-shrink: 0; }
+.admin-chat-form { display: flex; gap: var(--space-2); padding: var(--space-3) 0; border-top: 1px solid var(--border); flex-shrink: 0; }
 .admin-chat-form textarea { flex: 1; }
 @media (max-width: 900px) {
   .admin-panel-shell { grid-template-columns: 1fr; height: auto; }
@@ -3109,7 +3005,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="workouts-bento">
+      <div class="workouts-columns">
+       <div class="workouts-col-left">
         <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
           <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
           <div class="profile-row">
@@ -3208,7 +3105,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
           </button>
         </div>
+       </div><!-- /workouts-col-left -->
 
+       <div class="workouts-col-right">
         <div class="wb-quote" data-reveal="right">
           <div class="quote-card">
             <svg class="icon"><use href="#i-quote"/></svg>
@@ -3254,7 +3153,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             </form>
           </div>
         </div>
-      </div>
+       </div><!-- /workouts-col-right -->
+      </div><!-- /workouts-columns -->
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
      </div>
     </div>
