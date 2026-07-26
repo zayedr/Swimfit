@@ -1560,6 +1560,81 @@ section { position: relative; scroll-margin-top: 96px; }
    card without touching the resting state. */
 .card:hover { transform: translateY(-6px) scale(1.02); border-color: rgba(22,214,115,0.35); background: var(--glass-bg-2); box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 0 0 1px rgba(22,214,115,0.14), 0 26px 60px -22px rgba(0,0,0,0.7), 0 12px 40px -18px rgba(22,214,115,0.30); }
 
+/* ============================= BENTO GRID SYSTEM =============================
+   A reusable asymmetric grid + glass "cell" pattern (the "bento box" layout
+   seen across modern premium SaaS dashboards) built entirely from the
+   existing --glass-* / --aqua-bright / --green-bright tokens above — no new
+   colors introduced, so it stays correct in both Dark and Light mode for
+   free. .bento-grid lays cells on a 12-column track that collapses to a
+   single column on mobile; .bento-card is a glass cell with a neon-cyan
+   hover ring (a cyan variant of the existing .card hover treatment, distinct
+   enough to read as its own component family). */
+.bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); }
+.bento-grid > * { grid-column: span 12; }
+@media (min-width: 700px) { .bento-grid > * { grid-column: span 6; } }
+@media (min-width: 1100px) { .bento-grid > * { grid-column: span 4; } }
+
+.bento-card {
+  position: relative; overflow: hidden; text-align: start; width: 100%;
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+/* Ambient corner glow — a soft radial wash in the top-right corner, present
+   at rest and just barely there, so cards read as "lit from within" rather
+   than flat before any interaction happens. */
+.bento-card::before {
+  content: ''; position: absolute; top: -30%; right: -20%; width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(78,233,255,0.16), transparent 70%); pointer-events: none;
+}
+.bento-card:hover {
+  transform: translateY(-6px) scale(1.015); background: var(--glass-bg-2); border-color: rgba(78,233,255,0.4);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 0 0 1px rgba(78,233,255,0.16), 0 26px 60px -22px rgba(0,0,0,0.7), 0 14px 46px -18px rgba(78,233,255,0.32);
+}
+.bento-card-icon {
+  width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(78,233,255,0.12); border: 1px solid rgba(78,233,255,0.3);
+  box-shadow: 0 0 16px -4px rgba(78,233,255,0.4);
+}
+.bento-card-icon .icon { width: 24px; height: 24px; color: var(--aqua-bright); }
+.bento-card h3 { font-size: 1.18rem; text-transform: none; letter-spacing: normal; }
+.bento-card p { color: var(--muted); font-size: 0.92rem; line-height: 1.55; }
+.bento-card-link {
+  margin-top: auto; padding-top: var(--space-2); display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--aqua-bright); transition: color var(--dur) var(--ease), gap var(--dur) var(--ease);
+}
+.bento-card-link .icon { width: 14px; height: 14px; transition: transform var(--dur) var(--ease); }
+.bento-card:hover .bento-card-link { color: var(--green-bright); gap: 10px; }
+.bento-card:hover .bento-card-link .icon { transform: translateX(2px); }
+/* The first (featured) card in the Core Services grid spans wider on desktop
+   for the classic asymmetric bento hierarchy — one large "hero" cell, the
+   rest even-sized. */
+@media (min-width: 1100px) {
+  .services-bento-grid > .bento-card:nth-child(1) { grid-column: span 8; }
+  .services-bento-grid > .bento-card:nth-child(2) { grid-column: span 4; }
+}
+.bento-card.is-featured { background: linear-gradient(160deg, rgba(78,233,255,0.10), var(--glass-bg-2)); }
+.bento-card.is-featured h3 { font-size: 1.32rem; }
+
+.services-bento-section { padding-block: var(--space-7); }
+.services-bento-cta { display: flex; justify-content: center; margin-top: var(--space-6); }
+@media (max-width: 560px) { .services-bento-section { padding-block: var(--space-6); } }
+
+/* The long-form "Start 3-Day Free Trial — No Card Required" CTA (hero +
+   services section) is the one button in this file whose label is long
+   enough to overflow a narrow phone width under the global .btn
+   white-space:nowrap — real, verified clipping at 390px, not just a benign
+   scrollWidth artifact. Letting it wrap and go full-width below 480px fixes
+   it without touching the shared .btn rule every other (shorter) button
+   relies on staying single-line. */
+@media (max-width: 480px) {
+  .hero-actions .btn-cta-glow, .services-bento-cta .btn-cta-glow { white-space: normal; width: 100%; text-align: center; line-height: 1.3; padding-block: 0.9em; }
+}
+
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
 .tag-green { background: rgba(22,214,115,0.16); color: var(--green-bright); }
 .tag-maroon { background: rgba(156,42,68,0.2); color: var(--maroon-bright); }
@@ -2318,6 +2393,51 @@ body.paywall-locked { overflow: hidden; }
 .admin-msg-fab:hover { transform: translateY(-3px); }
 .admin-msg-fab .icon { width: 22px; height: 22px; }
 .admin-msg-fab-dot { position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--maroon-bright); border: 2px solid var(--surface-2); }
+
+/* Live unread-message counter badge on the Admin nav item — driven by
+   __adminPanelSubscribeInbox the instant the admin signs in (see
+   wireAdminUnreadNotifications), not only once they open the Admin tab, so a
+   new swimmer message is visible without ever clicking into a user profile. */
+.nav-unread-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 19px; height: 19px; padding: 0 5px; margin-left: auto; flex-shrink: 0;
+  border-radius: 999px; background: var(--maroon-bright); color: #fff;
+  font-family: var(--font-display); font-size: 0.66rem; font-weight: 800; line-height: 1;
+  box-shadow: 0 0 10px -2px rgba(224,106,130,0.7);
+}
+.nav-unread-badge[hidden] { display: none; }
+
+/* ============================= TOAST NOTIFICATIONS =============================
+   A small, self-contained toast stack (top-right, above everything but the
+   auth modal) — used for the admin's "new swimmer message" live notification.
+   Built from the same glass tokens as every other card in this file. */
+.toast-stack {
+  position: fixed; top: calc(var(--announce-h, 0px) + 16px); right: var(--space-4); z-index: 500;
+  display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: flex-start; gap: 12px; text-align: start;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-border); border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  padding: 14px 16px; box-shadow: var(--shadow-2);
+  transform: translateX(120%); opacity: 0; transition: transform 320ms var(--ease), opacity 320ms var(--ease);
+  cursor: pointer; width: 100%;
+}
+.toast.is-visible { transform: none; opacity: 1; }
+.toast-icon {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(224,106,130,0.16); border: 1px solid rgba(224,106,130,0.35);
+}
+.toast-icon .icon { width: 17px; height: 17px; color: var(--maroon-bright); }
+.toast-body { min-width: 0; flex: 1; }
+.toast-body strong { display: block; font-size: 0.86rem; color: var(--fg); }
+.toast-body p { margin-top: 2px; font-size: 0.82rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast-close { flex-shrink: 0; color: var(--muted-2); padding: 2px; }
+.toast-close .icon { width: 14px; height: 14px; }
+.toast-close:hover { color: var(--fg); }
+@media (max-width: 560px) { .toast-stack { left: var(--space-3); right: var(--space-3); width: auto; } }
 .admin-msg-fab-dot[hidden] { display: none; }
 .admin-msg-panel { left: var(--space-4); right: auto; bottom: calc(var(--space-4) + 72px); z-index: 410; }
 @media (max-width: 480px) {
@@ -2798,7 +2918,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><button type="button" data-tab="support"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-quote"/></svg><span data-i18n="nav.support">Support</span></button></li>
       <li><button type="button" data-tab="settings"><svg class="icon nav-icon nav-icon-settings" aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="nav.settings">Settings</span></button></li>
       <li><button type="button" data-tab="pricing"><svg class="icon nav-icon nav-icon-trophy" aria-hidden="true"><use href="#i-trophy"/></svg><span data-i18n="nav.pricing">Pricing</span></button></li>
-      <li data-admin-only style="display:none"><button type="button" data-tab="admin"><svg class="icon nav-icon nav-icon-admin" aria-hidden="true"><use href="#i-user"/></svg><span>Admin</span></button></li>
+      <li data-admin-only style="display:none"><button type="button" data-tab="admin"><svg class="icon nav-icon nav-icon-admin" aria-hidden="true"><use href="#i-user"/></svg><span>Admin</span><span class="nav-unread-badge" id="adminNavUnreadBadge" hidden>0</span></button></li>
       <li class="nav-social-li">
         <a href="https://www.instagram.com/swimfit.ae" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-insta"/></svg></a>
         <a href="https://www.tiktok.com/@swimfit.ae" target="_blank" rel="noopener" aria-label="TikTok"><svg class="icon"><use href="#i-tiktok"/></svg></a>
@@ -2899,7 +3019,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <span class="hero-chip"><svg class="icon"><use href="#i-droplet"/></svg> Instant progress tracking</span>
     </div>
     <div class="hero-actions" data-reveal>
-      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1">Build My Workout</button>
+      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start 3-Day Free Trial — No Card Required</button>
+      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1" data-auth-signed-in style="display:none">Build My Workout</button>
       <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
     </div>
     <div class="hero-stats" data-reveal>
@@ -2909,6 +3030,57 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </header>
 
+<!-- ============================= CORE SERVICES (BENTO) =============================
+     A bento-grid showcase of the five core services, front-and-center right
+     after the Hero so a new visitor understands the platform's value before
+     ever touching the tabbed dashboard below. Every card is a real [data-tab]
+     trigger — the existing generic tab-switch delegation (see switchTab()
+     wiring near the NAV / TAB CONTROLLER section) already binds a click
+     handler to every element carrying that attribute at page load, so these
+     cards route to the real tab with zero new JS. -->
+<section class="services-bento-section" id="services" data-reveal>
+  <div class="wrap">
+    <div class="section-head center">
+      <p class="eyebrow" style="justify-content:center">Everything You Need</p>
+      <h2>One Platform. Every Edge.</h2>
+    </div>
+    <div class="bento-grid services-bento-grid">
+      <button type="button" class="bento-card is-featured" data-tab="workouts">
+        <span class="bento-card-icon"><svg class="icon"><use href="#i-stopwatch"/></svg></span>
+        <h3>Daily Rotating Swim Sets</h3>
+        <p>A fresh, coach-built Warm-Up → Pre-Set → Main Set → Cool-Down session every single day — tuned to your discipline, distance, gear and goals, and rotating automatically at midnight so you never swim the same set twice in a row.</p>
+        <span class="bento-card-link">Build my workout <svg class="icon"><use href="#i-chevron"/></svg></span>
+      </button>
+      <button type="button" class="bento-card" data-tab="gym">
+        <span class="bento-card-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+        <h3>Tailored Gym &amp; Dryland Workouts</h3>
+        <p>Real commercial-gym strength work — Upper, Lower, Full Body, Cardio and Mobility — matched to your sprint/distance orientation, with a live technique demo on every exercise.</p>
+        <span class="bento-card-link">See today's focus <svg class="icon"><use href="#i-chevron"/></svg></span>
+      </button>
+      <button type="button" class="bento-card" data-tab="coach">
+        <span class="bento-card-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
+        <h3>AI Swim Coach &amp; Analyzer</h3>
+        <p>Ask about technique, pacing or your log any time — attach a photo of your workout page, gear or stroke position for real, specific feedback.</p>
+        <span class="bento-card-link">Ask the coach <svg class="icon"><use href="#i-chevron"/></svg></span>
+      </button>
+      <button type="button" class="bento-card" data-tab="tracker">
+        <span class="bento-card-icon"><svg class="icon"><use href="#i-trophy"/></svg></span>
+        <h3>PB &amp; Progress Tracker</h3>
+        <p>Log every swim and personal best — watch weekly/monthly volume, pace and PB progression climb on a real dashboard, not a spreadsheet.</p>
+        <span class="bento-card-link">Track my progress <svg class="icon"><use href="#i-chevron"/></svg></span>
+      </button>
+      <button type="button" class="bento-card" data-tab="academy">
+        <span class="bento-card-icon"><svg class="icon"><use href="#i-target"/></svg></span>
+        <h3>Swim Academy &amp; Gear Store</h3>
+        <p>Stroke-by-stroke video breakdowns — 100% free, no tiers — plus a curated gear guide for every piece of kit that actually moves the needle.</p>
+        <span class="bento-card-link">Explore Academy <svg class="icon"><use href="#i-chevron"/></svg></span>
+      </button>
+    </div>
+    <div class="services-bento-cta" data-auth-signed-out>
+      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup">Start 3-Day Free Trial — No Card Required</button>
+    </div>
+  </div>
+</section>
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
@@ -3896,6 +4068,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </button>
   </form>
 </div>
+
+<!-- ============================= TOAST NOTIFICATIONS =============================
+     Reusable toast stack, driven by window.__showToast(...) — currently used
+     for the admin's live "new swimmer message" notification (see
+     wireAdminUnreadNotifications). -->
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <!-- jsPDF bundled locally (not a CDN fetch) so "Save as PDF" never depends on network/ad-blocker conditions — see the PDF WORKOUT EXPORT section for why. -->
@@ -9038,6 +9216,94 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (unsubscribeInbox) { unsubscribeInbox(); unsubscribeInbox = null; }
       if (unsubscribeThread) { unsubscribeThread(); unsubscribeThread = null; }
       selectedUid = null;
+    });
+  })();
+
+  // Reusable toast — used by wireAdminUnreadNotifications() below (the only
+  // caller today), kept generic so any future feature can call
+  // window.__showToast({title, body, onClick}) without wiring its own
+  // show/hide/auto-dismiss logic.
+  window.__showToast = function (opts) {
+    var stack = document.getElementById('toastStack');
+    if (!stack) return;
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="toast-icon"><svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg></span>' +
+      '<span class="toast-body"><strong></strong><p></p></span>' +
+      '<button type="button" class="toast-close" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>';
+    el.querySelector('.toast-body strong').textContent = opts.title || '';
+    el.querySelector('.toast-body p').textContent = opts.body || '';
+    function dismiss() {
+      el.classList.remove('is-visible');
+      setTimeout(function () { el.remove(); }, 320);
+    }
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('.toast-close')) { dismiss(); return; }
+      if (typeof opts.onClick === 'function') opts.onClick();
+      dismiss();
+    });
+    stack.appendChild(el);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add('is-visible'); }); });
+    setTimeout(dismiss, 7000);
+  };
+
+  /* ============================= ADMIN: LIVE UNREAD BADGE + TOAST =============================
+     Independent of the Admin Panel tab's own inbox subscription above (which
+     only starts once the admin actually opens that tab) — this one starts the
+     instant the admin signs in, so the nav's unread counter badge is correct
+     without ever requiring the admin to click into the panel first, and a
+     brand-new unread message pops a toast even while the admin is elsewhere
+     on the site. A second onSnapshot on the same small admin_chats collection
+     is cheap and mirrors this file's existing precedent of independent live
+     reads per surface (e.g. the AI Coach widget and full-screen page each
+     keep their own history). */
+  (function wireAdminUnreadNotifications() {
+    var unsubscribe = null;
+    var seenUnreadUids = {};
+    var primed = false; // true once the first snapshot has resolved — suppresses toasts for a pre-existing backlog on sign-in
+
+    function updateBadge(count) {
+      var badge = document.getElementById('adminNavUnreadBadge');
+      if (!badge) return;
+      if (count > 0) { badge.hidden = false; badge.textContent = count > 99 ? '99+' : String(count); }
+      else { badge.hidden = true; badge.textContent = '0'; }
+    }
+
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+      seenUnreadUids = {};
+      primed = false;
+      updateBadge(0);
+      if (!e.detail.user || !window.__isAdminAccount || typeof window.__adminPanelSubscribeInbox !== 'function') return;
+      unsubscribe = window.__adminPanelSubscribeInbox(function (byUid) {
+        var count = 0;
+        var newlyUnread = [];
+        var nextSeen = {};
+        Object.keys(byUid).forEach(function (uid) {
+          var meta = byUid[uid];
+          if (meta && meta.unreadForAdmin) {
+            count++;
+            nextSeen[uid] = true;
+            if (primed && !seenUnreadUids[uid]) newlyUnread.push(meta);
+          }
+        });
+        seenUnreadUids = nextSeen;
+        updateBadge(count);
+        if (primed) {
+          newlyUnread.forEach(function (meta) {
+            window.__showToast({
+              title: 'New swimmer message',
+              body: meta.lastMessageText || 'Open the Admin Panel to reply.',
+              onClick: function () {
+                var btn = document.querySelector('[data-tab="admin"]');
+                if (btn) btn.click();
+              }
+            });
+          });
+        }
+        primed = true;
+      }, function () { /* silent — the Admin Panel's own subscription surfaces a connection error once the tab is actually open */ });
     });
   })();
 
