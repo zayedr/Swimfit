@@ -2294,6 +2294,92 @@ no JS logic, Firestore shape, or Cloud Function changes anywhere.
   hit is the same pre-existing, already-`overflow-x:hidden`-mitigated off-canvas `.nav-links` drawer
   false positive this file has documented since the sidebar/bottom-nav round — not a new regression.
 
+**A follow-up round partially reversed the immediately-preceding "fully cardless" pass, per
+explicit feedback that Tracker and Settings specifically had gone too far (unreadable, not just
+clean) — plus a Gym layout rebuild and a real AI Coach gap closed on the floating widget.** No JS
+business logic, Firestore shape, or Cloud Function changes anywhere except the floating widget's
+new attach-button wiring, which reuses the full-screen Coach page's existing upload pipeline
+verbatim.
+
+- **Background/grid consistency tightened.** `.dash-ambient-bg::after` (the shared grid layer
+  behind every tab) gained the exact same radial vignette mask the Hero's own `.hero-hud-grid`
+  already used (`mask-image: radial-gradient(...)`) — previously the Hero's grid faded out toward
+  the edges while every other tab's stayed flat edge-to-edge, a real, visible mismatch between "the
+  Home page's background" and the rest of the dashboard despite both already sharing the same grid
+  size/color/animation. Verified via computed-style comparison that `.hero-hud-grid` and
+  `.dash-ambient-bg::after` now report identical `background-size` and both carry a mask.
+- **Tracker cards got a real glass-card treatment back.** `.tracker-log-form`, `.tracker-stat-card`,
+  `.tracker-analytics-tile`, `.tracker-goal-card`, and `.tracker-chart-card` all regained a solid
+  `--glass-bg` fill + `--glass-border` outline + `border-radius` (the same convention `.price-card`/
+  `.tracker-pb-item` already used elsewhere in this file) instead of the fully borderless, fill-less
+  treatment the prior round left them in — which read as broken once real numbers/inputs were on
+  screen, not just "clean." `.tracker-analytics-grid`'s gap was tightened slightly to compensate for
+  the tiles regaining real padding.
+- **Settings cards got the same "modern athletic card" treatment.** `.settings-card` regained a
+  `--glass-bg`/`--glass-border` fill, full padding (`var(--space-5)` on every side, not just top),
+  `border-radius`, and a soft resting shadow with a hover lift — keeping the rotating aqua/green/
+  maroon top accent bar as the "card family" identity cue. `.settings-grid` now also collapses to a
+  single column under 800px (it never had its own mobile breakpoint before). Every existing toggle
+  row (`.settings-toggle-row`, the Dark/Light and Units/Language pill-tabs) was already correctly
+  aligned via flexbox — audited, not rebuilt.
+- **Gym tab: the large top banner photo was removed entirely** (`.tab-banner` and its
+  `--gym-photo` custom property reference; the property itself is left inert, same "harmless orphan"
+  precedent as other removed banners in this file) **and the tab was rebuilt into a 2-column split**
+  mirroring Workouts' own layout: a new `.gym-columns`/`.gym-col-left`/`.gym-col-right` pair (sharing
+  its actual CSS rules with `.workouts-columns`/`.workouts-col-left`/`.workouts-col-right` via
+  combined selectors, rather than a second parallel implementation) puts Strength Profile + Today's
+  Focus in the left column and the exercise board (`#gymGrid`) + PDF button + AI routine panel in the
+  right column. Within the right column, each phase's exercise row (`#gymGrid .grid.grid-auto`) is
+  now a horizontally-scrolling flex strip (`overflow-x:auto`, `scroll-snap-type:x proximity`, cards
+  fixed at `210px`) instead of a wrapping grid — cards sit side-by-side in one compact row per phase
+  rather than stacking into several full-width rows, which is what "minimize vertical scrolling"
+  actually required once the board moved into a narrower half-width column. Each card's padding,
+  heading size, prescription/cue font sizes, and its `.gym-anim-frame` technique-demo aspect ratio
+  were all tightened to read as a compact thumbnail rather than a full-size card. **Disclosed
+  substitution**: the ask specifically said "compact exercise thumbnail photos" — this codebase has
+  no per-exercise photography, only the existing hand-drawn SVG stick-figure technique demo
+  (`GYM_ANIMS`/`GYM_ANIM_MAP`, established many rounds ago as the deliberate zero-network-weight
+  alternative to real photos/video); shrinking that demo into a thumbnail-sized frame is what
+  actually shipped, not new photography, since generating a real photo per exercise is a separately-
+  scoped asset task this round didn't attempt.
+- **AI Coach: the floating widget gained the same photo/video attach capability the full-screen
+  page already had — a real, previously-disclosed gap, not a new feature invented from nothing.**
+  This file had explicitly documented "the floating widget never sends images" as a deliberate scope
+  boundary several rounds ago; the current ask ("add a media attach button... photos OR videos")
+  closed it. Rather than duplicating the ~80 lines of downscale/re-encode/frame-extraction logic a
+  second time, `compressImageFile()`/`extractVideoFrames()`/`COACH_VIDEO_FRAME_COUNT` and the
+  `AI_COACH_PAGE_MAX_IMAGES`/`MAX_DIMENSION`/`JPEG_QUALITY` constants were hoisted out of
+  `wireAiCoachPage()`'s closure into shared top-level functions both `wireAiCoach()` (the widget) and
+  `wireAiCoachPage()` now call identically — a pure functions, no-DOM-side-effects refactor, so
+  moving them changed nothing about existing behavior on the full-screen page. The widget's markup
+  (`#coachForm`) gained a `coach-attach-btn` + hidden `#coachWidgetFileInput` (`accept="image/*,
+  video/*" multiple`, no `capture` attribute — see below) and a `#coachWidgetAttachments` preview
+  strip, reusing the exact same `.coach-attach-btn`/`.coach-page-thumb`/`.coach-page-attachments`
+  CSS classes the page already defined (they were never scoped to `.coach-page-*` specifically, so
+  no new rules were needed there). `appendMessage()` in `wireAiCoach()` gained the same optional
+  `images` param + `.coach-bubble-images` rendering the page's version already had; `.coach-bubble-
+  images` itself was regeneralized from a `.coach-page-messages`-scoped selector to the shared
+  `.coach-messages` class both surfaces' message containers carry (with a smaller 72px thumbnail
+  size for the narrower widget panel vs. the page's 96px, via a `.coach-page-messages` override).
+  The widget's `#coachInput` lost its `required` attribute so an image-only message (no text) can
+  submit, matching the full page's own "please take a look at the attached photo(s)" fallback text
+  behavior exactly. **A real, separate bug was fixed on the full-screen page's own file input while
+  touching this code**: `#coachPageFileInput` carried `capture="environment"`, which on many mobile
+  browsers forces the file picker straight into the camera instead of offering a Photo Library /
+  Browse choice at all — directly contradicting "upload... from local gallery/device." Removed
+  outright (the widget's new input was built without it from the start), restoring the standard
+  picker on both surfaces.
+- Verified via Playwright end-to-end: selecting a fake PNG through the widget's new file input
+  produces exactly one rendered thumbnail; submitting an image-only message (no typed text) fires
+  a real request to the (mocked) `aiSwimCoach` endpoint carrying `images.length === 1` and renders
+  the assistant's reply; the full-screen page's `#coachPageFileInput` no longer carries a `capture`
+  attribute; Gym renders with zero `.tab-banner` present, a genuine side-by-side 2-column layout,
+  and `overflow-x:auto` on each phase's exercise row; Tracker's and Settings' card classes all
+  compute to a real non-transparent `background-color` and non-zero `border-width` again; the Hero's
+  and dashboard's grid `background-size` values match and both carry a mask; and the full existing
+  regression suite (Google-only auth, trial/paywall expiry, workout generation, both PDF exports,
+  Gym PDF export, Distance Tracker logging) still passes with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

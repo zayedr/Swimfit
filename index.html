@@ -1504,6 +1504,11 @@ section { position: relative; scroll-margin-top: 96px; }
     linear-gradient(rgba(78,233,255,0.055) 1px, transparent 1px),
     linear-gradient(90deg, rgba(78,233,255,0.055) 1px, transparent 1px);
   background-size: 42px 42px;
+  /* Same radial vignette mask as the Hero's .hero-hud-grid, so the grid
+     texture reads identically everywhere instead of the Hero's fading
+     out toward the edges while every other tab's stayed flat edge-to-edge. */
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
   animation: dashAmbientCaustic 26s linear infinite;
 }
 :root[data-theme="light"] .dash-ambient-bg::after {
@@ -1694,15 +1699,19 @@ section { position: relative; scroll-margin-top: 96px; }
    top hairline (var(--border)) between stacked items is the only separator,
    replacing the old card backgrounds/borders as the sole "you've moved to
    the next section" cue. */
-.workouts-columns { display: flex; flex-direction: column; gap: var(--space-5); align-items: flex-start; }
+/* .gym-columns/.gym-col-left/.gym-col-right share this exact same split —
+   Gym's own 2-column redesign (Strength Profile + Focus on the left, the
+   exercise board on the right) reuses the identical layout mechanics rather
+   than a second parallel implementation. */
+.workouts-columns, .gym-columns { display: flex; flex-direction: column; gap: var(--space-5); align-items: flex-start; }
 @media (min-width: 1000px) {
-  .workouts-columns { flex-direction: row; }
-  .workouts-col-left { flex: 0 0 40%; max-width: 40%; }
-  .workouts-col-right { flex: 1 1 60%; min-width: 0; }
+  .workouts-columns, .gym-columns { flex-direction: row; }
+  .workouts-col-left, .gym-col-left { flex: 0 0 40%; max-width: 40%; }
+  .workouts-col-right, .gym-col-right { flex: 1 1 60%; min-width: 0; }
 }
-.workouts-col-left, .workouts-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
-.workouts-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
-.workouts-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
+.workouts-col-left, .workouts-col-right, .gym-col-left, .gym-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.workouts-col-left > .bento-card, .gym-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.workouts-col-left > .bento-card:first-child, .gym-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
 .wb-level { display: flex; flex-direction: column; }
 .wb-quote, .wb-result, .wb-ai { display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); max-width: 100%; }
@@ -1750,16 +1759,27 @@ section { position: relative; scroll-margin-top: 96px; }
    layers on top of both Dark and Light mode's own surface colors rather
    than replacing them, so the page still respects the swimmer's Appearance
    choice while reading noticeably less flat/gloomy than a plain surface. */
-.settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+.settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+@media (max-width: 800px) { .settings-grid { grid-template-columns: 1fr; } }
+/* "Modern athletic card" pass — the site-wide cardless strip left Settings'
+   cards a nearly-invisible top hairline with no fill, which read as
+   unfinished for a page that's mostly forms/toggles rather than a
+   photo-backed hero surface. Restored a real glass-card container (solid
+   tint + border + radius + a soft resting shadow, same `--glass-bg`/
+   `--glass-border` convention as `.price-card`/`.tracker-*` elsewhere in
+   this file) with a colored top accent bar as the "card family" identity —
+   the accent rotates aqua/green/maroon per card, same as before. */
 .settings-card {
-  padding: var(--space-4) 0;
-  border-top: 2px solid var(--aqua);
-  transition: transform var(--dur) var(--ease);
+  padding: var(--space-5);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  border-top: 3px solid var(--aqua);
+  box-shadow: 0 14px 34px -26px rgba(0,0,0,0.6);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.settings-card:hover { transform: translateY(-2px); }
+.settings-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -24px rgba(0,0,0,0.7); }
 .settings-card:nth-of-type(3n+2) { border-top-color: var(--green-bright); }
 .settings-card:nth-of-type(3n+3) { border-top-color: var(--maroon-bright); }
-.settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; margin-bottom: var(--space-3); }
+.settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 1.05rem; font-weight: 700; margin-bottom: var(--space-3); }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
 .settings-save-status.is-error { color: #e5484d; }
@@ -1997,6 +2017,20 @@ section { position: relative; scroll-margin-top: 96px; }
 .muscle-tag[data-m="cardio"]     { --m-color: #5EEAD4; }
 .muscle-tag[data-m="full"]       { --m-color: #9FB0C3; }
 
+/* Gym's exercise board sits in the narrower right column now (see
+   .gym-col-right above), so each phase's cards scroll in one compact
+   horizontal row — side-by-side, not stacked — instead of wrapping into
+   several full-width rows the way a plain grid would in half the space. */
+#gymGrid .grid.grid-auto {
+  display: flex; flex-wrap: nowrap; overflow-x: auto; gap: var(--space-3);
+  padding-bottom: var(--space-2); scroll-snap-type: x proximity;
+}
+#gymGrid .grid.grid-auto > .gym-card { flex: 0 0 210px; scroll-snap-align: start; padding: var(--space-3); }
+#gymGrid .grid.grid-auto > .gym-card h3 { font-size: 0.98rem; margin-top: 8px; }
+#gymGrid .grid.grid-auto > .gym-card .prescription { font-size: 0.92rem; }
+#gymGrid .grid.grid-auto > .gym-card .cue { font-size: 0.78rem; }
+#gymGrid .grid.grid-auto > .gym-card .gym-anim-frame { margin-top: var(--space-2); aspect-ratio: 4/3; }
+#gymGrid .grid.grid-auto > .gym-card .gym-muscle-tags { margin-top: 6px; }
 .gym-phase + .gym-phase { margin-top: var(--space-7); }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .gym-phase-banner {
@@ -2536,8 +2570,13 @@ body.paywall-locked { overflow: hidden; }
 
 .coach-page-messages { padding: var(--space-5); }
 .coach-page-messages .coach-bubble { max-width: 74%; font-size: 0.95rem; }
-.coach-page-messages .coach-bubble-images { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
-.coach-page-messages .coach-bubble-images img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+/* Shared by both AI Coach surfaces (.coach-messages is the common class on
+   both the floating widget's #coachMessages and the full page's
+   #coachPageMessages), since the floating widget now also supports photo/
+   video attachments and needs the identical thumbnail treatment. */
+.coach-messages .coach-bubble-images { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.coach-messages .coach-bubble-images img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.coach-page-messages .coach-bubble-images img { width: 96px; height: 96px; }
 
 .coach-page-attachments { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-4) 0; background: var(--bg-alt); }
 .coach-page-attachments[hidden] { display: none; }
@@ -2568,29 +2607,37 @@ body.paywall-locked { overflow: hidden; }
   .coach-page-messages .coach-bubble { max-width: 88%; }
 }
 
-/* ============================= DISTANCE TRACKER ============================= */
-.tracker-log-form { padding: var(--space-4) 0; margin-bottom: var(--space-5); }
+/* ============================= DISTANCE TRACKER =============================
+   The site-wide cardless pass left these completely bare — no border, no
+   fill — which read as "broken," not "clean," once real numbers and inputs
+   were on screen (a swimmer couldn't tell where one metric ended and the
+   next began). Restored a subtle glass-card treatment scoped to this tab —
+   the same solid-tint + hairline-border language `.price-card`/
+   `.tracker-pb-item` already used elsewhere in this file (`--glass-bg`/
+   `--glass-border`, no real blur per this codebase's own token convention) —
+   without reverting to the old heavy drop-shadow cards. */
+.tracker-log-form { padding: var(--space-4); margin-bottom: var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
 .tracker-log-row { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-3); align-items: end; }
 .tracker-log-row .btn { min-height: 46px; }
 .tracker-log-status { margin: var(--space-3) 0 0; font-size: 0.85rem; min-height: 1.2em; color: var(--muted-2); }
 
-.tracker-stat-card { padding: var(--space-4) 0; text-align: center; margin-bottom: var(--space-5); }
+.tracker-stat-card { padding: var(--space-4); text-align: center; margin-bottom: var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
 .tracker-stat-card .pill-tabs { justify-content: center; margin-bottom: var(--space-4); }
 /* Financial-dashboard-style glowing headline metric (Robinhood/TradingView
    feel) — the big number gets a soft neon aqua text-glow. */
 .tracker-stat-value { font-family: var(--font-mono); font-size: 2.5rem; font-weight: 700; color: var(--aqua-bright); line-height: 1; letter-spacing: -0.01em; text-shadow: 0 0 14px rgba(34,211,238,0.28); }
 .tracker-stat-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; margin-top: var(--space-2); }
 
-.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
-/* Borderless "ticker" tiles — no fill, no border — separated purely by grid
-   gap and a thin bottom rule, per the site-wide cardless request. */
+.tracker-analytics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
+/* Glass "ticker" tiles — a solid tint + hairline border so each metric reads
+   as its own distinct card again, not just floating numbers in a row. */
 .tracker-analytics-tile {
-  position: relative; padding: var(--space-2) 0;
+  position: relative; padding: var(--space-3);
   display: flex; flex-direction: column; gap: 6px; text-align: center;
-  border-bottom: 1px solid var(--border);
-  transition: transform var(--dur) var(--ease);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.tracker-analytics-tile:hover { transform: translateY(-2px); }
+.tracker-analytics-tile:hover { transform: translateY(-2px); border-color: var(--aqua); }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
 .tracker-analytics-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: var(--green-bright); text-shadow: 0 0 10px rgba(57,255,158,0.25); }
 .tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; text-shadow: none; }
@@ -2600,7 +2647,7 @@ body.paywall-locked { overflow: hidden; }
 }
 
 /* ============================= TRACKER: GOAL PROGRESS ============================= */
-.tracker-goal-card { padding: var(--space-4) 0; margin-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
+.tracker-goal-card { padding: var(--space-4); margin-bottom: var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
 .tracker-goal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .tracker-goal-input-row { display: flex; align-items: center; gap: 6px; }
 .tracker-goal-input-row .form-input { width: 80px; padding: 6px 10px; text-align: right; }
@@ -2611,7 +2658,7 @@ body.paywall-locked { overflow: hidden; }
 
 /* ============================= TRACKER: CHARTS ============================= */
 .tracker-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); }
-.tracker-chart-card { padding: var(--space-4) 0; }
+.tracker-chart-card { padding: var(--space-4); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
 .tracker-chart-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: var(--space-4); }
 .tracker-chart-empty { color: var(--muted-2); font-size: 0.85rem; text-align: center; padding: var(--space-4) 0; }
 .tracker-svg-chart { width: 100%; height: auto; overflow: visible; }
@@ -3161,7 +3208,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     <!-- ---------- GYM (focus selector) ---------- -->
     <div class="tab-panel" id="panel-gym">
-      <div class="tab-banner" style="--photo: var(--gym-photo)" data-reveal></div>
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> <span data-i18n="gym.eyebrow">Dryland &amp; Strength</span></p>
         <h2 data-i18n="gym.heading">What Are You Training Today?</h2>
@@ -3176,7 +3222,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="bento-grid" style="margin-bottom: var(--space-4);">
+      <div class="gym-columns">
+       <div class="gym-col-left">
         <div class="bento-card" data-reveal style="--bento-accent:var(--aqua-bright)">
           <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — tailors load &amp; volume for aquatic power)</span></div>
           <div class="profile-row">
@@ -3210,19 +3257,20 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
           <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
         </div>
-      </div>
+       </div><!-- /gym-col-left -->
 
-      <div id="gymGrid"></div>
-      <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
-        <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
-      </button>
+       <div class="gym-col-right">
+        <div id="gymGrid"></div>
+        <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
+          <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
+        </button>
 
-      <div class="bento-card workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6); --bento-accent:var(--aqua-bright)">
-        <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
-        <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
-        <form class="coach-page-form" id="gymAiForm">
-          <div class="workout-ai-chips" id="gymAiChips">
-            <button type="button" class="coach-prompt-chip" data-prompt="Generate a complete dryland routine for today, tailored to a competitive swimmer.">Generate today's routine</button>
+        <div class="bento-card workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6); --bento-accent:var(--aqua-bright)">
+          <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
+          <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
+          <form class="coach-page-form" id="gymAiForm">
+            <div class="workout-ai-chips" id="gymAiChips">
+              <button type="button" class="coach-prompt-chip" data-prompt="Generate a complete dryland routine for today, tailored to a competitive swimmer.">Generate today's routine</button>
             <button type="button" class="coach-prompt-chip" data-prompt="Generate a full week (7 days) of dryland training, balancing strength, power and recovery for a competitive swimmer.">Generate this week's plan</button>
             <button type="button" class="coach-prompt-chip" data-prompt="Make the routine you just gave me shorter — I have less time today.">Make it shorter</button>
             <button type="button" class="coach-prompt-chip" data-prompt="Add more core and rotator-cuff / shoulder-health work to the routine.">Add more core work</button>
@@ -3235,7 +3283,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             </button>
           </div>
         </form>
-      </div>
+        </div>
+       </div><!-- /gym-col-right -->
+      </div><!-- /gym-columns -->
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
     </div>
 
@@ -3331,7 +3381,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 <button type="button" class="coach-attach-btn" id="coachPageAttachBtn" aria-label="Attach a photo or video">
                   <svg class="icon"><use href="#i-camera"/></svg>
                 </button>
-                <input type="file" id="coachPageFileInput" accept="image/*,video/*" multiple capture="environment" hidden>
+                <input type="file" id="coachPageFileInput" accept="image/*,video/*" multiple hidden>
                 <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
                 <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo/video…" maxlength="2000"></textarea>
                 <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
@@ -3939,9 +3989,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </button>
   </div>
   <div class="coach-messages" id="coachMessages"></div>
+  <div class="coach-page-attachments" id="coachWidgetAttachments" hidden></div>
   <form class="coach-form" id="coachForm">
+    <button type="button" class="coach-attach-btn" id="coachWidgetAttachBtn" aria-label="Attach a photo or video">
+      <svg class="icon"><use href="#i-camera"/></svg>
+    </button>
+    <input type="file" id="coachWidgetFileInput" accept="image/*,video/*" multiple hidden>
     <label for="coachInput" class="sr-only">Ask the AI Swim Coach</label>
-    <textarea id="coachInput" class="coach-input" rows="1" placeholder="Ask about technique, dryland, your log…" maxlength="2000" required></textarea>
+    <textarea id="coachInput" class="coach-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo/video…" maxlength="2000"></textarea>
     <button type="submit" class="coach-send-btn" id="coachSendBtn" aria-label="Send">
       <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
     </button>
@@ -7504,26 +7559,96 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var panel = document.getElementById('coachPanel');
     var closeBtn = document.getElementById('coachPanelClose');
     var messagesEl = document.getElementById('coachMessages');
+    var attachmentsEl = document.getElementById('coachWidgetAttachments');
     var form = document.getElementById('coachForm');
     var input = document.getElementById('coachInput');
     var sendBtn = document.getElementById('coachSendBtn');
-    if (!fab || !panel || !form || !messagesEl || !input || !sendBtn) return;
+    var attachBtn = document.getElementById('coachWidgetAttachBtn');
+    var fileInput = document.getElementById('coachWidgetFileInput');
+    if (!fab || !panel || !form || !messagesEl || !input || !sendBtn || !attachBtn || !fileInput) return;
 
     var coachHistory = [];
+    var pendingImages = []; // { mediaType, data (base64, no prefix), previewUrl } — same shape as the full-screen page
     var sending = false;
     var historyLoadedForUid = null;
 
-    function appendMessage(role, text) {
+    function appendMessage(role, text, images) {
       var row = document.createElement('div');
       row.className = 'coach-msg coach-msg-' + role;
       var bubble = document.createElement('div');
       bubble.className = 'coach-bubble';
-      bubble.textContent = text;
+      if (images && images.length) {
+        var imgWrap = document.createElement('div');
+        imgWrap.className = 'coach-bubble-images';
+        images.forEach(function (src) {
+          var img = document.createElement('img');
+          img.src = src;
+          img.alt = 'Attached photo';
+          imgWrap.appendChild(img);
+        });
+        bubble.appendChild(imgWrap);
+      }
+      if (text) {
+        var textNode = document.createElement('div');
+        textNode.textContent = text;
+        bubble.appendChild(textNode);
+      }
       row.appendChild(bubble);
       messagesEl.appendChild(row);
       messagesEl.scrollTop = messagesEl.scrollHeight;
       return bubble;
     }
+
+    function renderAttachments() {
+      attachmentsEl.innerHTML = '';
+      attachmentsEl.hidden = pendingImages.length === 0;
+      pendingImages.forEach(function (img, idx) {
+        var thumb = document.createElement('div');
+        thumb.className = 'coach-page-thumb';
+        var el = document.createElement('img');
+        el.src = img.previewUrl;
+        el.alt = 'Selected photo ' + (idx + 1);
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'coach-page-thumb-remove';
+        removeBtn.setAttribute('aria-label', 'Remove photo');
+        removeBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>';
+        removeBtn.addEventListener('click', function () {
+          pendingImages.splice(idx, 1);
+          renderAttachments();
+        });
+        thumb.appendChild(el);
+        thumb.appendChild(removeBtn);
+        attachmentsEl.appendChild(thumb);
+      });
+    }
+
+    attachBtn.addEventListener('click', function () {
+      if (!window.__firebaseUser) { if (typeof openAuthModal === 'function') openAuthModal(); return; }
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(fileInput.files || []);
+      fileInput.value = '';
+      if (!files.length) return;
+      var room = AI_COACH_PAGE_MAX_IMAGES - pendingImages.length;
+      if (room <= 0) return;
+      var imageFiles = files.filter(function (f) { return f.type.indexOf('image/') === 0; });
+      var videoFile = files.filter(function (f) { return f.type.indexOf('video/') === 0; })[0];
+
+      var work = imageFiles.slice(0, room).map(compressImageFile);
+      if (videoFile && !imageFiles.length) {
+        work = [extractVideoFrames(videoFile).then(function (frames) { return frames.slice(0, room); })];
+      }
+      if (!work.length) return;
+
+      Promise.all(work).then(function (results) {
+        var flat = [].concat.apply([], results.map(function (r) { return Array.isArray(r) ? r : [r]; })).slice(0, room);
+        pendingImages = pendingImages.concat(flat);
+        renderAttachments();
+      }).catch(function () {});
+    });
 
     // Persisted in coach_widget_history/{uid} — a separate document from the
     // full-screen page's coach_history/{uid}, so the two surfaces never
@@ -7573,13 +7698,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       e.preventDefault();
       if (sending) return;
       var text = (input.value || '').trim();
-      if (!text) return;
+      var images = pendingImages.slice();
+      if (!text && !images.length) return;
       if (!window.__firebaseUser) { openPanel(); return; }
+      if (!text) text = 'Please take a look at the attached photo(s) and give me your feedback.';
 
-      appendMessage('user', text);
+      appendMessage('user', text, images.map(function (img) { return img.previewUrl; }));
       input.value = '';
+      pendingImages = [];
+      renderAttachments();
       sending = true;
       sendBtn.disabled = true;
+      attachBtn.disabled = true;
       var historyForRequest = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
       coachHistory.push({ role: 'user', content: text });
       coachHistory = coachHistory.slice(-AI_COACH_HISTORY_LIMIT);
@@ -7593,7 +7723,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           history: historyForRequest,
           discipline: state.disciplines.join(', '),
           level: state.level,
-          goal: state.goals.join(', ')
+          goal: state.goals.join(', '),
+          images: images.map(function (img) { return { mediaType: img.mediaType, data: img.data }; })
         });
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
@@ -7617,6 +7748,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }).finally(function () {
         sending = false;
         sendBtn.disabled = false;
+        attachBtn.disabled = false;
       });
     });
 
@@ -7630,8 +7762,99 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       coachHistory = [];
       historyLoadedForUid = null;
       messagesEl.innerHTML = '';
+      pendingImages = [];
+      renderAttachments();
     });
   })();
+
+  /* ============================= AI COACH: SHARED MEDIA PIPELINE =============================
+     Photo/video attachment processing shared by every AI Coach surface that
+     supports it (the floating widget and the full-screen page) — one
+     downscale/re-encode/frame-extraction pipeline instead of duplicating it
+     per surface. Pure functions: no DOM lookups beyond creating throwaway
+     <img>/<video>/<canvas> elements, so either surface can call them freely. */
+  var AI_COACH_PAGE_MAX_IMAGES = 3;
+  var AI_COACH_PAGE_MAX_DIMENSION = 1600;
+  var AI_COACH_PAGE_JPEG_QUALITY = 0.82;
+
+  // Downscale to at most AI_COACH_PAGE_MAX_DIMENSION on the longest edge and
+  // re-encode as JPEG — keeps upload size and Anthropic API cost/latency
+  // down regardless of how large the original phone photo was.
+  function compressImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var objectUrl = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(objectUrl);
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
+        resolve({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
+      };
+      img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('image decode failed')); };
+      img.src = objectUrl;
+    });
+  }
+
+  // Claude's API takes images, not raw video — so a video upload extracts a
+  // handful of representative frames (evenly spaced through the clip) and
+  // sends those through the EXACT SAME image pipeline as a photo (same
+  // compression, same pendingImages array, same aiSwimCoach request shape
+  // and per-message image cap). The coach reviews stroke position/timing
+  // across those frames rather than true motion — an honest scope for a
+  // vision-only model, not a claim of full video understanding.
+  var COACH_VIDEO_FRAME_COUNT = 3;
+  function extractVideoFrames(file) {
+    return new Promise(function (resolve, reject) {
+      var video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      var objectUrl = URL.createObjectURL(file);
+      var frames = [];
+      var timestamps = [];
+
+      function captureAt(idx) {
+        if (idx >= timestamps.length) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(frames);
+          return;
+        }
+        video.currentTime = timestamps[idx];
+      }
+
+      video.addEventListener('loadedmetadata', function () {
+        var duration = video.duration || 0;
+        if (!isFinite(duration) || duration <= 0) {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('video has no readable duration'));
+          return;
+        }
+        for (var i = 1; i <= COACH_VIDEO_FRAME_COUNT; i++) {
+          timestamps.push(duration * (i / (COACH_VIDEO_FRAME_COUNT + 1)));
+        }
+        captureAt(0);
+      });
+      video.addEventListener('seeked', function () {
+        var canvas = document.createElement('canvas');
+        var w = video.videoWidth, h = video.videoHeight;
+        var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
+        frames.push({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
+        captureAt(frames.length);
+      });
+      video.addEventListener('error', function () { URL.revokeObjectURL(objectUrl); reject(new Error('video decode failed')); });
+      video.src = objectUrl;
+    });
+  }
 
   /* ============================= AI SWIM COACH — FULL PAGE ============================= */
   /* A second, richer surface for the same aiSwimCoach endpoint: full-width chat
@@ -7641,9 +7864,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      .textContent-only rendering discipline for anything AI-sourced; the only
      img src values ever set here are local blob/data URLs of the user's own
      selected photos, never anything from the network response. */
-  var AI_COACH_PAGE_MAX_IMAGES = 3;
-  var AI_COACH_PAGE_MAX_DIMENSION = 1600;
-  var AI_COACH_PAGE_JPEG_QUALITY = 0.82;
 
   (function wireAiCoachPage() {
     var messagesEl = document.getElementById('coachPageMessages');
@@ -7888,85 +8108,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         thumb.appendChild(el);
         thumb.appendChild(removeBtn);
         attachmentsEl.appendChild(thumb);
-      });
-    }
-
-    // Downscale to at most AI_COACH_PAGE_MAX_DIMENSION on the longest edge and
-    // re-encode as JPEG — keeps upload size and Anthropic API cost/latency
-    // down regardless of how large the original phone photo was.
-    function compressImageFile(file) {
-      return new Promise(function (resolve, reject) {
-        var img = new Image();
-        var objectUrl = URL.createObjectURL(file);
-        img.onload = function () {
-          URL.revokeObjectURL(objectUrl);
-          var w = img.naturalWidth, h = img.naturalHeight;
-          var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
-          var canvas = document.createElement('canvas');
-          canvas.width = Math.round(w * scale);
-          canvas.height = Math.round(h * scale);
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
-          resolve({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
-        };
-        img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('image decode failed')); };
-        img.src = objectUrl;
-      });
-    }
-
-    // Claude's API takes images, not raw video — so a video upload extracts a
-    // handful of representative frames (evenly spaced through the clip) and
-    // sends those through the EXACT SAME image pipeline as a photo (same
-    // compression, same pendingImages array, same aiSwimCoach request shape
-    // and per-message image cap). The coach reviews stroke position/timing
-    // across those frames rather than true motion — an honest scope for a
-    // vision-only model, not a claim of full video understanding.
-    var COACH_VIDEO_FRAME_COUNT = 3;
-    function extractVideoFrames(file) {
-      return new Promise(function (resolve, reject) {
-        var video = document.createElement('video');
-        video.muted = true;
-        video.playsInline = true;
-        var objectUrl = URL.createObjectURL(file);
-        var frames = [];
-        var timestamps = [];
-
-        function captureAt(idx) {
-          if (idx >= timestamps.length) {
-            URL.revokeObjectURL(objectUrl);
-            resolve(frames);
-            return;
-          }
-          video.currentTime = timestamps[idx];
-        }
-
-        video.addEventListener('loadedmetadata', function () {
-          var duration = video.duration || 0;
-          if (!isFinite(duration) || duration <= 0) {
-            URL.revokeObjectURL(objectUrl);
-            reject(new Error('video has no readable duration'));
-            return;
-          }
-          for (var i = 1; i <= COACH_VIDEO_FRAME_COUNT; i++) {
-            timestamps.push(duration * (i / (COACH_VIDEO_FRAME_COUNT + 1)));
-          }
-          captureAt(0);
-        });
-        video.addEventListener('seeked', function () {
-          var canvas = document.createElement('canvas');
-          var w = video.videoWidth, h = video.videoHeight;
-          var scale = Math.min(1, AI_COACH_PAGE_MAX_DIMENSION / Math.max(w, h));
-          canvas.width = Math.round(w * scale);
-          canvas.height = Math.round(h * scale);
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          var dataUrl = canvas.toDataURL('image/jpeg', AI_COACH_PAGE_JPEG_QUALITY);
-          frames.push({ mediaType: 'image/jpeg', data: dataUrl.split(',')[1], previewUrl: dataUrl });
-          captureAt(frames.length);
-        });
-        video.addEventListener('error', function () { URL.revokeObjectURL(objectUrl); reject(new Error('video decode failed')); });
-        video.src = objectUrl;
       });
     }
 
