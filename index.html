@@ -1406,6 +1406,55 @@ section { position: relative; scroll-margin-top: 96px; }
   100% { transform: scale(2.4); opacity: 0; }
 }
 
+/* ============================= HERO HUD FRAME =============================
+   A "precision instrument" overlay layered on top of the existing hero
+   video/photo — thin corner brackets, a technical top/bottom readout bar,
+   and a slow-drifting dot-grid wash — matching the sharp, hairline,
+   monospace-data language the rest of the dashboard already uses (see the
+   card/token retune above). Purely decorative chrome: pointer-events:none
+   throughout, z-index above the ambient background layers but the labels
+   are flavor text, not live telemetry, so nothing here claims to be real
+   data the way the Hero's actual Registered Swimmers/Subscribers stats do. */
+.hero-hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.hero-hud-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(78,233,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78,233,255,0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 85%);
+  animation: hudGridDrift 26s linear infinite;
+}
+@keyframes hudGridDrift { from { background-position: 0 0, 0 0; } to { background-position: 42px 42px, -42px 42px; } }
+.hero-hud-corner {
+  position: absolute; width: 28px; height: 28px; border-color: rgba(78,233,255,0.4);
+  opacity: 0; animation: hudFadeIn 900ms var(--ease) 400ms forwards;
+}
+/* Offset well clear of the top/bottom bars' own text+padding (~34px tall)
+   so the bracket lines frame the hero's inner content, never cross the
+   HUD bar labels themselves. */
+.hero-hud-corner.tl { top: 46px; left: 18px; border-top: 1.5px solid; border-left: 1.5px solid; }
+.hero-hud-corner.tr { top: 46px; right: 18px; border-top: 1.5px solid; border-right: 1.5px solid; }
+.hero-hud-corner.bl { bottom: 46px; left: 18px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
+.hero-hud-corner.br { bottom: 46px; right: 18px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
+@keyframes hudFadeIn { to { opacity: 1; } }
+.hero-hud-bar {
+  position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 10px clamp(18px, 4vw, 40px); font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: rgba(226,232,240,0.55);
+}
+.hero-hud-bar-top { top: 0; border-bottom: 1px solid rgba(148,163,184,0.16); }
+.hero-hud-bar-bottom { bottom: 0; border-top: 1px solid rgba(148,163,184,0.16); }
+.hero-hud-tag { display: inline-flex; align-items: center; gap: 8px; }
+.hero-hud-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0; box-shadow: 0 0 0 0 rgba(22,214,115,0.55); animation: hudPulse 2.2s infinite; }
+@keyframes hudPulse {
+  0% { box-shadow: 0 0 0 0 rgba(22,214,115,0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(22,214,115,0); }
+  100% { box-shadow: 0 0 0 0 rgba(22,214,115,0); }
+}
+@media (max-width: 720px) { .hero-hud-bar-top .hero-hud-tag:last-child, .hero-hud-bar-bottom .hero-hud-tag:last-child { display: none; } }
+
 /* The hero copy is a .wrap capped narrower than the wrap's own 1240px, so
    .wrap's margin-inline:auto was centering the whole block within the content
    area (very visible on wide screens once the sidebar took over). Pinning
@@ -3022,6 +3071,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="hero-ripples r2" aria-hidden="true"><div class="hero-ripple"></div><div class="hero-ripple"></div><div class="hero-ripple"></div></div>
 
   <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
+
+  <div class="hero-hud" aria-hidden="true">
+    <div class="hero-hud-grid"></div>
+    <span class="hero-hud-corner tl"></span>
+    <span class="hero-hud-corner tr"></span>
+    <span class="hero-hud-corner bl"></span>
+    <span class="hero-hud-corner br"></span>
+    <div class="hero-hud-bar hero-hud-bar-top">
+      <span class="hero-hud-tag">TRAINING DECK · EST. 2025</span>
+      <span class="hero-hud-tag">PROTOCOL ONLINE</span>
+    </div>
+    <div class="hero-hud-bar hero-hud-bar-bottom">
+      <span class="hero-hud-tag"><span class="hero-hud-dot"></span> SYSTEM READY</span>
+      <span class="hero-hud-tag">SET.001 · REP.∞</span>
+    </div>
+  </div>
 
   <div class="wrap hero-content">
     <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training</p>
