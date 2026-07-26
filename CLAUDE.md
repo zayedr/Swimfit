@@ -1980,6 +1980,52 @@ history).**
   `overflow-x:hidden`); and the full pre-existing regression suite (workout generation, PDF
   export, Gym muscle tags, Tracker PB grid, sign-out state clearing) still passes unchanged.
 
+**A "de-genericize the glassmorphism" retune, in response to explicit feedback that the bento/
+glow aesthetic from the immediately prior round read as a generic AI-templated dashboard rather
+than a bespoke product.** Zero JS, Firestore, or Cloud Function changes — every edit is a CSS
+token/selector tweak or an additive class, per the user's explicit "do not touch backend data" ask.
+
+- **The always-on ambient corner glow on `.bento-card::before` is gone at rest.** It used to render
+  a visible cyan radial wash in every card's top-right corner unconditionally — the single most
+  "generic AI SaaS template" tell, since every card looked identically "lit from within" whether or
+  not anyone was even looking at it. It's now `opacity: 0` at rest and fades in only on
+  `:hover`/`:focus-within` (`.bento-card:hover::before, .bento-card:focus-within::before { opacity:
+  1; }`), so cards read as calm, deliberate surfaces until a swimmer actually interacts with one.
+  `.card:hover`/`.bento-card:hover`'s lift+glow shadows were also toned down (smaller translate,
+  lower shadow opacity/spread, `scale()` dropped from the lift) — restrained instead of a "neon
+  blur" — and `.bento-card-icon`'s own box-shadow glow was removed for the same reason (the border
+  + tinted fill alone still reads as an accent tile without an always-on halo).
+- **A real monospace font (`--font-mono: 'JetBrains Mono', ui-monospace, …`) was added** — the one
+  typography signal genuinely missing before this round, since every number on the site (workout
+  set volumes, interval send-offs, Personal Bests, Tracker stats, Admin Panel counts) was set in
+  the same condensed display font as headlines, which reads as marketing type rather than a
+  deliberately-designed data product. Applied to: the Hero's stat tiles (`.stat strong`), every
+  `.set-rep`/`.set-sendoff`/`.workout-block-dist` in a generated workout's set rows (the
+  `reps×distance` chip, the `@ m:ss` send-off, the per-stage distance pill — `.set-rep`'s own
+  comment previously said "a monospace-*feel*" using the display font; it now uses a real one),
+  the Distance Tracker's headline stat and analytics-strip values (`.tracker-stat-value`,
+  `.tracker-analytics-value` — with `#trackerTopDiscipline` deliberately excluded and kept in
+  `--font-display`, since it renders a stroke name like "Freestyle," not a number, and a word in
+  monospace reads as a bug not a feature), the Personal Best grid's times
+  (`.tracker-pb-item-time`), and the Admin Panel's five stats-grid tiles (`.admin-stat-value`).
+  Every other heading/label/body-copy font in the file is untouched — this is additive typography
+  for data specifically, not a font-family swap across the site.
+- **The Hero's decorative SVG layer (`.hero-swimmer`, `.hero-waves`, `.hero-ripples`,
+  `.hero-caustics`) was investigated and deliberately left unchanged** — it was already fairly
+  restrained (swimmer silhouette at 0.5/0.16 opacity, waves at 0.06–0.08, ripples fading from 0.35
+  to 0) and, per the direct code read, was not actually the source of the "looks AI-generated"
+  complaint; the bento-card glow above was. Changing already-subtle decoration with no clear
+  problem to fix would have been change for its own sake, so this was a no-op by design, not an
+  oversight.
+- Verified via Playwright (reusing this round's existing mock-Firestore/mock-Auth test harness, no
+  new test infra): the Google-only auth modal, new-vs-old-account trial/paywall logic, trial-badge
+  urgency states, workout generation (including the Elite Power block and the Distance Ladder
+  archetype), PDF export (both Workouts and Gym), and the Tracker's PB-logging/record-detection flow
+  all still pass with zero page errors; a direct CSSOM/computed-style check confirms `--font-mono`
+  resolves to JetBrains Mono on `.set-sendoff`/`.set-rep`; and a screenshot comparison confirms
+  `.bento-card::before`'s glow is invisible at rest and only appears on hover. No backend, Firestore
+  rules, Cloud Function, or JS business logic was touched anywhere in this round.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
