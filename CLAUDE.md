@@ -1922,6 +1922,64 @@ untruncated PDF descriptions, and the EmailJS error log tightened.**
   breakout sets, every set row shows a single `@`-interval with zero `int/rest/tot` remnants, and both
   PDFs export full-text with zero page errors.
 
+**A ground-up bento-grid / premium-SaaS visual pass, delivered in the existing vanilla
+HTML/CSS/JS architecture (no React/Tailwind/build-step migration — that would require
+converting the whole repo to a bundled project and was explicitly declined in favor of keeping
+the single-`index.html`, zero-build-step posture this file has maintained throughout its
+history).**
+
+- **Reusable Bento Grid system.** New `.bento-grid`/`.bento-card` classes (built entirely from
+  the existing `--glass-bg`/`--glass-border`/`--glass-blur`/`--aqua-bright`/`--green-bright`
+  tokens, so both Dark and Light mode stay correct for free): a 12-column responsive grid that
+  collapses to one column on mobile, two on tablet, and an asymmetric 8/4-then-4/4/4 "one
+  featured cell + even cells" layout on desktop — the classic bento hierarchy. Each card gets an
+  ambient corner glow at rest, ring/lift glow + accelerating link-arrow on hover, and a circular
+  icon tile.
+- **New "Core Services" bento section** (`#services`, right after the Hero, before the tabbed
+  dashboard) presents the five core services front-and-center for a new visitor: **Daily
+  Rotating Swim Sets** (featured, wider cell), **Tailored Gym & Dryland Workouts**, **AI Swim
+  Coach & Analyzer**, **PB & Progress Tracker**, and **Swim Academy & Gear Store**. Every card is
+  a real `[data-tab]` element — the existing generic tab-switch delegation (`tabButtons.forEach`
+  near the NAV / TAB CONTROLLER) already binds a click handler to any element carrying that
+  attribute at page load, so these cards route to the real tab with zero new JS. A pulsing
+  **"Start 3-Day Free Trial — No Card Required"** CTA (`.btn-cta-glow`, the same breathing-glow
+  treatment Pricing's Subscribe buttons already use) sits below the grid.
+- **Hero got a frictionless, prominent signed-out CTA** — the same "Start 3-Day Free Trial — No
+  Card Required" button, `data-open-auth="signup"`, shown only via `data-auth-signed-out` (a
+  signed-in swimmer sees "Build My Workout" in its place, `data-auth-signed-in`). A real,
+  previously-undetected mobile bug was caught and fixed here: this CTA's long label overflowed a
+  390px-wide phone under the shared `.btn`'s `white-space:nowrap` (verified via Playwright
+  bounding-rect measurement, not just an `overflow-x` proxy) — fixed with a scoped `@media
+  (max-width:480px)` rule that lets only this long-form CTA wrap and go full-width, without
+  touching the shared `.btn` rule every shorter button relies on staying single-line.
+- **Admin Panel: a live unread-message counter badge + toast notifications**, so the admin knows
+  the instant a swimmer messages them without ever opening a user's thread manually. A new
+  `wireAdminUnreadNotifications()` IIFE starts `window.__adminPanelSubscribeInbox(...)` — the
+  same live `admin_chats` onSnapshot the Admin Panel tab's own inbox subscription already uses —
+  the moment the admin signs in, independent of whether they've ever opened the Admin tab (the
+  panel's own subscription still only starts on first tab-click, for rendering the user table; a
+  second, cheap onSnapshot on the same small collection mirrors this file's existing precedent of
+  independent live reads per surface, e.g. the AI Coach widget vs. its full-screen page). A
+  `.nav-unread-badge` pill on the Admin nav item shows the live total unread count; a new generic
+  `window.__showToast({title, body, onClick})` helper (a reusable toast-stack component, not
+  admin-specific) pops a "New swimmer message" toast with the message preview the instant a
+  **new** unread arrives — a `primed` flag suppresses toasts for the pre-existing backlog found
+  on the very first snapshot after sign-in, so only genuinely new messages notify. Clicking the
+  toast (or its close button) dismisses it; clicking anywhere else on it switches to the Admin
+  tab. No new Firestore collection, Cloud Function, or security rule was needed — this reads
+  through the identical `admin_chats/{uid}` documents/rules the real-time chat system already
+  established.
+- Verified via Playwright: all 10 tabs still render with zero page/console errors; the 5 service
+  cards route to their real tabs with a single clean action (confirmed no double-fire with the
+  auth modal); the bottom CTA opens the auth modal; the admin badge shows the correct count and
+  suppresses a toast for a pre-existing backlog but fires exactly one toast for a genuinely new
+  unread message (with the correct preview text), clicking it switches to the Admin tab, and
+  signing out clears the badge; mobile (390px) has zero real overflow (confirmed via
+  per-element bounding-rect scan, not just the `scrollWidth` proxy, which flags the pre-existing
+  off-canvas nav drawer as a false positive — already mitigated by this file's existing
+  `overflow-x:hidden`); and the full pre-existing regression suite (workout generation, PDF
+  export, Gym muscle tags, Tracker PB grid, sign-out state clearing) still passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
