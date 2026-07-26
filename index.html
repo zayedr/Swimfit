@@ -903,15 +903,19 @@ input, textarea, select { font: inherit; color: inherit; }
   --muted:   #AEBBCC;
   --muted-2: #7C8AA0;
 
-  /* Glassmorphism — a frosted translucent card surface (plus a slightly
-     brighter hairline border and a top inner highlight) used across the
-     dashboard cards for the "expensive, airy, modern" look. Translucent so
-     the ambient dashboard background shows faintly through, which is what
-     reads as glass rather than a flat panel. */
-  --glass-bg:     rgba(28, 39, 61, 0.62);
-  --glass-bg-2:   rgba(34, 47, 72, 0.72);
-  --glass-border: rgba(148, 163, 184, 0.24);
-  --glass-blur:   blur(16px) saturate(140%);
+  /* Precision card surface — a solid, flat panel with a crisp hairline
+     border, replacing the previous frosted-glass/blur treatment. No
+     backdrop-filter anywhere: depth comes from the border + a thin colored
+     top-accent rail per card family, not from blur or glow, so the UI reads
+     as a precision data instrument (Whoop/Strava/Linear-style) rather than
+     the generic soft-glass look most AI-generated dashboards default to.
+     Every existing .card/.bento-card/etc. rule already reads through these
+     same variable names, so this swap re-skins every card site-wide with no
+     markup changes. */
+  --glass-bg:     var(--surface-2);
+  --glass-bg-2:   #26314C;
+  --glass-border: rgba(148, 163, 184, 0.30);
+  --glass-blur:   none;
 
   --on-green:  #04120A;
   --on-aqua:   #04191D;
@@ -923,9 +927,12 @@ input, textarea, select { font: inherit; color: inherit; }
   --glow-green: 0 0 20px rgba(22,214,115,0.45), 0 0 4px rgba(22,214,115,0.6);
   --glow-aqua:  0 0 20px rgba(34,211,238,0.4), 0 0 4px rgba(34,211,238,0.55);
 
-  --radius-sm: 10px;
-  --radius: 18px;
-  --radius-lg: 28px;
+  /* Sharper corners than the previous "soft bubble" bento look — a
+     deliberate, small radius reads as a precision instrument panel rather
+     than a rounded consumer-app card. */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
 
   --space-1: 4px; --space-2: 8px; --space-3: 16px; --space-4: 24px;
   --space-5: 32px; --space-6: 48px; --space-7: 64px; --space-8: 96px;
@@ -1006,13 +1013,12 @@ html.announce-dismissed { --announce-h: 0px; }
   --glow-green: 0 0 16px rgba(16,145,85,0.28);
   --glow-aqua:  0 0 16px rgba(8,145,168,0.24);
 
-  /* Light-mode glass — frosted white, so the same glassmorphic card rules
-     read as clean, airy, "expensive" panels in light mode too rather than
-     flat white boxes. */
-  --glass-bg:     rgba(255, 255, 255, 0.72);
-  --glass-bg-2:   rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(15, 23, 42, 0.12);
-  --glass-blur:   blur(16px) saturate(130%);
+  /* Light-mode precision card — solid white surface, hairline border, no
+     blur — matches the dark theme's flat/sharp card treatment. */
+  --glass-bg:     #FFFFFF;
+  --glass-bg-2:   #F8FAFC;
+  --glass-border: rgba(15, 23, 42, 0.16);
+  --glass-blur:   none;
 
   --shadow-1: 0 8px 24px rgba(15,23,42,0.08);
   --shadow-2: 0 20px 60px rgba(15,23,42,0.12);
@@ -1543,65 +1549,71 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= CARDS (shared) =============================
-   Glassmorphic frosted surface — translucent so the ambient dashboard
-   background shows faintly through (that faint show-through is what reads as
-   "glass" rather than a flat panel), a brighter hairline border, a soft inner
-   top highlight, and a real drop shadow for depth. Used by the gear, video/
-   academy, gym-focus and discipline cards; the bespoke dashboard cards
-   (settings/price/tracker/gym-exercise) opt in via .glass-card below. */
+   Precision instrument surface — a SOLID flat panel (no blur, no
+   translucency), a crisp hairline border, and a thin colored top-accent
+   rail (added via ::before) instead of an ambient glow. This is the
+   deliberate, distinctive alternative to the generic dark-glassmorphism
+   look most AI-generated dashboards default to: depth reads from the
+   border + rail + a real (not blurred) drop shadow, not from frosted glass.
+   Used by the gear, video/academy, gym-focus and discipline cards; the
+   bespoke dashboard cards (settings/price/tracker/gym-exercise) opt in via
+   .glass-card below. */
 .card, .glass-card {
+  position: relative; overflow: hidden;
   background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--radius); padding: var(--space-5);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  box-shadow: 0 12px 28px -18px rgba(0,0,0,0.5);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-/* whileHover={{ y: -6, scale: 1.02 }} + an emerald-tinted glowing border/shadow
-   (the border-emerald-500/20 look) — reads as a high-end lift on every glass
-   card without touching the resting state. */
-.card:hover { transform: translateY(-4px); border-color: rgba(22,214,115,0.28); background: var(--glass-bg-2); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(22,214,115,0.10), 0 20px 44px -26px rgba(0,0,0,0.65), 0 8px 24px -16px rgba(22,214,115,0.16); }
+.card::before, .glass-card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: var(--green); opacity: 0; transition: opacity var(--dur) var(--ease);
+}
+.card:hover::before, .glass-card:hover::before { opacity: 1; }
+.card:hover, .glass-card:hover {
+  transform: translateY(-3px); border-color: var(--border-strong); background: var(--glass-bg-2);
+  box-shadow: 0 16px 32px -18px rgba(0,0,0,0.55);
+}
 
 /* ============================= BENTO GRID SYSTEM =============================
-   A reusable asymmetric grid + glass "cell" pattern (the "bento box" layout
-   seen across modern premium SaaS dashboards) built entirely from the
-   existing --glass-* / --aqua-bright / --green-bright tokens above — no new
-   colors introduced, so it stays correct in both Dark and Light mode for
-   free. .bento-grid lays cells on a 12-column track that collapses to a
-   single column on mobile; .bento-card is a glass cell with a neon-cyan
-   hover ring (a cyan variant of the existing .card hover treatment, distinct
-   enough to read as its own component family). */
+   A reusable asymmetric grid + card pattern (the "bento box" layout seen
+   across modern premium SaaS dashboards) built entirely from the existing
+   --glass-* / --aqua-bright / --green-bright tokens above — no new colors
+   introduced, so it stays correct in both Dark and Light mode for free.
+   .bento-grid lays cells on a 12-column track that collapses to a single
+   column on mobile; .bento-card is the same flat, hairline-bordered surface
+   as .card, distinguished by its own accent-rail color per instance via
+   --bento-accent (defaults to aqua). */
 .bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); }
 .bento-grid > * { grid-column: span 12; }
 @media (min-width: 700px) { .bento-grid > * { grid-column: span 6; } }
 @media (min-width: 1100px) { .bento-grid > * { grid-column: span 4; } }
 
 .bento-card {
+  --bento-accent: var(--aqua-bright);
   position: relative; overflow: hidden; text-align: start; width: 100%;
   display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5);
   background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 40px -24px rgba(0,0,0,0.6);
+  box-shadow: 0 12px 28px -18px rgba(0,0,0,0.5);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-/* Ambient corner glow — a soft radial wash in the top-right corner, revealed
-   only on hover/focus via an opacity transition. Kept invisible at rest so
-   cards read as calm, deliberate surfaces rather than "lit from within"
-   before any interaction — an always-on glow is the one detail that reads
-   most as generic templated glassmorphism. */
+/* A thin top-accent rail, revealed only on hover/focus — the "distinct card
+   family" signal now comes from a crisp colored line, not an ambient blurred
+   glow, so cards read as calm, deliberate instrument panels at rest. */
 .bento-card::before {
-  content: ''; position: absolute; top: -30%; right: -20%; width: 260px; height: 260px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(78,233,255,0.14), transparent 70%); pointer-events: none;
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--bento-accent);
   opacity: 0; transition: opacity var(--dur) var(--ease);
 }
 .bento-card:hover::before, .bento-card:focus-within::before { opacity: 1; }
 .bento-card:hover {
-  transform: translateY(-4px); background: var(--glass-bg-2); border-color: rgba(78,233,255,0.3);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 0 1px rgba(78,233,255,0.10), 0 20px 44px -26px rgba(0,0,0,0.65), 0 8px 24px -16px rgba(78,233,255,0.18);
+  transform: translateY(-3px); background: var(--glass-bg-2); border-color: var(--border-strong);
+  box-shadow: 0 16px 32px -18px rgba(0,0,0,0.55);
 }
 .bento-card-icon {
-  width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0;
+  width: 52px; height: 52px; border-radius: var(--radius-sm); flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(78,233,255,0.10); border: 1px solid rgba(78,233,255,0.24);
+  background: color-mix(in srgb, var(--bento-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bento-accent) 30%, transparent);
 }
 .bento-card-icon .icon { width: 24px; height: 24px; color: var(--aqua-bright); }
 .bento-card h3 { font-size: 1.18rem; text-transform: none; letter-spacing: normal; }
@@ -1665,26 +1677,23 @@ section { position: relative; scroll-margin-top: 96px; }
 .pill-tab .icon { width: 16px; height: 16px; }
 
 /* ============================= WORKOUT GENERATOR ============================= */
-.generator { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: var(--space-5); align-items: start; }
-/* The left "Generator Hub" is now a light container whose child config-groups
-   are each their own glass sub-card — a modular, SaaS-dashboard stack rather
-   than one long flat form. */
-.config-card {
-  background: transparent; border: none; border-radius: var(--radius-lg); padding: 0;
-  display: flex; flex-direction: column; gap: var(--space-3);
+/* ============================= WORKOUTS BENTO LAYOUT =============================
+   The entire signed-in Workouts config + result area is one bento grid — each
+   config group (Profile, PBs, Discipline, Distance, Equipment, Goals, Level)
+   is its own .bento-card cell rather than a flat stacked form, and the Quote/
+   Result/AI cells sit in the same grid so the generated set genuinely reads
+   as the "featured" cell rather than a bolted-on sidebar result. */
+.workouts-bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); align-items: start; }
+.workouts-bento > * { grid-column: span 12; }
+@media (min-width: 700px) { .workouts-bento > * { grid-column: span 6; } }
+@media (min-width: 1100px) {
+  .wb-profile, .wb-pb, .wb-discipline, .wb-quote { grid-column: span 4; }
+  .wb-distance, .wb-equipment, .wb-goals, .wb-level { grid-column: span 3; }
+  .wb-result { grid-column: span 8; }
+  .wb-ai { grid-column: span 12; }
 }
-.config-group {
-  margin-bottom: 0;
-  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius);
-  padding: var(--space-4) var(--space-5);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 14px 34px -26px rgba(0,0,0,0.6);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
-}
-.config-group:hover {
-  border-color: rgba(22,214,115,0.30);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(22,214,115,0.12), 0 18px 40px -24px rgba(0,0,0,0.65);
-}
+.wb-level { display: flex; flex-direction: column; }
+.wb-result, .wb-ai { display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
 
@@ -2003,7 +2012,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .btn-complete-workout.btn-workout-logged { background: var(--green-bright); border-color: var(--green-bright); color: var(--on-green); cursor: default; opacity: 0.95; }
 
 @media (max-width: 900px) {
-  .generator { grid-template-columns: 1fr; }
   .equipment-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
@@ -3116,131 +3124,132 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="generator">
-        <div class="config-card" data-reveal="left">
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
-            <div class="profile-row">
-              <div class="profile-field">
-                <label for="swimmerAge">Age</label>
-                <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
-              </div>
+      <div class="workouts-bento">
+        <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
+          <div class="profile-row">
+            <div class="profile-field">
+              <label for="swimmerAge">Age</label>
+              <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
             </div>
           </div>
+        </div>
 
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below)</span></div>
-            <div class="pb-stroke-grid">
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Freestyle</span>
-                <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeFreestyle" placeholder="optional — e.g. 1:05">
-              </div>
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Backstroke</span>
-                <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeBackstroke" placeholder="optional — e.g. 1:08">
-              </div>
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Butterfly</span>
-                <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeButterfly" placeholder="optional — e.g. 1:04">
-              </div>
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Breaststroke</span>
-                <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
-              </div>
+        <div class="bento-card wb-pb" data-reveal="left" style="--bento-accent:var(--gold)">
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below)</span></div>
+          <div class="pb-stroke-grid">
+            <div class="pb-stroke-row">
+              <span class="pb-stroke-name">Freestyle</span>
+              <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
+                <option value="50">50m</option>
+                <option value="100" selected>100m</option>
+                <option value="200">200m</option>
+                <option value="400">400m</option>
+                <option value="800">800m</option>
+                <option value="1500">1500m</option>
+              </select>
+              <input type="text" id="pbTimeFreestyle" placeholder="optional — e.g. 1:05">
+            </div>
+            <div class="pb-stroke-row">
+              <span class="pb-stroke-name">Backstroke</span>
+              <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
+                <option value="50">50m</option>
+                <option value="100" selected>100m</option>
+                <option value="200">200m</option>
+                <option value="400">400m</option>
+                <option value="800">800m</option>
+                <option value="1500">1500m</option>
+              </select>
+              <input type="text" id="pbTimeBackstroke" placeholder="optional — e.g. 1:08">
+            </div>
+            <div class="pb-stroke-row">
+              <span class="pb-stroke-name">Butterfly</span>
+              <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
+                <option value="50">50m</option>
+                <option value="100" selected>100m</option>
+                <option value="200">200m</option>
+                <option value="400">400m</option>
+                <option value="800">800m</option>
+                <option value="1500">1500m</option>
+              </select>
+              <input type="text" id="pbTimeButterfly" placeholder="optional — e.g. 1:04">
+            </div>
+            <div class="pb-stroke-row">
+              <span class="pb-stroke-name">Breaststroke</span>
+              <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
+                <option value="50">50m</option>
+                <option value="100" selected>100m</option>
+                <option value="200">200m</option>
+                <option value="400">400m</option>
+                <option value="800">800m</option>
+                <option value="1500">1500m</option>
+              </select>
+              <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
             </div>
           </div>
+        </div>
 
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or several for a medley/transition set)</span></div>
-            <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
+        <div class="bento-card wb-discipline" data-reveal="left" style="--bento-accent:var(--green-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or several for a medley/transition set)</span></div>
+          <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
+        </div>
+
+        <div class="bento-card wb-distance" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Target Distance</div>
+          <div class="slider-row">
+            <input type="range" id="distanceSlider" min="1000" max="6000" step="500" value="2000" aria-label="Target distance in meters">
+            <span class="slider-value" id="distanceValue">2000m</span>
           </div>
+        </div>
 
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Target Distance</div>
-            <div class="slider-row">
-              <input type="range" id="distanceSlider" min="1000" max="6000" step="500" value="2000" aria-label="Target distance in meters">
-              <span class="slider-value" id="distanceValue">2000m</span>
-            </div>
+        <div class="bento-card wb-equipment" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
+          <div class="equipment-grid" id="equipmentGrid"></div>
+        </div>
+
+        <div class="bento-card wb-goals" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or combine several)</span></div>
+          <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
+        </div>
+
+        <div class="bento-card wb-level" data-reveal="left" style="--bento-accent:var(--green-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
+          <div class="pill-tabs" role="tablist" aria-label="Training level" id="levelTabs">
+            <button class="pill-tab" role="tab" data-level="beginner" aria-selected="true">Beginner</button>
+            <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
+            <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
           </div>
-
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
-            <div class="equipment-grid" id="equipmentGrid"></div>
-          </div>
-
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or combine several)</span></div>
-            <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
-          </div>
-
-          <div class="config-group">
-            <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
-            <div class="pill-tabs" role="tablist" aria-label="Training level" id="levelTabs">
-              <button class="pill-tab" role="tab" data-level="beginner" aria-selected="true">Beginner</button>
-              <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
-              <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
-            </div>
-          </div>
-
-          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:8px">
+          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:auto">
             <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
           </button>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:14px;">
-          <div class="quote-card" data-reveal="right">
+        <div class="wb-quote" data-reveal="right">
+          <div class="quote-card">
             <svg class="icon"><use href="#i-quote"/></svg>
             <blockquote id="quoteText">Every length is a deposit in the bank of race day.</blockquote>
             <cite id="quoteGoal">Endurance</cite>
           </div>
+        </div>
 
-          <div class="result-panel" data-reveal="right">
+        <div class="wb-result" data-reveal="right">
+          <div class="result-panel">
             <div class="result-panel-water-bg" aria-hidden="true"></div>
             <svg class="icon workout-watermark result-watermark"><use href="#i-stopwatch"/></svg>
             <div id="workoutResult">
               <div class="result-empty">
                 <svg class="icon"><use href="#i-stopwatch"/></svg>
-                <p>Configure your set on the left, then hit <strong>Generate Swim Workout</strong>.</p>
+                <p>Configure your set above, then hit <strong>Generate Swim Workout</strong>.</p>
               </div>
             </div>
             <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutPdfBtn" style="display:none; margin-top:20px;">
               <svg class="icon"><use href="#i-download"/></svg> Save Workout as PDF
             </button>
           </div>
+        </div>
 
-          <div class="workout-ai-panel" data-auth-signed-in style="display:none">
+        <div class="wb-ai" data-auth-signed-in style="display:none">
+          <div class="workout-ai-panel">
             <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>Ask The Coach About This Workout</h4></div>
             <div class="coach-messages workout-ai-messages" id="workoutAiMessages"></div>
             <form class="coach-page-form" id="workoutAiForm">
@@ -3282,8 +3291,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="config-card" data-reveal style="margin-bottom:32px;">
-        <div class="config-group" style="margin-bottom:0;">
+      <div class="bento-grid" style="margin-bottom: var(--space-4);">
+        <div class="bento-card" data-reveal style="--bento-accent:var(--aqua-bright)">
           <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — tailors load &amp; volume for aquatic power)</span></div>
           <div class="profile-row">
             <div class="profile-field">
@@ -3303,23 +3312,27 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <svg class="icon"><use href="#i-bolt"/></svg> Update My Prescription
           </button>
         </div>
+
+        <div class="bento-card" data-reveal style="--bento-accent:var(--green-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-dumbbell"/></svg> Today's Focus</div>
+          <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
+          <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs">
+            <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
+            <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
+            <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
+            <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
+            <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
+          </div>
+          <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
+        </div>
       </div>
 
-      <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
-      <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs" style="margin-bottom:32px; width:fit-content;">
-        <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
-        <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
-        <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
-        <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
-        <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
-      </div>
-      <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:20px; display:none;"></p>
       <div id="gymGrid"></div>
       <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
         <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
       </button>
 
-      <div class="workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6);">
+      <div class="bento-card workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6); --bento-accent:var(--aqua-bright)">
         <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
         <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
         <form class="coach-page-form" id="gymAiForm">
@@ -3467,7 +3480,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div class="tracker-shell" data-auth-signed-in style="display:none">
-        <form class="tracker-log-form" id="trackerLogForm">
+        <div class="bento-grid" style="margin-bottom: var(--space-5); align-items: start;">
+        <form class="tracker-log-form" id="trackerLogForm" style="margin-bottom:0;">
           <div class="tracker-log-row">
             <div class="form-row">
               <label for="trackerLogDate">Date</label>
@@ -3505,6 +3519,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
           <div class="tracker-stat-value" id="trackerStatValue">0.00 km</div>
           <div class="tracker-stat-label" id="trackerStatLabel">Logged Today</div>
+        </div>
         </div>
 
         <div class="tracker-analytics-grid" id="trackerAnalyticsGrid">

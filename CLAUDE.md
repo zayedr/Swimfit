@@ -2035,3 +2035,74 @@ attributes remain anywhere. A later round added a passwordless email-OTP auth sy
 itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
 Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
 Firestore collection no longer exist anywhere in this codebase.
+
+**A "total UI overhaul" round rebuilt the Workouts and Gym panels around a genuine bento-grid
+layout and retuned the whole site's card system to a flatter, sharper "precision instrument"
+look — no JS, Firestore, or Cloud Function changes anywhere.** The user asked to source components
+from the 21st.dev component marketplace; neither `/plugin marketplace add` nor the 21st.dev MCP
+connector was actually usable in this sandbox (the plugin command isn't available here, and the
+connector requires an OAuth grant this non-interactive session can't complete), so this round used
+the bundled `ui-ux-pro-max` design-intelligence skill for direction instead and disclosed the
+substitution rather than fabricating 21st.dev-sourced markup. Before touching any markup, a
+dedicated read-only pass catalogued every element id/class/data-attribute the JS actually depends
+on per panel (Workouts, Gym, Coach, Tracker, Academy, Gear) — the summary below is what that audit
+found safe to restructure vs. what had to stay byte-for-byte.
+
+- **Design tokens**: `--glass-bg`/`--glass-bg-2` are now solid opaque colors and `--glass-blur` is
+  `none` in both Dark and Light mode — every `.card`/`.bento-card`/`.tracker-stat-card`/
+  `.tracker-analytics-tile` that already read color exclusively through these variables lost its
+  backdrop-filter frosted-glass look automatically, with zero per-component edits, simply because
+  the token values changed. `--radius-sm`/`--radius`/`--radius-lg` were sharpened (10/18/28px →
+  6/10/14px) for a more "precision instrument" than "soft bubble" corner language. A new
+  `.card::before`/`.bento-card::before` top accent-rail (3px, colored via a new `--bento-accent`
+  custom property, default aqua) replaces the always-on ambient corner glow from the prior round —
+  it's invisible at rest and fades in only on hover/focus, the same "calm until interacted with"
+  principle as before, just expressed as a crisp line instead of a blurred radial wash.
+- **Workouts panel was rebuilt from a flat two-column form into a real bento grid**
+  (`.workouts-bento`, a new scoped 12-column grid): each former `.config-group` (Swimmer Profile,
+  Personal Bests, Discipline, Target Distance, Equipment, Fitness Goals, Level+Generate) is now its
+  own `.bento-card` cell with a distinct `--bento-accent` color, arranged 3-then-4-per-row on
+  desktop instead of stacked in one long left column; the Quote card and the AI assistant panel
+  became grid cells too (`wb-quote`, `wb-ai`), and the generated-workout result panel is now the
+  genuinely "featured" wide cell (`wb-result`, spans 8 of 12 beside the 4-wide quote card) rather
+  than a sidebar-ish block underneath a form. Every JS-referenced id (`swimmerAge`,
+  `pbDistance*`/`pbTime*`, `disciplineChips`, `distanceSlider`/`distanceValue`, `equipmentGrid`,
+  `goalChips`, `levelTabs`, `generateBtn`, `quoteText`/`quoteGoal`, `workoutResult`,
+  `workoutPdfBtn`, the `workoutAi*` ids) and every class the generator's own `renderBlock()`/
+  `extractStructuredWorkout()` string-builders emit (`.workout-block`, `.set-row`, `.set-sendoff`,
+  etc.) is untouched — this was a pure markup/CSS restructuring of the *static* wrapper elements,
+  never the JS-rendered content those wrappers hold. The old `.generator`/`.config-card`/
+  `.config-group` CSS rules were replaced by the new `.workouts-bento`/`.bento-card` system; a
+  stale `.generator { grid-template-columns: 1fr }` mobile override was deleted alongside them.
+- **Gym panel** got the same treatment at smaller scale: the Strength Profile form and the
+  Focus-tabs/weekly-note block are now two side-by-side `.bento-card`s in a `.bento-grid` row above
+  the (unchanged) `#gymGrid` exercise board, and the AI routine panel picked up the `.bento-card`
+  visual treatment too. `#gymGrid`'s own JS-rendered `.gym-phase`/`.gym-card` markup was left
+  completely alone (`extractStructuredGym()` and the PDF export read those classes directly), but
+  every `.gym-card` already carries `class="card gym-card"` — so it automatically inherited the new
+  flat/hairline `.card` look from the token change above with no markup edit needed there at all.
+- **Tracker panel**: the swim-log form and the Daily/Weekly/Monthly stat card are now a two-card
+  bento row above the (unchanged, already its own internal grid) analytics-tile strip, goal card,
+  charts and PB/entries lists. A real bug was caught and fixed during this: the first draft of the
+  bento wrapper accidentally swallowed `#trackerAnalyticsGrid` and the goal card into the same
+  grid cell area as the stat card, squeezing the 5-tile analytics strip into a single narrow column
+  and clipping every value — caught via a Playwright screenshot, fixed by closing the wrapper `div`
+  right after the stat card instead of after the goal card, verified by re-screenshotting.
+- **Academy and Gear panels needed no changes at all** — their JS-rendered cards already use
+  `class="card video-card"`/`class="card gear-card"`, so they inherited the new flat/hairline/
+  accent-rail card look purely from the shared token retune, the same free-ride the Gym cards got.
+- **The full-screen AI Coach panel was deliberately left structurally as-is** — its
+  `.coach-page-shell` two-pane sidebar-plus-chat layout already read through plain `var(--surface)`/
+  `var(--border-strong)` (it was never glassmorphic to begin with, so the token retune didn't
+  change its look), and a messaging-app thread list doesn't map onto a "grid of content cards"
+  the way a feature/config panel does — bento-izing a conversation list would hurt usability, not
+  help it. This is a disclosed scope boundary, not an oversight.
+- Verified via Playwright across the whole regression suite already established in prior rounds
+  (Google-only auth modal, trial/paywall expiry logic, workout generation including the Elite Power
+  block and Distance Ladder archetype, both PDF exports, PB logging/record-detection, the mobile
+  bottom-nav + off-canvas drawer) plus new checks specific to this round: `.bento-card`'s hover-only
+  accent rail still fades in/out correctly with the new solid card colors, the Workouts/Gym/Tracker
+  bento grids collapse cleanly to single-column at 390px with zero real overflow (the one
+  `.nav-links` drawer hit is the same pre-existing, already-`overflow-x:hidden`-mitigated false
+  positive this file has documented since the sidebar/bottom-nav round), and every panel still
+  renders with zero page errors after the rebuild.
