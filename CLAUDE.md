@@ -2132,6 +2132,96 @@ outright regardless of framework. The user agreed to a native equivalent instead
   positives), zero page errors, and the full existing regression suite (auth, trial/paywall,
   workout generation, PDF export, PB tracking) still passes unchanged.
 
+**A wide-scope UX/polish round touching Hero, dashboard layout, Support chat, Pricing, and PDF
+exports — no JS business logic beyond additive, narrowly-scoped features; no Firebase/Firestore/
+Auth changes anywhere.**
+
+- **Hero tightened + "Core Services" bento section removed entirely.** The bento showcase section
+  between the Hero and the tab dashboard (`#services`, 5 cards routing to Workouts/Gym/Coach/
+  Tracker/Academy) was removed outright at the user's explicit "repetitive/awkward middle section"
+  complaint — it duplicated both the Hero's own chips and the nav/tab bar's identical 5
+  destinations, and was the single largest contributor to landing-page scroll length. `.hero`'s
+  `min-height`/`padding-top` were trimmed (92svh→88svh, 120px→100px); measured via Playwright, the
+  Hero now ends and the tab dashboard begins within a single 900px-tall viewport, down from
+  requiring a full extra scroll past the old section. The **"Registered Swimmers" live counter**
+  was removed too (`#registeredUsersStat` markup, `wireRegisteredUsersCounter()`, and its call
+  site all deleted — a full removal, not just hiding the tile, since an orphaned dead counter
+  function serves no purpose) — the "Total Active Subscribers" counter and its shared
+  `animateCountTo()` helper are untouched. The **headline was rewritten** for more impact:
+  eyebrow "Performance Swim Training" → "Elite Performance Swim Training", H1 "Command the
+  Water." → "Outswim Your Limits." (keeping the well-established "Own the Race" second line and
+  its accent-colored pun), updated in the inline markup and both the `I18N.en`/`I18N.ar`
+  dictionaries so language-switching stays in sync. Orphaned CSS (`.services-bento-section`,
+  `.services-bento-grid` nth-child span rules, `.services-bento-cta`, `.bento-card.is-featured`,
+  and the now-stale `.generator` mobile-override rule left over from an earlier round) was deleted
+  alongside the markup rather than left as dead rules.
+- **A real "chaotic layout" bug was found and fixed in the Workouts bento grid**: `.workouts-bento`
+  had `align-items: start`, so cards in the same row (e.g. Personal Bests' four stroke rows next
+  to Target Distance's single slider) sized to their own content height instead of matching their
+  row neighbors — a jagged, uneven bottom edge per row, which is exactly what reads as "chaotic
+  offsets" rather than an engineered grid. Fixed by dropping the override so the grid's default
+  `stretch` behavior takes over for the config-card rows (Profile/PBs/Discipline and Distance/
+  Equipment/Goals/Level now measurably match height within each row) — the Quote/Result/AI row is
+  deliberately exempted via `align-self: start` on those three cells specifically, since a one-line
+  quote stretched to match a full generated-workout panel's height would just leave a mostly-empty
+  card, not fix anything. Gym's and Tracker's own bento rows already used the unmodified generic
+  `.bento-grid` (which never had this override) and were already rendering with equal-height rows.
+- **A client-only chat auto-confirmation was added**, on both the floating widget and the Support
+  tab: the instant a swimmer sends a message, "A member of our support team will reach out to you
+  shortly." appears as a small italicized `.coach-system-note` — visually distinct from a real
+  chat bubble so it's never mistaken for an actual human reply having already landed. Matching the
+  existing instant-greeting precedent, it is **never written to Firestore** (would misrepresent an
+  automated note as a genuine admin message and pollute the Admin Panel's own inbox view) —
+  instead it's derived at render time: both `renderMessages()` functions append it whenever the
+  swimmer's own message is the latest one (i.e. admin hasn't replied yet), so it survives the next
+  real `onSnapshot` rebuild instead of vanishing the moment the authoritative message list
+  re-renders, and disappears on its own the instant an admin reply becomes the latest message. A
+  real bug was caught and fixed while wiring the second (Support tab) copy of this: the edit
+  accidentally dropped the `messagesEl.appendChild(row)` call from `appendOptimisticMessage()`,
+  which would have made the swimmer's own sent message never render at all on that surface —
+  caught immediately via a Playwright check of the rendered message HTML before shipping. The
+  pre-existing Admin Panel unread badge/toast system (`wireAdminUnreadNotifications`,
+  `#adminNavUnreadBadge`) was verified still working correctly (re-seeded a mock unread
+  `admin_chats` doc and confirmed the badge flips from hidden/"0" to visible/"1") rather than
+  rebuilt, since nothing about it had regressed.
+- **Pricing numbers now count up from 0** every time the Pricing tab is opened — `switchTab()`
+  calls a new `animatePricingNumbers()` when `id === 'pricing'`, which reads each
+  `.price-amount .num`'s own displayed value as the animation target (so it can never drift out of
+  sync with the real price) and eases it up from 0 over 900ms; respects `prefers-reduced-motion`
+  by no-oping entirely. Replays cleanly on every repeat visit to the tab, verified via Playwright.
+- **PDF exports were redesigned from the dark 9:16 "story card" look to a crisp white/dark-ink
+  "elite brand" look**, per explicit request. The `PDF` color table (`bg`/`card` → pure white,
+  `white` renamed `ink` → near-black `rgb(15,23,42)`, `muted`/`dim` → mid-slate grays) reuses this
+  app's own **Light theme** token values for the accent hues (`aqua`/`green`/`gold` = the exact
+  same deeper, print-safe colors `:root[data-theme="light"]` already defines) rather than the
+  dark-mode neon shades, so the export and the site's own Light mode read as one consistent brand
+  rather than two different palettes. `pdfStageCard()`'s white-on-white cards now need an actual
+  drawn border to read as cards at all — added via `doc.setDrawColor(...)` + a `'FD'` (fill+draw)
+  rounded-rect instead of the previous fill-only `'F'`. The top accent band switched from aqua→
+  green to maroon→green (the brand's own two core colors) and the footer's `swimfit.online` text
+  moved from a light aqua (illegible on white) to the same muted slate gray used for other
+  secondary text. Every `PDF.white`-referencing text-color call site (3 in the workout builder, 1
+  in the gym builder) was updated to `PDF.ink`. Verified by regenerating both exports and manually
+  reviewing the output — download still fires correctly with zero page errors.
+- **A typography/button consistency audit found nothing to fix.** Checked programmatically rather
+  than by eye: every `.section-head h2` across all 10 tab panels computes to the identical
+  41.6px, and every `.btn`/`.btn-sm` instance across Nav/Hero/Workouts/Gym/Pricing measures the
+  exact same padding and min-height per size variant (44px/38px) — the shared `.btn` base class
+  and its `-primary`/`-ghost`/`-outline-aqua`/`-outline-maroon`/`-sm` variants were already fully
+  unified with one consistent hover-lift treatment across every tab (established across many prior
+  rounds), so no changes were made here; inventing button-system edits with no actual
+  inconsistency found would have been change for its own sake.
+- **The EmailJS welcome-email pipeline was re-verified, not modified** — `sendWelcomeEmail()`'s
+  three outcomes (config missing → `console.info`, send succeeds → `console.log`, send rejects →
+  `console.error('WELCOME EMAIL ERROR:', err)` plus the EmailJS response's own `.status`/`.text`)
+  already cover every path with no silent-failure gap, matching this file's own prior "no silent
+  failures" audit; nothing needed to change.
+- Verified via Playwright across the full existing regression suite (Google-only auth modal,
+  trial/paywall expiry logic, workout generation including the Elite Power block and Distance
+  Ladder archetype, both PDF exports, PB logging/record-detection, the chat auto-confirmation note
+  on both surfaces, the Pricing count-up, and the mobile bottom-nav + off-canvas drawer) with zero
+  page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

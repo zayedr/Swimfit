@@ -561,33 +561,8 @@
     }
   }
 
-  // Live "Registered Swimmers" counter, read from the public stats/counters
-  // doc that the Cloud Function maintains. Hides the whole stat tile if
-  // Firestore can't be reached rather than showing a stuck "0".
-  function wireRegisteredUsersCounter() {
-    var el = document.getElementById('registeredUsersCount');
-    var tile = document.getElementById('registeredUsersStat');
-    if (!el || !tile) return;
-    var settled = false;
-    var timeout = setTimeout(function () { if (!settled) tile.style.display = 'none'; }, 8000);
-    try {
-      onSnapshot(doc(db, 'stats', 'counters'), function (snap) {
-        settled = true;
-        clearTimeout(timeout);
-        var count = snap.exists() && typeof snap.data().userCount === 'number' ? snap.data().userCount : null;
-        if (count == null) { tile.style.display = 'none'; return; }
-        tile.style.display = '';
-        animateCountTo(el, count);
-      }, function () {
-        settled = true;
-        tile.style.display = 'none';
-      });
-    } catch (e) {
-      tile.style.display = 'none';
-    }
-  }
-  // Live "Total Active Subscribers" counter — mirrors wireRegisteredUsersCounter()
-  // above, reading activeSubscriberCount off the SAME public stats/counters doc.
+  // Live "Total Active Subscribers" counter — reads activeSubscriberCount off
+  // the public stats/counters doc the Cloud Function maintains.
   // That field is maintained server-side by onSubscriptionWrite (functions/index.js),
   // a Firestore trigger on subscriptions/{subscriptionId} that increments/decrements
   // it whenever a subscription's status crosses the active/trialing boundary — never
@@ -805,7 +780,6 @@
     logoutBtn.addEventListener('click', function () { signOut(auth); });
 
     // Google is the only sign-in path — no password form to wire up.
-    wireRegisteredUsersCounter();
     wireActiveSubscribersCounter();
   }
 
@@ -1321,7 +1295,7 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= HERO ============================= */
-.hero { position: relative; min-height: 92svh; display: flex; align-items: center; padding-top: 120px; overflow: hidden; isolation: isolate; }
+.hero { position: relative; min-height: 88svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
 /* Edge-blend layer: fades the hero's photo/video/wave layers into the page
    background at the left (so there's no hard vertical seam against the fixed
    sidebar) and at the bottom (so the hero melts into the dashboard section
@@ -1675,29 +1649,14 @@ section { position: relative; scroll-margin-top: 96px; }
 .bento-card-link .icon { width: 14px; height: 14px; transition: transform var(--dur) var(--ease); }
 .bento-card:hover .bento-card-link { color: var(--green-bright); gap: 10px; }
 .bento-card:hover .bento-card-link .icon { transform: translateX(2px); }
-/* The first (featured) card in the Core Services grid spans wider on desktop
-   for the classic asymmetric bento hierarchy — one large "hero" cell, the
-   rest even-sized. */
-@media (min-width: 1100px) {
-  .services-bento-grid > .bento-card:nth-child(1) { grid-column: span 8; }
-  .services-bento-grid > .bento-card:nth-child(2) { grid-column: span 4; }
-}
-.bento-card.is-featured { background: linear-gradient(160deg, rgba(78,233,255,0.10), var(--glass-bg-2)); }
-.bento-card.is-featured h3 { font-size: 1.32rem; }
-
-.services-bento-section { padding-block: var(--space-7); }
-.services-bento-cta { display: flex; justify-content: center; margin-top: var(--space-6); }
-@media (max-width: 560px) { .services-bento-section { padding-block: var(--space-6); } }
-
-/* The long-form "Start 3-Day Free Trial — No Card Required" CTA (hero +
-   services section) is the one button in this file whose label is long
-   enough to overflow a narrow phone width under the global .btn
-   white-space:nowrap — real, verified clipping at 390px, not just a benign
-   scrollWidth artifact. Letting it wrap and go full-width below 480px fixes
-   it without touching the shared .btn rule every other (shorter) button
-   relies on staying single-line. */
+/* The long-form "Start 3-Day Free Trial — No Card Required" CTA (Hero) is the
+   one button in this file whose label is long enough to overflow a narrow
+   phone width under the global .btn white-space:nowrap — real, verified
+   clipping at 390px, not just a benign scrollWidth artifact. Letting it wrap
+   and go full-width below 480px fixes it without touching the shared .btn
+   rule every other (shorter) button relies on staying single-line. */
 @media (max-width: 480px) {
-  .hero-actions .btn-cta-glow, .services-bento-cta .btn-cta-glow { white-space: normal; width: 100%; text-align: center; line-height: 1.3; padding-block: 0.9em; }
+  .hero-actions .btn-cta-glow { white-space: normal; width: 100%; text-align: center; line-height: 1.3; padding-block: 0.9em; }
 }
 
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
@@ -1732,7 +1691,7 @@ section { position: relative; scroll-margin-top: 96px; }
    is its own .bento-card cell rather than a flat stacked form, and the Quote/
    Result/AI cells sit in the same grid so the generated set genuinely reads
    as the "featured" cell rather than a bolted-on sidebar result. */
-.workouts-bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); align-items: start; }
+.workouts-bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--space-4); }
 .workouts-bento > * { grid-column: span 12; }
 @media (min-width: 700px) { .workouts-bento > * { grid-column: span 6; } }
 @media (min-width: 1100px) {
@@ -1742,7 +1701,15 @@ section { position: relative; scroll-margin-top: 96px; }
   .wb-ai { grid-column: span 12; }
 }
 .wb-level { display: flex; flex-direction: column; }
-.wb-result, .wb-ai { display: flex; flex-direction: column; }
+/* The config-card rows (Profile/PBs/Discipline, Distance/Equipment/Goals/
+   Level) stretch to equal height by default now — cards with less content
+   (e.g. Target Distance's single slider) no longer end short and jagged
+   next to a taller neighbor (e.g. Personal Bests' four rows), which read as
+   "chaotic offsets" rather than an engineered grid. The Quote/Result/AI row
+   is intentionally exempted: its content genuinely varies a lot (a one-line
+   quote vs. a full generated workout vs. a chat panel), so stretching them
+   to match would leave mostly-empty cards rather than fix anything. */
+.wb-quote, .wb-result, .wb-ai { align-self: start; display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
 
@@ -2418,6 +2385,12 @@ body.paywall-locked { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .coach-bubble { animation: none; } }
 .coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(22,214,115,0.22); }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+/* A small, visually-distinct auto-reply note — NOT a chat bubble, so it never
+   reads as if a human already answered. Shown under the swimmer's own latest
+   message on both the floating widget and the Support tab, purely client-
+   rendered (never written to Firestore, same "don't pollute the real
+   admin_chats data" rule the instant greeting already follows). */
+.coach-system-note { text-align: center; color: var(--muted-2); font-size: 0.76rem; font-style: italic; padding: 2px 0 6px; }
 .coach-bubble.coach-typing { color: var(--muted); font-style: italic; box-shadow: none; }
 .coach-bubble.coach-error { border-color: var(--maroon); color: var(--maroon-bright); box-shadow: none; }
 /* Consecutive messages from the same sender sit closer together with a
@@ -3089,8 +3062,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 
   <div class="wrap hero-content">
-    <p class="eyebrow" data-i18n="hero.eyebrow">Performance Swim Training</p>
-    <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Command the Water.<br>Own the <span class="accent">Race.</span></h1>
+    <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+    <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
     <div class="hero-chips" data-reveal>
       <span class="hero-chip"><svg class="icon"><use href="#i-stopwatch"/></svg> Daily-rotating swim sets</span>
       <span class="hero-chip"><svg class="icon"><use href="#i-dumbbell"/></svg> Tailored dryland training</span>
@@ -3102,63 +3075,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
     </div>
     <div class="hero-stats" data-reveal>
-      <div class="stat" id="registeredUsersStat" style="display:none"><strong id="registeredUsersCount">0</strong><span>Registered Swimmers</span></div>
       <div class="stat" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span></div>
     </div>
   </div>
 </header>
-
-<!-- ============================= CORE SERVICES (BENTO) =============================
-     A bento-grid showcase of the five core services, front-and-center right
-     after the Hero so a new visitor understands the platform's value before
-     ever touching the tabbed dashboard below. Every card is a real [data-tab]
-     trigger — the existing generic tab-switch delegation (see switchTab()
-     wiring near the NAV / TAB CONTROLLER section) already binds a click
-     handler to every element carrying that attribute at page load, so these
-     cards route to the real tab with zero new JS. -->
-<section class="services-bento-section" id="services" data-reveal>
-  <div class="wrap">
-    <div class="section-head center">
-      <p class="eyebrow" style="justify-content:center">Everything You Need</p>
-      <h2>One Platform. Every Edge.</h2>
-    </div>
-    <div class="bento-grid services-bento-grid">
-      <button type="button" class="bento-card is-featured" data-tab="workouts">
-        <span class="bento-card-icon"><svg class="icon"><use href="#i-stopwatch"/></svg></span>
-        <h3>Daily Rotating Swim Sets</h3>
-        <p>A fresh, coach-built Warm-Up → Pre-Set → Main Set → Cool-Down session every single day — tuned to your discipline, distance, gear and goals, and rotating automatically at midnight so you never swim the same set twice in a row.</p>
-        <span class="bento-card-link">Build my workout <svg class="icon"><use href="#i-chevron"/></svg></span>
-      </button>
-      <button type="button" class="bento-card" data-tab="gym">
-        <span class="bento-card-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
-        <h3>Tailored Gym &amp; Dryland Workouts</h3>
-        <p>Real commercial-gym strength work — Upper, Lower, Full Body, Cardio and Mobility — matched to your sprint/distance orientation, with a live technique demo on every exercise.</p>
-        <span class="bento-card-link">See today's focus <svg class="icon"><use href="#i-chevron"/></svg></span>
-      </button>
-      <button type="button" class="bento-card" data-tab="coach">
-        <span class="bento-card-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
-        <h3>AI Swim Coach &amp; Analyzer</h3>
-        <p>Ask about technique, pacing or your log any time — attach a photo of your workout page, gear or stroke position for real, specific feedback.</p>
-        <span class="bento-card-link">Ask the coach <svg class="icon"><use href="#i-chevron"/></svg></span>
-      </button>
-      <button type="button" class="bento-card" data-tab="tracker">
-        <span class="bento-card-icon"><svg class="icon"><use href="#i-trophy"/></svg></span>
-        <h3>PB &amp; Progress Tracker</h3>
-        <p>Log every swim and personal best — watch weekly/monthly volume, pace and PB progression climb on a real dashboard, not a spreadsheet.</p>
-        <span class="bento-card-link">Track my progress <svg class="icon"><use href="#i-chevron"/></svg></span>
-      </button>
-      <button type="button" class="bento-card" data-tab="academy">
-        <span class="bento-card-icon"><svg class="icon"><use href="#i-target"/></svg></span>
-        <h3>Swim Academy &amp; Gear Store</h3>
-        <p>Stroke-by-stroke video breakdowns — 100% free, no tiers — plus a curated gear guide for every piece of kit that actually moves the needle.</p>
-        <span class="bento-card-link">Explore Academy <svg class="icon"><use href="#i-chevron"/></svg></span>
-      </button>
-    </div>
-    <div class="services-bento-cta" data-auth-signed-out>
-      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup">Start 3-Day Free Trial — No Card Required</button>
-    </div>
-  </div>
-</section>
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
@@ -4708,6 +4628,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // it here too means arriving at the tab can never show a stale gate state
     // even in some future edge case where an accesschange event was missed.
     if (id === 'coach' && typeof window.renderCoachPageGate === 'function') window.renderCoachPageGate();
+    if (id === 'pricing') animatePricingNumbers();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { next.classList.add('in'); });
     });
@@ -4727,6 +4648,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   tabButtons.forEach(function (btn) {
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
+
+  // Counts each Pricing card's price up from 0 to its real target every time
+  // the tab is opened — the target is read straight off the number already
+  // in the markup, so it never drifts out of sync with the real price, and
+  // re-runs cleanly on repeat visits since the settled value is always the
+  // correct target to re-animate from.
+  function animatePricingNumbers() {
+    if (reduceMotion) return;
+    document.querySelectorAll('#panel-pricing .price-amount .num').forEach(function (el) {
+      var target = parseInt(el.textContent, 10);
+      if (isNaN(target)) return;
+      var startTime = null, duration = 900;
+      function step(ts) {
+        if (!startTime) startTime = ts;
+        var progress = Math.min((ts - startTime) / duration, 1);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - progress, 3)));
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
 
   // Signing out completely clears the session (signOut(auth) below, plus
   // every feature's own swimfit:authchange listener clearing its local
@@ -6911,27 +6853,34 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // A 9:16 portrait "card" layout on a deep-slate background with neon stage
     // accents — photo-ready for an Instagram/TikTok story, not a plain A4 sheet.
     var PDF_PAGE = [720, 1280]; // 9:16 portrait
+    // Crisp white "elite brand" export — swapped from the earlier dark
+    // story-card look at explicit request: white card backgrounds, dark
+    // readable ink, and print-safe (deeper, more saturated) accent hues
+    // reused directly from the app's own Light theme tokens so the PDF and
+    // the site's light mode read as the same brand rather than two
+    // different palettes.
     var PDF = {
-      bg: [12, 18, 32], card: [23, 32, 51], border: [42, 56, 84],
-      white: [248, 250, 252], muted: [174, 187, 204], dim: [124, 138, 160],
-      aqua: [78, 233, 255], green: [57, 255, 158], gold: [231, 182, 91],
-      peri: [165, 180, 252], maroon: [224, 106, 130]
+      bg: [255, 255, 255], card: [255, 255, 255], border: [223, 227, 234],
+      ink: [15, 23, 42], muted: [71, 85, 105], dim: [100, 116, 139],
+      aqua: [8, 145, 168], green: [16, 145, 85], gold: [168, 121, 31],
+      peri: [67, 56, 202], maroon: [156, 42, 68]
     };
     var STAGE_RGB = { warmup: PDF.aqua, preset: PDF.gold, main: PDF.green, cooldown: PDF.peri };
 
     function pdfFillPage(doc) {
       var w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
       doc.setFillColor(PDF.bg[0], PDF.bg[1], PDF.bg[2]); doc.rect(0, 0, w, h, 'F');
-      // Two-tone top accent band (aqua -> green) for the SwimFit identity.
+      // Two-tone top accent band (maroon -> green) — the brand's own colors,
+      // still reads clean against a white page.
       doc.setFillColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.rect(0, 0, w, 9, 'F');
-      doc.setFillColor(PDF.aqua[0], PDF.aqua[1], PDF.aqua[2]); doc.rect(0, 0, w * 0.52, 9, 'F');
+      doc.setFillColor(PDF.maroon[0], PDF.maroon[1], PDF.maroon[2]); doc.rect(0, 0, w * 0.52, 9, 'F');
     }
     function pdfWordmarkHeader(doc, subtitle) {
       pdfFillPage(doc);
       var w = doc.internal.pageSize.getWidth();
       var hx = 46, hy = 78;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(34);
-      doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]); doc.text('SWIM', hx, hy);
+      doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]); doc.text('SWIM', hx, hy);
       var ww = doc.getTextWidth('SWIM');
       doc.setTextColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.text('FIT', hx + ww + 2, hy);
       if (subtitle) {
@@ -6949,17 +6898,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       for (var p = 1; p <= n; p++) {
         doc.setPage(p);
         doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.setTextColor(PDF.aqua[0], PDF.aqua[1], PDF.aqua[2]);
+        doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
         doc.text('swimfit.online', w / 2, h - 30, { align: 'center' });
       }
     }
-    // Draws one accent-railed stage card and returns the new y below it.
+    // Draws one accent-railed stage card (white fill + a subtle hairline
+    // border, since white-on-white needs a drawn edge to read as a card at
+    // all) and returns the new y below it.
     function pdfStageCard(doc, opts) {
       var pageW = doc.internal.pageSize.getWidth();
       var marginX = 46, cardX = marginX, cardW = pageW - marginX * 2;
       var accent = opts.accent;
       doc.setFillColor(PDF.card[0], PDF.card[1], PDF.card[2]);
-      doc.roundedRect(cardX, opts.y, cardW, opts.height, 16, 16, 'F');
+      doc.setDrawColor(PDF.border[0], PDF.border[1], PDF.border[2]); doc.setLineWidth(1);
+      doc.roundedRect(cardX, opts.y, cardW, opts.height, 16, 16, 'FD');
       doc.setFillColor(accent[0], accent[1], accent[2]);
       doc.roundedRect(cardX, opts.y + 10, 6, opts.height - 20, 3, 3, 'F');
       var tx = cardX + 26, ty = opts.y + 36;
@@ -7027,7 +6979,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
               doc.text('@ ' + m.r.interval, contentRight, ry, { align: 'right' });
             }
             doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-            doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+            doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
             m.lines.forEach(function (ln, i) { doc.text(ln, tx, ry + i * lineLead); });
             ry += m.lines.length * lineLead + rowGap;
           });
@@ -7062,7 +7014,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
               doc.text('@ ' + m.r.interval, pageW - marginX - 22, y, { align: 'right' });
             }
             doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-            doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+            doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
             m.lines.forEach(function (ln, i) { doc.text(ln, marginX + 26, y + i * lineLead); });
             y += m.lines.length * lineLead + rowGap;
           });
@@ -7111,7 +7063,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         measured.forEach(function (m) {
           // Exercise name (left) + prescription (right, accent).
           doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
-          doc.setTextColor(PDF.white[0], PDF.white[1], PDF.white[2]);
+          doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
           var nameLines = doc.splitTextToSize(m.ex.name, textW);
           doc.text(nameLines[0], c.tx, ry);
           doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
@@ -7518,8 +7470,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
         'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
         'nav.signin': 'Sign In',
-        'hero.eyebrow': 'Performance Swim Training',
-        'hero.headline': 'Command the Water.<br>Own the <span class="accent">Race.</span>',
+        'hero.eyebrow': 'Elite Performance Swim Training',
+        'hero.headline': 'Outswim Your Limits.<br>Own the <span class="accent">Race.</span>',
         'hero.sub': 'Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.',
         'hero.cta1': 'Build My Workout', 'hero.cta2': 'Today’s Gym Focus',
         'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Swim Workout Generator',
@@ -7539,8 +7491,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'التمارين', 'nav.gym': 'الجيم', 'nav.gear': 'المعدات', 'nav.academy': 'الأكاديمية',
         'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.support': 'الدعم', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
         'nav.signin': 'تسجيل الدخول',
-        'hero.eyebrow': 'تدريب السباحة الاحترافي',
-        'hero.headline': 'تحكّم بالماء.<br>املك <span class="accent">السباق.</span>',
+        'hero.eyebrow': 'تدريب السباحة الاحترافي النخبوي',
+        'hero.headline': 'تجاوز حدودك.<br>املك <span class="accent">السباق.</span>',
         'hero.sub': 'أطلق العنان لإمكاناتك مع تمارين سباحة عالية الأداء، وتدريب بري مخصص، وتتبّع فوري للتقدم.',
         'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'تركيز الجيم اليوم',
         'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مولّد تمارين السباحة',
@@ -9433,7 +9385,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         row.appendChild(bubble);
         messagesEl.appendChild(row);
       });
+      // A purely client-rendered auto-reply note (never written to
+      // Firestore, same rule the instant greeting already follows) shown
+      // whenever the swimmer's own message is the latest one — i.e. admin
+      // hasn't replied yet. Derived from render-time state rather than a
+      // one-off bubble so it survives the next onSnapshot rebuild instead of
+      // vanishing the moment the real message list re-renders.
+      if (messages.length && messages[messages.length - 1].sender !== 'admin') {
+        appendSystemNote();
+      }
       messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendSystemNote() {
+      var note = document.createElement('p');
+      note.className = 'coach-system-note';
+      note.textContent = 'A member of our support team will reach out to you shortly.';
+      messagesEl.appendChild(note);
     }
 
     // Show the greeting the instant this widget is wired — never gated on
@@ -9446,7 +9414,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // still owns the authoritative list and will reconcile this bubble away
     // (renderMessages() fully rebuilds messagesEl every time it fires), but
     // a swimmer should see their message land the instant they hit send
-    // rather than staring at nothing until the network catches up.
+    // rather than staring at nothing until the network catches up. The
+    // auto-reply note is appended right after it for the same reason —
+    // renderMessages() re-adds it on the next real snapshot anyway (since
+    // the swimmer's message will still be the latest one), so this is just
+    // the instant version.
     function appendOptimisticMessage(text) {
       var row = document.createElement('div');
       row.className = 'coach-msg coach-msg-user';
@@ -9455,6 +9427,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       bubble.textContent = text;
       row.appendChild(bubble);
       messagesEl.appendChild(row);
+      appendSystemNote();
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
@@ -9581,7 +9554,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         r.appendChild(b);
         messagesEl.appendChild(r);
       });
+      // Same client-only auto-reply note as the floating widget (never
+      // written to Firestore) — shown whenever the swimmer's own message is
+      // the latest one, i.e. admin hasn't replied yet.
+      if (messages[messages.length - 1].sender !== 'admin') {
+        appendSystemNote();
+      }
       messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendSystemNote() {
+      var note = document.createElement('p');
+      note.className = 'coach-system-note';
+      note.textContent = 'A member of our support team will reach out to you shortly.';
+      messagesEl.appendChild(note);
     }
 
     // Show the greeting synchronously the instant this page is wired — never
@@ -9604,6 +9590,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       bubble.textContent = text;
       row.appendChild(bubble);
       messagesEl.appendChild(row);
+      appendSystemNote();
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
