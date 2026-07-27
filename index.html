@@ -473,6 +473,15 @@
       return ref;
     });
   };
+  // Marks the admin's messages as seen once the swimmer actually opens the
+  // conversation — feeds the Admin Panel's WhatsApp-style read-receipt ticks
+  // below. Best-effort/non-fatal: a failed write here only means a tick
+  // stays on "Sent" a little longer, never a lost or blocked message.
+  window.__adminChatMarkSeenByUser = function () {
+    if (!auth.currentUser) return Promise.resolve();
+    return setDoc(doc(db, 'admin_chats', auth.currentUser.uid), { unreadForUser: false }, { merge: true })
+      .catch(function (err) { console.warn('admin_chats read-receipt update failed (non-fatal):', err); });
+  };
 
   // Admin Panel direct-message thread — the admin's own side. Real-time on
   // both directions via firestore.rules' isAdminAuth() (the admin's own
@@ -1476,19 +1485,19 @@ section { position: relative; scroll-margin-top: 96px; }
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
 }
 
-/* Full-screen looping video backgrounds for Workouts (swimmer in a pool) and
-   Gym (dryland training) — loaded lazily on first visit to each tab (see the
-   JS in switchTab()), faded in only while that tab is active, and backed by
-   a dark overlay wash so cards/text stay fully readable. Falls back to the
-   .dash-ambient-bg CSS effect underneath if the video errors or never loads. */
+/* Full-screen looping video background for Workouts (swimmer in a pool) —
+   loaded lazily on first visit (see the JS in switchTab()), faded in only
+   while that tab is active, and backed by a dark overlay wash so cards/text
+   stay fully readable. Falls back to the .dash-ambient-bg CSS effect
+   underneath if the video errors or never loads. Gym's own equivalent video +
+   overlay was removed outright at the user's request for a clean,
+   high-performance look — Gym now shows the same plain .dash-ambient-bg every
+   other non-video tab (Gear, Academy, Tracker, Pricing, …) already uses. */
 .dash-bg-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 900ms ease; }
 .dash-bg-video.is-playing[data-for="workouts"] { opacity: 0; }
-.dash-bg-video.is-playing[data-for="gym"] { opacity: 0; }
-#dashboard[data-active-tab="workouts"] .dash-bg-video[data-for="workouts"].is-playing,
-#dashboard[data-active-tab="gym"] .dash-bg-video[data-for="gym"].is-playing { opacity: 0.5; }
+#dashboard[data-active-tab="workouts"] .dash-bg-video[data-for="workouts"].is-playing { opacity: 0.5; }
 .dash-bg-overlay { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; background: linear-gradient(160deg, rgba(10,15,24,0.82) 0%, rgba(10,15,24,0.65) 55%, rgba(10,15,24,0.82) 100%); }
-#dashboard[data-active-tab="workouts"] .dash-bg-overlay,
-#dashboard[data-active-tab="gym"] .dash-bg-overlay { opacity: 1; }
+#dashboard[data-active-tab="workouts"] .dash-bg-overlay { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .dash-bg-video { display: none; } }
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
@@ -2709,10 +2718,18 @@ body.paywall-locked { overflow: hidden; }
   display: flex; flex-direction: column; gap: 2px;
   background: var(--bg);
 }
-.admin-chat-msg-time {
-  display: block; margin-top: 3px; font-size: 0.64rem; letter-spacing: 0.02em;
-  opacity: 0.65; text-align: right;
+.admin-chat-msg-meta {
+  display: flex; align-items: center; justify-content: flex-end; gap: 3px;
+  margin-top: 3px;
 }
+.admin-chat-msg-time { font-size: 0.64rem; letter-spacing: 0.02em; opacity: 0.65; }
+/* WhatsApp-style read receipt on the admin's own sent messages: one check
+   means sent (written to Firestore), a second accent-colored check means the
+   swimmer has opened the conversation since (unreadForUser === false). */
+.admin-chat-tick { display: inline-flex; align-items: center; color: var(--muted-2); opacity: 0.75; }
+.admin-chat-tick .icon { width: 12px; height: 12px; }
+.admin-chat-tick .icon + .icon { margin-left: -6px; }
+.admin-chat-tick.is-seen { color: var(--aqua); opacity: 1; }
 .admin-chat-form {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border);
@@ -2991,7 +3008,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <section class="dashboard section-alt" id="dashboard">
   <div class="dash-ambient-bg" aria-hidden="true"></div>
   <video class="dash-bg-video" id="workoutsBgVideo" data-for="workouts" muted loop playsinline preload="none" aria-hidden="true"></video>
-  <video class="dash-bg-video" id="gymBgVideo" data-for="gym" muted loop playsinline preload="none" aria-hidden="true"></video>
   <div class="dash-bg-overlay" aria-hidden="true"></div>
   <div class="wrap dash-panels">
 
@@ -4466,14 +4482,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     heroVideo.style.display = 'none';
   }
 
-  // Workouts/Gym full-screen background videos — deliberately NOT given a
+  // Workouts' full-screen background video — deliberately NOT given a
   // <source> in the HTML so nothing downloads until a visitor actually opens
   // that tab. The DASH_BG_VIDEO_SOURCES URL is injected on first activation;
   // same playing/error/timeout fallback pattern as the hero video above, so
-  // the .dash-ambient-bg CSS layer underneath still shows if a video fails.
+  // the .dash-ambient-bg CSS layer underneath still shows if the video fails.
+  // Gym's own entry was removed along with its <video> element and CSS above.
   var DASH_BG_VIDEO_SOURCES = {
-    workouts: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085032_3e352ac2-3f8b-4236-af35-32847ba2203c.mp4',
-    gym: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085030_f1f39cea-0f9f-4419-83fa-6cb1878f6a60.mp4'
+    workouts: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085032_3e352ac2-3f8b-4236-af35-32847ba2203c.mp4'
   };
   function loadDashBgVideo(tabId) {
     var url = DASH_BG_VIDEO_SOURCES[tabId];
@@ -4532,7 +4548,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!next) return;
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
-    if (id === 'workouts' || id === 'gym') loadDashBgVideo(id);
+    if (id === 'workouts') loadDashBgVideo(id);
     // Belt-and-suspenders: the Coach page gate is normally kept correct
     // reactively (every swimfit:accesschange re-renders it), but re-asserting
     // it here too means arriving at the tab can never show a stale gate state
@@ -4941,14 +4957,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   });
 
   /* ============================= WORKOUT GENERATOR ============================= */
+  // The daily rotation boundary is a fixed 16:00 UAE time (UTC+4) == 12:00 UTC
+  // instant — the same moment for every swimmer worldwide, not each visitor's
+  // own local midnight. Shifting the timestamp back 12h before reading UTC
+  // calendar fields lands a plain UTC day-boundary check exactly on that real
+  // 4pm UAE cutover.
+  var ROTATION_SHIFT_MS = 12 * 60 * 60 * 1000;
+  function uaeRotationShiftedDate(d) { return new Date(d.getTime() - ROTATION_SHIFT_MS); }
   function dayIndexForDate(d) {
-    var start = new Date(d.getFullYear(), 0, 0);
-    return Math.floor((d - start) / 86400000);
+    var shifted = uaeRotationShiftedDate(d);
+    var start = Date.UTC(shifted.getUTCFullYear(), 0, 0);
+    var today = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+    return Math.floor((today - start) / 86400000);
   }
   function dayIndex() { return dayIndexForDate(new Date()); }
   // Year folded in so the seed doesn't repeat every 365/366 days like a bare
   // dayIndex() would.
-  function dailySeedForDate(d) { return d.getFullYear() * 1000 + dayIndexForDate(d); }
+  function dailySeedForDate(d) { return uaeRotationShiftedDate(d).getUTCFullYear() * 1000 + dayIndexForDate(d); }
   function dailySeed() { return dailySeedForDate(new Date()); }
   function weekIndex() { return Math.floor(dayIndex() / 7); }
 
@@ -5302,6 +5327,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return m ? m[1] + 'm Pace' : tag;
   }
 
+  // A short 50-100m EZ active-recovery round, interspersed directly inside a
+  // high-intensity sprint/power Main Set block (right after its hard rounds)
+  // rather than only relying on the Cool-Down several minutes later — moving
+  // blood through the working muscles flushes lactate while it's actually
+  // accumulating, not just once the whole session is already over.
+  function ezRecoverySet(pace100) {
+    return { label: 'Active Recovery — Flush', sets: [buildSet(2, 50, 'easy pace — shake it out, exhale fully, let the heart rate drop before the next hard effort', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
+  }
+
   // rounds is an array of { label, sets } — label is a short round title
   // (e.g. "Round 1 — Build Pace") or null/undefined for a flat, single-round
   // block like Warm-Up/Cool-Down where a "round" heading would just be noise.
@@ -5408,6 +5442,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     'Fingertip Drag — brush your fingertips along the surface on recovery',
     'Build Ladder — each 25 a little faster than the last',
     '3-3-3 Breathing — 3 lengths breathing every 3, 5, then every 2 strokes'
+  ];
+  // The Warm-Up's kick set used to be hardcoded to underwater-dolphin focus
+  // every single day — combined with the Pre-Set's own activation archetypes
+  // (many of which are also turn/start/underwater-themed), a swimmer could
+  // see that same handful of focus areas two or three times in one session,
+  // every session. Rotating this kick set daily (same day-stable workoutRng
+  // seed as everything else here) spreads starts/turns/underwater work across
+  // days instead of cramming all of it into every single one.
+  var WARMUP_KICK_POOL = [
+    'Kick — 6–8 underwater dolphin kicks off every wall, then strong flutter, tight streamline',
+    'Kick — steady flutter kick, relaxed tempo, focus on ankle flexibility not speed',
+    'Kick — on your side, one arm extended, rotate every 4 kicks',
+    'Kick — breaststroke whip-kick isolation, narrow and snappy, no glide skipped',
+    'Kick — vertical kick treading position for 10s, then 40m easy flutter'
   ];
 
   var SPEED_ARCHETYPES = [
@@ -5792,6 +5840,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       intents: [
         'Flipping between a long relaxed tempo and a fast turnover on the same rep rehearses the exact gear-change the Main Set demands — activation is teaching the body where the higher gear lives before you need it under fatigue.'
       ]
+    },
+    // The six archetypes above are all explosive-power/turn/start/underwater
+    // activation — genuinely the right lever for a Speed-focused Main Set,
+    // but firing every single day regardless of goal meant a swimmer saw
+    // starts/turns/underwater work two or three times in one session (here,
+    // then again in the Warm-Up's kick set, then again if a Speed Main Set
+    // archetype rolled). These two give the daily rotation somewhere else to
+    // land — an aerobic lead-in for Endurance-leaning days and a feel/technique
+    // primer for Technique-leaning days — without ever making Pre-Set goal-
+    // gated (it stays one shared pool, still equally available every day).
+    {
+      name: 'Aerobic Lead-In',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(2, Math.round(shareM / 100));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 100, stroke + ', steady and controlled — settle into a rhythm, no build, just open the aerobic engine', [], pace100 + 8, 15, scaler, 'Cruise Pace')];
+        return [{ label: 'Aerobic Lead-In — Steady 100s', sets: sets }];
+      },
+      intents: [
+        'Not every day needs an explosive primer — a longer session\'s Main Set often asks for a settled aerobic rhythm, not a jolt of speed. A few steady, unhurried 100s open that engine gradually so the Main Set\'s pacing discipline starts from a calm baseline, not a spike.'
+      ]
+    },
+    {
+      name: 'Feel & Technique Primer',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(4, Math.round(shareM / 50));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 50, stroke + ', slow and deliberate — one technical focus per length, minimum splash, feel the water on every stroke', [], pace100 + 12, 20, scaler, 'Drill Pace')];
+        return [{ label: 'Feel Primer — Slow & Deliberate', sets: sets }];
+      },
+      intents: [
+        'A Technique-focused Main Set is wasted if the swimmer arrives thinking about speed. A slow, deliberate primer with one technical focus per length gets the mind and the stroke into a feel-first mode before the real drill work begins.'
+      ]
     }
   ];
 
@@ -5895,7 +5976,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var warmup = [
       buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
       buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
-      buildSet(warmupKickReps, 50, 'Kick — 6–8 underwater dolphin kicks off every wall, then strong flutter, tight streamline', hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
+      buildSet(warmupKickReps, 50, pickOne(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
     ];
     if (state.level !== 'beginner') {
       warmup.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
@@ -5956,10 +6037,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       // one clean Free block, one clean Fly block, one clean Back block —
       // never three strokes randomly blended inside one set.
       var blockStroke = nextBlockStroke();
+      var rounds = archetype.build(shareM, pace100, scaler, fixedStrokeFn(blockStroke), state.equipment, totalM);
+      // INTEGRATED ACTIVE RECOVERY: every SPEED_ARCHETYPES block is genuine
+      // sprint/power work — rather than only flushing lactate at the very end
+      // via the Cool-Down, a short EZ recovery set is appended directly inside
+      // the block itself, right after the hard rounds, so the flush happens
+      // while it's actually needed instead of several minutes of swimming later.
+      if (SPEED_ARCHETYPES.indexOf(archetype) > -1) {
+        rounds = rounds.concat([ezRecoverySet(pace100)]);
+      }
       return {
         name: archetype.name,
         stroke: blockStroke,
-        rounds: archetype.build(shareM, pace100, scaler, fixedStrokeFn(blockStroke), state.equipment, totalM)
+        rounds: rounds
       };
     });
 
@@ -5979,6 +6069,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         { label: 'Race-Start Reaction Power', sets: [buildSet(6, 25, 'Explosive push-start — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, scaler, '50 Pace')] },
         { label: 'Power Breakouts', sets: [buildSet(4, 50, 'Fast approach into the wall, explosive turn, powerful underwater breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, scaler, '100 Pace')] }
       ];
+      // Same integrated active-recovery principle as the Main Set's own
+      // SPEED_ARCHETYPES blocks — this is the single highest-intensity block
+      // in the whole session, so it gets the EZ flush too.
+      elitePowerRounds.push(ezRecoverySet(pace100));
       main.unshift({ name: 'Elite Power & Underwater', stroke: null, rounds: elitePowerRounds });
     }
 
@@ -6058,18 +6152,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         alert('Could not log this workout — please check your connection and try again.');
       });
   });
-
-  /* Slight parallax on the generator's result-panel background photo */
-  if (!reduceMotion) {
-    var resultPanelEl = document.querySelector('.result-panel');
-    window.addEventListener('scroll', function () {
-      if (!resultPanelEl || !resultPanelEl.offsetParent) return;
-      var rect = resultPanelEl.getBoundingClientRect();
-      var progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
-      var y = Math.max(-20, Math.min(20, (progress - 0.5) * 40));
-      resultPanelEl.style.setProperty('--parallax-y', y.toFixed(1) + 'px');
-    }, { passive: true });
-  }
 
   /* ============================= GYM FOCUS SELECTOR ============================= */
   // Every focus is a full daily routine matrix across four phases —
@@ -6559,6 +6641,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // form diagram.
   var gymAnimTick = 0;
   function advanceGymAnims() {
+    // Real perf fix: this used to run unconditionally every 420ms for the
+    // entire lifetime of the page, querying the whole document even while a
+    // swimmer was on a completely different tab (or had never opened Gym at
+    // all that session, in which case the querySelectorAll was merely wasted
+    // rather than genuinely expensive) — bail out immediately unless Gym is
+    // the actual visible tab, so this timer does real work only when its
+    // animation is actually on screen.
+    if (!dashboard || dashboard.getAttribute('data-active-tab') !== 'gym') return;
     gymAnimTick++;
     document.querySelectorAll('.gym-anim').forEach(function (svg) {
       var frameCount = parseInt(svg.getAttribute('data-frames'), 10) || 1;
@@ -8978,6 +9068,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var selectedUid = null;
     var unsubscribeInbox = null;
     var unsubscribeThread = null;
+    var lastThreadMessages = null; // last messages array rendered into the open thread, for tick-only re-renders
+
+    // WhatsApp-style read receipt for the admin's own sent messages: a single
+    // check means "sent" (written to Firestore), a colored double check means
+    // the swimmer has opened the conversation since (unreadForUser === false
+    // on the live admin_chats/{uid} metadata doc — see __adminChatMarkSeenByUser
+    // in the swimmer-side bridges above). This is thread-level granularity,
+    // not truly per-message (Firestore only tracks one shared flag per
+    // conversation, not a read timestamp per message) — the same honest
+    // "coarser than a per-item ledger" trade-off this codebase already makes
+    // elsewhere (e.g. Most Swum Discipline ranking by month, not by instant).
+    function threadSeenByUser(uid) {
+      var meta = inboxByUid[uid];
+      return !(meta && meta.unreadForUser === true);
+    }
+    function chatTickHtml(seen) {
+      return '<span class="admin-chat-tick' + (seen ? ' is-seen' : '') + '" title="' + (seen ? 'Seen' : 'Sent') + '">' +
+        icon('i-check') + (seen ? icon('i-check') : '') + '</span>';
+    }
 
     function adminFetch(endpoint, body) {
       return window.__firebaseGetIdToken().then(function (idToken) {
@@ -9159,11 +9268,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
 
     function renderThreadMessages(messages) {
+      lastThreadMessages = messages;
       chatMessages.innerHTML = '';
       if (!messages.length) {
         chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">No messages yet — say hello!</p>';
         return;
       }
+      var seen = threadSeenByUser(selectedUid);
       messages.forEach(function (m) {
         var row = document.createElement('div');
         row.className = 'coach-msg ' + (m.sender === 'admin' ? 'coach-msg-user' : 'coach-msg-assistant');
@@ -9171,16 +9282,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         bubble.className = 'coach-bubble';
         bubble.textContent = m.text;
         var timeStr = formatChatTime(m.createdAt);
-        if (timeStr) {
-          var timeEl = document.createElement('span');
-          timeEl.className = 'admin-chat-msg-time';
-          timeEl.textContent = timeStr;
-          bubble.appendChild(timeEl);
+        if (timeStr || m.sender === 'admin') {
+          var metaEl = document.createElement('span');
+          metaEl.className = 'admin-chat-msg-meta';
+          if (timeStr) {
+            var timeEl = document.createElement('span');
+            timeEl.className = 'admin-chat-msg-time';
+            timeEl.textContent = timeStr;
+            metaEl.appendChild(timeEl);
+          }
+          if (m.sender === 'admin') metaEl.insertAdjacentHTML('beforeend', chatTickHtml(seen));
+          bubble.appendChild(metaEl);
         }
         row.appendChild(bubble);
         chatMessages.appendChild(row);
       });
       chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Re-paints just the tick icons on an already-rendered thread when the
+    // live admin_chats/{uid} metadata updates (e.g. the swimmer opens their
+    // widget and unreadForUser flips to false) — deliberately NOT a full
+    // renderThreadMessages() re-run, since that would also reset scroll
+    // position back to the bottom even if the admin had scrolled up to read
+    // earlier history.
+    function refreshOpenThreadTicks() {
+      if (!selectedUid || !lastThreadMessages || !lastThreadMessages.length) return;
+      var seen = threadSeenByUser(selectedUid);
+      chatMessages.querySelectorAll('.admin-chat-tick').forEach(function (t) {
+        t.outerHTML = chatTickHtml(seen);
+      });
     }
 
     // Built via DOM methods (not innerHTML) so a swimmer's own displayName —
@@ -9242,6 +9373,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           unsubscribeInbox = window.__adminPanelSubscribeInbox(function (byUid) {
             inboxByUid = byUid;
             renderUsers();
+            refreshOpenThreadTicks();
           }, function () {
             countEl.textContent = 'Could not load live message status — check your connection.';
           });
@@ -9435,6 +9567,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       panel.classList.add('open');
       fab.setAttribute('aria-expanded', 'true');
       if (dot) dot.hidden = true;
+      if (typeof window.__adminChatMarkSeenByUser === 'function') window.__adminChatMarkSeenByUser();
     }
     function closePanel() {
       panel.classList.remove('open');
@@ -9605,6 +9738,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       // start is asynchronous, so without this a swimmer sees a blank panel
       // until that round-trip resolves.
       renderMessages([]);
+      if (typeof window.__adminChatMarkSeenByUser === 'function') window.__adminChatMarkSeenByUser();
       if (unsubscribeMessages) unsubscribeMessages();
       unsubscribeMessages = window.__adminChatSubscribeMessages(function (messages) { renderMessages(messages); }, function () {
         // Keep the greeting visible even when the subscription errors — a
