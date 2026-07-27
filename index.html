@@ -19,12 +19,9 @@
       }
     } catch (e) { /* localStorage unavailable (privacy mode etc.) — just show the bar */ }
     // Same "apply before first paint" reasoning as the announcement-bar flash
-    // guard above — a saved Light theme or Arabic language preference (see
-    // the Settings tab) must never flash in as Dark/English first.
-    try {
-      var theme = localStorage.getItem('swimfit_theme');
-      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
-    } catch (e) { /* localStorage unavailable — defaults to dark */ }
+    // guard above — a saved Arabic language preference (see the Settings tab)
+    // must never flash in as English first. The app is Dark Mode only (no
+    // Light theme toggle), so there's no theme preference left to apply here.
     try {
       var lang = localStorage.getItem('swimfit_lang');
       if (lang === 'ar') {
@@ -953,51 +950,6 @@ input, textarea, select { font: inherit; color: inherit; }
 
 html.announce-dismissed { --announce-h: 0px; }
 
-/* ============================= LIGHT THEME (Settings → Appearance) =============================
-   Overrides only the surface/text/accent tokens above — every rule in this
-   file already reads color through var(--...), so swapping this block is
-   enough to re-skin the whole site without a second parallel stylesheet.
-   Ambient/duotone background effects (Hero water, tab background photos)
-   were designed against the dark palette and are left as-is; they still
-   read fine over the lighter chrome but aren't independently re-tuned. */
-:root[data-theme="light"] {
-  --bg:        #EEF2F6;
-  --bg-alt:    #FFFFFF;
-  --surface:   #FFFFFF;
-  --surface-2: #F1F5F9;
-  --border:    rgba(15,23,42,0.10);
-  --border-strong: rgba(15,23,42,0.20);
-
-  --fg:      #0F172A;
-  --muted:   #475569;
-  --muted-2: #64748B;
-
-  --maroon:        #9C2A44;
-  --maroon-bright: #B22D4E;
-  --green:         #109155;
-  --green-bright:  #0EA968;
-  --aqua:          #0891A8;
-  --aqua-bright:   #0BA9C4;
-  --gold:          #A8791F;
-
-  --on-green:  #FFFFFF;
-  --on-aqua:   #FFFFFF;
-  --on-maroon: #FFFFFF;
-
-  --glow-green: 0 0 16px rgba(16,145,85,0.28);
-  --glow-aqua:  0 0 16px rgba(8,145,168,0.24);
-
-  /* Light-mode precision card — solid white surface, hairline border, no
-     blur — matches the dark theme's flat/sharp card treatment. */
-  --glass-bg:     #FFFFFF;
-  --glass-bg-2:   #F8FAFC;
-  --glass-border: rgba(15, 23, 42, 0.16);
-  --glass-blur:   none;
-
-  --shadow-1: 0 8px 24px rgba(15,23,42,0.08);
-  --shadow-2: 0 20px 60px rgba(15,23,42,0.12);
-}
-
 /* ============================= RTL (Settings → Language) =============================
    direction:rtl mirrors flex/inline layout automatically for the vast
    majority of this file's flex-based components. A handful of rules that
@@ -1511,11 +1463,6 @@ section { position: relative; scroll-margin-top: 96px; }
   -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
   animation: dashAmbientCaustic 26s linear infinite;
 }
-:root[data-theme="light"] .dash-ambient-bg::after {
-  background-image:
-    linear-gradient(rgba(8,145,168,0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(8,145,168,0.07) 1px, transparent 1px);
-}
 @keyframes dashAmbientDrift {
   0% { transform: translate(-2%, -1%) scale(1.04); }
   50% { transform: translate(2%, 2%) scale(1.09); }
@@ -1525,20 +1472,6 @@ section { position: relative; scroll-margin-top: 96px; }
   0% { background-position: 0px 0px; }
   100% { background-position: 140px 90px; }
 }
-/* Light-mode dashboard ambient — the base gradient above is hardcoded dark
-   (rgba(13,20,32,...)), which left the whole dashboard section dark in Light
-   mode and made the (dark, in light mode) section headings unreadable
-   dark-on-dark. This override swaps that base for a light wash so Light mode
-   is genuinely bright and readable, while keeping softer tinted accent
-   glows. */
-:root[data-theme="light"] .dash-ambient-bg::before {
-  background:
-    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(8,145,168,0.10), transparent 60%),
-    radial-gradient(ellipse 50% 35% at 88% 25%, rgba(16,145,85,0.09), transparent 60%),
-    radial-gradient(ellipse 60% 45% at 30% 95%, rgba(8,145,168,0.08), transparent 60%),
-    linear-gradient(180deg, #EEF2F6 0%, #E7EDF3 50%, #EEF2F6 100%);
-}
-:root[data-theme="light"] .dash-bg-overlay { background: linear-gradient(160deg, rgba(238,242,246,0.7) 0%, rgba(231,237,243,0.55) 55%, rgba(238,242,246,0.7) 100%); }
 @media (prefers-reduced-motion: reduce) {
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
 }
@@ -1710,8 +1643,10 @@ section { position: relative; scroll-margin-top: 96px; }
   .workouts-col-right, .gym-col-right { flex: 1 1 60%; min-width: 0; }
 }
 .workouts-col-left, .workouts-col-right, .gym-col-left, .gym-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
-.workouts-col-left > .bento-card, .gym-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
-.workouts-col-left > .bento-card:first-child, .gym-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
+.workouts-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.workouts-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
+/* Gym's left column stays fully borderless — the flex .gap already
+   separates Strength Profile from Today's Focus, no divider line needed. */
 .wb-level { display: flex; flex-direction: column; }
 .wb-quote, .wb-result, .wb-ai { display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); max-width: 100%; }
@@ -1978,9 +1913,8 @@ section { position: relative; scroll-margin-top: 96px; }
 .gym-anim-frame {
   margin-top: var(--space-3); width: 100%; aspect-ratio: 21/9; position: relative; overflow: hidden;
   background: linear-gradient(135deg, var(--surface-2), var(--bg-alt)); border-radius: var(--radius-sm);
-  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
 }
-.gym-card:hover .gym-anim-frame { border-color: var(--aqua); }
 .gym-anim { height: 88%; width: auto; max-width: 100%; color: var(--aqua); }
 .gym-anim path, .gym-anim rect, .gym-anim line { fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .gym-anim circle { fill: currentColor; stroke: none; }
@@ -1991,8 +1925,8 @@ section { position: relative; scroll-margin-top: 96px; }
   text-transform: uppercase; letter-spacing: 0.06em; pointer-events: none;
 }
 .gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
-.gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
-.gym-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--shadow-2); border-color: var(--green); }
+.gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease); }
+.gym-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-2); }
 
 /* Visual muscle tags — a color-coded chip row under each exercise name so a
    swimmer can see at a glance which muscle groups a movement trains. Colors
@@ -2017,20 +1951,12 @@ section { position: relative; scroll-margin-top: 96px; }
 .muscle-tag[data-m="cardio"]     { --m-color: #5EEAD4; }
 .muscle-tag[data-m="full"]       { --m-color: #9FB0C3; }
 
-/* Gym's exercise board sits in the narrower right column now (see
-   .gym-col-right above), so each phase's cards scroll in one compact
-   horizontal row — side-by-side, not stacked — instead of wrapping into
-   several full-width rows the way a plain grid would in half the space. */
+/* Gym's exercise board renders every phase's cards top-to-bottom, one per
+   row, so a swimmer can scroll straight down the page without a card ever
+   sitting off-screen in a side-scrolling strip. */
 #gymGrid .grid.grid-auto {
-  display: flex; flex-wrap: nowrap; overflow-x: auto; gap: var(--space-3);
-  padding-bottom: var(--space-2); scroll-snap-type: x proximity;
+  display: flex; flex-direction: column; gap: var(--space-4);
 }
-#gymGrid .grid.grid-auto > .gym-card { flex: 0 0 210px; scroll-snap-align: start; padding: var(--space-3); }
-#gymGrid .grid.grid-auto > .gym-card h3 { font-size: 0.98rem; margin-top: 8px; }
-#gymGrid .grid.grid-auto > .gym-card .prescription { font-size: 0.92rem; }
-#gymGrid .grid.grid-auto > .gym-card .cue { font-size: 0.78rem; }
-#gymGrid .grid.grid-auto > .gym-card .gym-anim-frame { margin-top: var(--space-2); aspect-ratio: 4/3; }
-#gymGrid .grid.grid-auto > .gym-card .gym-muscle-tags { margin-top: 6px; }
 .gym-phase + .gym-phase { margin-top: var(--space-7); }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .gym-phase-banner {
@@ -2754,10 +2680,48 @@ body.paywall-locked { overflow: hidden; }
 .admin-access-toggle[data-disabled="true"] { border-color: var(--maroon-bright); color: var(--maroon-bright); }
 .admin-extend-btn { background: none; border: none; color: var(--aqua); font-size: 0.72rem; cursor: pointer; text-decoration: underline; white-space: nowrap; }
 .admin-extend-btn:hover { color: var(--fg); }
-.admin-chat-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
-.admin-chat-messages { flex: 1; }
-.admin-chat-form { display: flex; gap: var(--space-2); padding: var(--space-3) 0; border-top: 1px solid var(--border); flex-shrink: 0; }
-.admin-chat-form textarea { flex: 1; }
+/* Admin chat column — a self-contained WhatsApp/Telegram-style thread
+   window: a defined boundary (background + radius) is appropriate here even
+   though generic content cards on this site went borderless, because a
+   messaging thread genuinely needs a visible frame to read as "one
+   conversation" rather than loose text floating on the page. Every read/
+   write underneath (onSnapshot subscriptions, __adminPanelSendMessage, the
+   admin_chats/{uid}/messages schema) is completely untouched — this is
+   presentation only. */
+.admin-chat-col {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+}
+.admin-chat-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border);
+  font-size: 0.92rem; font-weight: 600; flex-shrink: 0;
+  background: var(--surface-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.admin-chat-header-avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--green), var(--aqua)); color: var(--on-green);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 0.9rem;
+}
+.admin-chat-header-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-chat-messages {
+  flex: 1; overflow-y: auto; padding: var(--space-4);
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg);
+}
+.admin-chat-msg-time {
+  display: block; margin-top: 3px; font-size: 0.64rem; letter-spacing: 0.02em;
+  opacity: 0.65; text-align: right;
+}
+.admin-chat-form {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border);
+  background: var(--surface-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); flex-shrink: 0;
+}
+.admin-chat-form textarea {
+  flex: 1; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.6em 1.2em; max-height: 90px;
+}
 @media (max-width: 900px) {
   .admin-panel-shell { grid-template-columns: 1fr; height: auto; }
   .admin-users-col { height: 360px; }
@@ -3636,15 +3600,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Pick the stroke(s) you train most — this becomes your default in the Workout Generator’s Discipline picker. Saved automatically as you tap.</p>
             <div class="chip-group" id="settingsDisciplineChips" role="group" aria-label="Swimming specialties — multiple selectable"></div>
             <p class="settings-save-status" id="settingsDisciplinesStatus"></p>
-          </div>
-
-          <div class="settings-card">
-            <h3><svg class="icon"><use href="#i-target"/></svg> Appearance</h3>
-            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Choose a Dark or Light look for the whole site. Saved to this browser.</p>
-            <div class="pill-tabs" role="tablist" aria-label="Theme" id="settingsThemeTabs">
-              <button type="button" class="pill-tab" role="tab" data-theme-choice="dark" aria-selected="true">Dark</button>
-              <button type="button" class="pill-tab" role="tab" data-theme-choice="light" aria-selected="false">Light</button>
-            </div>
           </div>
 
           <div class="settings-card">
@@ -7381,36 +7336,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
   })();
 
-  /* ============================= SETTINGS: APPEARANCE (DARK/LIGHT) =============================
-     The actual theme switch (data-theme attribute + localStorage) already
-     runs synchronously in <head>, before first paint, to avoid a flash of
-     the wrong theme — this just keeps the Settings pill-tabs in sync and
-     handles the live toggle click. */
-  (function wireThemeToggle() {
-    var STORAGE_KEY = 'swimfit_theme';
-    var tabs = document.getElementById('settingsThemeTabs');
-    function syncTabs(theme) {
-      document.querySelectorAll('#settingsThemeTabs [data-theme-choice]').forEach(function (b) {
-        b.setAttribute('aria-selected', b.dataset.themeChoice === theme ? 'true' : 'false');
-      });
-    }
-    function currentTheme() {
-      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    }
-    syncTabs(currentTheme());
-    if (tabs) {
-      tabs.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-theme-choice]');
-        if (!btn) return;
-        var theme = btn.dataset.themeChoice;
-        if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
-        else document.documentElement.removeAttribute('data-theme');
-        try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) { /* private browsing etc. */ }
-        syncTabs(theme);
-      });
-    }
-  })();
-
   /* ============================= SETTINGS: LANGUAGE (EN/AR) =============================
      Translates static chrome — nav, Hero, each tab's eyebrow/heading, the
      auth modal's mode toggle — via [data-i18n] lookups below. Everything
@@ -9221,6 +9146,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }).catch(function () { countEl.textContent = 'Could not load the user list.'; });
     }
 
+    // Formats a Firestore Timestamp (createdAt) as a plain "3:45 PM" clock
+    // reading — purely a display helper, reads a field the messages query
+    // already returns, never touches the query or the message schema itself.
+    function formatChatTime(ts) {
+      if (!ts || typeof ts.toDate !== 'function') return '';
+      var d = ts.toDate();
+      var h = d.getHours(), m = d.getMinutes();
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      var h12 = h % 12; if (h12 === 0) h12 = 12;
+      return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+    }
+
     function renderThreadMessages(messages) {
       chatMessages.innerHTML = '';
       if (!messages.length) {
@@ -9233,16 +9170,38 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var bubble = document.createElement('div');
         bubble.className = 'coach-bubble';
         bubble.textContent = m.text;
+        var timeStr = formatChatTime(m.createdAt);
+        if (timeStr) {
+          var timeEl = document.createElement('span');
+          timeEl.className = 'admin-chat-msg-time';
+          timeEl.textContent = timeStr;
+          bubble.appendChild(timeEl);
+        }
         row.appendChild(bubble);
         chatMessages.appendChild(row);
       });
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // Built via DOM methods (not innerHTML) so a swimmer's own displayName —
+    // arbitrary text from their Google account — can never inject markup
+    // into the admin's own page.
+    function renderChatHeader(u) {
+      chatHeader.innerHTML = '';
+      var avatar = document.createElement('span');
+      avatar.className = 'admin-chat-header-avatar';
+      avatar.textContent = (u.displayName || u.email || '?').charAt(0).toUpperCase();
+      var name = document.createElement('span');
+      name.className = 'admin-chat-header-name';
+      name.textContent = u.displayName || u.email || u.uid;
+      chatHeader.appendChild(avatar);
+      chatHeader.appendChild(name);
+    }
+
     function openThread(u) {
       selectedUid = u.uid;
       renderUsers();
-      chatHeader.textContent = 'Chatting with ' + (u.displayName || u.email || u.uid);
+      renderChatHeader(u);
       chatMessages.innerHTML = '<p style="text-align:center;color:var(--muted-2);padding:20px 0;">Loading…</p>';
       chatForm.style.display = '';
       if (unsubscribeThread) { unsubscribeThread(); unsubscribeThread = null; }
