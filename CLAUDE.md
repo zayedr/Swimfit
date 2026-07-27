@@ -2380,6 +2380,85 @@ verbatim.
   regression suite (Google-only auth, trial/paywall expiry, workout generation, both PDF exports,
   Gym PDF export, Distance Tracker logging) still passes with zero page errors.
 
+**A round touching the Workout Generator's daily rotation and Main Set variety, Gym's background,
+two real performance fixes, and WhatsApp-style read receipts on the Admin Panel's chat — no visual
+redesign, all logic/CSS/markup fixes to existing systems.**
+
+- **Daily rotation now flips at a fixed 16:00 UAE time (12:00 UTC), the same instant for every
+  swimmer worldwide, not each visitor's own local midnight.** `dayIndexForDate()`/
+  `dailySeedForDate()` now shift the timestamp back 12h (`uaeRotationShiftedDate()`) before reading
+  UTC calendar fields, so a plain UTC day-boundary check lands exactly on the real 4pm UAE cutover
+  regardless of where the swimmer is. `workoutRng`'s reseed timing, the no-repeat-vs-yesterday
+  guard, and Gym's weekly focus rotation all inherit this automatically since they all read through
+  `dailySeed()`/`dayIndex()` — no other call site needed to change.
+- **Goal filtering (Speed vs Endurance vs Technique) was audited, not rewritten — it already
+  worked correctly.** `ARCHETYPE_POOLS`'s per-goal archetype arrays were already fully distinct
+  (`ENDURANCE_ARCHETYPES` is volume/aerobic-pacing focused — Aerobic Base, Negative-Split Pull,
+  Descend Ladder, Broken Threshold Swim, Build-By-Thirds, Distance Ladder; `TECHNIQUE_ARCHETYPES`
+  is drill/stroke-count focused — Drill Focus, Equipment Strength, Stroke-Count Focus, Catch-Up
+  Drill Progression, Tempo Awareness Set), and `generateWorkout()`'s pool-selection
+  (`state.goals.reduce(...)`) already draws Main Set archetypes exclusively from the selected
+  goal(s)' pools with zero cross-contamination — verified via Playwright that selecting Endurance
+  alone never renders a Speed archetype name. The real, fixable issue turned out to be the next
+  two items below.
+- **The real "over-indexes on Starts/Turns/Underwaters every single day" bug, found and fixed.**
+  Every one of the six original `PRESET_ARCHETYPES` was explosive-power/turn/start/underwater
+  activation, and the Warm-Up's kick set was hardcoded to underwater-dolphin focus every single
+  day — combined, a swimmer could see that same handful of focus areas two or three times in one
+  session, every session, regardless of goal. Fixed two ways: (1) two new Pre-Set archetypes,
+  **Aerobic Lead-In** (steady, unhurried 100s — no turns/starts, opens the aerobic engine instead of
+  jolting it) and **Feel & Technique Primer** (slow, deliberate, one technical cue per length),
+  giving the shared daily-rotated Pre-Set pool somewhere else to land besides explosive work; (2)
+  the Warm-Up's kick set now rotates through a 5-item `WARMUP_KICK_POOL` (underwater dolphin, easy
+  flutter, side-kick rotation, breaststroke whip-kick isolation, vertical treading kick) via the
+  same day-stable `workoutRng`/`pickOne()` instead of always being the underwater-dolphin line.
+  Both still rotate at the same 16:00 UAE boundary as everything else in the generator.
+- **Integrated active recovery: every SPEED_ARCHETYPES Main Set block, and the Elite Power block,
+  now gets a short EZ 50m×2 flush round appended directly inside itself** (a new `ezRecoverySet()`
+  helper, "Active Recovery — Flush", easy pace, `pace100 + 22`) — right after the hard rounds,
+  instead of only relying on the Cool-Down several minutes later to clear fatigue. Endurance and
+  Technique archetypes were deliberately left alone (their own pacing is already the whole point of
+  those blocks; a recovery flush mid-Aerobic-Base or mid-Drill-Focus set would just interrupt the
+  intended stimulus) — this only fires for genuine sprint/power work.
+- **Gym's blurry full-screen background video + dark overlay wash was removed entirely.** The
+  `#gymBgVideo` `<video>` element, its `DASH_BG_VIDEO_SOURCES.gym` entry, the `switchTab()` call
+  that lazy-loaded it, and every `[data-for="gym"]`/`[data-active-tab="gym"]` CSS rule (video
+  opacity, overlay opacity) are all gone — Gym now falls back to the same plain `.dash-ambient-bg`
+  CSS layer every other non-video tab (Gear, Academy, Tracker, Pricing, …) already uses. Workouts'
+  own background video is untouched — this was scoped to Gym specifically, per the ask.
+- **Two real, previously-undetected performance bugs were found and fixed.** (1) `advanceGymAnims`
+  (the Gym exercise cards' looping stick-figure animation ticker) ran unconditionally every 420ms
+  for the entire lifetime of the page — including on every other tab, indefinitely, for as long as
+  the tab stayed open — querying `.gym-anim` across the whole document and toggling child element
+  styles on every tick regardless of whether Gym was even visible. It now bails out immediately
+  unless `#dashboard`'s `data-active-tab` is actually `"gym"`, so the timer only does real work
+  while its own animation is on screen. (2) A `scroll` listener (originally added for "a slight
+  parallax on the generator's result-panel background photo") called `getBoundingClientRect()` — a
+  layout-forcing read — on every single scroll event site-wide, unthrottled, with no
+  `requestAnimationFrame` batching. Confirmed the `--parallax-y` custom property it set was never
+  actually read by any CSS rule on `.result-panel` (the photo backdrop it was written for was
+  removed in an earlier round, leaving this listener fully vestigial) — removed the listener
+  outright rather than fixing something with zero remaining visual effect.
+- **Admin Panel chat: WhatsApp-style read-receipt ticks on the admin's own sent messages.** A
+  single check icon means "sent" (written to Firestore); a second, accent-colored check means the
+  swimmer has opened the conversation since. This is thread-level granularity, not truly
+  per-message — Firestore only ever tracked one shared `unreadForUser` flag per conversation, not a
+  read timestamp per message — the same honest "coarser than a per-item ledger" trade-off this
+  codebase already makes elsewhere (e.g. Most Swum Discipline ranked by month, not by instant). A
+  **real, previously-dead field was found while wiring this**: `admin_chats/{uid}.unreadForUser`
+  was written by the admin's own send (`true`) but never once cleared anywhere in the client — no
+  reader, no writer-back — making it permanently stale write-only data. Added
+  `window.__adminChatMarkSeenByUser()` (a narrowly-scoped `unreadForUser: false` merge write),
+  called the moment a swimmer opens either the floating widget or the Support tab; `firestore.rules`
+  gained a third, tightly-scoped `admin_chats/{uid}` update branch letting a swimmer clear only that
+  one field to only `false` (never set it `true`, never touch anything else — `true` stays the
+  admin's exclusive "I just sent something new" signal). The Admin Panel's `renderThreadMessages()`
+  appends a tick to every admin-sent bubble computed from the live `admin_chats` inbox subscription
+  it already ran for the unread-dot badges; a new `refreshOpenThreadTicks()` re-paints just the tick
+  icons (not a full message re-render, which would reset scroll position) whenever that live
+  subscription updates. Verified via Playwright: an unread thread renders a single gray check, and
+  a thread whose metadata has `unreadForUser: false` renders a double accent-colored check.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

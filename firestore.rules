@@ -236,7 +236,17 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessageText', 'lastMessageAt', 'lastSender', 'unreadForAdmin'])
           && request.resource.data.lastSender == 'user'
           && request.resource.data.unreadForAdmin == true
-          && request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000);
+          && request.resource.data.lastMessageText is string && request.resource.data.lastMessageText.size() <= 2000)
+        // Third, narrowly-scoped branch: a swimmer opening the conversation
+        // clears their own read-receipt flag — the ONLY value they may ever
+        // write to unreadForUser is false (marking the admin's messages as
+        // seen); they can never set it true or touch any other field here,
+        // since unreadForUser going true is exclusively the admin's own
+        // "I just sent something new" signal (see the isAdminAuth() branches
+        // above). Powers the Admin Panel's WhatsApp-style read-receipt ticks.
+        || (request.auth != null && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadForUser'])
+          && request.resource.data.unreadForUser == false);
 
       match /messages/{messageId} {
         allow read: if request.auth != null && (request.auth.uid == uid || isAdminAuth());
