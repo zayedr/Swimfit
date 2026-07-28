@@ -2736,6 +2736,118 @@ Firestore/Cloud Function changes.**
   ±25m of target with zero regression; the existing PDF export and Complete-Workout-to-Tracker
   regression checks still pass; and all 9 tabs load with zero page errors.
 
+**A round covering Workouts profile layout, Main Set logic (Elite gating + a Technique/Sprint
+hybrid + subtle technique cues), a Gym tab layout fix, and a real performance pass — driven by
+an explicit review-video punch list.**
+
+- **Swimmer Type moved into the Personal Bests & Race Goals section.** The Sprinter/Distance/Both
+  pill-tabs no longer sit in a row beside Age (`.wb-athlete-row` now holds only Age, full-width);
+  they're now their own `.wb-swimmer-type-field` positioned directly under the "Personal Bests &
+  Race Goals" subhead, before the four per-stroke PB rows — so every input that's actually "about
+  my racing" (current/target times, swimmer type) reads as one compact block, per explicit request.
+  No JS/state changes were needed — `#swimmerTypeTabs`' id, click handler, and restore logic were
+  already id-based and DOM-position-agnostic.
+- **Discipline/Stroke selection was audited, not changed — it already allows any combination.**
+  `#disciplineChips`' click handler (the same code since it was built) has no mutual-exclusivity
+  logic and no selection cap; its only guard is "keep at least one selected" (blocking a swimmer
+  from deselecting their way down to zero disciplines, which would break pace/rotation logic
+  entirely) — verified via Playwright that all 5 disciplines (Freestyle/Backstroke/Butterfly/
+  Breaststroke/Individual Medley) can be selected simultaneously with zero restriction. This was a
+  genuine audit, not a no-op dodge: the review's complaint most likely traced to the Main Set's
+  own *clean set isolation* rule (each block locked to one stroke, blocks rotating strokes) reading
+  as "restrictive" in practice even though the underlying picker itself was never restricted —
+  that block-isolation behavior is intentional and unchanged (documented in an earlier round as
+  the fix for strokes randomly blending mid-set).
+- **The Elite Power & Underwater block is no longer a mandatory daily fixture for every elite-level
+  swimmer.** It previously fired every single day at Elite level regardless of what the session was
+  actually about — genuinely too much explosive/high-CNS volume stacked onto an Aerobic, Technique,
+  or Threshold-focused day. A new `eliteBlockWanted = state.level === 'elite' && state.goals.indexOf
+  ('speed') > -1` gate now controls both its reserved-budget calculation (`eliteBlockM`) and its
+  actual construction/`main.unshift(...)` call — so it fires exactly on the sessions it's meant for
+  (the Weekly Schedule's own Sprint/Power and Race Pace days auto-select Speed; a swimmer can also
+  manually pick Speed themselves, i.e. "requested" per the ask) and stays absent on every other
+  elite-level day. Verified via Playwright: Elite+Endurance-only produces no "Elite Power" block;
+  Elite+Speed still does.
+- **Technique & Sprint Hybrid: a Technique-only session now gets exactly one small, clearly-labeled
+  high-tempo set, not zero sprint stimulus and not heavy sprint volume.** Previously a swimmer who
+  selected only the Technique goal drew every Main Set block from `TECHNIQUE_ARCHETYPES` alone —
+  zero speed work at all. A new `wantsTechniqueSprintBridge` flag (true only when `technique` is
+  selected and `speed` is NOT — skipped when Speed is also picked, since real sprint volume already
+  exists elsewhere in that session and a second bridge would be redundant) appends one small
+  "Technique-to-Speed Bridge" set (2-4×25m, high tempo, "same clean technique, just faster
+  turnover") to the *first* Technique-archetype block encountered. `TECH_SPRINT_BRIDGE_M` (100m) is
+  carved OUT of that block's own already-allocated share — never added on top of it — using the
+  exact same carve-not-add principle `EZ_RECOVERY_M` already established for Speed-archetype
+  blocks, so strict distance accuracy holds exactly as before. Verified via Playwright: a
+  Technique-only workout shows the bridge set; a Technique+Speed workout correctly does not.
+- **"Secret swimmer tricks" — subtle technique cues woven into set descriptions.** A new
+  `TECHNIQUE_MICRO_CUES` pool (five cues, each targeting one of the three explicitly-requested
+  fundamentals — an early-vertical-forearm catch, hip-driven body rotation, or quiet underwater
+  dolphin kicks off the wall) replaces the "Drill Focus" archetype's old generic "one technical cue
+  per length" placeholder line with a real, rotating, coach-voice cue (`pickOne(TECHNIQUE_MICRO_CUES)`,
+  drawing from the same day-stable `workoutRng` as every other random choice in the generator, so it
+  stays stable for the day and rotates at the same midnight boundary as the rest of the workout).
+  This is deliberately scoped to one archetype's one line rather than rewritten across every
+  Technique archetype — the ask was to weave cues in "organically… without feeling overwhelming,"
+  and the pool's three themes are already all represented without touching every set description.
+- **Gym tab: a real, screenshot-caught rendering bug was found and fixed — this was the actual
+  "chaotic/unstructured" problem, not the column split.** The Gym tab already had the requested
+  left/right column split (Strength Profile + Today's Focus on the left, the exercise board on the
+  right) from an earlier round; what was genuinely broken was each exercise card's own size. Every
+  `.gym-card` rendered at the *full width* of the right column with a 21:9 technique-demo frame on
+  top of it, producing a ~495px-tall card — stacked one-per-row (`#gymGrid .grid.grid-auto` was
+  `display:flex; flex-direction:column`), 12 cards across 4 phases pushed the Gym tab's total page
+  height past **9,150px** (confirmed via a direct Playwright `body.scrollHeight` measurement before
+  touching anything) — an enormous, sprawling wall of scrolling that is exactly what reads as
+  "chaotic" to someone scrubbing through a review video, even though nothing was visually
+  misaligned. Fixed by (1) converting `#gymGrid .grid.grid-auto` to a real responsive CSS grid
+  (`repeat(auto-fill, minmax(230px, 1fr))`) instead of a single flex column, so two compact cards
+  sit side-by-side per row instead of one oversized card per row, and (2) shrinking the technique-
+  demo frame's aspect ratio (21:9 → 16:9) plus trimming card padding/font sizes for a genuinely
+  "compact thumbnail" feel per the explicit ask. Net effect, verified via Playwright: card height
+  dropped from ~495px to ~369px *and* two now render per row, taking the Gym tab's total page
+  height from ~9,150px down to **~5,608px** — a ~39% reduction — with all 4 phases/12 cards still
+  present and correctly rendered (confirmed via direct computed-opacity checks, not just a
+  screenshot, since a `fullPage` Playwright screenshot's single-capture timing can under-represent
+  `data-reveal` entrance-transition state for content that was never scrolled through step-by-step
+  — a real user scrolling naturally never hits this).
+- **A real, measurable performance pass — three concrete, disclosed fixes, not a speculative
+  rewrite of every animation on the site.** All three were chosen because they're either always-on
+  (not scoped to hover/interaction) or use a known non-composited CSS property, and all three were
+  verified via computed-style checks, not just eyeballed:
+  1. **8 nav icons previously ran `animation: … infinite` unconditionally**, all the time, on every
+     tab, inside the one part of the page that's always on screen (the sidebar/nav) — a real,
+     constant compositor cost for a purely decorative wiggle with no functional purpose. Each icon
+     now only plays 2 iterations on `:hover`/`:focus-visible` instead of looping forever, so there's
+     zero animation cost at rest and mobile (no meaningful hover state) pays nothing for this at
+     all. Verified via computed `animationName` reading `"none"` on an unfocused/unhovered icon.
+  2. **The shared ambient background layer behind every tab (`.dash-ambient-bg::after`, the
+     dot-grid "tactical" texture) animated `background-position`** — a property that forces a
+     repaint of the entire (viewport-sized) layer on every frame, for as long as the animation
+     runs, which is forever, regardless of which tab is active, since this element is mounted
+     behind the whole dashboard at all times. Converted to an equivalent `transform: translate()`
+     animation (compositor-only, no repaint) that moves by exactly one grid tile (42px, matching
+     `background-size`) so the drift loops identically to before, just without the repaint cost.
+     The Hero's own two-layer `.hero-hud-grid` (front-page-only, and its two grid layers drift in
+     different directions, which a single `transform` can't replicate without splitting it into two
+     elements) was deliberately left as a disclosed, lower-priority trade-off — it isn't mounted
+     behind every tab the way `.dash-ambient-bg` is, so its cost is bounded to time spent on the
+     landing page specifically.
+  3. **`.chip`'s `transition: all`** (the base class behind every discipline/goal chip) was scoped
+     to the five properties it actually animates (`background`, `border-color`, `color`,
+     `transform`, `box-shadow`) instead of watching every animatable CSS property on every chip —
+     `transition: all` was otherwise the only instance of that anti-pattern found in the file.
+     `advanceGymAnims` (the Gym cards' own animation timer) was already correctly gated to only run
+     while the Gym tab is active from an earlier round — audited, not re-fixed.
+- Verified via Playwright end-to-end: all 5 disciplines select simultaneously with zero
+  restriction; Swimmer Type renders inside the Personal Bests card, not beside Age; Elite+Endurance
+  produces no Elite block while Elite+Speed does; Technique-only shows the bridge set while
+  Technique+Speed correctly omits it; a 3000m Competitive/Endurance workout still lands within
+  realistic rounding of target with zero distance-math regression; a nav icon's at-rest
+  `animationName` reads `"none"`; the Gym grid computes `display:grid` with cards genuinely
+  rendering two-per-row and total page height cut by ~39%; PDF export and Complete-Workout-to-
+  Tracker both still fire correctly; and all 9 tabs load with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
