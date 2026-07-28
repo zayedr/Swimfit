@@ -1633,16 +1633,27 @@ section { position: relative; scroll-margin-top: 96px; }
 .weekly-schedule-day {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 8px 2px; border-radius: var(--radius-sm); background: var(--bg-alt);
-  text-align: center;
+  text-align: center; border: 1px solid transparent; cursor: pointer; font: inherit; width: 100%;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
+.weekly-schedule-day:hover { background: var(--surface-2); transform: translateY(-1px); }
+.weekly-schedule-day:focus-visible { outline: 2px solid var(--aqua-bright); outline-offset: 2px; }
 .weekly-schedule-day-abbrev { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.68rem; color: var(--muted-2); }
 .weekly-schedule-day-focus { font-size: 0.62rem; line-height: 1.15; color: var(--muted); }
-.weekly-schedule-day.is-today { background: var(--green); }
-.weekly-schedule-day.is-today .weekly-schedule-day-abbrev,
-.weekly-schedule-day.is-today .weekly-schedule-day-focus { color: var(--on-green); }
+/* .is-today marks the real calendar day (a subtle ring); .is-active marks
+   whichever day is actually driving today's generation — itself by default,
+   or a swimmer's own manual override (see effectiveFocus()). They're
+   deliberately separate so a swimmer previewing a different day can still
+   see which one is the real "today" underneath. */
+.weekly-schedule-day.is-today { border-color: var(--aqua-bright); }
+.weekly-schedule-day.is-active { background: var(--green); }
+.weekly-schedule-day.is-active:hover { background: var(--green); }
+.weekly-schedule-day.is-active .weekly-schedule-day-abbrev,
+.weekly-schedule-day.is-active .weekly-schedule-day-focus { color: var(--on-green); }
 @media (max-width: 560px) {
   .weekly-schedule-day-focus { display: none; }
 }
+.wb-schedule-override-note { font-size: 0.74rem; color: var(--gold); margin-top: var(--space-2); }
 
 /* ============================= WORKOUT GENERATOR ============================= */
 /* ============================= WORKOUTS BENTO LAYOUT =============================
@@ -1690,11 +1701,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .config-label-hint { color: var(--muted-2); text-transform: none; letter-spacing: 0; font-weight: 400; font-family: var(--font-body); }
 /* "Recommended Volume" guidance badge, shown just under the Weekly Schedule
    grid — updates live when Level changes (see wireRecommendedVolumeBadge()). */
+/* display:flex here previously turned every direct child (the icon AND each
+   bare/<strong> text run) into its own flex item with no wrap, which — with
+   several <strong> tags in the message — rendered as one word per line
+   instead of a normal wrapping sentence. The icon is the only real flex
+   item now; all the message text lives in one wrapping <span> so its
+   internal <strong> tags never fragment the flex layout. */
 .wb-recommended-badge {
-  display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3);
+  display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-3);
   padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-alt);
-  font-size: 0.78rem; color: var(--muted);
+  font-size: 0.78rem; color: var(--muted); line-height: 1.4;
 }
+.wb-recommended-badge .icon { flex-shrink: 0; margin-top: 2px; }
 .wb-recommended-badge strong { color: var(--green-bright); font-family: var(--font-mono); }
 .weekly-schedule-day.is-rest { background: var(--surface-2); }
 .weekly-schedule-day.is-rest .weekly-schedule-day-abbrev,
@@ -1704,9 +1722,9 @@ section { position: relative; scroll-margin-top: 96px; }
    versa — a swimmer whose rest day happens to be today sees a distinct
    accent color that still reads as "you are here," just not the same green
    as an active training day. */
-.weekly-schedule-day.is-today.is-rest { background: var(--maroon-bright); }
-.weekly-schedule-day.is-today.is-rest .weekly-schedule-day-abbrev,
-.weekly-schedule-day.is-today.is-rest .weekly-schedule-day-focus { color: var(--fg); }
+.weekly-schedule-day.is-active.is-rest { background: var(--maroon-bright); }
+.weekly-schedule-day.is-active.is-rest .weekly-schedule-day-abbrev,
+.weekly-schedule-day.is-active.is-rest .weekly-schedule-day-focus { color: var(--fg); }
 .wb-quote, .wb-result, .wb-ai { display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); max-width: 100%; }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
@@ -1791,15 +1809,34 @@ section { position: relative; scroll-margin-top: 96px; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--aqua); outline-offset: 2px; }
 @media (max-width: 860px) { .settings-grid { grid-template-columns: 1fr; } }
 
-.pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-2); }
-.pb-stroke-row { display: grid; grid-template-columns: 100px 1fr 1fr; gap: var(--space-2); align-items: center; }
+.pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-3); }
+.pb-stroke-block { display: flex; flex-direction: column; gap: 4px; }
+/* 4 columns: stroke name / PB distance select / current time / target time —
+   current and target sit side by side so a swimmer reads "where I am" next
+   to "where I'm going" in one glance, per the merged-card redesign. */
+.pb-stroke-row { display: grid; grid-template-columns: 84px 62px 1fr 1fr; gap: var(--space-2); align-items: center; }
 .pb-stroke-name { font-size: 0.82rem; color: var(--muted); }
 .pb-stroke-row input {
   width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.55em 0.7em; color: var(--fg); font-size: 0.85rem; transition: border-color var(--dur) var(--ease);
 }
 .pb-stroke-row input:focus { border-color: var(--aqua); }
-@media (max-width: 480px) { .pb-stroke-row { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .pb-stroke-row { grid-template-columns: 1fr 1fr; } .pb-stroke-name { grid-column: 1 / -1; } }
+/* Goal Progression Estimator readout — sits directly under its stroke's own
+   row (not batched at the bottom) so the science-based timeline reads as
+   feedback on THAT stroke's current/target pair. Neutral by default, gold
+   once a real estimate is showing, green once the target's already been met. */
+.pb-stroke-estimate { font-size: 0.72rem; color: var(--muted-2); min-height: 1.1em; padding-left: 2px; }
+.pb-stroke-estimate.has-estimate { color: var(--gold); }
+.pb-stroke-estimate.is-met { color: var(--green-bright); }
+/* The Workouts left column is only ~40% of the page width (see
+   .workouts-col-left flex-basis above) — genuinely too narrow at almost any
+   real viewport for Age and a 3-option Swimmer Type pill-group to sit
+   side-by-side without the pills wrapping awkwardly. Stacking them (each
+   field full-width) reads cleanly at every column width instead. */
+.wb-athlete-row { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-2); }
+.wb-athlete-row #swimmerTypeTabs { width: 100%; }
+.wb-athlete-row #swimmerTypeTabs .pill-tab { flex: 1; text-align: center; }
 
 /* Equipment as high-end pill toggles — the native checkbox is hidden (the
    label still toggles it, since it wraps the input), and the pill fills with
@@ -3085,89 +3122,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="workouts-columns">
        <div class="workouts-col-left">
         <div class="bento-card wb-schedule" data-reveal="left" style="--bento-accent:var(--green-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(today's focus is pre-selected below — override any time with Fitness Goals)</span></div>
-          <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule"></div>
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span class="config-label-hint">(tap any day to preview or override its focus &amp; recommended volume — tap again to return to today's auto schedule)</span></div>
+          <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule — tap a day to override"></div>
+          <p class="wb-schedule-override-note" id="scheduleOverrideNote" style="display:none;"></p>
           <div class="wb-recommended-badge" id="recommendedVolumeBadge"></div>
         </div>
 
-        <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span class="config-label-hint">(optional — personalizes your pacing, PBs and race goal all in one place)</span></div>
-          <div class="profile-row">
-            <div class="profile-field">
-              <label for="swimmerAge">Age</label>
-              <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
-            </div>
-          </div>
-
-          <div class="wb-profile-subhead">Personal Bests <span class="config-label-hint">— pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below</span></div>
-          <div class="pb-stroke-grid">
-            <div class="pb-stroke-row">
-              <span class="pb-stroke-name">Freestyle</span>
-              <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
-                <option value="50">50m</option>
-                <option value="100" selected>100m</option>
-                <option value="200">200m</option>
-                <option value="400">400m</option>
-                <option value="800">800m</option>
-                <option value="1500">1500m</option>
-              </select>
-              <input type="text" id="pbTimeFreestyle" placeholder="optional — e.g. 1:05">
-            </div>
-            <div class="pb-stroke-row">
-              <span class="pb-stroke-name">Backstroke</span>
-              <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
-                <option value="50">50m</option>
-                <option value="100" selected>100m</option>
-                <option value="200">200m</option>
-                <option value="400">400m</option>
-                <option value="800">800m</option>
-                <option value="1500">1500m</option>
-              </select>
-              <input type="text" id="pbTimeBackstroke" placeholder="optional — e.g. 1:08">
-            </div>
-            <div class="pb-stroke-row">
-              <span class="pb-stroke-name">Butterfly</span>
-              <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
-                <option value="50">50m</option>
-                <option value="100" selected>100m</option>
-                <option value="200">200m</option>
-                <option value="400">400m</option>
-                <option value="800">800m</option>
-                <option value="1500">1500m</option>
-              </select>
-              <input type="text" id="pbTimeButterfly" placeholder="optional — e.g. 1:04">
-            </div>
-            <div class="pb-stroke-row">
-              <span class="pb-stroke-name">Breaststroke</span>
-              <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
-                <option value="50">50m</option>
-                <option value="100" selected>100m</option>
-                <option value="200">200m</option>
-                <option value="400">400m</option>
-                <option value="800">800m</option>
-                <option value="1500">1500m</option>
-              </select>
-              <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
-            </div>
-          </div>
-
-          <div class="wb-profile-subhead">Race Goal <span class="config-label-hint">— optional, set a target time to tailor intervals toward breaking it</span></div>
-          <div class="profile-row">
-            <div class="profile-field">
-              <label for="raceGoalTargetTime">Target Time <span class="config-label-hint">— for your primary discipline's PB distance above</span></label>
-              <input type="text" id="raceGoalTargetTime" placeholder="e.g. 1:00">
-            </div>
-          </div>
-          <div class="config-label" style="margin-top:var(--space-3); margin-bottom:6px;">Swimmer Type</div>
-          <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
-            <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
-            <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
-            <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
-          </div>
-        </div>
-
         <div class="bento-card wb-discipline" data-reveal="left" style="--bento-accent:var(--green-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or several for a medley/transition set)</span></div>
+          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span class="config-label-hint">(pick one, or several for a medley/transition set)</span></div>
           <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
         </div>
 
@@ -3179,24 +3141,104 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
         </div>
 
-        <div class="bento-card wb-equipment" data-reveal="left">
-          <div class="config-label"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
+        <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Athlete Profile <span class="config-label-hint">(everything about you — profile, PBs, race goals, gear and level — in one place)</span></div>
+          <div class="wb-athlete-row">
+            <div class="profile-field">
+              <label for="swimmerAge">Age</label>
+              <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
+            </div>
+            <div class="profile-field">
+              <label id="swimmerTypeLabel">Swimmer Type</label>
+              <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
+                <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
+                <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
+                <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests &amp; Race Goals <span class="config-label-hint">— your current PB paired with an optional target per stroke; sharpens pacing and estimates a realistic timeline to hit each target</span></div>
+          <div class="pb-stroke-grid">
+            <div class="pb-stroke-block">
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Freestyle</span>
+                <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeFreestyle" placeholder="Current — e.g. 1:05" aria-label="Freestyle current PB time">
+                <input type="text" id="raceGoalTargetFreestyle" placeholder="Target — e.g. 1:00" aria-label="Freestyle target time">
+              </div>
+              <p class="pb-stroke-estimate" id="pbEstimateFreestyle" aria-live="polite"></p>
+            </div>
+            <div class="pb-stroke-block">
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Backstroke</span>
+                <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeBackstroke" placeholder="Current — e.g. 1:08" aria-label="Backstroke current PB time">
+                <input type="text" id="raceGoalTargetBackstroke" placeholder="Target — e.g. 1:03" aria-label="Backstroke target time">
+              </div>
+              <p class="pb-stroke-estimate" id="pbEstimateBackstroke" aria-live="polite"></p>
+            </div>
+            <div class="pb-stroke-block">
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Butterfly</span>
+                <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeButterfly" placeholder="Current — e.g. 1:04" aria-label="Butterfly current PB time">
+                <input type="text" id="raceGoalTargetButterfly" placeholder="Target — e.g. 1:00" aria-label="Butterfly target time">
+              </div>
+              <p class="pb-stroke-estimate" id="pbEstimateButterfly" aria-live="polite"></p>
+            </div>
+            <div class="pb-stroke-block">
+              <div class="pb-stroke-row">
+                <span class="pb-stroke-name">Breaststroke</span>
+                <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
+                  <option value="50">50m</option>
+                  <option value="100" selected>100m</option>
+                  <option value="200">200m</option>
+                  <option value="400">400m</option>
+                  <option value="800">800m</option>
+                  <option value="1500">1500m</option>
+                </select>
+                <input type="text" id="pbTimeBreaststroke" placeholder="Current — e.g. 1:16" aria-label="Breaststroke current PB time">
+                <input type="text" id="raceGoalTargetBreaststroke" placeholder="Target — e.g. 1:10" aria-label="Breaststroke target time">
+              </div>
+              <p class="pb-stroke-estimate" id="pbEstimateBreaststroke" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
           <div class="equipment-grid" id="equipmentGrid"></div>
-        </div>
 
-        <div class="bento-card wb-goals" data-reveal="left">
-          <div class="config-label"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(pick one, or combine several)</span></div>
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span class="config-label-hint">(pick one, or combine several)</span></div>
           <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
-        </div>
 
-        <div class="bento-card wb-level" data-reveal="left" style="--bento-accent:var(--green-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
           <div class="pill-tabs" role="tablist" aria-label="Training level" id="levelTabs">
             <button class="pill-tab" role="tab" data-level="beginner" aria-selected="true">Beginner</button>
             <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
             <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
           </div>
-          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:auto">
+          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:var(--space-4)">
             <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
           </button>
         </div>
@@ -5142,6 +5184,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   ];
   function todaysFocus() { return WEEKLY_FOCUS[uaeRotationShiftedDate(new Date()).getUTCDay()]; }
   function focusBlurbFor(focus, swimmerType) { return focus.blurbs[swimmerType] || focus.blurbs.both; }
+  // The Weekly Schedule card is now interactive — tapping a day badge lets a
+  // swimmer preview/override which day's focus actually drives generation,
+  // rather than always silently following the real calendar day. effectiveFocus()
+  // is the one place generateWorkout() and the volume badge/schedule card read
+  // "today's" focus from; state.scheduleOverrideKey is null whenever no
+  // override is active (the common case), so this transparently falls back
+  // to the real todaysFocus() with zero behavior change unless a swimmer has
+  // actually tapped a day.
+  function effectiveFocus() {
+    if (state.scheduleOverrideKey) {
+      for (var i = 0; i < WEEKLY_FOCUS.length; i++) {
+        if (WEEKLY_FOCUS[i].key === state.scheduleOverrideKey) return WEEKLY_FOCUS[i];
+      }
+    }
+    return todaysFocus();
+  }
 
   // Feeds the Workout Generator's #disciplineChips picker (name/icon per
   // stroke) — the standalone Disciplines showcase tab that used to render a
@@ -5187,7 +5245,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // then persisted like any other saved preference.
     goals: (generatorPrefs.goals && generatorPrefs.goals.length) ? generatorPrefs.goals : todaysFocus().goalKeys.slice(),
     level: generatorPrefs.level || 'beginner',
-    swimmerType: generatorPrefs.swimmerType || 'both'
+    swimmerType: generatorPrefs.swimmerType || 'both',
+    // null = no override, follow the real calendar day (effectiveFocus()
+    // falls back to todaysFocus()); otherwise a WEEKLY_FOCUS key a swimmer
+    // picked by tapping a day badge on the Weekly Schedule card.
+    scheduleOverrideKey: generatorPrefs.scheduleOverrideKey || null
   };
 
   document.getElementById('disciplineChips').innerHTML = DISCIPLINES.map(function (d) {
@@ -5233,42 +5295,97 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!grid) return;
     var todayIdx = uaeRotationShiftedDate(new Date()).getUTCDay();
     var mondayFirstOrder = [1, 2, 3, 4, 5, 6, 0];
+    var active = effectiveFocus();
     grid.innerHTML = mondayFirstOrder.map(function (idx) {
       var focus = WEEKLY_FOCUS[idx];
       var dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx];
       var isToday = idx === todayIdx;
-      var cls = 'weekly-schedule-day' + (isToday ? ' is-today' : '') + (focus.restDay ? ' is-rest' : '');
+      var isActive = focus.key === active.key;
+      var cls = 'weekly-schedule-day' + (isToday ? ' is-today' : '') + (isActive ? ' is-active' : '') + (focus.restDay ? ' is-rest' : '');
       var blurb = focusBlurbFor(focus, state.swimmerType);
-      return '<div class="' + cls + '" role="listitem" title="' + blurb.replace(/"/g, '&quot;') + '">' +
+      var vol = recommendedVolumeFor(focus, state.level);
+      var title = blurb + ' Recommended: ' + formatDistanceM(vol.min, 1) + '–' + formatDistanceM(vol.max, 1) + '.' + (isToday ? ' (today)' : '') + ' Tap to ' + (isActive && !isToday ? 'clear this override' : isActive ? 'preview another day' : 'preview/override this day') + '.';
+      return '<button type="button" class="' + cls + '" role="listitem" data-focus-key="' + focus.key + '" aria-pressed="' + isActive + '" title="' + title.replace(/"/g, '&quot;') + '">' +
         '<span class="weekly-schedule-day-abbrev">' + dayAbbrev + '</span>' +
         '<span class="weekly-schedule-day-focus">' + focus.label + '</span>' +
-        '</div>';
+        '</button>';
     }).join('');
+    var note = document.getElementById('scheduleOverrideNote');
+    if (note) {
+      if (state.scheduleOverrideKey && state.scheduleOverrideKey !== todaysFocus().key) {
+        note.innerHTML = icon('i-target') + ' Previewing <strong>' + active.label + '</strong> — tap it again to return to today’s auto schedule.';
+        note.style.display = '';
+      } else {
+        note.style.display = 'none';
+      }
+    }
   }
-  renderWeeklyScheduleCard();
+  document.getElementById('weeklyScheduleGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('.weekly-schedule-day');
+    if (!btn) return;
+    var key = btn.dataset.focusKey;
+    var realTodayKey = todaysFocus().key;
+    // Re-tapping the day that's already driving generation clears the
+    // override and returns to following the real calendar day; tapping any
+    // other day sets/moves the override to it.
+    if (state.scheduleOverrideKey === key || (!state.scheduleOverrideKey && key === realTodayKey)) {
+      state.scheduleOverrideKey = null;
+    } else {
+      state.scheduleOverrideKey = key;
+    }
+    saveGeneratorPrefs({ scheduleOverrideKey: state.scheduleOverrideKey });
+    // Applying a day's focus also updates Fitness Goals to match — mirrors
+    // the same "default but freely overridable" precedent state.goals
+    // already used for its own initial seed from todaysFocus().goalKeys.
+    var focus = effectiveFocus();
+    state.goals = focus.goalKeys.slice();
+    saveGeneratorPrefs({ goals: state.goals });
+    renderGoalChips();
+    updateQuote();
+    renderWeeklyScheduleCard();
+    renderRecommendedVolumeBadge();
+  });
+  // Initial render of the schedule card itself happens further below, once
+  // recommendedVolumeFor() (which renderWeeklyScheduleCard()'s per-day
+  // tooltips depend on) has actually been defined and assigned.
 
   // "Recommended Volume" guidance badge — a small reference strip under the
-  // schedule showing a sane total-distance range for the swimmer's current
-  // Level, nudged narrower/wider depending on whether Speed or Endurance is
-  // their primary selected goal (a Speed-focused session is honestly shorter
-  // but higher-quality; an Endurance-focused one runs longer) — "based on
-  // user level and goal" per the ask, not level alone.
+  // schedule showing a sane total-distance range for whichever day is
+  // currently driving generation (effectiveFocus() — today by default, or a
+  // swimmer's own tapped-day override), nudged narrower/wider depending on
+  // that day's own primary goal (a Speed-focused session is honestly shorter
+  // but higher-quality; an Endurance-focused one runs longer), and clamped
+  // tighter on a scheduled Rest day. recommendedVolumeFor() is shared with
+  // the per-day tooltip text in renderWeeklyScheduleCard() above so the badge
+  // and each day's own hover text never disagree with each other.
   var RECOMMENDED_VOLUME_BY_LEVEL = {
     beginner: { min: 1000, max: 2000 },
     competitive: { min: 2000, max: 4000 },
     elite: { min: 3000, max: 6000 }
   };
+  function recommendedVolumeFor(focus, level) {
+    var base = RECOMMENDED_VOLUME_BY_LEVEL[level] || RECOMMENDED_VOLUME_BY_LEVEL.beginner;
+    var min = base.min, max = base.max, note = '';
+    var primaryGoal = focus.goalKeys[0];
+    if (primaryGoal === 'speed') { max = Math.round(max * 0.8 / 100) * 100; note = ' — shorter, higher-quality sessions'; }
+    else if (primaryGoal === 'endurance') { max = Math.round(max * 1.2 / 100) * 100; note = ' — longer aerobic volume pays off here'; }
+    if (focus.restDay) { min = Math.min(min, 800); max = Math.min(max, 1200); note = ' — scheduled rest day, kept deliberately light'; }
+    return { min: min, max: max, note: note };
+  }
   function renderRecommendedVolumeBadge() {
     var badge = document.getElementById('recommendedVolumeBadge');
     if (!badge) return;
-    var base = RECOMMENDED_VOLUME_BY_LEVEL[state.level] || RECOMMENDED_VOLUME_BY_LEVEL.beginner;
-    var min = base.min, max = base.max, note = '';
-    if (state.goals[0] === 'speed') { max = Math.round(max * 0.8 / 100) * 100; note = ' — shorter, higher-quality sessions'; }
-    else if (state.goals[0] === 'endurance') { max = Math.round(max * 1.2 / 100) * 100; note = ' — longer aerobic volume pays off here'; }
-    badge.innerHTML = icon('i-target') + ' Recommended for <strong>' + state.level + '</strong>: <strong>' +
-      formatDistanceM(min, 1) + '–' + formatDistanceM(max, 1) + '</strong>' + note;
+    var focus = effectiveFocus();
+    var vol = recommendedVolumeFor(focus, state.level);
+    badge.innerHTML = icon('i-target') + '<span>Recommended for <strong>' + state.level + '</strong> on <strong>' + focus.label + '</strong>: <strong>' +
+      formatDistanceM(vol.min, 1) + '–' + formatDistanceM(vol.max, 1) + '</strong>' + vol.note + '</span>';
   }
   renderRecommendedVolumeBadge();
+  // Now that recommendedVolumeFor() actually exists, it's safe to run the
+  // Weekly Schedule card's first real render (its per-day tooltips depend on
+  // that helper) — the click listener wired above already re-runs this on
+  // every tap.
+  renderWeeklyScheduleCard();
 
   var quoteText = document.getElementById('quoteText');
   var quoteGoal = document.getElementById('quoteGoal');
@@ -5335,6 +5452,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     saveGeneratorPrefs({ level: state.level });
     renderRecommendedVolumeBadge();
+    renderWeeklyScheduleCard();
+    updateAllPbEstimates();
   });
   (function restoreLevelTab() {
     var levelTabs = document.getElementById('levelTabs');
@@ -5373,11 +5492,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // reset on a reload or tab switch either.
   var GENERATOR_PREF_FIELD_IDS = [
     'swimmerAge', 'gymAge', 'gymWorkingWeight', 'gymStrengthLimit',
-    'pbDistanceFreestyle', 'pbTimeFreestyle',
-    'pbDistanceBackstroke', 'pbTimeBackstroke',
-    'pbDistanceButterfly', 'pbTimeButterfly',
-    'pbDistanceBreaststroke', 'pbTimeBreaststroke',
-    'raceGoalTargetTime'
+    'pbDistanceFreestyle', 'pbTimeFreestyle', 'raceGoalTargetFreestyle',
+    'pbDistanceBackstroke', 'pbTimeBackstroke', 'raceGoalTargetBackstroke',
+    'pbDistanceButterfly', 'pbTimeButterfly', 'raceGoalTargetButterfly',
+    'pbDistanceBreaststroke', 'pbTimeBreaststroke', 'raceGoalTargetBreaststroke'
   ];
   GENERATOR_PREF_FIELD_IDS.forEach(function (id) {
     var el = document.getElementById(id);
@@ -5391,6 +5509,53 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     el.addEventListener('input', persistField);
     el.addEventListener('change', persistField);
   });
+
+  // GOAL PROGRESSION ESTIMATOR — a science-based "how long until I hit this
+  // target" readout per stroke, live under each Personal Bests & Race Goals
+  // row. Modeled as a percent-improvement-needed divided by a per-level
+  // monthly-improvement rate: beginners typically drop time faster from a
+  // lower training base, elites need much more work for the same percentage
+  // gain as they approach their physiological ceiling — matching the same
+  // "disclosed estimate, not a lab-measured constant" posture as
+  // PB_PACE_FATIGUE_EXPONENT/CALORIES_PER_METER elsewhere in this file.
+  // Calibrated against the worked example a 28.0s->27.0s 50m improvement
+  // (3.57% faster) at the 'competitive' rate lands on "2-3 months," matching
+  // real coaching expectation for that exact gap.
+  var PB_ESTIMATE_MONTHLY_RATE = { beginner: 0.022, competitive: 0.014, elite: 0.008 };
+  function estimateProgressionMonths(currentSec, targetSec, level) {
+    if (!currentSec || !targetSec || targetSec <= 0) return null;
+    if (targetSec >= currentSec) {
+      return { met: true, longTerm: false, text: 'Already at or beyond this target — nice! Set a faster target to keep chasing progress.' };
+    }
+    var pctImprove = (currentSec - targetSec) / currentSec;
+    var monthlyRate = PB_ESTIMATE_MONTHLY_RATE[level] || PB_ESTIMATE_MONTHLY_RATE.competitive;
+    // A very large ask isn't realistically framed as "X months away" off one
+    // linear model — flag it as a longer-term, multi-block goal instead of
+    // extrapolating a false-precision number from a small-improvement model.
+    if (pctImprove > 0.12) {
+      return { met: false, longTerm: true, text: 'That’s a big jump (' + (pctImprove * 100).toFixed(1) + '% faster) — realistically a multi-season goal (12+ months) built through several progressive targets, not one training block.' };
+    }
+    var months = pctImprove / monthlyRate;
+    var lowM = Math.max(1, Math.round(months * 0.75));
+    var highM = Math.max(lowM + 1, Math.round(months * 1.25));
+    var label = lowM === highM ? (lowM + (lowM === 1 ? ' month' : ' months')) : (lowM + '–' + highM + ' months');
+    return { met: false, longTerm: false, text: 'With consistent training, expected progression to hit ' + formatTime(targetSec) + ' is ~' + label + ' (' + (pctImprove * 100).toFixed(1) + '% faster).' };
+  }
+  var PB_ESTIMATE_STROKES = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke'];
+  function updatePbEstimate(stroke) {
+    var ids = STROKE_PB_FIELD_IDS[stroke];
+    var estEl = document.getElementById('pbEstimate' + stroke);
+    if (!ids || !estEl) return;
+    var currentSec = parseTimeToSeconds((document.getElementById(ids.time) || {}).value);
+    var targetSec = parseTimeToSeconds((document.getElementById(ids.target) || {}).value);
+    var est = estimateProgressionMonths(currentSec, targetSec, state.level);
+    if (!est) { estEl.textContent = ''; estEl.className = 'pb-stroke-estimate'; return; }
+    estEl.textContent = est.text;
+    estEl.className = 'pb-stroke-estimate' + (est.met ? ' is-met' : est.longTerm ? '' : ' has-estimate');
+  }
+  function updateAllPbEstimates() { PB_ESTIMATE_STROKES.forEach(updatePbEstimate); }
+  // Wiring (which needs STROKE_PB_FIELD_IDS' target field ids) happens further
+  // below, right after STROKE_PB_FIELD_IDS itself is defined.
 
   // Sharp, meaningful progression between the three levels — not just more
   // distance. Beginner gets generous rest and foundational technique/body-
@@ -5473,16 +5638,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // to the Freestyle fields regardless of what's actually being trained.
   // Individual Medley has no single-stroke PB to key off, so it falls back
   // to Freestyle as the closest general-pace proxy.
+  // Each stroke's `target` field feeds both the Race-Goal pace blend in
+  // generateWorkout() below AND the Goal Progression Estimator readout —
+  // one target time per stroke now drives both features, replacing the old
+  // single generic raceGoalTargetTime field that was tied to whichever
+  // discipline happened to be primary but had no per-stroke identity of its
+  // own on the page.
   var STROKE_PB_FIELD_IDS = {
-    'Freestyle': { distance: 'pbDistanceFreestyle', time: 'pbTimeFreestyle' },
-    'Backstroke': { distance: 'pbDistanceBackstroke', time: 'pbTimeBackstroke' },
-    'Butterfly': { distance: 'pbDistanceButterfly', time: 'pbTimeButterfly' },
-    'Breaststroke': { distance: 'pbDistanceBreaststroke', time: 'pbTimeBreaststroke' }
+    'Freestyle': { distance: 'pbDistanceFreestyle', time: 'pbTimeFreestyle', target: 'raceGoalTargetFreestyle' },
+    'Backstroke': { distance: 'pbDistanceBackstroke', time: 'pbTimeBackstroke', target: 'raceGoalTargetBackstroke' },
+    'Butterfly': { distance: 'pbDistanceButterfly', time: 'pbTimeButterfly', target: 'raceGoalTargetButterfly' },
+    'Breaststroke': { distance: 'pbDistanceBreaststroke', time: 'pbTimeBreaststroke', target: 'raceGoalTargetBreaststroke' }
   };
   function activeStrokePbFieldIds() {
     var primary = state.disciplines && state.disciplines[0];
     return STROKE_PB_FIELD_IDS[primary] || STROKE_PB_FIELD_IDS.Freestyle;
   }
+  // Wire the estimator's live per-stroke readouts now that STROKE_PB_FIELD_IDS
+  // (with each stroke's own target field id) actually exists.
+  PB_ESTIMATE_STROKES.forEach(function (stroke) {
+    var ids = STROKE_PB_FIELD_IDS[stroke];
+    [ids.time, ids.target].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', function () { updatePbEstimate(stroke); });
+    });
+  });
+  updateAllPbEstimates();
 
   // Predicts pace per 100m from a PB logged at ANY race distance (50m-1500m),
   // not just a hardcoded 50m/100m shortcut — uses the same family of
@@ -6250,7 +6432,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // harder than the swimmer's comfortable current pace so the sets actually
     // build toward the goal, but not simply handing them full target pace on
     // day one, which would be unrealistic and demoralizing.
-    var raceGoalTargetEl = document.getElementById('raceGoalTargetTime');
+    var raceGoalTargetEl = pbFieldIds.target ? document.getElementById(pbFieldIds.target) : null;
     var raceGoalTargetSec = raceGoalTargetEl ? parseTimeToSeconds(raceGoalTargetEl.value) : null;
     var raceGoalActive = !!(personalPace != null && raceGoalTargetSec != null && raceGoalTargetSec > 0 && raceGoalTargetSec < pbTimeSec);
     if (raceGoalActive) {
@@ -6261,8 +6443,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // feel genuinely different, not just draw from the same archetype pool
     // under a different label — a flat pace ease applies regardless of any
     // race goal above, since a true rest day should never be pushed hard even
-    // while chasing a target time.
-    var focusToday = todaysFocus();
+    // while chasing a target time. effectiveFocus() honors a swimmer's own
+    // tapped-day override on the Weekly Schedule card, falling back to the
+    // real calendar day (todaysFocus()) when no override is set.
+    var focusToday = effectiveFocus();
     if (focusToday.restDay) pace100 += 10;
 
     var totalM = state.distance;

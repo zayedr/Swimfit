@@ -2598,6 +2598,144 @@ recovery, a Weekly Periodization Schedule, and Race-Goal targeting.**
   Level switch; PDF export, Complete Workout logging, and all 9 tabs still work with zero page
   errors.
 
+**A round making the Weekly Schedule interactive, merging every Athlete Profile input into one
+card, and adding a Goal Progression Estimator — all client-side/localStorage-scoped, no
+Firestore/Cloud Function changes.**
+
+- **The Weekly Training Schedule card is now genuinely interactive, not just a read-only
+  strip.** Each day cell is a real `<button class="weekly-schedule-day" data-focus-key="...">`
+  (was a plain `<div>`) wired to a click handler on `#weeklyScheduleGrid`. Tapping a day sets
+  `state.scheduleOverrideKey` (persisted via `saveGeneratorPrefs`, `null` by default) to that
+  day's `WEEKLY_FOCUS` key; tapping the day that's *already* driving generation (the override
+  itself, or — with no override set — today) clears it back to `null`, returning to following the
+  real calendar day automatically. A new `effectiveFocus()` helper (`state.scheduleOverrideKey ?
+  that WEEKLY_FOCUS entry : todaysFocus()`) is now the single place both `generateWorkout()` and
+  the Recommended Volume badge/schedule card itself read "today's" focus from, replacing every
+  direct `todaysFocus()` call in those three spots — so an override genuinely changes what gets
+  generated (including a tapped Rest day correctly re-applying the existing 1200m volume cap and
+  pace ease), not just the card's own highlight. Two visual states are now tracked independently:
+  `.is-today` (a subtle aqua ring — the real calendar day, always present) and `.is-active` (the
+  solid green fill — whichever day is actually driving generation, itself by default or a
+  swimmer's override), so previewing a different day never hides which one is the real "today"
+  underneath. Clicking a day also re-applies that day's `goalKeys` onto `state.goals` (mirroring
+  the exact same "default but freely overridable" precedent `state.goals`' own initial seed from
+  `todaysFocus().goalKeys` already established), and a small `#scheduleOverrideNote` line appears
+  under the grid ("Previewing X — tap it again to return to today's auto schedule") whenever an
+  override differs from the real today, so a swimmer can't lose track of the fact they're
+  previewing rather than looking at today's actual plan.
+- **Recommended Volume is now genuinely per-day, not just per-Level.** `recommendedVolumeFor(focus,
+  level)` was extracted from the old inline badge logic so both the badge and every day cell's own
+  hover tooltip compute the exact same range from the exact same function — a Rest day now also
+  clamps its own recommended range down (800m-1200m) independent of Level, and the badge's headline
+  reads "Recommended for `<level>` on `<day label>`" instead of just "for `<level>`" so it's clear
+  the number is scoped to whichever day is currently active (today or a preview).
+- **A real, screenshot-caught layout bug in the Recommended Volume badge was found and fixed
+  while verifying this**: `.wb-recommended-badge` was `display:flex` with no wrapper — every
+  direct child (the icon AND, critically, each bare-text run and `<strong>` tag inside the
+  message) became its own flex item with the default `flex-wrap:nowrap`, which rendered as one
+  word per line stacked vertically the moment the message grew to contain three separate `<strong>`
+  tags (level / day label / volume range) — a real, reachable bug this round's own richer message
+  triggered, not a hypothetical one. Fixed by wrapping the entire message in one `<span>` (the
+  icon is now the only real flex item; `flex-shrink:0` keeps it from being squeezed), so the
+  message's internal `<strong>` tags can no longer fragment the flex layout — it now wraps as a
+  normal multi-line sentence.
+- **Fully merged Athlete Profile card.** `wb-equipment`, `wb-goals`, and `wb-level` (Age +
+  Swimmer Type were already sharing `wb-profile`) are no longer separate `.bento-card`s — Equipment
+  Available, Fitness Goals, and Level (plus the Generate button) are now `.wb-profile-subhead`-
+  delimited sections inside the same single "Athlete Profile" card, verified via Playwright that
+  `.bento-card.wb-equipment`/`.wb-goals`/`.wb-level` no longer exist as separate top-level cards
+  and every one of their input ids still resolves inside `.wb-profile`. Discipline and Target
+  Distance were deliberately left as their own separate cards (not part of the ask's merge list)
+  and were reordered to sit *before* the profile card — pick your stroke(s) and distance first,
+  then fill in everything about yourself and hit Generate, which reads better than the previous
+  order where Swimmer Profile came before a swimmer had even picked a discipline. The Age +
+  Swimmer Type row was rebuilt from a shared `.profile-row`/`.profile-field` grid (which is also
+  used, unmodified, by Gym's Strength Profile and Settings' own profile form — confirmed via grep
+  before touching anything, so neither of those was put at risk) into a new scoped `.wb-athlete-row`
+  that stacks Age and Swimmer Type full-width rather than trying to force them side-by-side — the
+  Workouts left column is only ~40% of the page width at any real desktop viewport (`flex: 0 0 40%`
+  on `.workouts-col-left`), genuinely too narrow for a label+input and a 3-option pill group to
+  share a row without the pills wrapping awkwardly; this was caught via an isolated
+  element-screenshot of the card (not just a full-page screenshot, which didn't show the problem
+  clearly) during this round's own verification, and a first attempt using a `1fr 2fr` CSS grid
+  with `align-items:end` was *also* wrong (it left a large empty gap above the shorter Age field
+  because the two cells' content had different heights) before landing on the simpler stacked
+  layout.
+- **Personal Bests & Race Goals rows now pair a current time with a target time per stroke,
+  replacing the old single generic Race Goal card.** Each of the four `.pb-stroke-row`s
+  (Freestyle/Backstroke/Butterfly/Breaststroke) gained a fourth column — a new
+  `raceGoalTarget{Stroke}` input sitting directly beside that stroke's own current-PB time field
+  (`grid-template-columns: 84px 62px 1fr 1fr`, collapsing to 2 columns with the stroke name
+  spanning full width under 640px) — replacing the old single `raceGoalTargetTime` field, which
+  only ever applied to whichever discipline happened to be primary and had no stroke identity of
+  its own on the page. `STROKE_PB_FIELD_IDS` gained a third `target` key per stroke;
+  `activeStrokePbFieldIds()` (used by `generateWorkout()`'s Race-Goal pace blend) now
+  automatically resolves the correct per-stroke target field for whichever discipline is primary,
+  with zero other changes to that blend's math. `GENERATOR_PREF_FIELD_IDS` swapped the one old
+  field id for the four new ones so every stroke's target time now auto-saves/restores exactly
+  like every other generator field.
+- **A "Goal Progression Estimator" widget now shows a live, science-based timeframe estimate under
+  each stroke's own current/target pair.** `estimateProgressionMonths(currentSec, targetSec,
+  level)` models the timeline as percent-improvement-needed divided by a per-Level monthly-
+  improvement rate (`PB_ESTIMATE_MONTHLY_RATE`: beginner 2.2%/month, competitive 1.4%/month, elite
+  0.8%/month) — beginners genuinely improve faster off a lower training base, elites need far more
+  work for the same percentage gain approaching their physiological ceiling, the same "disclosed
+  estimate, not a lab-measured constant" posture as `PB_PACE_FATIGUE_EXPONENT`/`CALORIES_PER_METER`
+  elsewhere in this file. The competitive rate was specifically calibrated against the ask's own
+  worked example — a 28.0s→27.0s 50m Backstroke improvement (3.57% faster) resolves to exactly
+  "2–3 months" at that rate, verified via Playwright against the literal example numbers, not just
+  eyeballed. A target ≥ the current time reads as "already met" (green `.is-met`); an improvement
+  over 12% is deliberately NOT extrapolated through the same linear model (which would produce
+  false-precision nonsense like "40 months") and instead reads as an honest "multi-season goal
+  (12+ months) built through several progressive targets" message. `updatePbEstimate(stroke)`
+  recomputes on every `input` event on either that stroke's current-time or target-time field, and
+  `updateAllPbEstimates()` (called on load once fields are restored, and again whenever Level
+  changes, since the rate is Level-dependent) refreshes all four at once — each estimate is scoped
+  entirely to its own stroke's `#pbEstimate{Stroke}` element, so filling in Backstroke never
+  touches Freestyle's line.
+- **A real script-ordering bug was caught and fixed while wiring the estimator, before it ever
+  reached the browser as a runtime crash for real swimmers**: the estimator's per-stroke input-
+  listener wiring (`PB_ESTIMATE_STROKES.forEach(...)` reading `STROKE_PB_FIELD_IDS[stroke].target`)
+  was initially placed directly after `GENERATOR_PREF_FIELD_IDS`'s own restore loop — textually
+  earlier in the file than `STROKE_PB_FIELD_IDS` itself is declared. Since that wiring runs
+  immediately (not inside a function body), it executed before `STROKE_PB_FIELD_IDS` had been
+  assigned, throwing `TypeError: Cannot read properties of undefined (reading 'target')` and (since
+  this all lives in one un-guarded top-level IIFE) silently aborting every subsequent line of the
+  Workouts generator's own setup — including the Weekly Schedule card's first render, which is why
+  the very first Playwright run of this round showed a completely empty `#weeklyScheduleGrid` with
+  zero children. Caught immediately via `page.on('pageerror', ...)` in this round's own test
+  harness before any user ever saw it. Fixed by moving just the two executable wiring statements
+  (the `forEach` attaching input listeners, and the initial `updateAllPbEstimates()` call) down to
+  directly after `STROKE_PB_FIELD_IDS`/`activeStrokePbFieldIds()`'s own declaration — the pure
+  function declarations (`estimateProgressionMonths`/`updatePbEstimate`/`updateAllPbEstimates`)
+  stayed exactly where they were, since function declarations are hoisted and don't need to
+  execute in source order, only their *invocations* do. A second, near-identical script-ordering
+  bug in this same area (`renderWeeklyScheduleCard()`'s very first invocation, in the schedule
+  section, running before `RECOMMENDED_VOLUME_BY_LEVEL`/`recommendedVolumeFor()` were assigned a
+  few dozen lines further down — thrown as `Cannot read properties of undefined (reading
+  'beginner')`) was caught and fixed the same way: the initial `renderWeeklyScheduleCard();` call
+  was moved down to directly after `recommendedVolumeFor()`/`renderRecommendedVolumeBadge()` are
+  defined, while the click-listener attachment (which only executes *later*, on an actual click)
+  stayed in place.
+- **Micro-improvements pass.** Beyond the two real bugs above (badge word-wrap, athlete-row
+  layout), a Playwright screenshot review of the rebuilt left column and the isolated merged
+  profile card found the rest of the redesigned layout — Discipline/Distance reordered ahead of
+  the profile card, the four PB+Goal rows, Equipment pills, Fitness Goals chips, Level tabs, and
+  the Generate button — rendering cleanly with no further overflow, misalignment, or contrast
+  issues, so no additional speculative changes were made beyond what these two real, observed
+  problems required.
+- Verified via Playwright: the merged card contains all expected fields with the three old
+  separate cards gone; tapping a non-active day sets the override and shows the preview note,
+  tapping it again clears the override and hides the note; forcing an override onto the Rest day
+  and generating correctly applies the 1.2km cap and "Weekly Schedule — Rest / Active Recovery"
+  note, and clearing the override afterward is reflected immediately; the 28.0s→27.0s Backstroke
+  example reads "2–3 months (3.6% faster)"; a met target reads "already at or beyond" in green; a
+  workout generated with Freestyle as primary and a 1:10→1:00 target correctly shows "Racing toward
+  a 1:00..." (now sourced from the per-stroke `raceGoalTargetFreestyle` field instead of the old
+  single generic field); the existing 2000m/5000m distance-accuracy assertions still land within
+  ±25m of target with zero regression; the existing PDF export and Complete-Workout-to-Tracker
+  regression checks still pass; and all 9 tabs load with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
