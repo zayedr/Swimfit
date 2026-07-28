@@ -2549,6 +2549,55 @@ recovery, a Weekly Periodization Schedule, and Race-Goal targeting.**
   a faster target time produces this note and the swimmer-type emphasis tag; clearing the target
   time removes it and reverts to plain PB-derived pacing with zero page errors.
 
+**A UX-consolidation + Weekly Schedule dynamism round on the Workouts tab.**
+
+- **Unified Swimmer Profile card.** The three separate cards that used to sit stacked in the left
+  column — Swimmer Profile (Age), Personal Bests, and Race Goal (Target Time + Swimmer Type) —
+  are now one single `.bento-card.wb-profile` with `.wb-profile-subhead` divider rules between
+  Personal Bests and Race Goal sub-sections, matching the same thin-hairline "next section" cue
+  the outer card stack already uses one level up. Every input id (`swimmerAge`, `pbDistance*`/
+  `pbTime*`, `raceGoalTargetTime`, `swimmerTypeTabs`) is unchanged, so none of the JS wiring
+  needed to change — this was purely a markup/CSS consolidation.
+- **Weekly Schedule is now genuinely dynamic per Swimmer Type, and Saturday is a real Rest day.**
+  `WEEKLY_FOCUS` entries now carry `blurbs: {sprinter, distance, both}` instead of one fixed
+  `blurb` string — `focusBlurbFor(focus, swimmerType)` picks the right one, so the exact same day
+  reads differently depending on the Race Goal card's Swimmer Type selection (e.g. Monday's
+  Sprint/Power day says "your signature day" for a Sprinter but "a shorter, sharper day to keep
+  top-end speed from going stale" for a Distance swimmer). `renderWeeklyScheduleCard()` re-runs
+  live whenever Swimmer Type changes, not just once at load. The schedule was also reshuffled so
+  **Saturday is a genuine Rest / Active Recovery day** (`restDay: true`, muted `.is-rest` styling,
+  a distinct maroon `.is-today.is-rest` state if it's also today) — Race Pace moved to Friday and
+  IM/Transitional moved to Sunday to make room, so all six non-rest archetype flavors are still
+  covered across the other 6 days. `generateWorkout()` hard-caps `totalM` to 1200m on a rest day
+  regardless of the swimmer's own Target Distance slider (a rest day existing at all, rather than
+  fully blocking generation, matches the ask's own "(or Light Active Recovery option)" allowance)
+  and adds a `restDayCapApplied` disclosure line so this never reads as the strict-distance-match
+  guarantee silently breaking — it's a deliberate, disclosed override specific to that one day.
+  Separately, the swimmer-type Main Set archetype bias (guaranteeing at least one Speed/Endurance
+  archetype for a Sprinter/Distance swimmer) is no longer gated behind `raceGoalActive` — it now
+  applies every day a specialty is selected, which is what actually makes the schedule *behave*
+  differently per type, not just read differently.
+- **100% fresh daily generation now also covers the Warm-Up.** The existing "never repeat
+  yesterday's pick" technique (already applied to the Pre-Set archetype and the first Main Set
+  archetype) is now a reusable `pickOneNoRepeat(pool, priorRng)` helper, applied additionally to
+  the Warm-Up's drill-pool and kick-pool picks, and extended to also guard the *second* Main Set
+  block (previously only the first block in a multi-block session was checked against yesterday).
+  Warm-Up, Pre-Set, and Main Set all now carry this guarantee, not just two of the three stages.
+- **"Recommended Volume" guidance badge.** A new `#recommendedVolumeBadge` strip sits directly
+  under the Weekly Schedule grid, showing a distance range for the swimmer's current Level
+  (Beginner 1-2km, Competitive 2-4km, Elite 3-6km) nudged narrower if Speed is the primary
+  selected goal or wider if Endurance is — "based on level and goal," not level alone. Updates
+  live on both Level and Fitness Goals changes via `renderRecommendedVolumeBadge()`.
+- **Distance math re-verified, unchanged from the prior round's fix.** No changes were made to
+  `buildToShare()`/the Cool-Down reconciliation logic itself this round; Playwright confirms
+  2000m-6000m across Beginner/Competitive/Elite still land within ±50m of target (several exactly
+  on target), with the same previously-disclosed 1000m-minimum edge case unchanged. Verified via
+  Playwright: the unified profile card renders all four field groups with the old separate cards
+  gone; Saturday's schedule cell shows "Rest / Active Recovery" with three genuinely different
+  tooltip strings across Sprinter/Distance/Both; the Recommended Volume badge changes text on a
+  Level switch; PDF export, Complete Workout logging, and all 9 tabs still work with zero page
+  errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

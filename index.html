@@ -1676,6 +1676,37 @@ section { position: relative; scroll-margin-top: 96px; }
 /* Gym's left column stays fully borderless — the flex .gap already
    separates Strength Profile from Today's Focus, no divider line needed. */
 .wb-level { display: flex; flex-direction: column; }
+/* Unified Swimmer Profile card — Age, Personal Bests, Race Goal and Swimmer
+   Type used to be three separate cards; they're now sub-sections of one card
+   so a swimmer fills in everything about themselves in one place instead of
+   hunting across several stacked cards. Same thin-hairline "next section"
+   cue the outer card stack already uses, just one level down. */
+.wb-profile-subhead {
+  font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 0.78rem; color: var(--fg); margin-top: var(--space-4); padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.wb-profile-subhead:first-of-type { margin-top: var(--space-3); }
+.config-label-hint { color: var(--muted-2); text-transform: none; letter-spacing: 0; font-weight: 400; font-family: var(--font-body); }
+/* "Recommended Volume" guidance badge, shown just under the Weekly Schedule
+   grid — updates live when Level changes (see wireRecommendedVolumeBadge()). */
+.wb-recommended-badge {
+  display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3);
+  padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-alt);
+  font-size: 0.78rem; color: var(--muted);
+}
+.wb-recommended-badge strong { color: var(--green-bright); font-family: var(--font-mono); }
+.weekly-schedule-day.is-rest { background: var(--surface-2); }
+.weekly-schedule-day.is-rest .weekly-schedule-day-abbrev,
+.weekly-schedule-day.is-rest .weekly-schedule-day-focus { color: var(--muted-2); }
+/* Higher specificity (two classes) than either rule alone, so today-and-rest
+   never loses the rest signal to the plain green "today" highlight, or vice
+   versa — a swimmer whose rest day happens to be today sees a distinct
+   accent color that still reads as "you are here," just not the same green
+   as an active training day. */
+.weekly-schedule-day.is-today.is-rest { background: var(--maroon-bright); }
+.weekly-schedule-day.is-today.is-rest .weekly-schedule-day-abbrev,
+.weekly-schedule-day.is-today.is-rest .weekly-schedule-day-focus { color: var(--fg); }
 .wb-quote, .wb-result, .wb-ai { display: flex; flex-direction: column; }
 .config-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); margin-bottom: var(--space-3); max-width: 100%; }
 .config-label .icon { width: 17px; height: 17px; color: var(--aqua); }
@@ -3056,20 +3087,19 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="bento-card wb-schedule" data-reveal="left" style="--bento-accent:var(--green-bright)">
           <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(today's focus is pre-selected below — override any time with Fitness Goals)</span></div>
           <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule"></div>
+          <div class="wb-recommended-badge" id="recommendedVolumeBadge"></div>
         </div>
 
         <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span class="config-label-hint">(optional — personalizes your pacing, PBs and race goal all in one place)</span></div>
           <div class="profile-row">
             <div class="profile-field">
               <label for="swimmerAge">Age</label>
               <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
             </div>
           </div>
-        </div>
 
-        <div class="bento-card wb-pb" data-reveal="left" style="--bento-accent:var(--gold)">
-          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Personal Bests <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below)</span></div>
+          <div class="wb-profile-subhead">Personal Bests <span class="config-label-hint">— pick your best race distance per stroke; sharpens pacing whenever that stroke is the primary discipline below</span></div>
           <div class="pb-stroke-grid">
             <div class="pb-stroke-row">
               <span class="pb-stroke-name">Freestyle</span>
@@ -3120,13 +3150,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
             </div>
           </div>
-        </div>
 
-        <div class="bento-card wb-race-goal" data-reveal="left" style="--bento-accent:var(--maroon-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Race Goal <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — set a target time to tailor intervals toward breaking it)</span></div>
+          <div class="wb-profile-subhead">Race Goal <span class="config-label-hint">— optional, set a target time to tailor intervals toward breaking it</span></div>
           <div class="profile-row">
             <div class="profile-field">
-              <label for="raceGoalTargetTime">Target Time <span style="color:var(--muted-2); font-weight:400;">— for your primary discipline's PB distance above</span></label>
+              <label for="raceGoalTargetTime">Target Time <span class="config-label-hint">— for your primary discipline's PB distance above</span></label>
               <input type="text" id="raceGoalTargetTime" placeholder="e.g. 1:00">
             </div>
           </div>
@@ -5056,23 +5084,64 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // eases the target pace in generateWorkout(), since a true recovery day
   // needs to feel different, not just draw from the same pool under a
   // different name.
+  // Each day's blurb is now THREE variants (sprinter/distance/both) instead of
+  // one — the schedule reads differently depending on the swimmer's own
+  // Swimmer Type selection (see the Race Goal card), not just which day it
+  // is. goalKeys (which archetype pool the day draws from) stays fixed per
+  // day — the swimmer-type difference is expressed through copy plus the
+  // archetype-bias in generateWorkout() (a Sprinter/Distance swimmer is
+  // guaranteed at least one archetype from their specialty pool every day,
+  // not just on days already themed toward it). Saturday is now a genuine
+  // Rest / Active Recovery day (restDay: true) rather than "Race Pace" —
+  // generateWorkout() caps its volume hard regardless of the swimmer's
+  // chosen Target Distance, since the whole point of a rest day is that it
+  // ISN'T a full session.
   var WEEKLY_FOCUS = [
-    { key: 'recovery', label: 'Active Recovery', goalKeys: ['endurance'], recoveryDay: true,
-      blurb: 'Easy aerobic volume only — let the body absorb the week’s work.' },
-    { key: 'sprint', label: 'Sprint / Power', goalKeys: ['speed'],
-      blurb: 'Explosive speed and power — today is about raw pace.' },
-    { key: 'aerobic', label: 'Aerobic / Distance', goalKeys: ['endurance'],
-      blurb: 'Building the aerobic engine with sustained, honest-pace volume.' },
-    { key: 'technique', label: 'Technique / Drills', goalKeys: ['technique'],
-      blurb: 'Slowing down to fix the stroke — drills and feel-first work.' },
-    { key: 'threshold', label: 'Threshold', goalKeys: ['endurance'],
-      blurb: 'Sustained effort right at your aerobic ceiling.' },
     { key: 'im', label: 'IM / Transitional', goalKeys: ['technique', 'endurance'],
-      blurb: 'A lighter, mixed day bridging the week’s hard efforts into the weekend.' },
+      blurbs: {
+        both: 'A lighter, mixed day bridging the week’s hard efforts into the new week.',
+        sprinter: 'Short, sharp transition work — keep the explosive feel alive without a full hard day.',
+        distance: 'An easy mixed-stroke day to keep the aerobic engine ticking over.'
+      } },
+    { key: 'sprint', label: 'Sprint / Power', goalKeys: ['speed'],
+      blurbs: {
+        both: 'Explosive speed and power — today is about raw pace.',
+        sprinter: 'Your signature day — max-effort starts, explosive power, and pure reaction speed.',
+        distance: 'A shorter, sharper day to keep top-end speed from going stale.'
+      } },
+    { key: 'aerobic', label: 'Aerobic / Distance', goalKeys: ['endurance'],
+      blurbs: {
+        both: 'Building the aerobic engine with sustained, honest-pace volume.',
+        sprinter: 'A shorter aerobic top-up — just enough volume to support the speed work, not replace it.',
+        distance: 'Your bread-and-butter day — real volume, honest pace, the engine that wins races.'
+      } },
+    { key: 'technique', label: 'Technique / Drills', goalKeys: ['technique'],
+      blurbs: {
+        both: 'Slowing down to fix the stroke — drills and feel-first work.',
+        sprinter: 'Technical work aimed at the start, turn and breakout — the moments speed is actually won.',
+        distance: 'Efficiency-focused drills — every wasted stroke over a long race adds up.'
+      } },
+    { key: 'threshold', label: 'Threshold', goalKeys: ['endurance'],
+      blurbs: {
+        both: 'Sustained effort right at your aerobic ceiling.',
+        sprinter: 'A controlled aerobic day to support recovery between your real speed sessions.',
+        distance: 'Race-pace-adjacent volume at your threshold — this is where distance races are won.'
+      } },
     { key: 'race', label: 'Race Pace', goalKeys: ['speed'],
-      blurb: 'Locking in the exact pace you need to hit on race day.' }
+      blurbs: {
+        both: 'Locking in the exact pace you need to hit on race day.',
+        sprinter: 'Explosive race-modeled speed — starts, turns, and the pace you’ll actually race at.',
+        distance: 'Long race-pace repeats — rehearsing the exact effort your target race demands.'
+      } },
+    { key: 'rest', label: 'Rest / Active Recovery', goalKeys: ['endurance'], restDay: true,
+      blurbs: {
+        both: 'Scheduled rest — a light, low-volume session so the week’s work can actually absorb.',
+        sprinter: 'Full rest for the nervous system — sprinting demands fresh legs more than any other style.',
+        distance: 'A true rest day — even high-volume swimmers need one genuinely easy day.'
+      } }
   ];
   function todaysFocus() { return WEEKLY_FOCUS[uaeRotationShiftedDate(new Date()).getUTCDay()]; }
+  function focusBlurbFor(focus, swimmerType) { return focus.blurbs[swimmerType] || focus.blurbs.both; }
 
   // Feeds the Workout Generator's #disciplineChips picker (name/icon per
   // stroke) — the standalone Disciplines showcase tab that used to render a
@@ -5148,13 +5217,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     saveGeneratorPrefs({ equipment: state.equipment });
   });
 
-  // Weekly Training Schedule card — a static, read-only Mon-Sun strip with
-  // today's focus visually highlighted, so a swimmer sees the periodization
-  // plan before touching the config form below. Monday-first display order
-  // (the natural way people read a weekly calendar) even though WEEKLY_FOCUS
+  // Weekly Training Schedule card — a read-only Mon-Sun strip with today's
+  // focus visually highlighted, so a swimmer sees the periodization plan
+  // before touching the config form below. Monday-first display order (the
+  // natural way people read a weekly calendar) even though WEEKLY_FOCUS
   // itself is stored Sun-first to match Date#getUTCDay() indexing — this
-  // function is the one place that reorders it for display.
-  (function renderWeeklyScheduleCard() {
+  // function is the one place that reorders it for display. Now genuinely
+  // DYNAMIC (not just rendered once at load) — it re-runs whenever Swimmer
+  // Type changes, since every day's blurb reads differently depending on
+  // that selection (see WEEKLY_FOCUS's blurbs.{sprinter,distance,both}
+  // above), and Saturday's Rest/Active Recovery day gets its own muted
+  // `.is-rest` styling regardless of swimmer type.
+  function renderWeeklyScheduleCard() {
     var grid = document.getElementById('weeklyScheduleGrid');
     if (!grid) return;
     var todayIdx = uaeRotationShiftedDate(new Date()).getUTCDay();
@@ -5163,12 +5237,38 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var focus = WEEKLY_FOCUS[idx];
       var dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx];
       var isToday = idx === todayIdx;
-      return '<div class="weekly-schedule-day' + (isToday ? ' is-today' : '') + '" role="listitem" title="' + focus.blurb.replace(/"/g, '&quot;') + '">' +
+      var cls = 'weekly-schedule-day' + (isToday ? ' is-today' : '') + (focus.restDay ? ' is-rest' : '');
+      var blurb = focusBlurbFor(focus, state.swimmerType);
+      return '<div class="' + cls + '" role="listitem" title="' + blurb.replace(/"/g, '&quot;') + '">' +
         '<span class="weekly-schedule-day-abbrev">' + dayAbbrev + '</span>' +
         '<span class="weekly-schedule-day-focus">' + focus.label + '</span>' +
         '</div>';
     }).join('');
-  })();
+  }
+  renderWeeklyScheduleCard();
+
+  // "Recommended Volume" guidance badge — a small reference strip under the
+  // schedule showing a sane total-distance range for the swimmer's current
+  // Level, nudged narrower/wider depending on whether Speed or Endurance is
+  // their primary selected goal (a Speed-focused session is honestly shorter
+  // but higher-quality; an Endurance-focused one runs longer) — "based on
+  // user level and goal" per the ask, not level alone.
+  var RECOMMENDED_VOLUME_BY_LEVEL = {
+    beginner: { min: 1000, max: 2000 },
+    competitive: { min: 2000, max: 4000 },
+    elite: { min: 3000, max: 6000 }
+  };
+  function renderRecommendedVolumeBadge() {
+    var badge = document.getElementById('recommendedVolumeBadge');
+    if (!badge) return;
+    var base = RECOMMENDED_VOLUME_BY_LEVEL[state.level] || RECOMMENDED_VOLUME_BY_LEVEL.beginner;
+    var min = base.min, max = base.max, note = '';
+    if (state.goals[0] === 'speed') { max = Math.round(max * 0.8 / 100) * 100; note = ' — shorter, higher-quality sessions'; }
+    else if (state.goals[0] === 'endurance') { max = Math.round(max * 1.2 / 100) * 100; note = ' — longer aerobic volume pays off here'; }
+    badge.innerHTML = icon('i-target') + ' Recommended for <strong>' + state.level + '</strong>: <strong>' +
+      formatDistanceM(min, 1) + '–' + formatDistanceM(max, 1) + '</strong>' + note;
+  }
+  renderRecommendedVolumeBadge();
 
   var quoteText = document.getElementById('quoteText');
   var quoteGoal = document.getElementById('quoteGoal');
@@ -5203,6 +5303,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
     updateQuote();
     saveGeneratorPrefs({ goals: state.goals });
+    renderRecommendedVolumeBadge();
   });
 
   var distanceSlider = document.getElementById('distanceSlider');
@@ -5233,6 +5334,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     state.level = btn.dataset.level;
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     saveGeneratorPrefs({ level: state.level });
+    renderRecommendedVolumeBadge();
   });
   (function restoreLevelTab() {
     var levelTabs = document.getElementById('levelTabs');
@@ -5256,6 +5358,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       state.swimmerType = btn.dataset.swimmerType;
       this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
       saveGeneratorPrefs({ swimmerType: state.swimmerType });
+      renderWeeklyScheduleCard();
     });
     (function restoreSwimmerTypeTab() {
       var match = swimmerTypeTabsEl.querySelector('.pill-tab[data-swimmer-type="' + state.swimmerType + '"]');
@@ -5604,6 +5707,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // the no-repeat-vs-yesterday check in generateWorkout(), without disturbing
   // today's own real pick sequence.
   function pickOneFrom(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+  // Draws today's real pick, simulates what the exact same call site would
+  // have drawn yesterday (via a separate throwaway RNG seeded from
+  // yesterday's date), and re-rolls once if they collide — the same
+  // "never the same headline pick two days running" technique already
+  // applied to the Pre-Set/Main Set archetypes, generalized so it can also
+  // cover the Warm-Up's drill and kick pools (100% fresh Warm-Up, Pre-Set
+  // AND Main Set day to day, not just two of the three stages).
+  function pickOneNoRepeat(pool, priorRng) {
+    if (pool.length <= 1) return pickOne(pool);
+    var priorPick = pickOneFrom(priorRng, pool);
+    var pick = pickOne(pool);
+    if (pick === priorPick) pick = pickOne(pool.filter(function (x) { return x !== priorPick; }));
+    return pick;
+  }
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
   // circuit from — seeded per day (see workoutRng above) so the shape is
@@ -6140,15 +6257,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var targetPace100 = personalPaceFromPB(pbDistanceM, raceGoalTargetSec, state.goals);
       pace100 = personalPace * 0.65 + targetPace100 * 0.35;
     }
-    // WEEKLY PERIODIZATION: Sunday's Active Recovery day is meant to feel
-    // different, not just draw from the same archetype pool under a
-    // different label — a flat pace ease applies regardless of any race goal
-    // above, since a true recovery day should never be pushed hard even
+    // WEEKLY PERIODIZATION: Saturday's Rest / Active Recovery day is meant to
+    // feel genuinely different, not just draw from the same archetype pool
+    // under a different label — a flat pace ease applies regardless of any
+    // race goal above, since a true rest day should never be pushed hard even
     // while chasing a target time.
     var focusToday = todaysFocus();
-    if (focusToday.recoveryDay) pace100 += 10;
+    if (focusToday.restDay) pace100 += 10;
 
     var totalM = state.distance;
+    var restDayCapApplied = false;
+    // A scheduled Rest / Active Recovery day is not meant to be a full
+    // session — capping its volume well below the swimmer's own chosen
+    // Target Distance is the entire point of "Saturday off," not a bug in
+    // the strict-distance-matching logic below (which still applies exactly,
+    // just against this smaller effective target for today).
+    if (focusToday.restDay && totalM > 1200) { totalM = 1200; restDayCapApplied = true; }
     var ageCapApplied = false;
     if (age && age < 12 && totalM > 2000) { totalM = 2000; ageCapApplied = true; }
 
@@ -6230,8 +6354,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var warmup = buildToShare(function () {
       var sets = [
         buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
-        buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
-        buildSet(warmupKickReps, 50, pickOne(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
+        buildSet(warmupDrillReps, 50, pickOneNoRepeat(WARMUP_DRILL_POOL, priorDayRng), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
+        buildSet(warmupKickReps, 50, pickOneNoRepeat(WARMUP_KICK_POOL, priorDayRng), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
       ];
       if (state.level !== 'beginner') {
         sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
@@ -6294,15 +6418,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           chosenArchetypes[0] = replacementMain;
         }
       }
+      // 100% FRESH DAILY GENERATION: the same no-repeat check now also covers
+      // the second Main Set block (when a session has one), not just the
+      // headline first block — a competitive/elite multi-block day previously
+      // could still repeat its second block's archetype from yesterday even
+      // though the first was guaranteed fresh.
+      if (chosenArchetypes.length > 1) {
+        var priorSecondMainArchetype = pickOneFrom(priorDayRng, pool);
+        if (chosenArchetypes[1] === priorSecondMainArchetype) {
+          var altMainPool2 = pool.filter(function (a) { return a !== priorSecondMainArchetype && chosenArchetypes.indexOf(a) === -1; });
+          if (altMainPool2.length) {
+            var replacementMain2 = pickOne(altMainPool2);
+            chosenArchetypes[1] = replacementMain2;
+          }
+        }
+      }
     }
-    // RACE-GOAL SWIMMER TYPE: a Sprinter or Distance swimmer chasing a target
-    // time gets that emphasis guaranteed in the Main Set, even on a day whose
-    // periodization/goal selection wouldn't otherwise draw from that pool —
+    // SWIMMER TYPE BIAS: a Sprinter or Distance swimmer gets that emphasis
+    // guaranteed in the Main Set every single day, not just on days already
+    // themed toward it (and not just when a race goal Target Time is set) —
     // the same "guarantee it's present" principle the Elite Power block
-    // already uses for elite level. 'Both' applies no bias. Only fires when a
-    // real race goal is active, so this never surprises a swimmer who hasn't
-    // set a target time.
-    if (raceGoalActive && state.swimmerType !== 'both' && chosenArchetypes.length) {
+    // already uses for elite level. This is what makes the Weekly Schedule
+    // genuinely dynamic per swimmer type rather than copy-only: a Sprinter's
+    // Tuesday "Aerobic/Distance" day still gets one real speed-archetype set
+    // woven in, and vice versa for a Distance swimmer's Monday "Sprint/Power"
+    // day. 'Both' applies no bias.
+    if (state.swimmerType !== 'both' && chosenArchetypes.length) {
       var biasPool = state.swimmerType === 'sprinter' ? SPEED_ARCHETYPES : ENDURANCE_ARCHETYPES;
       var alreadyBiased = chosenArchetypes.some(function (a) { return biasPool.indexOf(a) > -1; });
       if (!alreadyBiased) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(biasPool);
@@ -6424,13 +6565,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       (personalPace != null
         ? 'Pace personalized from your ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) + ' PB (' + formatTime(pbTimeSec) + ').'
         : 'Add a Personal Best above for pacing calculated from your own times.') +
-      (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
+      (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') +
+      (restDayCapApplied ? ' Volume capped at 1.2 km — today is a scheduled Rest / Active Recovery day, so this intentionally ignores your Target Distance slider.' : '') + '</p>';
 
     // Weekly Periodization + Race Goal transparency lines — directly visible
     // confirmation that both features are actually shaping today's set, not
-    // silent background logic.
+    // silent background logic. The blurb itself now depends on Swimmer Type
+    // (see focusBlurbFor()), so the same day reads differently for a
+    // Sprinter vs a Distance swimmer vs Both.
     scalerNoteHtml += '<p style="color:var(--green-bright); font-size:0.78rem; margin-bottom:4px;">' +
-      icon('i-target') + ' Weekly Schedule — <strong>' + focusToday.label + '</strong>: ' + focusToday.blurb + '</p>';
+      icon('i-target') + ' Weekly Schedule — <strong>' + focusToday.label + '</strong>: ' + focusBlurbFor(focusToday, state.swimmerType) + '</p>';
     if (raceGoalActive) {
       scalerNoteHtml += '<p style="color:var(--gold); font-size:0.78rem; margin-bottom:4px;">' +
         icon('i-trophy') + ' Racing toward a ' + formatTime(raceGoalTargetSec) + ' ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) +
