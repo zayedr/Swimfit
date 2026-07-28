@@ -1690,22 +1690,47 @@ section { position: relative; scroll-margin-top: 96px; }
    top hairline (var(--border)) between stacked items is the only separator,
    replacing the old card backgrounds/borders as the sole "you've moved to
    the next section" cue. */
-/* .gym-columns/.gym-col-left/.gym-col-right share this exact same split —
-   Gym's own 2-column redesign (Strength Profile + Focus on the left, the
-   exercise board on the right) reuses the identical layout mechanics rather
-   than a second parallel implementation. */
-.workouts-columns, .gym-columns { display: flex; flex-direction: column; gap: var(--space-5); align-items: flex-start; }
+.workouts-columns { display: flex; flex-direction: column; gap: var(--space-5); align-items: flex-start; }
 @media (min-width: 1000px) {
-  .workouts-columns, .gym-columns { flex-direction: row; }
-  .workouts-col-left, .gym-col-left { flex: 0 0 40%; max-width: 40%; }
-  .workouts-col-right, .gym-col-right { flex: 1 1 60%; min-width: 0; }
+  .workouts-columns { flex-direction: row; }
+  .workouts-col-left { flex: 0 0 40%; max-width: 40%; }
+  .workouts-col-right { flex: 1 1 60%; min-width: 0; }
 }
-.workouts-col-left, .workouts-col-right, .gym-col-left, .gym-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.workouts-col-left, .workouts-col-right { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 .workouts-col-left > .bento-card { padding-top: var(--space-4); border-top: 1px solid var(--border); }
 .workouts-col-left > .bento-card:first-child { padding-top: 0; border-top: none; }
-/* Gym's left column stays fully borderless — the flex .gap already
-   separates Strength Profile from Today's Focus, no divider line needed. */
 .wb-level { display: flex; flex-direction: column; }
+/* ============================= GYM: TOP INPUTS / BOTTOM WORKOUTS =============================
+   Gym was previously a side-by-side left/right column split (inputs on the
+   left, exercise board on the right, mirroring Workouts) — per explicit
+   request this is now a TOP horizontal input bar (Strength Profile + Target
+   Focus, split evenly left/right) with the generated exercise board sitting
+   full-width BELOW it, rather than squeezed into a narrow 60% side column.
+   Both top halves are plain flex columns (no card border/background — same
+   borderless-by-default convention as the rest of this file) so input
+   labels/boxes across both halves line up on a shared baseline instead of
+   each living inside its own visually competing box. */
+.gym-top-bar { display: flex; flex-direction: column; gap: var(--space-5); align-items: stretch; margin-bottom: var(--space-6); }
+@media (min-width: 760px) {
+  .gym-top-bar { flex-direction: row; }
+  .gym-top-half { flex: 1 1 50%; min-width: 0; }
+  .gym-top-half + .gym-top-half { padding-inline-start: var(--space-6); border-inline-start: 1px solid var(--border); }
+}
+.gym-top-half { display: flex; flex-direction: column; }
+.gym-top-half .profile-row { flex: 1; }
+/* Today's/Target Focus: previously a segmented-control-style pill group
+   (solid var(--bg-alt) fill behind every button, like a boxed table row) —
+   now each focus option is its own sleek, individually-bordered pill button
+   with no heavy container fill, matching the Discipline/Goal chip language
+   used elsewhere in this file. */
+#gymFocusTabs { background: none; padding: 0; border-radius: 0; }
+#gymFocusTabs .pill-tab {
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+#gymFocusTabs .pill-tab:hover:not([aria-selected="true"]) { border-color: var(--aqua); color: var(--fg); transform: translateY(-1px); }
+#gymFocusTabs .pill-tab[aria-selected="true"] { border-color: var(--green); }
+.gym-bottom { width: 100%; }
 /* Unified Swimmer Profile card — Age, Personal Bests, Race Goal and Swimmer
    Type used to be three separate cards; they're now sub-sections of one card
    so a swimmer fills in everything about themselves in one place instead of
@@ -1789,6 +1814,17 @@ section { position: relative; scroll-margin-top: 96px; }
 .profile-field input { width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65em 0.8em; color: var(--fg); transition: border-color var(--dur) var(--ease); }
 .profile-field input:focus { border-color: var(--aqua); }
 @media (max-width: 480px) { .profile-row { grid-template-columns: 1fr; } }
+/* Gym's Strength Profile row is a real, screenshot-caught case of "crooked"
+   alignment: "Age" is a one-line label while "Current Working Weight" and
+   "Strength Limit / Max Capacity" wrap to two lines at this column width, so
+   the Age input previously started noticeably higher than the other two.
+   Reserving a fixed 2-line-tall, bottom-anchored label box (scoped to Gym's
+   top bar only, not the shared .profile-field used by Settings' short
+   single-line labels) makes every input in the row start at the exact same
+   y regardless of how many lines its own label wraps to. */
+.gym-top-half .profile-field label {
+  display: flex; align-items: flex-end; min-height: 2.5em; line-height: 1.25;
+}
 .profile-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* A dedicated, more vibrant wash behind the whole signed-in Settings shell —
@@ -3354,10 +3390,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="gym-columns">
-       <div class="gym-col-left">
-        <div class="bento-card" data-reveal style="--bento-accent:var(--aqua-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — tailors load &amp; volume for aquatic power)</span></div>
+      <div class="gym-top-bar">
+       <div class="gym-top-half" data-reveal>
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span class="config-label-hint">(optional — tailors load &amp; volume for aquatic power)</span></div>
           <div class="profile-row">
             <div class="profile-field">
               <label for="gymAge">Age</label>
@@ -3375,10 +3410,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <button type="button" class="btn btn-primary" id="gymApplyBtn" style="margin-top:20px">
             <svg class="icon"><use href="#i-bolt"/></svg> Update My Prescription
           </button>
-        </div>
+       </div><!-- /gym-top-half (profile) -->
 
-        <div class="bento-card" data-reveal style="--bento-accent:var(--green-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-dumbbell"/></svg> Today's Focus</div>
+       <div class="gym-top-half" data-reveal>
+          <div class="config-label"><svg class="icon"><use href="#i-dumbbell"/></svg> Target Focus</div>
           <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
           <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs">
             <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
@@ -3388,10 +3423,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
           </div>
           <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
-        </div>
-       </div><!-- /gym-col-left -->
+       </div><!-- /gym-top-half (focus) -->
+      </div><!-- /gym-top-bar -->
 
-       <div class="gym-col-right">
+      <div class="gym-bottom">
         <div id="gymGrid"></div>
         <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
           <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
@@ -3416,8 +3451,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
         </form>
         </div>
-       </div><!-- /gym-col-right -->
-      </div><!-- /gym-columns -->
+      </div><!-- /gym-bottom -->
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
     </div>
 
