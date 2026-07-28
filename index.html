@@ -1575,6 +1575,19 @@ section { position: relative; scroll-margin-top: 96px; }
 .bento-grid > * { grid-column: span 12; }
 @media (min-width: 700px) { .bento-grid > * { grid-column: span 6; } }
 @media (min-width: 1100px) { .bento-grid > * { grid-column: span 4; } }
+/* A REAL, screenshot-caught bug: the Tracker's top row (log form + Daily/
+   Weekly/Monthly stat card) fell under the generic 4/12 span above at wide
+   viewports — each child took only a third of the row, leaving a third of
+   the row as dead space and squeezing the log form's 5 fields (Date,
+   Distance, Duration, Discipline, the Log Swim button) so tight that the
+   Discipline field overflowed past the card's own right border and never
+   rendered visibly at all. Scoped to this one instance (not the generic
+   .bento-grid rule other tabs rely on) so the log form gets the room its
+   5-item row actually needs. */
+@media (min-width: 1100px) {
+  .tracker-top-grid > .tracker-log-form { grid-column: span 8; }
+  .tracker-top-grid > .tracker-stat-card { grid-column: span 4; }
+}
 
 .bento-card {
   --bento-accent: var(--aqua-bright);
@@ -1871,17 +1884,30 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .pb-stroke-grid { display: flex; flex-direction: column; gap: var(--space-3); }
 .pb-stroke-block { display: flex; flex-direction: column; gap: 4px; }
-/* 4 columns: stroke name / PB distance select / current time / target time —
-   current and target sit side by side so a swimmer reads "where I am" next
-   to "where I'm going" in one glance, per the merged-card redesign. */
-.pb-stroke-row { display: grid; grid-template-columns: 84px 62px 1fr 1fr; gap: var(--space-2); align-items: center; }
-.pb-stroke-name { font-size: 0.82rem; color: var(--muted); }
+/* Fully flexible Personal Bests: Stroke and Distance are now both selects
+   (not a fixed per-stroke label), so a swimmer can log any combination —
+   including two entries for the same stroke at different distances (e.g.
+   50m Free and 100m Free side by side). 5 columns: stroke / distance /
+   current time / target time / remove button. */
+.pb-stroke-row { display: grid; grid-template-columns: 132px 64px 1fr 1fr 28px; gap: var(--space-2); align-items: center; }
+.pb-stroke-row select.form-select { font-size: 0.85rem; padding: 0.55em 0.6em; }
 .pb-stroke-row input {
   width: 100%; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.55em 0.7em; color: var(--fg); font-size: 0.85rem; transition: border-color var(--dur) var(--ease);
 }
 .pb-stroke-row input:focus { border-color: var(--aqua); }
-@media (max-width: 640px) { .pb-stroke-row { grid-template-columns: 1fr 1fr; } .pb-stroke-name { grid-column: 1 / -1; } }
+.pb-entry-remove {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--border-strong);
+  color: var(--muted-2); display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.pb-entry-remove .icon { width: 12px; height: 12px; }
+.pb-entry-remove:hover { border-color: var(--maroon-bright); color: var(--maroon-bright); background: color-mix(in srgb, var(--maroon-bright) 12%, transparent); }
+.pb-add-entry-btn { align-self: flex-start; margin-top: var(--space-2); }
+@media (max-width: 640px) {
+  .pb-stroke-row { grid-template-columns: 1fr 1fr; }
+  .pb-entry-remove { grid-column: 1 / -1; justify-self: end; }
+}
 /* Goal Progression Estimator readout — sits directly under its stroke's own
    row (not batched at the bottom) so the science-based timeline reads as
    feedback on THAT stroke's current/target pair. Neutral by default, gold
@@ -2382,6 +2408,18 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
   .paywall-plans { flex-direction: column; }
 }
 body.paywall-locked { overflow: hidden; }
+/* A REAL bug caught while testing the new Beginner-level paywall bypass below:
+   the overlay's z-index (400) sits above the nav (.nav is 100, .mobile-bottom-nav
+   is 140), so once a swimmer navigated away from Workouts (e.g. clicked Gym) while
+   on an expired trial, the overlay re-locked and its full-viewport hit-area then
+   blocked clicks on the nav itself — with no way to click back to Workouts+Beginner
+   to un-lock again, a genuine dead end. Raising the nav's z-index above the overlay
+   specifically while locked (mirroring the existing precedent of the support FAB
+   already sitting above this overlay at z-index 410) keeps it reachable; this is
+   harmless for a genuinely suspended/locked account too, since every tab still
+   shows the overlay for them regardless of which one they click through to. */
+body.paywall-locked .nav,
+body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 
 /* ============================= AI SWIM COACH WIDGET ============================= */
 .coach-fab {
@@ -2717,8 +2755,21 @@ body.paywall-locked { overflow: hidden; }
    `--glass-border`, no real blur per this codebase's own token convention) —
    without reverting to the old heavy drop-shadow cards. */
 .tracker-log-form { padding: var(--space-4); margin-bottom: var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
-.tracker-log-row { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-3); align-items: end; }
+/* A REAL, screenshot-caught bug: this template only reserved 4 tracks
+   (3 equal fields + an auto-sized one for the button) for what is actually
+   FOUR fields (Date, Distance, Duration, Discipline) PLUS the button — 5
+   grid items total. The 4th field (Discipline) was being forced into the
+   narrow `auto` track meant for the button, clipping its label/select, while
+   the button itself wrapped to an unrelated second row. Fixed to a genuine
+   5-column template (4 equal fields + auto for the button). */
+.tracker-log-row { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: var(--space-3); align-items: end; }
 .tracker-log-row .btn { min-height: 46px; }
+/* "Duration (mm:ss) (optional — enables pace)" wraps to 2 lines while
+   Date/Distance/Discipline's labels stay on 1 — without a reserved height,
+   the Duration input started lower than the other three. Scoped to this
+   form only (the shared .form-row label is reused by Settings/Auth, whose
+   labels are always short and single-line). */
+.tracker-log-row .form-row label { display: flex; align-items: flex-end; gap: 0.3em; min-height: 2.6em; line-height: 1.25; }
 .tracker-log-status { margin: var(--space-3) 0 0; font-size: 0.85rem; min-height: 1.2em; color: var(--muted-2); }
 
 .tracker-stat-card { padding: var(--space-4); text-align: center; margin-bottom: var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
@@ -3237,72 +3288,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
             </div>
           </div>
-          <div class="pb-stroke-grid">
-            <div class="pb-stroke-block">
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Freestyle</span>
-                <select id="pbDistanceFreestyle" class="form-select" aria-label="Freestyle PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeFreestyle" placeholder="Current — e.g. 1:05" aria-label="Freestyle current PB time">
-                <input type="text" id="raceGoalTargetFreestyle" placeholder="Target — e.g. 1:00" aria-label="Freestyle target time">
-              </div>
-              <p class="pb-stroke-estimate" id="pbEstimateFreestyle" aria-live="polite"></p>
-            </div>
-            <div class="pb-stroke-block">
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Backstroke</span>
-                <select id="pbDistanceBackstroke" class="form-select" aria-label="Backstroke PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeBackstroke" placeholder="Current — e.g. 1:08" aria-label="Backstroke current PB time">
-                <input type="text" id="raceGoalTargetBackstroke" placeholder="Target — e.g. 1:03" aria-label="Backstroke target time">
-              </div>
-              <p class="pb-stroke-estimate" id="pbEstimateBackstroke" aria-live="polite"></p>
-            </div>
-            <div class="pb-stroke-block">
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Butterfly</span>
-                <select id="pbDistanceButterfly" class="form-select" aria-label="Butterfly PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeButterfly" placeholder="Current — e.g. 1:04" aria-label="Butterfly current PB time">
-                <input type="text" id="raceGoalTargetButterfly" placeholder="Target — e.g. 1:00" aria-label="Butterfly target time">
-              </div>
-              <p class="pb-stroke-estimate" id="pbEstimateButterfly" aria-live="polite"></p>
-            </div>
-            <div class="pb-stroke-block">
-              <div class="pb-stroke-row">
-                <span class="pb-stroke-name">Breaststroke</span>
-                <select id="pbDistanceBreaststroke" class="form-select" aria-label="Breaststroke PB distance">
-                  <option value="50">50m</option>
-                  <option value="100" selected>100m</option>
-                  <option value="200">200m</option>
-                  <option value="400">400m</option>
-                  <option value="800">800m</option>
-                  <option value="1500">1500m</option>
-                </select>
-                <input type="text" id="pbTimeBreaststroke" placeholder="Current — e.g. 1:16" aria-label="Breaststroke current PB time">
-                <input type="text" id="raceGoalTargetBreaststroke" placeholder="Target — e.g. 1:10" aria-label="Breaststroke target time">
-              </div>
-              <p class="pb-stroke-estimate" id="pbEstimateBreaststroke" aria-live="polite"></p>
-            </div>
-          </div>
+          <div class="pb-stroke-grid" id="pbEntriesList"></div>
+          <button type="button" class="btn btn-ghost btn-sm pb-add-entry-btn" id="pbAddEntryBtn">+ Add Personal Best</button>
 
           <div class="wb-profile-subhead"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
           <div class="equipment-grid" id="equipmentGrid"></div>
@@ -3581,7 +3568,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div class="tracker-shell" data-auth-signed-in style="display:none">
-        <div class="bento-grid" style="margin-bottom: var(--space-5); align-items: start;">
+        <div class="bento-grid tracker-top-grid" style="margin-bottom: var(--space-5); align-items: start;">
         <form class="tracker-log-form" id="trackerLogForm" style="margin-bottom:0;">
           <div class="tracker-log-row">
             <div class="form-row">
@@ -4741,6 +4728,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // even in some future edge case where an accesschange event was missed.
     if (id === 'coach' && typeof window.renderCoachPageGate === 'function') window.renderCoachPageGate();
     if (id === 'pricing') animatePricingNumbers();
+    // Beginner-level Workouts is exempt from the expired-trial paywall lock
+    // (see refreshPaywallLock()) — re-evaluate on every tab switch since
+    // leaving/entering Workouts flips that exemption on or off.
+    if (typeof window.__refreshPaywallLock === 'function') window.__refreshPaywallLock();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { next.classList.add('in'); });
     });
@@ -5068,11 +5059,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       openAuthModal();
     });
   });
-  document.addEventListener('swimfit:accesschange', function (e) {
-    var access = e.detail.access;
+  // BEGINNER FREE ACCESS: an out-of-trial swimmer with no active plan used to
+  // be hard-locked out of the entire site. Beginner-level Workouts is now a
+  // permanently free tier, never gated behind a subscription — so the lock
+  // is skipped specifically when the swimmer is on the Workouts tab with
+  // Beginner selected. Competitive/Elite, Gym, the AI Swim Coach and the
+  // Tracker still require subscribing once the trial ends, same as before.
+  // refreshPaywallLock() is re-run not just on swimfit:accesschange but also
+  // on every tab switch and Level-tab click (see switchTab()/the levelTabs
+  // handler below), since either of those can flip the bypass on or off
+  // without the underlying access level itself changing.
+  var latestAccessForPaywall = null;
+  function refreshPaywallLock() {
+    var access = latestAccessForPaywall;
     var expired = !!(access && access.level === 'expired');
     var suspended = !!(access && access.level === 'locked');
-    var locked = expired || suspended;
+    var dashboardEl = document.getElementById('dashboard');
+    var onBeginnerWorkouts = dashboardEl && dashboardEl.getAttribute('data-active-tab') === 'workouts' &&
+      typeof window.__workoutsLevelIsBeginner === 'function' && window.__workoutsLevelIsBeginner();
+    var beginnerBypass = expired && onBeginnerWorkouts;
+    var locked = suspended || (expired && !beginnerBypass);
     var overlay = document.getElementById('paywallOverlay');
     if (overlay) overlay.hidden = !locked;
     document.body.classList.toggle('paywall-locked', locked);
@@ -5090,14 +5096,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         pNote.innerHTML = 'Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.';
       } else {
         pTitle.textContent = 'Your Free Trial Has Ended';
-        pBody.textContent = 'Your 3-day free trial is over. Choose a plan below to unlock Workouts, Gym, the AI Swim Coach and your Distance Tracker again.';
+        pBody.textContent = 'Your 3-day free trial is over. Beginner-level Workouts stays free — choose a plan below to unlock Competitive/Elite training, Gym, the AI Swim Coach and your Distance Tracker.';
         pPlans.hidden = false;
         pNote.innerHTML = 'Questions? Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.';
       }
     }
 
+    // The AI Coach FAB stays gated for the whole 'expired' state — the
+    // Beginner bypass only ever covers Workouts generation, never the paid
+    // AI Coach surfaces.
     var fab = document.getElementById('coachFab');
-    if (fab) fab.style.display = locked ? 'none' : '';
+    if (fab) fab.style.display = (expired || suspended) ? 'none' : '';
+    return locked;
+  }
+  window.__refreshPaywallLock = refreshPaywallLock;
+  document.addEventListener('swimfit:accesschange', function (e) {
+    var access = e.detail.access;
+    latestAccessForPaywall = access;
+    var locked = refreshPaywallLock();
 
     var badge = document.getElementById('navStatusBadge');
     if (badge) {
@@ -5311,6 +5327,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   var generatorPrefs = loadGeneratorPrefs();
 
+  // FULLY FLEXIBLE PERSONAL BESTS: a one-time migration for any swimmer whose
+  // browser still has the old fixed-4-stroke fields saved (pbDistanceFreestyle
+  // etc., from before this became a freely-configurable entry list) — carries
+  // their real logged values forward as the new default entries rather than
+  // silently discarding them. A swimmer with no saved data at all gets the
+  // same 4 starting rows (blank times) as before, just now fully editable —
+  // any stroke/distance combination, and any number of entries — going forward.
+  function migrateLegacyPbEntries(prefs) {
+    var legacyStrokes = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke'];
+    var fields = prefs.fields || {};
+    return legacyStrokes.map(function (stroke) {
+      return {
+        stroke: stroke,
+        distance: fields['pbDistance' + stroke] || '100',
+        currentTime: fields['pbTime' + stroke] || '',
+        targetTime: fields['raceGoalTarget' + stroke] || ''
+      };
+    });
+  }
+
   var state = {
     disciplines: (generatorPrefs.disciplines && generatorPrefs.disciplines.length) ? generatorPrefs.disciplines : [DISCIPLINES[dayIndex() % DISCIPLINES.length].name],
     distance: generatorPrefs.distance || 2000,
@@ -5325,8 +5361,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // null = no override, follow the real calendar day (effectiveFocus()
     // falls back to todaysFocus()); otherwise a WEEKLY_FOCUS key a swimmer
     // picked by tapping a day badge on the Weekly Schedule card.
-    scheduleOverrideKey: generatorPrefs.scheduleOverrideKey || null
+    scheduleOverrideKey: generatorPrefs.scheduleOverrideKey || null,
+    // Each entry: { stroke, distance, currentTime, targetTime } — freely
+    // editable, any stroke+distance combination, any number of entries.
+    pbEntries: (generatorPrefs.pbEntries && generatorPrefs.pbEntries.length) ? generatorPrefs.pbEntries : migrateLegacyPbEntries(generatorPrefs)
   };
+  // Read by the global paywall lock (see the ACCESS LEVEL section near the
+  // top of this file) so an expired-trial swimmer can still be recognized as
+  // "currently on Beginner" and exempted from the hard lock — Beginner is a
+  // permanently free level, never gated behind a subscription.
+  window.__workoutsLevelIsBeginner = function () { return state.level === 'beginner'; };
 
   document.getElementById('disciplineChips').innerHTML = DISCIPLINES.map(function (d) {
     return '<button type="button" class="chip" data-discipline="' + d.name + '" aria-pressed="' + (state.disciplines.indexOf(d.name) > -1) + '">' + icon(d.icon) + d.name + '</button>';
@@ -5473,8 +5517,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   renderGoalChips();
   // With multiple goals selected, the quote/label always reflects the FIRST
   // selected one (the swimmer's primary focus) — same "primary = first
-  // selected" convention activeStrokePbFieldIds() already uses for
-  // disciplines, rather than inventing a second rule here.
+  // selected" convention primaryPbStrokeKey() already uses for disciplines,
+  // rather than inventing a second rule here.
   function updateQuote() {
     var g = GOALS.find(function (x) { return x.key === state.goals[0]; });
     quoteText.textContent = g.quote;
@@ -5521,15 +5565,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   distanceSlider.addEventListener('change', function () { saveGeneratorPrefs({ distance: state.distance }); });
   document.addEventListener('swimfit:unitschange', updateDistanceLabel);
 
+  // BEGINNER DISTANCE CAP: 3000m max at Beginner level — a real ceiling on
+  // the slider itself (not just a generation-time clamp), so a beginner
+  // never even sees an option past what's appropriate for that level.
+  // Switching back to Competitive/Elite restores the full 6000m ceiling
+  // without forcing the value back up.
+  function applyLevelDistanceCap() {
+    if (state.level === 'beginner') {
+      distanceSlider.max = '3000';
+      if (+distanceSlider.value > 3000) distanceSlider.value = '3000';
+    } else {
+      distanceSlider.max = '6000';
+    }
+    updateDistanceLabel();
+    saveGeneratorPrefs({ distance: state.distance });
+  }
   document.getElementById('levelTabs').addEventListener('click', function (e) {
     var btn = e.target.closest('.pill-tab');
     if (!btn) return;
     state.level = btn.dataset.level;
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     saveGeneratorPrefs({ level: state.level });
+    applyLevelDistanceCap();
     renderRecommendedVolumeBadge();
     renderWeeklyScheduleCard();
     updateAllPbEstimates();
+    if (typeof window.__refreshPaywallLock === 'function') window.__refreshPaywallLock();
   });
   (function restoreLevelTab() {
     var levelTabs = document.getElementById('levelTabs');
@@ -5537,6 +5598,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var match = levelTabs.querySelector('.pill-tab[data-level="' + state.level + '"]');
     if (!match) return;
     levelTabs.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === match ? 'true' : 'false'); });
+    applyLevelDistanceCap();
   })();
 
   // Race Goal card's "Sprinter vs Distance vs Both" swimmer-type selector —
@@ -5566,12 +5628,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // with no chip/slider state of their own — restore each one's last saved
   // value on load, then auto-save on every keystroke/change so none of them
   // reset on a reload or tab switch either.
+  // Personal Bests are no longer fixed per-stroke fields — they're persisted
+  // via state.pbEntries (see the flexible-entries section further below)
+  // instead of this plain id-keyed restore/auto-save loop.
   var GENERATOR_PREF_FIELD_IDS = [
-    'swimmerAge', 'gymAge', 'gymWorkingWeight', 'gymStrengthLimit',
-    'pbDistanceFreestyle', 'pbTimeFreestyle', 'raceGoalTargetFreestyle',
-    'pbDistanceBackstroke', 'pbTimeBackstroke', 'raceGoalTargetBackstroke',
-    'pbDistanceButterfly', 'pbTimeButterfly', 'raceGoalTargetButterfly',
-    'pbDistanceBreaststroke', 'pbTimeBreaststroke', 'raceGoalTargetBreaststroke'
+    'swimmerAge', 'gymAge', 'gymWorkingWeight', 'gymStrengthLimit'
   ];
   GENERATOR_PREF_FIELD_IDS.forEach(function (id) {
     var el = document.getElementById(id);
@@ -5617,21 +5678,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var label = lowM === highM ? (lowM + (lowM === 1 ? ' month' : ' months')) : (lowM + '–' + highM + ' months');
     return { met: false, longTerm: false, text: 'With consistent training, expected progression to hit ' + formatTime(targetSec) + ' is ~' + label + ' (' + (pctImprove * 100).toFixed(1) + '% faster).' };
   }
-  var PB_ESTIMATE_STROKES = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke'];
-  function updatePbEstimate(stroke) {
-    var ids = STROKE_PB_FIELD_IDS[stroke];
-    var estEl = document.getElementById('pbEstimate' + stroke);
-    if (!ids || !estEl) return;
-    var currentSec = parseTimeToSeconds((document.getElementById(ids.time) || {}).value);
-    var targetSec = parseTimeToSeconds((document.getElementById(ids.target) || {}).value);
+  // Operates on a PB entry's own row (by index in state.pbEntries) rather
+  // than a fixed per-stroke element id — see the flexible Personal Bests
+  // section further below (renderPbEntries() etc.), which replaced the old
+  // one-row-per-fixed-stroke layout with any number of freely-configurable
+  // stroke+distance slots.
+  function updatePbEstimateForIndex(i) {
+    var entry = state.pbEntries[i];
+    var row = document.querySelector('.pb-stroke-block[data-pb-index="' + i + '"]');
+    var estEl = row ? row.querySelector('[data-pb-estimate]') : null;
+    if (!entry || !estEl) return;
+    var currentSec = parseTimeToSeconds(entry.currentTime);
+    var targetSec = parseTimeToSeconds(entry.targetTime);
     var est = estimateProgressionMonths(currentSec, targetSec, state.level);
     if (!est) { estEl.textContent = ''; estEl.className = 'pb-stroke-estimate'; return; }
     estEl.textContent = est.text;
     estEl.className = 'pb-stroke-estimate' + (est.met ? ' is-met' : est.longTerm ? '' : ' has-estimate');
   }
-  function updateAllPbEstimates() { PB_ESTIMATE_STROKES.forEach(updatePbEstimate); }
-  // Wiring (which needs STROKE_PB_FIELD_IDS' target field ids) happens further
-  // below, right after STROKE_PB_FIELD_IDS itself is defined.
+  function updateAllPbEstimates() { state.pbEntries.forEach(function (e, i) { updatePbEstimateForIndex(i); }); }
 
   // Sharp, meaningful progression between the three levels — not just more
   // distance. Beginner gets generous rest and foundational technique/body-
@@ -5708,39 +5772,96 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return m ? parseFloat(m[1]) : null;
   }
 
-  // Which pair of PB inputs feeds pace personalization depends on whichever
-  // discipline is primary (first-selected) in the chip group — a Backstroke
-  // swimmer's pace should come from their Backstroke PB, not always default
-  // to the Freestyle fields regardless of what's actually being trained.
-  // Individual Medley has no single-stroke PB to key off, so it falls back
-  // to Freestyle as the closest general-pace proxy.
-  // Each stroke's `target` field feeds both the Race-Goal pace blend in
-  // generateWorkout() below AND the Goal Progression Estimator readout —
-  // one target time per stroke now drives both features, replacing the old
-  // single generic raceGoalTargetTime field that was tied to whichever
-  // discipline happened to be primary but had no per-stroke identity of its
-  // own on the page.
-  var STROKE_PB_FIELD_IDS = {
-    'Freestyle': { distance: 'pbDistanceFreestyle', time: 'pbTimeFreestyle', target: 'raceGoalTargetFreestyle' },
-    'Backstroke': { distance: 'pbDistanceBackstroke', time: 'pbTimeBackstroke', target: 'raceGoalTargetBackstroke' },
-    'Butterfly': { distance: 'pbDistanceButterfly', time: 'pbTimeButterfly', target: 'raceGoalTargetButterfly' },
-    'Breaststroke': { distance: 'pbDistanceBreaststroke', time: 'pbTimeBreaststroke', target: 'raceGoalTargetBreaststroke' }
-  };
-  function activeStrokePbFieldIds() {
+  // FULLY FLEXIBLE PERSONAL BESTS — replaces the old "one fixed row per
+  // stroke" layout with any number of freely-configurable entries, each with
+  // its own Stroke AND Distance picker, so a swimmer can log e.g. both a 50m
+  // Freestyle and a 100m Freestyle PB simultaneously, or track only the two
+  // strokes they actually race. Pace personalization keys off whichever
+  // entry matches the primary (first-selected) discipline — Individual
+  // Medley has no single-stroke PB to key off, so it falls back to
+  // Freestyle as the closest general-pace proxy, same precedent as before.
+  // If more than one entry matches the primary stroke (e.g. both a 50m and a
+  // 100m Freestyle logged), the one with an actual current time filled in
+  // wins; if several qualify, the first one in the list does.
+  var PB_STROKE_OPTIONS = ['Freestyle', 'Backstroke', 'Butterfly', 'Breaststroke', 'Individual Medley'];
+  var PB_DISTANCE_OPTIONS = [50, 100, 200, 400, 800, 1500];
+  function primaryPbStrokeKey() {
     var primary = state.disciplines && state.disciplines[0];
-    return STROKE_PB_FIELD_IDS[primary] || STROKE_PB_FIELD_IDS.Freestyle;
+    return (primary && primary !== 'Individual Medley') ? primary : 'Freestyle';
   }
-  // Wire the estimator's live per-stroke readouts now that STROKE_PB_FIELD_IDS
-  // (with each stroke's own target field id) actually exists.
-  PB_ESTIMATE_STROKES.forEach(function (stroke) {
-    var ids = STROKE_PB_FIELD_IDS[stroke];
-    [ids.time, ids.target].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener('input', function () { updatePbEstimate(stroke); });
-    });
+  function activePbEntry() {
+    var key = primaryPbStrokeKey();
+    var matches = state.pbEntries.filter(function (e) { return e.stroke === key; });
+    if (!matches.length) return null;
+    var withTime = matches.filter(function (e) { return parseTimeToSeconds(e.currentTime); });
+    return withTime[0] || matches[0];
+  }
+  function pbStrokeOptionsHtml(selected) {
+    return PB_STROKE_OPTIONS.map(function (s) {
+      return '<option value="' + s + '"' + (s === selected ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+  }
+  function pbDistanceOptionsHtml(selected) {
+    return PB_DISTANCE_OPTIONS.map(function (d) {
+      return '<option value="' + d + '"' + (String(d) === String(selected) ? ' selected' : '') + '>' + d + 'm</option>';
+    }).join('');
+  }
+  function escapeAttr(str) { return (str || '').replace(/"/g, '&quot;'); }
+  function renderPbEntries() {
+    var list = document.getElementById('pbEntriesList');
+    if (!list) return;
+    var canRemove = state.pbEntries.length > 1;
+    list.innerHTML = state.pbEntries.map(function (entry, i) {
+      return '<div class="pb-stroke-block" data-pb-index="' + i + '">' +
+        '<div class="pb-stroke-row">' +
+          '<select class="form-select pb-entry-field" data-field="stroke" aria-label="Stroke">' + pbStrokeOptionsHtml(entry.stroke) + '</select>' +
+          '<select class="form-select pb-entry-field" data-field="distance" aria-label="Distance">' + pbDistanceOptionsHtml(entry.distance) + '</select>' +
+          '<input type="text" class="pb-entry-field" data-field="currentTime" placeholder="Current — e.g. 1:05" value="' + escapeAttr(entry.currentTime) + '" aria-label="Current PB time">' +
+          '<input type="text" class="pb-entry-field" data-field="targetTime" placeholder="Target — e.g. 1:00" value="' + escapeAttr(entry.targetTime) + '" aria-label="Target time">' +
+          (canRemove ? '<button type="button" class="pb-entry-remove" data-action="remove-pb" aria-label="Remove this Personal Best entry">' + icon('i-close') + '</button>' : '') +
+        '</div>' +
+        '<p class="pb-stroke-estimate" data-pb-estimate aria-live="polite"></p>' +
+      '</div>';
+    }).join('');
+    updateAllPbEstimates();
+  }
+  document.getElementById('pbEntriesList').addEventListener('input', function (e) {
+    var field = e.target.closest('.pb-entry-field');
+    if (!field || field.tagName === 'SELECT') return;
+    var block = field.closest('.pb-stroke-block');
+    var i = parseInt(block.dataset.pbIndex, 10);
+    state.pbEntries[i][field.dataset.field] = field.value;
+    saveGeneratorPrefs({ pbEntries: state.pbEntries });
+    updatePbEstimateForIndex(i);
   });
-  updateAllPbEstimates();
+  document.getElementById('pbEntriesList').addEventListener('change', function (e) {
+    var field = e.target.closest('.pb-entry-field');
+    if (!field || field.tagName !== 'SELECT') return;
+    var block = field.closest('.pb-stroke-block');
+    var i = parseInt(block.dataset.pbIndex, 10);
+    state.pbEntries[i][field.dataset.field] = field.value;
+    saveGeneratorPrefs({ pbEntries: state.pbEntries });
+    updatePbEstimateForIndex(i);
+  });
+  document.getElementById('pbEntriesList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action="remove-pb"]');
+    if (!btn) return;
+    var block = btn.closest('.pb-stroke-block');
+    var i = parseInt(block.dataset.pbIndex, 10);
+    if (state.pbEntries.length <= 1) return; // always keep at least one entry
+    state.pbEntries.splice(i, 1);
+    saveGeneratorPrefs({ pbEntries: state.pbEntries });
+    renderPbEntries();
+  });
+  var pbAddEntryBtn = document.getElementById('pbAddEntryBtn');
+  if (pbAddEntryBtn) {
+    pbAddEntryBtn.addEventListener('click', function () {
+      state.pbEntries.push({ stroke: primaryPbStrokeKey(), distance: '100', currentTime: '', targetTime: '' });
+      saveGeneratorPrefs({ pbEntries: state.pbEntries });
+      renderPbEntries();
+    });
+  }
+  renderPbEntries();
 
   // Predicts pace per 100m from a PB logged at ANY race distance (50m-1500m),
   // not just a hardcoded 50m/100m shortcut — uses the same family of
@@ -6340,6 +6461,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   ];
 
   var ARCHETYPE_POOLS = { speed: SPEED_ARCHETYPES, endurance: ENDURANCE_ARCHETYPES, technique: TECHNIQUE_ARCHETYPES };
+  // DIFFICULTY SCALING (Beginner): these four archetypes ask for a pacing/
+  // execution skill a beginner hasn't built yet — genuine all-out ladders and
+  // explosive wall work (Explosive Turns & Starts, Descending Power Ladder),
+  // or a sustained-threshold/gear-shifting demand (Broken Threshold Swim,
+  // Distance Ladder). Every other Speed/Endurance archetype already builds
+  // gradually within its own rounds (e.g. Sprint Reps ramps 200-pace ->
+  // 100-pace -> 50-pace) and stays available. The Technique pool is entirely
+  // drill-based already and is never filtered.
+  var BEGINNER_EXCLUDED_ARCHETYPES = ['Explosive Turns & Starts', 'Descending Power Ladder', 'Broken Threshold Swim', 'Distance Ladder'];
 
   // Pre-Set archetypes: the second of four stages in every generated workout
   // (Warm-Up → Pre-Set → Main Set → Cool-Down), always exactly one per
@@ -6506,9 +6636,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
-    var pbFieldIds = activeStrokePbFieldIds();
-    var pbDistanceM = parseInt(document.getElementById(pbFieldIds.distance).value, 10);
-    var pbTimeSec = parseTimeToSeconds(document.getElementById(pbFieldIds.time).value);
+    var activeEntry = activePbEntry();
+    var pbDistanceM = activeEntry ? parseInt(activeEntry.distance, 10) : null;
+    var pbTimeSec = activeEntry ? parseTimeToSeconds(activeEntry.currentTime) : null;
     var personalPace = personalPaceFromPB(pbDistanceM, pbTimeSec, state.goals);
     var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goals, state.level);
 
@@ -6524,8 +6654,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // harder than the swimmer's comfortable current pace so the sets actually
     // build toward the goal, but not simply handing them full target pace on
     // day one, which would be unrealistic and demoralizing.
-    var raceGoalTargetEl = pbFieldIds.target ? document.getElementById(pbFieldIds.target) : null;
-    var raceGoalTargetSec = raceGoalTargetEl ? parseTimeToSeconds(raceGoalTargetEl.value) : null;
+    var raceGoalTargetSec = activeEntry ? parseTimeToSeconds(activeEntry.targetTime) : null;
     var raceGoalActive = !!(personalPace != null && raceGoalTargetSec != null && raceGoalTargetSec > 0 && raceGoalTargetSec < pbTimeSec);
     if (raceGoalActive) {
       var targetPace100 = personalPaceFromPB(pbDistanceM, raceGoalTargetSec, state.goals);
@@ -6551,6 +6680,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (focusToday.restDay && totalM > 1200) { totalM = 1200; restDayCapApplied = true; }
     var ageCapApplied = false;
     if (age && age < 12 && totalM > 2000) { totalM = 2000; ageCapApplied = true; }
+    // BEGINNER DISTANCE CAP: 3000m max — the distance slider's own `max`
+    // attribute already enforces this at the UI level (see
+    // applyLevelDistanceCap()), so this is defense-in-depth for any stored
+    // preference that predates the cap, not the primary enforcement point.
+    var beginnerCapApplied = false;
+    if (state.level === 'beginner' && totalM > 3000) { totalM = 3000; beginnerCapApplied = true; }
 
     var nextStroke = makeStrokeRotator(state.disciplines);
     // CLEAN SET ISOLATION: the Pre-Set and each Main Set block are each locked
@@ -6664,6 +6799,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       ARCHETYPE_POOLS[g].forEach(function (a) { if (acc.indexOf(a) === -1) acc.push(a); });
       return acc;
     }, []);
+    // DIFFICULTY SCALING: Beginner Main Sets stick to simpler, gentler
+    // archetypes — the same drill-focused Technique pool (already
+    // appropriate at any level), plus only the least demanding Speed/
+    // Endurance archetypes (excluding explosive-turn work and all-out/
+    // broken-threshold ladders, which ask for a level of pacing control a
+    // beginner hasn't built yet). Competitive/Elite keep the full pool —
+    // this only narrows the *choice* of archetype, never the pace/rest
+    // scaling, which LEVEL_SCALERS below already handles separately.
+    if (state.level === 'beginner') {
+      var beginnerFiltered = pool.filter(function (a) { return BEGINNER_EXCLUDED_ARCHETYPES.indexOf(a.name) === -1; });
+      if (beginnerFiltered.length) pool = beginnerFiltered;
+    }
     // Longer sessions get more distinct Main Set archetypes, not just a
     // proportionally bigger repeat of the same one or two templates — a
     // swimmer choosing 3-4km should see genuinely varied, scaled sets, not
@@ -6877,7 +7024,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         ? 'Pace personalized from your ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) + ' PB (' + formatTime(pbTimeSec) + ').'
         : 'Add a Personal Best above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') +
-      (restDayCapApplied ? ' Volume capped at 1.2 km — today is a scheduled Rest / Active Recovery day, so this intentionally ignores your Target Distance slider.' : '') + '</p>';
+      (restDayCapApplied ? ' Volume capped at 1.2 km — today is a scheduled Rest / Active Recovery day, so this intentionally ignores your Target Distance slider.' : '') +
+      (beginnerCapApplied ? ' Volume capped at 3 km — Beginner level’s maximum session distance.' : '') + '</p>';
 
     // Weekly Periodization + Race Goal transparency lines — directly visible
     // confirmation that both features are actually shaping today's set, not
