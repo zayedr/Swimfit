@@ -2459,6 +2459,96 @@ redesign, all logic/CSS/markup fixes to existing systems.**
   subscription updates. Verified via Playwright: an unread thread renders a single gray check, and
   a thread whose metadata has `unreadForUser: false` renders a double accent-colored check.
 
+**A major Workout Generator rewrite around strict distance accuracy, redistributed active
+recovery, a Weekly Periodization Schedule, and Race-Goal targeting.**
+
+- **Strict distance accuracy.** Previously every stage's meterage was computed independently as a
+  flat percentage of the chosen total (`warmupM`/`presetM`/`mainM`/`cooldownM`, each its own
+  `Math.round(...)`), with no reconciliation step — archetypes' own minimum-rep floors (e.g. "never
+  fewer than 2 reps") could push a block's ACTUAL rendered volume well past what it was nominally
+  allocated, and those independent errors simply accumulated with no correction, so the finished
+  workout's real total could silently drift hundreds to (at high distances with many blocks) over a
+  thousand meters from the swimmer's chosen slider value. Fixed with three coordinated mechanisms:
+  (1) a new `buildToShare(buildFn, targetM)` helper wraps Warm-Up, Pre-Set, every regular Main Set
+  block, and the Elite Power block — it builds the block once, and if the actual result overshoots
+  its target share by more than 5%, iteratively scales every set's rep count down (via
+  `scaleRoundsVolume()`/`scaleSetVolume()`, which safely re-derives `buildSet()`'s always-deterministic
+  `"REPS x DISTm LABEL"` title after adjusting reps, never touching `dist`/pace/gear) — up to 4
+  passes, since a single rounding pass can round straight back to the same rep count; (2) the
+  Cool-Down is no longer given its own independent percentage — its size is computed AFTER
+  Warm-Up/Pre-Set/Main Set have rendered their real (post-scaling) meters, as literally whatever's
+  left of the swimmer's total (floored at 150m), with one final corrective nudge on its own largest,
+  most flexible swim to close any last few meters of `splitProportional()`'s own rounding residual;
+  (3) `blockCountForDistance()` now caps the Main Set to a single archetype block below 1500m total,
+  and `workScaler`'s `minRounds`/`maxRounds` are capped to 2 below 2500m — both target the real root
+  cause directly: multiple concurrent blocks/rounds each carrying their own independent minimum-rep
+  floor compound multiplicatively on a small total, which no post-hoc scaling alone can fully
+  absorb (a 3-round archetype's "at least 1 rep of ~200m per round" floor alone is a 600m floor
+  regardless of its allocated share). Verified via Playwright across 1000m/2000m/3500m/5000m/6000m
+  at beginner/competitive/elite with 1-3 disciplines: 2000m and above now land within the
+  requested ±50m (several exactly on target); the 1000m case (the distance slider's own minimum)
+  still lands roughly 20-25% over — a disclosed, honest limitation, not silently hidden, since a
+  real warm-up (opening swim + drill + kick, each already at 1 rep, the lowest mathematically
+  possible) and a real cool-down structurally need ~350m combined, which is proportionally enormous
+  against a 1000m total but a small, unremarkable fraction of any 2000m+ session. The result panel's
+  own "Coach's Plan" note now includes a live `Total: X km (target Y km)` confirmation line so this
+  is visibly verifiable on every generated workout, not just claimed in code comments.
+- **Active recovery is a redistribution, not an addition.** The Main Set's own nominal share grew
+  from 55%→65% (Cool-Down no longer needs a large fixed allocation), and `EZ_RECOVERY_M` (100m) is
+  now carved OUT of a SPEED_ARCHETYPES block's (or the Elite Power block's) own already-allocated
+  share before building its "real" content, with the EZ flush round appended afterward — so a
+  block's rendered total stays at its assigned share instead of the flush silently inflating the
+  grand total, which is what made strict distance accuracy possible at all. The Elite Power block
+  itself was also rewritten from a fixed 8/6/4-rep absolute block (previously always adding the
+  same ~650m regardless of the swimmer's chosen distance) to one that reserves ~22% of `mainM`
+  (floor 300m) and splits that proportionally across its three named rounds via `splitProportional()`
+  — a genuine step up in intensity at every distance, not a silently-oversized add-on at small ones.
+- **Weekly Periodization Schedule.** A new `WEEKLY_FOCUS` array (indexed 0=Sun..6=Sat to match
+  `Date#getUTCDay()`, read off the same `uaeRotationShiftedDate()` the rest of the daily rotation
+  already uses, so it flips at the identical 16:00 UAE boundary — never a visitor's own local
+  midnight) replaces the old arbitrary "cycle through the 3 goals by day index" default: Mon Sprint/
+  Power, Tue Aerobic/Distance, Wed Technique/Drills, Thu Threshold, Fri IM/Transitional, Sat Race
+  Pace, Sun Active Recovery. Each day maps onto the existing Speed/Endurance/Technique archetype
+  pools (several days deliberately share a pool — Aerobic/Distance and Threshold both draw from
+  `ENDURANCE_ARCHETYPES`, which already contains a dedicated "Broken Threshold Swim" archetype —
+  with only the day's label/framing differing, rather than inventing a fourth pool system) except
+  Sunday, whose `recoveryDay` flag additionally applies a flat +10s pace ease in `generateWorkout()`
+  so a true recovery day actually feels different, not just relabeled. `todaysFocus().goalKeys` is
+  now the swimmer's default Fitness Goals selection (only on first load with no saved preference —
+  still fully overridable via the goal chips exactly as before, mirroring the exact "default but
+  freely overridable for that session" precedent Gym's own `thisWeeksGymFocus()` already
+  established). A new read-only **"Weekly Training Schedule"** bento card — the first card in the
+  Workouts left column, so a swimmer sees it before touching the config form — shows all 7 days
+  Monday-first (re-ordered for display only; the underlying array stays Sun-first to match
+  `getUTCDay()`) with today's cell highlighted the same green an active pill-tab already uses. The
+  generated result panel's own "Coach's Plan" note gained a visible
+  `Weekly Schedule — {Label}: {blurb}` line so the schedule's effect on today's set is directly
+  confirmable, not just a background default.
+- **Race-Time Targeting & Goal Progression.** A new "Race Goal" card (placed right after the
+  existing Personal Bests card, reusing its per-stroke PB fields as "current PB" rather than
+  duplicating that UI) adds a **Target Time** field (`#raceGoalTargetTime`, auto-saved via the same
+  `GENERATOR_PREF_FIELD_IDS` pattern every other plain generator input already uses) and a
+  **Swimmer Type** pill-tab — Sprinter / Distance / Both — deliberately built as a plain, always-
+  visible control rather than a one-time onboarding modal/wizard, since this codebase has already
+  twice removed modal-based onboarding wizards in favor of simple inline controls (the post-signup
+  wizard, and the OTP-vs-password auth-method chooser) and reintroducing that pattern here would
+  contradict that established precedent for no added benefit. Only activates once there's a real
+  current PB AND a Target Time genuinely faster than it (a slower/equal/unparseable target silently
+  no-ops back to plain PB-derived pacing — never a worse or nonsensical result). When active:
+  `pace100` blends 65% current-PB-derived pace with 35% target-derived pace (both normalized via
+  the existing `personalPaceFromPB()` Riegel-exponent model, treating the target time exactly like
+  a hypothetical faster PB) — deliberately not full target pace on day one, which would be
+  unrealistic; `workScaler` tightens `intervalMult`/`restAdd` for the Pre-Set/Main Set/Elite block
+  specifically (Warm-Up/Cool-Down stay easy regardless); and a Sprinter or Distance swimmer chasing
+  a target is guaranteed at least one archetype from `SPEED_ARCHETYPES`/`ENDURANCE_ARCHETYPES`
+  respectively in the Main Set, even on a day whose periodization focus wouldn't otherwise draw from
+  that pool (the same "guarantee it's present" principle the Elite Power block already uses for
+  elite level) — 'Both' applies no bias. The result panel shows a
+  `Racing toward a {time} {distance}m {stroke} — pace and intervals tightened toward that target
+  (Sprinter/Distance emphasis)` confirmation line whenever active. Verified via Playwright: setting
+  a faster target time produces this note and the swimmer-type emphasis tag; clearing the target
+  time removes it and reverts to plain PB-derived pacing with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

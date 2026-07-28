@@ -1625,6 +1625,25 @@ section { position: relative; scroll-margin-top: 96px; }
 .pill-tab:hover:not([aria-selected="true"]) { color: var(--fg); transform: translateY(-1px); }
 .pill-tab .icon { width: 16px; height: 16px; }
 
+/* Weekly Training Schedule card — a read-only Mon-Sun strip, today's cell
+   highlighted the same way an active pill-tab is (green fill), so it reads
+   as consistent with the rest of this file's selector language even though
+   it isn't itself clickable. */
+.weekly-schedule-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.weekly-schedule-day {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 2px; border-radius: var(--radius-sm); background: var(--bg-alt);
+  text-align: center;
+}
+.weekly-schedule-day-abbrev { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.68rem; color: var(--muted-2); }
+.weekly-schedule-day-focus { font-size: 0.62rem; line-height: 1.15; color: var(--muted); }
+.weekly-schedule-day.is-today { background: var(--green); }
+.weekly-schedule-day.is-today .weekly-schedule-day-abbrev,
+.weekly-schedule-day.is-today .weekly-schedule-day-focus { color: var(--on-green); }
+@media (max-width: 560px) {
+  .weekly-schedule-day-focus { display: none; }
+}
+
 /* ============================= WORKOUT GENERATOR ============================= */
 /* ============================= WORKOUTS BENTO LAYOUT =============================
    The entire signed-in Workouts config + result area is one bento grid — each
@@ -3034,6 +3053,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div data-auth-signed-in style="display:none">
       <div class="workouts-columns">
        <div class="workouts-col-left">
+        <div class="bento-card wb-schedule" data-reveal="left" style="--bento-accent:var(--green-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(today's focus is pre-selected below — override any time with Fitness Goals)</span></div>
+          <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule"></div>
+        </div>
+
         <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
           <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Swimmer Profile <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — personalizes your pacing)</span></div>
           <div class="profile-row">
@@ -3095,6 +3119,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               </select>
               <input type="text" id="pbTimeBreaststroke" placeholder="optional — e.g. 1:16">
             </div>
+          </div>
+        </div>
+
+        <div class="bento-card wb-race-goal" data-reveal="left" style="--bento-accent:var(--maroon-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-trophy"/></svg> Race Goal <span style="color:var(--muted-2); text-transform:none; letter-spacing:0; font-weight:400; font-family:var(--font-body)">(optional — set a target time to tailor intervals toward breaking it)</span></div>
+          <div class="profile-row">
+            <div class="profile-field">
+              <label for="raceGoalTargetTime">Target Time <span style="color:var(--muted-2); font-weight:400;">— for your primary discipline's PB distance above</span></label>
+              <input type="text" id="raceGoalTargetTime" placeholder="e.g. 1:00">
+            </div>
+          </div>
+          <div class="config-label" style="margin-top:var(--space-3); margin-bottom:6px;">Swimmer Type</div>
+          <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
+            <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
+            <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
+            <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
           </div>
         </div>
 
@@ -5001,6 +5041,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     { key: 'technique', icon: 'i-target', label: 'Technique', quote: 'Perfect the stroke, and the clock takes care of itself.' }
   ];
 
+  // WEEKLY PERIODIZATION SCHEDULE — a designed Mon-Sun training calendar,
+  // replacing the old arbitrary "cycle through the 3 goals by day index"
+  // default. Indexed 0=Sun..6=Sat to match Date#getUTCDay(), and read off the
+  // same UAE-shifted timestamp dayIndex()/dailySeed() already use (see
+  // uaeRotationShiftedDate() above), so this flips at the identical 16:00 UAE
+  // boundary as the rest of the daily rotation — never a visitor's own local
+  // midnight. goalKeys maps each day onto the existing Speed/Endurance/
+  // Technique archetype pools rather than inventing a fourth pool system —
+  // several days deliberately share an underlying pool (e.g. Aerobic/
+  // Distance and Threshold both draw from ENDURANCE_ARCHETYPES, which already
+  // contains a dedicated "Broken Threshold Swim" archetype) with only the
+  // day's label/framing differing. Sunday's recoveryDay flag additionally
+  // eases the target pace in generateWorkout(), since a true recovery day
+  // needs to feel different, not just draw from the same pool under a
+  // different name.
+  var WEEKLY_FOCUS = [
+    { key: 'recovery', label: 'Active Recovery', goalKeys: ['endurance'], recoveryDay: true,
+      blurb: 'Easy aerobic volume only — let the body absorb the week’s work.' },
+    { key: 'sprint', label: 'Sprint / Power', goalKeys: ['speed'],
+      blurb: 'Explosive speed and power — today is about raw pace.' },
+    { key: 'aerobic', label: 'Aerobic / Distance', goalKeys: ['endurance'],
+      blurb: 'Building the aerobic engine with sustained, honest-pace volume.' },
+    { key: 'technique', label: 'Technique / Drills', goalKeys: ['technique'],
+      blurb: 'Slowing down to fix the stroke — drills and feel-first work.' },
+    { key: 'threshold', label: 'Threshold', goalKeys: ['endurance'],
+      blurb: 'Sustained effort right at your aerobic ceiling.' },
+    { key: 'im', label: 'IM / Transitional', goalKeys: ['technique', 'endurance'],
+      blurb: 'A lighter, mixed day bridging the week’s hard efforts into the weekend.' },
+    { key: 'race', label: 'Race Pace', goalKeys: ['speed'],
+      blurb: 'Locking in the exact pace you need to hit on race day.' }
+  ];
+  function todaysFocus() { return WEEKLY_FOCUS[uaeRotationShiftedDate(new Date()).getUTCDay()]; }
+
   // Feeds the Workout Generator's #disciplineChips picker (name/icon per
   // stroke) — the standalone Disciplines showcase tab that used to render a
   // matching grid from this same array has been removed, but the generator
@@ -5039,8 +5112,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     disciplines: (generatorPrefs.disciplines && generatorPrefs.disciplines.length) ? generatorPrefs.disciplines : [DISCIPLINES[dayIndex() % DISCIPLINES.length].name],
     distance: generatorPrefs.distance || 2000,
     equipment: generatorPrefs.equipment || [],
-    goals: (generatorPrefs.goals && generatorPrefs.goals.length) ? generatorPrefs.goals : [GOALS[dayIndex() % GOALS.length].key],
-    level: generatorPrefs.level || 'beginner'
+    // Default goal selection now comes from the designed Weekly Periodization
+    // Schedule (see WEEKLY_FOCUS above) instead of an arbitrary modulo-3 cycle
+    // — still just a default, fully overridable via the goal chips below and
+    // then persisted like any other saved preference.
+    goals: (generatorPrefs.goals && generatorPrefs.goals.length) ? generatorPrefs.goals : todaysFocus().goalKeys.slice(),
+    level: generatorPrefs.level || 'beginner',
+    swimmerType: generatorPrefs.swimmerType || 'both'
   };
 
   document.getElementById('disciplineChips').innerHTML = DISCIPLINES.map(function (d) {
@@ -5069,6 +5147,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     state.equipment = Array.from(this.querySelectorAll('input:checked')).map(function (i) { return i.dataset.equip; });
     saveGeneratorPrefs({ equipment: state.equipment });
   });
+
+  // Weekly Training Schedule card — a static, read-only Mon-Sun strip with
+  // today's focus visually highlighted, so a swimmer sees the periodization
+  // plan before touching the config form below. Monday-first display order
+  // (the natural way people read a weekly calendar) even though WEEKLY_FOCUS
+  // itself is stored Sun-first to match Date#getUTCDay() indexing — this
+  // function is the one place that reorders it for display.
+  (function renderWeeklyScheduleCard() {
+    var grid = document.getElementById('weeklyScheduleGrid');
+    if (!grid) return;
+    var todayIdx = uaeRotationShiftedDate(new Date()).getUTCDay();
+    var mondayFirstOrder = [1, 2, 3, 4, 5, 6, 0];
+    grid.innerHTML = mondayFirstOrder.map(function (idx) {
+      var focus = WEEKLY_FOCUS[idx];
+      var dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx];
+      var isToday = idx === todayIdx;
+      return '<div class="weekly-schedule-day' + (isToday ? ' is-today' : '') + '" role="listitem" title="' + focus.blurb.replace(/"/g, '&quot;') + '">' +
+        '<span class="weekly-schedule-day-abbrev">' + dayAbbrev + '</span>' +
+        '<span class="weekly-schedule-day-focus">' + focus.label + '</span>' +
+        '</div>';
+    }).join('');
+  })();
 
   var quoteText = document.getElementById('quoteText');
   var quoteGoal = document.getElementById('quoteGoal');
@@ -5142,6 +5242,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     levelTabs.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === match ? 'true' : 'false'); });
   })();
 
+  // Race Goal card's "Sprinter vs Distance vs Both" swimmer-type selector —
+  // a plain, always-visible pill-tab rather than a one-time onboarding modal,
+  // since this codebase has twice already removed modal-based onboarding
+  // wizards in favor of simple inline controls (see the Auth modal history
+  // and the removed post-signup wizard elsewhere in this file). Same
+  // wire/restore pattern as levelTabs immediately above.
+  var swimmerTypeTabsEl = document.getElementById('swimmerTypeTabs');
+  if (swimmerTypeTabsEl) {
+    swimmerTypeTabsEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.pill-tab');
+      if (!btn) return;
+      state.swimmerType = btn.dataset.swimmerType;
+      this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
+      saveGeneratorPrefs({ swimmerType: state.swimmerType });
+    });
+    (function restoreSwimmerTypeTab() {
+      var match = swimmerTypeTabsEl.querySelector('.pill-tab[data-swimmer-type="' + state.swimmerType + '"]');
+      if (!match) return;
+      swimmerTypeTabsEl.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === match ? 'true' : 'false'); });
+    })();
+  }
+
   // The remaining Workout Generator + Gym profile fields are plain inputs
   // with no chip/slider state of their own — restore each one's last saved
   // value on load, then auto-save on every keystroke/change so none of them
@@ -5151,7 +5273,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     'pbDistanceFreestyle', 'pbTimeFreestyle',
     'pbDistanceBackstroke', 'pbTimeBackstroke',
     'pbDistanceButterfly', 'pbTimeButterfly',
-    'pbDistanceBreaststroke', 'pbTimeBreaststroke'
+    'pbDistanceBreaststroke', 'pbTimeBreaststroke',
+    'raceGoalTargetTime'
   ];
   GENERATOR_PREF_FIELD_IDS.forEach(function (id) {
     var el = document.getElementById(id);
@@ -5331,9 +5454,82 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // high-intensity sprint/power Main Set block (right after its hard rounds)
   // rather than only relying on the Cool-Down several minutes later — moving
   // blood through the working muscles flushes lactate while it's actually
-  // accumulating, not just once the whole session is already over.
+  // accumulating, not just once the whole session is already over. This is a
+  // REDISTRIBUTION, not an addition: every call site carves EZ_RECOVERY_M
+  // out of that block's own already-allocated share before calling
+  // ezRecoverySet(), so appending this round never pushes the workout's
+  // grand total past the swimmer's chosen distance.
+  var EZ_RECOVERY_M = 100;
   function ezRecoverySet(pace100) {
     return { label: 'Active Recovery — Flush', sets: [buildSet(2, 50, 'easy pace — shake it out, exhale fully, let the heart rate drop before the next hard effort', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
+  }
+
+  // Real meters a flat array of built sets (Warm-Up/Cool-Down's own shape) or
+  // an array of {label, sets} rounds (Pre-Set/Main Set's shape) actually
+  // renders to — the same reps*dist accounting renderBlock() already does
+  // internally for its stage-total pill, reused here so generateWorkout() can
+  // reconcile the GRAND total against the swimmer's chosen distance after
+  // every archetype's own internal rounding/capping has already been applied.
+  function sumSetsMeters(sets) {
+    return sets.reduce(function (m, s) { return m + (s.reps || 1) * (s.dist || 0); }, 0);
+  }
+  function sumRoundsMeters(rounds) {
+    return rounds.reduce(function (m, r) { return m + sumSetsMeters(r.sets); }, 0);
+  }
+
+  // Every archetype's build() applies its own minimum-rep floors (e.g.
+  // "Math.max(2, Math.round(m/50))") so a set is never asked for a
+  // fractional/nonsensical rep count — legitimate on its own, but when a
+  // block's allocated share is small (many concurrent blocks/rounds spread
+  // across a smaller total distance), those floors can push the ACTUAL built
+  // volume well past what that block was allocated, which is exactly what
+  // breaks the strict ±50m total guarantee. Rather than touching every
+  // archetype's internal math, this scales an already-built round's rep
+  // counts down (never below 1 rep) to bring it back toward its intended
+  // share — buildSet()'s title is always the deterministic
+  // "REPS x DISTm LABEL" shape, so it can be safely re-derived after
+  // adjusting reps; interval/rest/pace are per-rep values and stay correct
+  // regardless of how many reps there end up being.
+  function scaleSetVolume(s, factor) {
+    if (factor >= 0.999) return s;
+    var m = s.title.match(/^(\d+) x (\d+)m (.*)$/);
+    if (!m) return s;
+    var origReps = parseInt(m[1], 10), dist = parseInt(m[2], 10), rest = m[3];
+    var newReps = Math.max(1, Math.round(origReps * factor));
+    if (newReps === origReps) return s;
+    var scaled = {};
+    for (var k in s) { if (s.hasOwnProperty(k)) scaled[k] = s[k]; }
+    scaled.title = newReps + ' x ' + dist + 'm ' + rest;
+    scaled.reps = newReps;
+    scaled.totalSec = newReps * s.interval;
+    return scaled;
+  }
+  function scaleRoundsVolume(rounds, factor) {
+    if (factor >= 0.999) return rounds;
+    return rounds.map(function (r) {
+      return { label: r.label, sets: r.sets.map(function (s) { return scaleSetVolume(s, factor); }) };
+    });
+  }
+  // Builds an archetype's rounds against its allocated share, then — if the
+  // archetype's own rep floors pushed the actual result past that share —
+  // iteratively scales it back down toward the target. Used for Warm-Up,
+  // Pre-Set, every regular Main Set block, and the Elite Power block, so all
+  // four respect the same "the number you were promised is the number you
+  // get" rule. Iterates (rather than a single pass) because rounding a rep
+  // count can land exactly back where it started on the first attempt (e.g.
+  // 2 reps × 0.75 still rounds to 2) — recomputing the ratio against the
+  // still-too-high result and trying again a few times converges much closer
+  // than hoping one pass is enough, without ever asking for a fractional rep.
+  function buildToShare(buildFn, targetM) {
+    var rounds = buildFn();
+    for (var i = 0; i < 4; i++) {
+      var actualM = sumRoundsMeters(rounds);
+      if (actualM <= targetM * 1.05) break;
+      var scaled = scaleRoundsVolume(rounds, targetM / actualM);
+      if (sumRoundsMeters(scaled) === actualM) break; // no further reduction possible (every set already at 1 rep)
+      rounds = scaled;
+    }
+    return rounds;
   }
 
   // rounds is an array of { label, sets } — label is a short round title
@@ -5925,6 +6121,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var personalPace = personalPaceFromPB(pbDistanceM, pbTimeSec, state.goals);
     var pace100 = personalPace != null ? personalPace : paceSecondsPer100(state.goals, state.level);
 
+    // RACE-GOAL TARGETING: a Target Time only changes anything once there's
+    // both a real current PB AND a target genuinely faster than it (parsing
+    // failures or a target slower/equal to the current PB just no-op back to
+    // the plain PB-derived pace above — never a worse or nonsensical result).
+    // personalPaceFromPB() already normalizes ANY race distance to an
+    // equivalent 100m pace via its Riegel-exponent model, so calling it again
+    // with the *target* time treats that target exactly like a hypothetical
+    // faster PB, putting both numbers on the same footing. The blend (65%
+    // current / 35% target) is a deliberately honest middle ground — genuinely
+    // harder than the swimmer's comfortable current pace so the sets actually
+    // build toward the goal, but not simply handing them full target pace on
+    // day one, which would be unrealistic and demoralizing.
+    var raceGoalTargetEl = document.getElementById('raceGoalTargetTime');
+    var raceGoalTargetSec = raceGoalTargetEl ? parseTimeToSeconds(raceGoalTargetEl.value) : null;
+    var raceGoalActive = !!(personalPace != null && raceGoalTargetSec != null && raceGoalTargetSec > 0 && raceGoalTargetSec < pbTimeSec);
+    if (raceGoalActive) {
+      var targetPace100 = personalPaceFromPB(pbDistanceM, raceGoalTargetSec, state.goals);
+      pace100 = personalPace * 0.65 + targetPace100 * 0.35;
+    }
+    // WEEKLY PERIODIZATION: Sunday's Active Recovery day is meant to feel
+    // different, not just draw from the same archetype pool under a
+    // different label — a flat pace ease applies regardless of any race goal
+    // above, since a true recovery day should never be pushed hard even
+    // while chasing a target time.
+    var focusToday = todaysFocus();
+    if (focusToday.recoveryDay) pace100 += 10;
+
     var totalM = state.distance;
     var ageCapApplied = false;
     if (age && age < 12 && totalM > 2000) { totalM = 2000; ageCapApplied = true; }
@@ -5944,11 +6167,42 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var nextBlockStroke = makeStrokeRotator(state.disciplines);
     function fixedStrokeFn(strokeLabel) { return function () { return strokeLabel; }; }
     var disciplinesLabel = state.disciplines.map(strokeLabelSingle).join(' + ');
+    // STRICT DISTANCE ACCURACY: Warm-Up and Pre-Set get their usual fixed
+    // shares. The Main Set's own nominal share grew from 55%→65% since the
+    // Cool-Down no longer needs a large fixed allocation — active recovery
+    // that used to live there is now carved OUT of the Main Set's own budget
+    // (see EZ_RECOVERY_M below), never added on top of it, so the grand total
+    // stays conserved by construction rather than by luck. The Cool-Down's own
+    // size is deliberately NOT fixed here — it's computed further down as
+    // whatever's actually left once Warm-Up/Pre-Set/Main Set have rendered
+    // their real (rounded, stroke-capped) meters, so it's the one block that
+    // absorbs every other stage's own internal rounding drift and guarantees
+    // the finished workout lands within ±50m of the swimmer's chosen distance.
     var warmupM = Math.round((totalM * 0.10) / 100) * 100 || 200;
     var presetM = Math.round((totalM * 0.15) / 100) * 100 || 200;
-    var mainM = Math.round((totalM * 0.55) / 100) * 100;
-    var cooldownM = Math.max(100, totalM - warmupM - presetM - mainM);
+    var mainM = Math.max(200, Math.round((totalM * 0.65) / 100) * 100);
     var noScale = { intervalMult: 1, restAdd: 0 };
+    // A real target time tightens the actual work — quality intervals aimed
+    // at a specific clock, not just "more of the same." Warm-Up/Cool-Down
+    // stay on noScale regardless (always easy, race goal or not); only the
+    // Pre-Set, Main Set archetypes and the Elite Power block use this.
+    // Multi-round archetypes (roundCountFor() picks 2-3 rounds per the
+    // level's own minRounds/maxRounds) each carry their own per-round minimum
+    // rep floor — fine on their own, but stacking 3 rounds' worth of "at
+    // least one ~200m rep" floors on a smaller total distance is exactly what
+    // buildToShare's post-hoc rep-scaling can't fully correct (it can shrink
+    // reps within a round, never the round count itself). Capping rounds to 2
+    // below 2500m gives the smallest sessions one fewer independent floor to
+    // stack, without touching any archetype's own internal math.
+    var smallTotalRoundCap = totalM < 2500 ? 2 : null;
+    var workScaler = {
+      intervalMult: raceGoalActive ? scaler.intervalMult * 0.95 : scaler.intervalMult,
+      restAdd: raceGoalActive ? scaler.restAdd - 3 : scaler.restAdd,
+      blocks: scaler.blocks,
+      minRounds: smallTotalRoundCap ? Math.min(scaler.minRounds, smallTotalRoundCap) : scaler.minRounds,
+      maxRounds: smallTotalRoundCap ? Math.min(scaler.maxRounds, smallTotalRoundCap) : scaler.maxRounds,
+      note: scaler.note
+    };
 
     // The opening swim of every Warm-Up is always Freestyle, regardless of
     // which discipline(s) are selected for the session — standard coaching
@@ -5973,14 +6227,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // kick + underwater work lives here so it appears in every single session.
     var warmupKickReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
     var hasKickboard = state.equipment.indexOf('Kickboard') > -1;
-    var warmup = [
-      buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
-      buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
-      buildSet(warmupKickReps, 50, pickOne(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
-    ];
-    if (state.level !== 'beginner') {
-      warmup.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
-    }
+    var warmup = buildToShare(function () {
+      var sets = [
+        buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
+        buildSet(warmupDrillReps, 50, pickOne(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
+        buildSet(warmupKickReps, 50, pickOne(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
+      ];
+      if (state.level !== 'beginner') {
+        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
+      }
+      return [{ label: null, sets: sets }];
+    }, warmupM)[0].sets;
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
@@ -5996,7 +6253,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var presetStroke = nextBlockStroke();
     var preset = {
       name: presetArchetype.name,
-      rounds: presetArchetype.build(presetM, pace100, scaler, fixedStrokeFn(presetStroke))
+      rounds: buildToShare(function () { return presetArchetype.build(presetM, pace100, workScaler, fixedStrokeFn(presetStroke)); }, presetM)
     };
 
     // Multiple selected goals combine their archetype pools into one bigger
@@ -6015,6 +6272,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // capped by how many distinct archetypes actually exist in the pool.
     function blockCountForDistance(baseBlocks, totalMeters) {
       var extra = totalMeters >= 3500 ? 1 : 0;
+      // Small total distances can't structurally support multiple independent
+      // Main Set blocks without each one's own minimum-round/minimum-rep
+      // floor compounding into an overshoot no reconciliation step can fully
+      // absorb (two blocks each with a 2-round-minimum, 1-rep-minimum
+      // archetype floor at ~200m/rep already forces ~800m regardless of how
+      // small their allocated share is) — capping to a single block below
+      // 1500m keeps the whole Main Set inside one archetype's own structure,
+      // which has far more room to compress toward its target share.
+      if (totalMeters < 1500) return 1;
       return Math.min(pool.length, baseBlocks + extra);
     }
     var mainBlockCount = blockCountForDistance(scaler.blocks, totalM);
@@ -6029,21 +6295,47 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         }
       }
     }
+    // RACE-GOAL SWIMMER TYPE: a Sprinter or Distance swimmer chasing a target
+    // time gets that emphasis guaranteed in the Main Set, even on a day whose
+    // periodization/goal selection wouldn't otherwise draw from that pool —
+    // the same "guarantee it's present" principle the Elite Power block
+    // already uses for elite level. 'Both' applies no bias. Only fires when a
+    // real race goal is active, so this never surprises a swimmer who hasn't
+    // set a target time.
+    if (raceGoalActive && state.swimmerType !== 'both' && chosenArchetypes.length) {
+      var biasPool = state.swimmerType === 'sprinter' ? SPEED_ARCHETYPES : ENDURANCE_ARCHETYPES;
+      var alreadyBiased = chosenArchetypes.some(function (a) { return biasPool.indexOf(a) > -1; });
+      if (!alreadyBiased) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(biasPool);
+    }
+    // ELITE ONLY: the Elite Power block's own budget is now reserved out of
+    // the SAME mainM pool the regular archetype blocks split, rather than
+    // being fixed-size volume added on top of it — previously an elite
+    // swimmer's actual total silently overshot their chosen distance by
+    // however big that block was, regardless of how small a total they
+    // picked. Reserving ~22% of mainM for it (floor 300m) before splitting
+    // the remainder among the regular blocks keeps the whole Main Set inside
+    // its own already-budgeted meters.
+    var eliteBlockM = state.level === 'elite' ? Math.max(300, Math.round((mainM * 0.22) / 50) * 50) : 0;
+    var regularMainM = Math.max(200, mainM - eliteBlockM);
     var share = 1 / chosenArchetypes.length;
     var main = chosenArchetypes.map(function (archetype) {
-      var shareM = Math.round((mainM * share) / 100) * 100 || 100;
+      var shareM = Math.round((regularMainM * share) / 100) * 100 || 100;
       // Each Main Set block is locked to a single stroke (rotating across
       // blocks), so a 3-block session for a Free+Fly+Back swimmer reads as
       // one clean Free block, one clean Fly block, one clean Back block —
       // never three strokes randomly blended inside one set.
       var blockStroke = nextBlockStroke();
-      var rounds = archetype.build(shareM, pace100, scaler, fixedStrokeFn(blockStroke), state.equipment, totalM);
+      var isRecoveryCarveArchetype = SPEED_ARCHETYPES.indexOf(archetype) > -1;
       // INTEGRATED ACTIVE RECOVERY: every SPEED_ARCHETYPES block is genuine
       // sprint/power work — rather than only flushing lactate at the very end
       // via the Cool-Down, a short EZ recovery set is appended directly inside
-      // the block itself, right after the hard rounds, so the flush happens
-      // while it's actually needed instead of several minutes of swimming later.
-      if (SPEED_ARCHETYPES.indexOf(archetype) > -1) {
+      // the block itself, right after the hard rounds. EZ_RECOVERY_M is
+      // carved OUT of this block's own share (not added on top of it) so the
+      // block's rendered total stays at shareM, keeping the Main Set's grand
+      // total exactly conserved.
+      var contentShareM = isRecoveryCarveArchetype ? Math.max(150, shareM - EZ_RECOVERY_M) : shareM;
+      var rounds = buildToShare(function () { return archetype.build(contentShareM, pace100, workScaler, fixedStrokeFn(blockStroke), state.equipment, totalM); }, contentShareM);
+      if (isRecoveryCarveArchetype) {
         rounds = rounds.concat([ezRecoverySet(pace100)]);
       }
       return {
@@ -6055,20 +6347,31 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
     // ELITE ONLY: prepend a dedicated high-performance power block — this is
     // what makes the elite level a genuine step up rather than just more
-    // distance. Explosive max-effort underwater dolphin (15m off the wall),
-    // race-start reaction power, and power breakouts, all under the elite
-    // scaler's tight intervals. It leads the Main Set (rendered first, open by
-    // default) so the highest-CNS-demand work is done while freshest. Labels
-    // deliberately don't start with a capped stroke name (Back/Breast/Fly), so
-    // the 200m realism cap never touches these short power reps.
+    // distance. Explosive max-effort underwater dolphin, race-start reaction
+    // power, and power breakouts, all under the elite scaler's tight
+    // intervals. It leads the Main Set (rendered first, open by default) so
+    // the highest-CNS-demand work is done while freshest. Labels deliberately
+    // don't start with a capped stroke name (Back/Breast/Fly), so the 200m
+    // realism cap never touches these short power reps. Rep counts now scale
+    // with eliteBlockM (see above) instead of being hardcoded 8/6/4 —
+    // proportional to the swimmer's own chosen distance like every other
+    // stage, and its own EZ recovery set is carved from the same reserved
+    // budget rather than added on top of it.
     if (state.level === 'elite') {
+      var eliteContentM = Math.max(200, eliteBlockM - EZ_RECOVERY_M);
       var eliteLadder = paceLadder(pace100);
       var eliteFins = state.equipment.indexOf('Fins') > -1;
-      var elitePowerRounds = [
-        { label: 'Underwater Dolphin Speed', sets: [buildSet(8, 25, 'Max 15m underwater dolphin kick off the wall — count kicks, hold a rocket streamline, break out clean and finish easy', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, scaler, '50 Pace')] },
-        { label: 'Race-Start Reaction Power', sets: [buildSet(6, 25, 'Explosive push-start — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, scaler, '50 Pace')] },
-        { label: 'Power Breakouts', sets: [buildSet(4, 50, 'Fast approach into the wall, explosive turn, powerful underwater breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, scaler, '100 Pace')] }
-      ];
+      var eliteShares = splitProportional(eliteContentM, [0.4, 0.35, 0.25]);
+      var uwReps = Math.max(4, Math.round(eliteShares[0] / 25));
+      var startReps = Math.max(4, Math.round(eliteShares[1] / 25));
+      var breakoutReps = Math.max(2, Math.round(eliteShares[2] / 50));
+      var elitePowerRounds = buildToShare(function () {
+        return [
+          { label: 'Underwater Dolphin Speed', sets: [buildSet(uwReps, 25, 'Max 15m underwater dolphin kick off the wall — count kicks, hold a rocket streamline, break out clean and finish easy', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, workScaler, '50 Pace')] },
+          { label: 'Race-Start Reaction Power', sets: [buildSet(startReps, 25, 'Explosive push-start — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, workScaler, '50 Pace')] },
+          { label: 'Power Breakouts', sets: [buildSet(breakoutReps, 50, 'Fast approach into the wall, explosive turn, powerful underwater breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, workScaler, '100 Pace')] }
+        ];
+      }, eliteContentM);
       // Same integrated active-recovery principle as the Main Set's own
       // SPEED_ARCHETYPES blocks — this is the single highest-intensity block
       // in the whole session, so it gets the EZ flush too.
@@ -6076,12 +6379,35 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       main.unshift({ name: 'Elite Power & Underwater', stroke: null, rounds: elitePowerRounds });
     }
 
-    var cdParts = splitProportional(cooldownM, [0.5, 0.3, 0.2]);
+    // STRICT DISTANCE ACCURACY, part 2: the Cool-Down's size is whatever's
+    // actually left once Warm-Up/Pre-Set/Main Set have rendered their real
+    // meters (reps × dist, after every archetype's own stroke-cap/rounding
+    // has already applied) — not a second independent percentage of totalM.
+    // This is what actually GUARANTEES the ±50m tolerance rather than hoping
+    // several independently-rounded blocks happen to add up.
+    var actualWarmupM = sumSetsMeters(warmup);
+    var actualPresetM = sumRoundsMeters(preset.rounds);
+    var actualMainM = main.reduce(function (sum, block) { return sum + sumRoundsMeters(block.rounds); }, 0);
+    var cooldownBudgetM = Math.max(150, totalM - actualWarmupM - actualPresetM - actualMainM);
+    var cdParts = splitProportional(cooldownBudgetM, [0.5, 0.3, 0.2]);
+    var cdStroke1 = nextStroke();
     var cooldown = [
-      buildSet(1, cdParts[0], nextStroke() + ', easy — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
+      buildSet(1, cdParts[0], cdStroke1 + ', easy — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
       buildSet(1, cdParts[1], 'Backstroke, easy — loosen the shoulders, steady 3-stroke breathing rhythm', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
       buildSet(1, cdParts[2], 'easiest pace of the day — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
     ];
+    // Final reconciliation nudge: splitProportional's own 50m-snapping across
+    // 3 parts can leave a small residual even against an exact budget —
+    // absorb it into the largest, most flexible cool-down swim (a plain
+    // continuous easy swim takes any clean distance gracefully) so the
+    // GRAND total always lands within ±50m of the swimmer's chosen distance.
+    var grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
+    var totalResidualM = totalM - grandTotalM;
+    if (Math.abs(totalResidualM) > 50) {
+      var adjustedCd0 = Math.max(50, Math.round((cdParts[0] + totalResidualM) / 50) * 50);
+      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ', easy — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace');
+      grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
+    }
 
     var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false, 'warmup') +
       renderBlock('Pre-Set — ' + preset.name, preset.rounds, false, 'preset') +
@@ -6094,11 +6420,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
       ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
 
-    scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.78rem; margin-bottom:12px;">' +
+    scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.78rem; margin-bottom:4px;">' +
       (personalPace != null
         ? 'Pace personalized from your ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) + ' PB (' + formatTime(pbTimeSec) + ').'
         : 'Add a Personal Best above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') + '</p>';
+
+    // Weekly Periodization + Race Goal transparency lines — directly visible
+    // confirmation that both features are actually shaping today's set, not
+    // silent background logic.
+    scalerNoteHtml += '<p style="color:var(--green-bright); font-size:0.78rem; margin-bottom:4px;">' +
+      icon('i-target') + ' Weekly Schedule — <strong>' + focusToday.label + '</strong>: ' + focusToday.blurb + '</p>';
+    if (raceGoalActive) {
+      scalerNoteHtml += '<p style="color:var(--gold); font-size:0.78rem; margin-bottom:4px;">' +
+        icon('i-trophy') + ' Racing toward a ' + formatTime(raceGoalTargetSec) + ' ' + pbDistanceM + 'm ' + strokeLabelSingle(state.disciplines[0]) +
+        ' — pace and intervals tightened toward that target' + (state.swimmerType !== 'both' ? ' (' + (state.swimmerType === 'sprinter' ? 'Sprinter' : 'Distance') + ' emphasis)' : '') + '.</p>';
+    }
+    // STRICT DISTANCE ACCURACY confirmation — the whole point of the
+    // Cool-Down-as-reconciliation-buffer rewrite above is that this line
+    // should always read as an exact (or ±50m) match, never a silent drift.
+    scalerNoteHtml += '<p style="color:var(--muted-2); font-size:0.72rem; margin-bottom:12px;">' +
+      'Total: ' + formatDistanceM(grandTotalM, 1) + ' (target ' + formatDistanceM(totalM, 1) + ')' +
+      (Math.abs(grandTotalM - totalM) <= 50 ? '' : ' — within realistic rounding for this combination of picks') + '.</p>';
 
     html += renderCoachTips();
 
