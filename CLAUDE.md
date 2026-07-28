@@ -2897,6 +2897,140 @@ exercise board, plus a real alignment bug fix and a re-confirmation of Workouts'
   exports still fire real `download` events; all 5 disciplines select simultaneously; and all 9
   tabs load with zero page errors.
 
+**A round covering fully flexible Personal Bests, a Tracker log-form layout fix, and a genuine
+free Beginner tier with progressive difficulty scaling — the first round to touch the access-
+control/paywall logic since it was reinstated as a real enforcement gate.**
+
+- **Personal Bests are now a fully flexible, freely-configurable entry list instead of 4 fixed
+  stroke rows.** The old markup (one hardcoded `.pb-stroke-block` per Freestyle/Backstroke/
+  Butterfly/Breaststroke, each with its own fixed-id distance `<select>`/current-time/target-time
+  fields) is gone, replaced by `#pbEntriesList` — a dynamic list rendered from `state.pbEntries`
+  (an array of `{stroke, distance, currentTime, targetTime}` objects) plus a `+ Add Personal Best`
+  button. Every entry independently picks its own Stroke (Freestyle/Backstroke/Butterfly/
+  Breaststroke/Individual Medley, via `PB_STROKE_OPTIONS`) and Distance (50/100/200/400/800/1500m,
+  via `PB_DISTANCE_OPTIONS`) — so a swimmer can log 50m Free and 100m Free side by side, or five
+  different Backstroke distances, with no artificial one-per-stroke limit. A remove button (`×`,
+  reusing the existing `i-close` icon symbol) appears on every row once there are 2+ entries — at
+  least one always stays, since the pace/estimator logic needs a baseline to read from.
+  `migrateLegacyPbEntries()` runs once against any previously-saved `swimfit_generator_prefs`
+  blob, carrying forward the old 4 fixed fields (if present) as the new array's starting entries
+  so an existing swimmer's saved PBs aren't silently discarded by this rewrite. `activePbEntry()`
+  replaces the old `activeStrokePbFieldIds()` — it picks whichever saved entry matches the primary
+  selected discipline (preferring one with a filled-in current time), which both
+  `generateWorkout()`'s pace-personalization and the per-entry Goal Progression Estimator
+  (`updatePbEstimateForIndex()`, now indexed by array position via `data-pb-index` rather than a
+  fixed stroke-keyed element id) read from. `GENERATOR_PREF_FIELD_IDS` shrank from 16 fixed ids
+  down to just the 4 that are still genuinely fixed fields (Age + the 3 Gym Strength Profile
+  inputs) — the PB entries persist as their own `pbEntries` array in the same localStorage blob
+  instead. Verified via Playwright: the 4 migrated rows render correctly, adding a 5th entry (a
+  second Freestyle distance) computes a correct Goal Progression estimate, a full page reload
+  restores all 5 entries with their exact values, `generateWorkout()` still personalizes pace off
+  the right entry, and removing an entry drops the row count with zero page errors.
+- **Tracker log-form: a real, screenshot-caught grid bug was found and fixed.** `.tracker-log-row`
+  (Date/Distance/Duration/Discipline + the Log Swim button — 5 grid items) was declared with only
+  4 grid tracks (`grid-template-columns: repeat(3, 1fr) auto`) — a genuine off-by-one, most likely
+  dating from whenever the Discipline field was added to what was originally a 3-field form
+  without updating the template. The practical effect, caught via an actual Playwright screenshot
+  rather than just reading the CSS: the Discipline field was squeezed into the narrow `auto` track
+  meant for the button, and the button itself wrapped onto a visually displaced second row. Fixed
+  to a genuine 5-column template (`repeat(4, 1fr) auto`). A second, related issue in the same row
+  was fixed alongside it: "Duration (mm:ss) (optional — enables pace)" wraps to 2-3 lines while
+  the other three labels stay on 1, which — combined with `align-items: end` — pushed that one
+  field's input visibly lower than its neighbors; scoped to `.tracker-log-row .form-row label`
+  specifically (verified this doesn't touch Settings'/Auth's own reuse of the shared `.form-row`
+  class, whose labels are always short), a reserved `min-height: 2.6em` plus a `gap: 0.3em` (a
+  second real bug found while re-screenshotting the first fix: flex-ifying a label containing a
+  text node + an inline `<span>` collapsed the whitespace between them, rendering
+  "DISCIPLINE(optional)" with no visible space) now keeps every field's input bottom-aligned
+  regardless of label line count.
+- **A second, deeper Tracker layout bug was found while re-screenshotting the fix above: the log
+  form and the Daily/Weekly/Monthly stat card were both falling under the generic
+  `.bento-grid > * { grid-column: span 4 }` rule at ≥1100px, each getting only a third of the row.**
+  This wasn't just wasted space — it actively broke the log form: squeezed into a third of the row
+  width, the Discipline field (now correctly using its own grid track per the fix above) overflowed
+  past the card's own right border and rendered completely invisible, hidden behind/before the
+  stat card next to it. Fixed by giving the wrapping `<div class="bento-grid">` a second, scoped
+  class (`tracker-top-grid`) with its own `@media (min-width: 1100px)` override — `.tracker-log-
+  form` now spans 8/12, `.tracker-stat-card` spans 4/12 — filling the full row with no dead space
+  and giving the 5-item form the width it actually needs, without touching the generic
+  `.bento-grid` rule every other tab (Workouts, Gym, etc.) still relies on. Verified via a direct
+  `getBoundingClientRect()`/screenshot check: all 5 fields (Date, Distance, Duration, Discipline,
+  Log Swim) now render visibly in one row, bottom-aligned within a few px of each other, with the
+  Discipline dropdown genuinely on screen for the first time. The remaining Tracker cards
+  (analytics strip, Weekly Volume Goal, both charts, Personal Best Progression mini-form) were
+  reviewed and found already correctly aligned — no further changes were needed there.
+- **Beginner level is now genuinely free — the first carve-out in the reinstated 3-day-trial
+  paywall (see the "3-day trial paywall was RE-INTRODUCED" entry above) since it shipped.** A
+  swimmer whose trial has expired (`access.level === 'expired'`) with no active plan is no longer
+  hard-locked out of the *entire* site — specifically, the full-screen `#paywallOverlay` now stays
+  hidden while they're on the Workouts tab with Beginner level selected, everywhere else (any other
+  tab, or Workouts at Competitive/Elite) still locks exactly as before. This required promoting the
+  previously-inline `swimfit:accesschange` overlay logic into a reusable, globally-exposed
+  `refreshPaywallLock()` function, since the bypass condition depends on *both* the currently active
+  tab (`#dashboard`'s `data-active-tab`) and the currently selected Level pill — neither alone is
+  enough to know when to re-evaluate. It's now called from three places: the `swimfit:accesschange`
+  listener itself, `switchTab()` (so navigating to/away from Workouts re-checks immediately), and
+  the Level pill-tab click handler (so switching Beginner ↔ Competitive/Elite while already on
+  Workouts re-checks immediately) — `window.__workoutsLevelIsBeginner()` is the one query point
+  both the overlay logic and (indirectly) everything else reads the current level through.
+  **Suspension (`accessDisabled` → `'locked'`) is deliberately unaffected** — `locked = suspended ||
+  (expired && !beginnerBypass)`, so a manually-suspended account stays fully locked on every tab
+  regardless of level, exactly as before; only a plain expired-trial-with-no-plan case gets the
+  carve-out. **The AI Coach FAB stays hidden for the whole `expired` state regardless of the
+  bypass** — Coach was never meant to be free, only Beginner Workouts. **A real, previously-
+  unnoticed dead-end bug was caught while testing this and fixed before shipping**: the overlay's
+  `z-index: 400` sits above the nav (`.nav` at 100, `.mobile-bottom-nav` at 140), so the moment an
+  expired-trial swimmer using the Beginner bypass navigated away from Workouts (e.g. clicked Gym),
+  the overlay re-locked and its full-viewport hit-area then blocked clicks on the nav itself —
+  with literally no way to click back to Workouts+Beginner to unlock again, since the very
+  navigation control needed to escape was covered by the thing blocking escape. Fixed with
+  `body.paywall-locked .nav, body.paywall-locked .mobile-bottom-nav { z-index: 410; }` — mirroring
+  the existing precedent of the Support FAB already sitting above this same overlay at z-index 410
+  — so the nav stays reachable through the lock. This is harmless for a genuinely suspended
+  account too: every tab still shows the overlay for them regardless of which one they click
+  through to, since `suspended` alone already forces `locked = true` unconditionally. Verified via
+  Playwright end-to-end: an expired-trial account sees no overlay on Workouts+Beginner, gets
+  immediately locked switching to Competitive on the same tab, unlocks again switching back to
+  Beginner, gets locked navigating to Gym, and — critically — can now click back to Workouts (a
+  real click through the nav, not a direct DOM query) to unlock again; a simulated suspended
+  (`'locked'`) account stays locked through the identical Workouts+Beginner combination that
+  bypasses a plain expired trial; and restoring to `'trial'` clears the overlay correctly.
+- **Beginner distance cap: 3,000m maximum, enforced at both the slider and generation layers.**
+  `applyLevelDistanceCap()` sets `distanceSlider.max = '3000'` (down from the normal 6000)
+  whenever Beginner is selected — clamping the current value down to 3000 if it was higher — and
+  restores `max = '6000'` for Competitive/Elite; called from both the Level pill-tab click handler
+  and the on-load `restoreLevelTab()` restore path, so a swimmer who saved a >3000m preference at
+  a different level and then switches to Beginner is clamped immediately rather than silently
+  allowed to generate an oversized session. A defensive second check inside `generateWorkout()`
+  itself (`beginnerCapApplied`, clamping `totalM` to 3000 if it's still somehow higher) guards
+  against any stale/corrupted saved state reaching the generator directly, and appends a disclosure
+  line to the "Coach's Plan" note when it actually fires. Verified via Playwright: setting 5000m at
+  Competitive, then switching to Beginner clamps both the slider's `value` and `max` to 3000;
+  switching onward to Elite restores `max` to 6000.
+- **Difficulty scaling: Beginner workouts now exclude four Main Set archetypes that demand pacing
+  discipline or executional skill beyond a first-time swimmer** — `Explosive Turns & Starts`,
+  `Descending Power Ladder`, `Broken Threshold Swim`, and `Distance Ladder` (all-out ladders,
+  explosive wall work, and sustained gear-shifting pacing that a beginner hasn't developed feel
+  for yet) — via `BEGINNER_EXCLUDED_ARCHETYPES`, filtered out of the combined goal pool in
+  `generateWorkout()` only when `state.level === 'beginner'` (with a safety fallback: if filtering
+  would empty the pool entirely for some future goal combination, the unfiltered pool is used
+  instead rather than crashing). The Technique pool is deliberately never filtered — it's already
+  drill-based and low-intensity at every level, so nothing in it needed excluding. This sits
+  alongside the **pre-existing** `LEVEL_SCALERS` (interval/rest tightening per level, unchanged
+  this round) and the Elite Power block's own speed-goal gating from an earlier round — together,
+  Beginner now gets simpler drill-forward sets with generous rest via the archetype exclusion,
+  Competitive sits in the unfiltered middle, and Elite additionally layers on its own dedicated
+  power block when Speed is selected, a genuine progressive difficulty curve rather than Level
+  only ever changing pace/interval numbers. Verified via Playwright: Beginner + all three goals
+  selected + a 3000m session generates correctly with zero of the four excluded archetype names
+  appearing anywhere in the rendered output, while Competitive generation is unaffected (same pool,
+  same archetypes available).
+- Verified via Playwright end-to-end for the whole round: all 9 tabs load with zero page errors;
+  the flexible PB add/remove/persist flow; both Workouts' and Gym's PDF exports still fire real
+  `download` events; the Complete Workout button still renders and logs correctly; the Beginner
+  distance cap, archetype exclusion, and paywall bypass (including the nav dead-end fix) all work
+  as described; and a simulated suspended account is correctly unaffected by the new bypass.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
