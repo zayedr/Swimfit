@@ -2848,6 +2848,55 @@ an explicit review-video punch list.**
   rendering two-per-row and total page height cut by ~39%; PDF export and Complete-Workout-to-
   Tracker both still fire correctly; and all 9 tabs load with zero page errors.
 
+**Gym rebuilt from a left/right column split into a TOP horizontal input bar + BOTTOM full-width
+exercise board, plus a real alignment bug fix and a re-confirmation of Workouts' stroke picker.**
+
+- **Gym's layout changed from side-by-side columns to top/bottom stacking**, per explicit request.
+  `.gym-columns`/`.gym-col-left`/`.gym-col-right` (previously shared with `.workouts-columns` via
+  combined selectors) are gone from Gym entirely — those combined selectors were split apart so
+  Workouts' own 2-column layout is untouched, and Gym now uses new `.gym-top-bar`/`.gym-top-half`/
+  `.gym-bottom` classes. `.gym-top-bar` is a flex row splitting evenly 50/50 (Strength Profile left,
+  Target Focus right, a `border-inline-start` hairline between them instead of two separate boxed
+  cards), collapsing to a stacked single column below 760px. `.gym-bottom` holds the exercise board,
+  PDF button, and AI routine panel, now full-width instead of squeezed into a 60% column — the
+  already-compact 2-column card grid from the previous round packs even more efficiently at full
+  width, dropping total Gym page height from ~5,608px to **~4,973px**.
+- **"Today's Focus" (renamed "Target Focus" in the heading, matching the ask's own wording) lost
+  its heavy segmented-control look.** `#gymFocusTabs` previously inherited `.pill-tabs`' solid
+  `background: var(--bg-alt)` pill-shaped container — a filled bar behind every button that read as
+  a boxed table row. Scoped to just this instance (the shared `.pill-tabs` class is still used
+  correctly elsewhere — Level, Swimmer Type, Units, Language — and was left alone), the container
+  background/padding is now stripped entirely and each `.pill-tab` inside gets its own thin
+  individual border instead, so the five focus options read as sleek, independent pill buttons/
+  badges rather than one solid bar. No JS changed — `data-focus`/`aria-selected` and the click
+  handler are untouched, this is a pure CSS override.
+- **A real, screenshot-caught misalignment bug in the Strength Profile row was found and fixed.**
+  "Age" is a one-line label while "Current Working Weight" and "Strength Limit / Max Capacity" wrap
+  to two lines at the new top-bar's column width — since `.profile-field label` had no reserved
+  height, the Age input started noticeably higher than the other two, exactly the "crooked/stacked
+  offset" the ask explicitly called out. Fixed by reserving a fixed 2-line-tall, bottom-anchored
+  label box scoped to `.gym-top-half .profile-field label` specifically (verified via a follow-up
+  Playwright check that Settings' own `.profile-field` labels — short, always single-line — compute
+  zero `min-height` and are completely unaffected) so every input in the row now starts at the
+  identical y-coordinate regardless of how many lines its own label wraps to. Verified via
+  Playwright: all three input `getBoundingClientRect().top` values match within 2px, both top-bar
+  halves report identical height (238px) and start at the same y (confirming genuine side-by-side
+  balance, not a stacked illusion).
+- **Workouts' stroke/discipline picker was re-audited, not changed — still fully unrestricted.**
+  Re-verified via Playwright (a fresh test, independent of the previous round's) that all 5
+  disciplines (Freestyle/Backstroke/Butterfly/Breaststroke/Individual Medley) can be selected
+  simultaneously with a single click sequence and the workout still generates correctly — the click
+  handler's only guard remains "keep at least one selected." No second restriction was found
+  anywhere in the codebase (no cap, no mutual exclusivity); this was a genuine re-check given the
+  repeated ask, not a skipped step.
+- Verified via Playwright end-to-end: the Gym top bar renders two equal-height, equal-top halves
+  side by side; the Strength Profile inputs are pixel-aligned; the Target Focus pills have no
+  container background/padding and each carry their own border; clicking a focus pill still
+  updates `aria-selected` and regenerates the exercise grid; the exercise grid is still a
+  `display:grid` 2-column-plus layout with all 12 cards present; both Workouts' and Gym's PDF
+  exports still fire real `download` events; all 5 disciplines select simultaneously; and all 9
+  tabs load with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
