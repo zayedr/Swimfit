@@ -1121,15 +1121,24 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted-2); transition: color var(--dur) var(--ease); }
 .nav-links button:hover .nav-icon, .nav-links button[aria-current="true"] .nav-icon { color: var(--aqua); }
-.nav-icon-dumbbell { animation: navDumbbellPulse 1.6s ease-in-out infinite; transform-origin: center; }
-.nav-icon-wave path:first-child { animation: navWaveRipple 2.6s ease-in-out infinite; transform-origin: center; }
-.nav-icon-wave path:last-child { animation: navWaveRipple 2.6s ease-in-out infinite 0.5s; transform-origin: center; }
-.nav-icon-fin { animation: navFinSway 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
-.nav-icon-target { animation: navTargetPulse 2.2s ease-in-out infinite; transform-origin: center; }
-.nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out infinite; transform-origin: bottom center; }
-.nav-icon-comment { animation: navCommentPulse 2s ease-in-out infinite; transform-origin: center; }
-.nav-icon-droplet { animation: navDropletBob 2.2s ease-in-out infinite; transform-origin: center; }
-.nav-icon-admin { animation: navAdminSpin 3s ease-in-out infinite; transform-origin: center; }
+/* PERF FIX: these 8 icons previously ran `animation: ... infinite`
+   unconditionally — 8+ CSS animations looping simultaneously, forever, on
+   every single page load, inside the ONE part of the page that's always on
+   screen regardless of tab (the sidebar/nav). That's a real, constant
+   compositor/paint cost for zero functional benefit. Now each icon only
+   plays a couple of beats (`2` iterations, not `infinite`) on hover/focus —
+   a "wiggle on interaction" touch instead of a restless idle loop — so there
+   is zero animation cost at rest, and mobile (which has no meaningful hover
+   state anyway) pays nothing for this at all. */
+.nav-links button:hover .nav-icon-dumbbell, .nav-links button:focus-visible .nav-icon-dumbbell { animation: navDumbbellPulse 1.6s ease-in-out 2; transform-origin: center; }
+.nav-links button:hover .nav-icon-wave path:first-child, .nav-links button:focus-visible .nav-icon-wave path:first-child { animation: navWaveRipple 2.6s ease-in-out 2; transform-origin: center; }
+.nav-links button:hover .nav-icon-wave path:last-child, .nav-links button:focus-visible .nav-icon-wave path:last-child { animation: navWaveRipple 2.6s ease-in-out 2 0.5s; transform-origin: center; }
+.nav-links button:hover .nav-icon-fin, .nav-links button:focus-visible .nav-icon-fin { animation: navFinSway 2.4s ease-in-out 2; transform-origin: 50% 100%; }
+.nav-links button:hover .nav-icon-target, .nav-links button:focus-visible .nav-icon-target { animation: navTargetPulse 2.2s ease-in-out 2; transform-origin: center; }
+.nav-links button:hover .nav-icon-trophy, .nav-links button:focus-visible .nav-icon-trophy { animation: navTrophyBob 2.4s ease-in-out 2; transform-origin: bottom center; }
+.nav-links button:hover .nav-icon-comment, .nav-links button:focus-visible .nav-icon-comment { animation: navCommentPulse 2s ease-in-out 2; transform-origin: center; }
+.nav-links button:hover .nav-icon-droplet, .nav-links button:focus-visible .nav-icon-droplet { animation: navDropletBob 2.2s ease-in-out 2; transform-origin: center; }
+.nav-links button:hover .nav-icon-admin, .nav-links button:focus-visible .nav-icon-admin { animation: navAdminSpin 3s ease-in-out 2; transform-origin: center; }
 @keyframes navDumbbellPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 @keyframes navWaveRipple { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes navFinSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
@@ -1471,15 +1480,25 @@ section { position: relative; scroll-margin-top: 96px; }
   mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
   -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
   animation: dashAmbientCaustic 26s linear infinite;
+  will-change: transform;
 }
 @keyframes dashAmbientDrift {
   0% { transform: translate(-2%, -1%) scale(1.04); }
   50% { transform: translate(2%, 2%) scale(1.09); }
   100% { transform: translate(-1%, 1%) scale(1.06); }
 }
+/* PERF FIX: this used to animate `background-position` — a property that
+   forces the browser to repaint the whole (viewport-sized, inset:-12%)
+   layer on every single frame, for as long as the animation runs, which is
+   forever, on every tab, since this element is the shared ambient
+   background mounted behind the entire dashboard regardless of which tab is
+   active. Animating `transform` instead is compositor-only (no repaint at
+   all, just a GPU layer reposition) — moving by exactly one grid tile
+   (42px, the same value as `background-size`) makes the loop seamless, so
+   the visual drift is identical, it just no longer costs a repaint. */
 @keyframes dashAmbientCaustic {
-  0% { background-position: 0px 0px; }
-  100% { background-position: 140px 90px; }
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-42px, -42px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
@@ -1733,7 +1752,12 @@ section { position: relative; scroll-margin-top: 96px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 0.55em 1em; border-radius: 999px;
   border: 1px solid var(--border-strong); font-size: 0.9rem; font-weight: 500; color: var(--muted);
-  transition: all var(--dur) var(--ease); min-height: 40px;
+  /* `transition: all` forces the browser to watch every animatable property
+     for changes on every chip, all the time — scoped to just the properties
+     this component actually animates instead, a real (if small) perf win
+     repeated across every chip/equipment-pill instance on the page. */
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  min-height: 40px;
 }
 .chip .icon { width: 15px; height: 15px; }
 .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--on-green); }
@@ -1832,11 +1856,16 @@ section { position: relative; scroll-margin-top: 96px; }
 /* The Workouts left column is only ~40% of the page width (see
    .workouts-col-left flex-basis above) — genuinely too narrow at almost any
    real viewport for Age and a 3-option Swimmer Type pill-group to sit
-   side-by-side without the pills wrapping awkwardly. Stacking them (each
-   field full-width) reads cleanly at every column width instead. */
+   side-by-side without the pills wrapping awkwardly, so each field is
+   full-width rather than paired in a row. */
 .wb-athlete-row { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-2); }
-.wb-athlete-row #swimmerTypeTabs { width: 100%; }
-.wb-athlete-row #swimmerTypeTabs .pill-tab { flex: 1; text-align: center; }
+/* Swimmer Type now lives directly inside the Personal Bests & Race Goals
+   section (moved out of the Age row) so every athlete-profile input a
+   swimmer would think of as "about my racing" sits together in one compact
+   block, per explicit request. */
+.wb-swimmer-type-field { margin-bottom: var(--space-3); }
+.wb-swimmer-type-field #swimmerTypeTabs { width: 100%; }
+.wb-swimmer-type-field #swimmerTypeTabs .pill-tab { flex: 1; text-align: center; }
 
 /* Equipment as high-end pill toggles — the native checkbox is hidden (the
    label still toggles it, since it wraps the input), and the pill fills with
@@ -1998,30 +2027,38 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= GYM SELECTOR ============================= */
-.gym-card h3 { font-size: 1.2rem; text-transform: uppercase; margin-bottom: 4px; }
-.gym-card .cue { color: var(--muted); font-size: 0.9rem; margin-top: var(--space-2); }
+.gym-card h3 { font-size: 1rem; text-transform: uppercase; margin-bottom: 2px; }
+.gym-card .cue { color: var(--muted); font-size: 0.8rem; margin-top: var(--space-2); line-height: 1.35; }
 /* Live looping technique demo on every exercise card — a self-contained SVG
    stick-figure flipbook (frames cycled by one global timer in the bottom
    script, see advanceGymAnims) rather than an external GIF/video asset, so
    every card animates instantly with zero network weight and one consistent
    visual language. Honors prefers-reduced-motion (the timer never starts,
-   leaving the first frame as a static form diagram). */
+   leaving the first frame as a static form diagram). A REAL, screenshot-
+   caught bug: at the previous full-width, one-card-per-row layout, this
+   21:9 frame rendered ~270px tall on its own, and combined with the text
+   block above it produced a ~495px-tall card — 12 of those stacked
+   vertically pushed the Gym tab's total page height past 9000px, which is
+   exactly the "chaotic, sprawling" complaint this round set out to fix.
+   Shrinking to 16:9 (smaller even at a card's own width) plus the
+   multi-column grid below (which itself roughly halves each card's width)
+   together bring a card down to a genuinely compact "thumbnail" size. */
 .gym-anim-frame {
-  margin-top: var(--space-3); width: 100%; aspect-ratio: 21/9; position: relative; overflow: hidden;
+  margin-top: var(--space-2); width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden;
   background: linear-gradient(135deg, var(--surface-2), var(--bg-alt)); border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
 }
-.gym-anim { height: 88%; width: auto; max-width: 100%; color: var(--aqua); }
+.gym-anim { height: 82%; width: auto; max-width: 100%; color: var(--aqua); }
 .gym-anim path, .gym-anim rect, .gym-anim line { fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .gym-anim circle { fill: currentColor; stroke: none; }
 .gym-anim .p { color: var(--muted-2); }
 .gym-anim .gym-anim-ground { stroke: var(--border); stroke-width: 2; }
 .gym-anim-label {
-  position: absolute; bottom: 5px; right: 10px; font-size: 0.6rem; color: var(--muted);
+  position: absolute; bottom: 5px; right: 10px; font-size: 0.58rem; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.06em; pointer-events: none;
 }
-.gym-card .prescription { font-family: var(--font-display); font-size: 1.1rem; color: var(--aqua); margin-top: var(--space-2); }
-.gym-card { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease); }
+.gym-card .prescription { font-family: var(--font-display); font-size: 0.95rem; color: var(--aqua); margin-top: 4px; }
+.gym-card { padding: var(--space-4); transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease); }
 .gym-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-2); }
 
 /* Visual muscle tags — a color-coded chip row under each exercise name so a
@@ -2047,13 +2084,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .muscle-tag[data-m="cardio"]     { --m-color: #5EEAD4; }
 .muscle-tag[data-m="full"]       { --m-color: #9FB0C3; }
 
-/* Gym's exercise board renders every phase's cards top-to-bottom, one per
-   row, so a swimmer can scroll straight down the page without a card ever
-   sitting off-screen in a side-scrolling strip. */
+/* Gym's exercise board is a clean, compact 2-column card grid within each
+   phase (collapsing to 1 column once a card would drop below ~230px) — a
+   swimmer still scrolls straight down the page, phase by phase, with no
+   card ever sitting off-screen in a side-scrolling strip (the failure mode
+   this replaced), but two compact cards per row instead of one full-width
+   card per row is what actually makes them read as "thumbnails" rather than
+   near-full-height blocks, and roughly halves the exercise board's total
+   scroll height. */
 #gymGrid .grid.grid-auto {
-  display: flex; flex-direction: column; gap: var(--space-4);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-3);
 }
-.gym-phase + .gym-phase { margin-top: var(--space-7); }
+.gym-phase + .gym-phase { margin-top: var(--space-6); }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .gym-phase-banner {
   width: 64px; height: 64px; border-radius: var(--radius-sm); flex-shrink: 0;
@@ -3148,17 +3190,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               <label for="swimmerAge">Age</label>
               <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
             </div>
-            <div class="profile-field">
-              <label id="swimmerTypeLabel">Swimmer Type</label>
-              <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
-                <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
-                <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
-                <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
-              </div>
-            </div>
           </div>
 
           <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests &amp; Race Goals <span class="config-label-hint">— your current PB paired with an optional target per stroke; sharpens pacing and estimates a realistic timeline to hit each target</span></div>
+          <div class="profile-field wb-swimmer-type-field">
+            <label id="swimmerTypeLabel">Swimmer Type</label>
+            <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
+              <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
+              <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
+              <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
+            </div>
+          </div>
           <div class="pb-stroke-grid">
             <div class="pb-stroke-block">
               <div class="pb-stroke-row">
@@ -6157,6 +6199,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
   ];
 
+  // "Secret swimmer tricks" — subtle, coach-voice technique cues woven
+  // directly into a Technique archetype's own set description (rather than a
+  // separate wall-of-text intent paragraph) so a swimmer absorbs one concrete
+  // fix mid-set, organically, instead of feeling lectured. Each cue targets
+  // one of the three explicitly-requested fundamentals — underwater
+  // propulsion, a clean catch, or body rotation — and rotates via the same
+  // day-stable workoutRng/pickOne() as every other random choice in the
+  // generator, so it's stable for the day and changes at the same midnight
+  // rotation as the rest of the workout.
+  var TECHNIQUE_MICRO_CUES = [
+    'a strong early-vertical-forearm catch — feel the water "grab" before the pull even starts',
+    'a subtle hip-driven body rotation feeding power into every stroke, not just the arms',
+    '2 quiet dolphin kicks off every wall before breaking into full stroke',
+    'a high, quiet catch that holds the water instead of slipping through it',
+    'finishing the pull fully past the hip for a clean, complete exit before recovery'
+  ];
   var TECHNIQUE_ARCHETYPES = [
     {
       name: 'Drill Focus',
@@ -6166,7 +6224,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         var templates = [
           function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', technique drill — catch & body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
           function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', odd 25 drill, even 25 full stroke — hold the drill feel', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — Full Stroke, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke, one technical cue per length', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 3 — Full Stroke, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -6632,17 +6690,42 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var alreadyBiased = chosenArchetypes.some(function (a) { return biasPool.indexOf(a) > -1; });
       if (!alreadyBiased) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(biasPool);
     }
-    // ELITE ONLY: the Elite Power block's own budget is now reserved out of
-    // the SAME mainM pool the regular archetype blocks split, rather than
-    // being fixed-size volume added on top of it — previously an elite
-    // swimmer's actual total silently overshot their chosen distance by
-    // however big that block was, regardless of how small a total they
-    // picked. Reserving ~22% of mainM for it (floor 300m) before splitting
-    // the remainder among the regular blocks keeps the whole Main Set inside
-    // its own already-budgeted meters.
-    var eliteBlockM = state.level === 'elite' ? Math.max(300, Math.round((mainM * 0.22) / 50) * 50) : 0;
+    // ELITE ONLY, AND ONLY ON A SPRINT-ORIENTED SESSION: the Elite Power block
+    // used to fire for every elite-level swimmer every single day regardless
+    // of focus — genuinely too much explosive/high-CNS volume stacked onto an
+    // Aerobic, Technique, or Threshold day, which is meant to be about
+    // something else entirely. It's now gated behind `speed` actually being
+    // one of the selected Fitness Goals — true whenever the Weekly Schedule's
+    // own Sprint/Power or Race Pace days auto-select it, AND whenever a
+    // swimmer manually picks Speed themselves ("requested"), so it still
+    // fires exactly on the sessions it's meant for, just never as a blanket
+    // daily fixture. eliteBlockM stays 0 (no block, no reserved budget) on
+    // every other elite-level day.
+    var eliteBlockWanted = state.level === 'elite' && state.goals.indexOf('speed') > -1;
+    // The Elite Power block's own budget is reserved out of the SAME mainM
+    // pool the regular archetype blocks split, rather than being fixed-size
+    // volume added on top of it — previously an elite swimmer's actual total
+    // silently overshot their chosen distance by however big that block was,
+    // regardless of how small a total they picked. Reserving ~22% of mainM
+    // for it (floor 300m) before splitting the remainder among the regular
+    // blocks keeps the whole Main Set inside its own already-budgeted meters.
+    var eliteBlockM = eliteBlockWanted ? Math.max(300, Math.round((mainM * 0.22) / 50) * 50) : 0;
     var regularMainM = Math.max(200, mainM - eliteBlockM);
     var share = 1 / chosenArchetypes.length;
+    // TECHNIQUE & SPRINT HYBRID: a swimmer who selects ONLY Technique (no
+    // Speed) previously got zero sprint stimulus at all — every Main Set
+    // block drawn purely from TECHNIQUE_ARCHETYPES. Rather than heavy sprint
+    // volume (which would defeat the point of a technique-focused day), the
+    // first Technique-archetype block gets one small, clearly-labeled
+    // high-tempo set appended — "just 1 short high-tempo set" per the
+    // explicit ask — carved OUT of that block's own share (never added on
+    // top of it, so strict distance accuracy holds exactly as before).
+    // Skipped entirely when Speed is also selected, since real sprint volume
+    // already exists elsewhere in that session and a second small bridge
+    // would just be redundant.
+    var wantsTechniqueSprintBridge = state.goals.indexOf('technique') > -1 && state.goals.indexOf('speed') === -1;
+    var addedTechniqueSprintBridge = false;
+    var TECH_SPRINT_BRIDGE_M = 100;
     var main = chosenArchetypes.map(function (archetype) {
       var shareM = Math.round((regularMainM * share) / 100) * 100 || 100;
       // Each Main Set block is locked to a single stroke (rotating across
@@ -6651,17 +6734,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       // never three strokes randomly blended inside one set.
       var blockStroke = nextBlockStroke();
       var isRecoveryCarveArchetype = SPEED_ARCHETYPES.indexOf(archetype) > -1;
+      var addSprintBridgeHere = wantsTechniqueSprintBridge && !addedTechniqueSprintBridge && TECHNIQUE_ARCHETYPES.indexOf(archetype) > -1;
       // INTEGRATED ACTIVE RECOVERY: every SPEED_ARCHETYPES block is genuine
       // sprint/power work — rather than only flushing lactate at the very end
       // via the Cool-Down, a short EZ recovery set is appended directly inside
       // the block itself, right after the hard rounds. EZ_RECOVERY_M is
       // carved OUT of this block's own share (not added on top of it) so the
       // block's rendered total stays at shareM, keeping the Main Set's grand
-      // total exactly conserved.
-      var contentShareM = isRecoveryCarveArchetype ? Math.max(150, shareM - EZ_RECOVERY_M) : shareM;
+      // total exactly conserved. The Technique-to-Speed bridge set below uses
+      // the identical carve-not-add principle.
+      var contentShareM = isRecoveryCarveArchetype ? Math.max(150, shareM - EZ_RECOVERY_M)
+        : addSprintBridgeHere ? Math.max(150, shareM - TECH_SPRINT_BRIDGE_M)
+        : shareM;
       var rounds = buildToShare(function () { return archetype.build(contentShareM, pace100, workScaler, fixedStrokeFn(blockStroke), state.equipment, totalM); }, contentShareM);
       if (isRecoveryCarveArchetype) {
         rounds = rounds.concat([ezRecoverySet(pace100)]);
+      }
+      if (addSprintBridgeHere) {
+        var bridgeLadder = paceLadder(pace100);
+        var bridgeReps = Math.max(2, Math.round(TECH_SPRINT_BRIDGE_M / 25));
+        rounds = rounds.concat([{ label: 'Technique-to-Speed Bridge', sets: [buildSet(bridgeReps, 25, blockStroke + ', one quick high-tempo burst — same clean technique, just faster turnover; hold the catch and rotation you just built', [], bridgeLadder.p50, 20, workScaler, '50 Pace')] }]);
+        addedTechniqueSprintBridge = true;
       }
       return {
         name: archetype.name,
@@ -6682,7 +6775,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     // proportional to the swimmer's own chosen distance like every other
     // stage, and its own EZ recovery set is carved from the same reserved
     // budget rather than added on top of it.
-    if (state.level === 'elite') {
+    if (eliteBlockWanted) {
       var eliteContentM = Math.max(200, eliteBlockM - EZ_RECOVERY_M);
       var eliteLadder = paceLadder(pace100);
       var eliteFins = state.equipment.indexOf('Fins') > -1;
