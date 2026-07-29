@@ -1336,63 +1336,14 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-wave-2 { opacity: 0.06; animation: waveDrift 30s linear infinite reverse; }
 @keyframes waveDrift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-/* Water-ripple rings — a droplet-style pulse to reinforce the "in the water" feel */
-.hero-ripples { position: absolute; z-index: -1; pointer-events: none; }
-.hero-ripples.r1 { top: 16%; left: 84%; }
-.hero-ripples.r2 { top: 78%; left: 90%; }
-.hero-ripple { position: absolute; inset: 0; width: 90px; height: 90px; margin: -45px; border-radius: 50%; border: 1px solid var(--aqua); opacity: 0; animation: rippleOut 6s ease-out infinite; }
-.hero-ripple:nth-child(2) { animation-delay: 2s; }
-.hero-ripple:nth-child(3) { animation-delay: 4s; }
-@keyframes rippleOut {
-  0%   { transform: scale(0.4); opacity: 0; }
-  15%  { opacity: 0.35; }
-  100% { transform: scale(2.4); opacity: 0; }
-}
-
-/* ============================= HERO HUD FRAME =============================
-   A "precision instrument" overlay layered on top of the existing hero
-   video/photo — thin corner brackets, a technical top/bottom readout bar,
-   and a slow-drifting dot-grid wash — matching the sharp, hairline,
-   monospace-data language the rest of the dashboard already uses (see the
-   card/token retune above). Purely decorative chrome: pointer-events:none
-   throughout, z-index above the ambient background layers but the labels
-   are flavor text, not live telemetry, so nothing here claims to be real
-   data the way the Hero's actual Registered Swimmers/Subscribers stats do. */
-.hero-hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-/* The heavy cyan graph-paper grid line pattern this used to paint here was
-   removed outright — it read as exactly the "AI-generated template"
-   background this round's redesign was asked to get away from. .hero-hud-grid
-   is left as an inert, empty hook (kept rather than deleted so the markup
-   above doesn't need touching) in case a future, much subtler texture is
-   ever wanted here again. */
-.hero-hud-grid { display: none; }
-.hero-hud-corner {
-  position: absolute; width: 28px; height: 28px; border-color: rgba(78,233,255,0.4);
-  opacity: 0; animation: hudFadeIn 900ms var(--ease) 400ms forwards;
-}
-/* Offset well clear of the top/bottom bars' own text+padding (~34px tall)
-   so the bracket lines frame the hero's inner content, never cross the
-   HUD bar labels themselves. */
-.hero-hud-corner.tl { top: 46px; left: 18px; border-top: 1.5px solid; border-left: 1.5px solid; }
-.hero-hud-corner.tr { top: 46px; right: 18px; border-top: 1.5px solid; border-right: 1.5px solid; }
-.hero-hud-corner.bl { bottom: 46px; left: 18px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
-.hero-hud-corner.br { bottom: 46px; right: 18px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
-@keyframes hudFadeIn { to { opacity: 1; } }
-.hero-hud-bar {
-  position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
-  padding: 10px clamp(18px, 4vw, 40px); font-family: var(--font-mono); font-size: 0.68rem;
-  letter-spacing: 0.1em; text-transform: uppercase; color: rgba(226,232,240,0.55);
-}
-.hero-hud-bar-top { top: 0; border-bottom: 1px solid rgba(148,163,184,0.16); }
-.hero-hud-bar-bottom { bottom: 0; border-top: 1px solid rgba(148,163,184,0.16); }
-.hero-hud-tag { display: inline-flex; align-items: center; gap: 8px; }
-.hero-hud-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0; box-shadow: 0 0 0 0 rgba(22,214,115,0.55); animation: hudPulse 2.2s infinite; }
-@keyframes hudPulse {
-  0% { box-shadow: 0 0 0 0 rgba(22,214,115,0.55); }
-  70% { box-shadow: 0 0 0 7px rgba(22,214,115,0); }
-  100% { box-shadow: 0 0 0 0 rgba(22,214,115,0); }
-}
-@media (max-width: 720px) { .hero-hud-bar-top .hero-hud-tag:last-child, .hero-hud-bar-bottom .hero-hud-tag:last-child { display: none; } }
+/* The water-ripple "target reticle" rings and the entire sci-fi HUD overlay
+   (corner brackets, top/bottom readout bars, "SYSTEM READY"/"PROTOCOL
+   ONLINE"/"SET.001 · REP.∞" dummy tech text) that used to render here were
+   removed outright — explicitly called out as gimmicky/gaming-overlay
+   clutter, not the clean, premium SaaS look this Hero is meant to have. The
+   markup (.hero-ripples, .hero-hud and its children) was deleted alongside
+   this CSS, not just hidden.
+*/
 
 /* The hero copy is a .wrap capped narrower than the wrap's own 1240px, so
    .wrap's margin-inline:auto was centering the whole block within the content
@@ -1403,25 +1354,12 @@ section { position: relative; scroll-margin-top: 96px; }
    centered. */
 .hero-content { max-width: 820px; margin-inline-start: 0; margin-inline-end: auto; text-align: start; }
 /* Staggered load-in cascade for the hero copy (child 1 is the eyebrow, which has
-   no data-reveal, so the four revealed elements land on nth-child 2-5). */
+   no data-reveal, so the three revealed elements — h1, actions, stats — land
+   on nth-child 2-4). */
 .hero-content > [data-reveal]:nth-child(2) { transition-delay: 60ms; }
 .hero-content > [data-reveal]:nth-child(3) { transition-delay: 200ms; }
 .hero-content > [data-reveal]:nth-child(4) { transition-delay: 340ms; }
-.hero-content > [data-reveal]:nth-child(5) { transition-delay: 480ms; }
-.hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-5); }
-/* Compact value-prop chips under the headline — keeps the hero feeling full
-   and "high-converting" without a placeholder paragraph. Glassy pills that
-   echo the site's neon accent. */
-.hero-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
-.hero-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 999px;
-  background: rgba(148,163,184,0.10); border: 1px solid var(--border-strong);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  color: var(--fg); font-family: var(--font-display); font-weight: 600;
-  font-size: 0.82rem; letter-spacing: 0.02em; white-space: nowrap;
-}
-.hero-chip .icon { width: 15px; height: 15px; color: var(--aqua-bright); }
+.hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-6); }
 .hero-content h1 .accent {
   background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -1439,21 +1377,18 @@ section { position: relative; scroll-margin-top: 96px; }
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
 
-/* Full-screen ambient CSS background — always on, every tab. It's the
-   universal base layer (and the sole background on Disciplines, Gear,
-   Academy and Pricing) and doubles as the graceful fallback if a Workouts/
-   Gym video fails or is still loading. Workouts and Gym additionally layer
-   a real looping video + dark overlay on top once it starts playing — see
-   .dash-bg-video below.
-
-   Rewritten this round to a solid matte background with subtle, mostly
-   static radial gradients, replacing the previous heavy multi-color radial
-   wash + animated cyan graph-paper grid line texture (the ::after grid layer
-   is gone entirely) — that combination was the single biggest contributor
-   to this file's "AI-generated template" look. The result is calmer and far
-   lower-contrast: two low-opacity accent glows anchored to opposite
-   corners, over the flat --bg matte color, with no grid lines and no
-   distracting motion. */
+/* Full-screen ambient CSS background — always on, every tab, Workouts and
+   Gym included. It's a solid matte background with subtle, static radial
+   gradients, replacing (across two separate rounds) both the previous heavy
+   multi-color radial wash + animated cyan graph-paper grid line texture, and
+   — this round — the Workouts tab's own looping swimmer/pool background
+   video + dark overlay wash (`.dash-bg-video`/`.dash-bg-overlay`, along with
+   the `#workoutsBgVideo` element and its lazy-load JS), which was explicitly
+   called out as exactly the kind of "ocean background image overlay"
+   clutter this round's cleanup was asked to remove. Gym's equivalent video
+   was already removed in an earlier round for the same reason, so Workouts
+   and Gym (and every other tab — Gear, Academy, Tracker, Pricing, …) now all
+   share this identical plain background with nothing further to strip. */
 .dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 1; pointer-events: none; background: var(--bg); }
 .dash-ambient-bg::before {
   content: ''; position: absolute; inset: 0;
@@ -1462,21 +1397,6 @@ section { position: relative; scroll-margin-top: 96px; }
     radial-gradient(ellipse 55% 45% at 100% 100%, rgba(22,214,115,0.06), transparent 60%);
 }
 .dash-ambient-bg::after { content: none; }
-
-/* Full-screen looping video background for Workouts (swimmer in a pool) —
-   loaded lazily on first visit (see the JS in switchTab()), faded in only
-   while that tab is active, and backed by a dark overlay wash so cards/text
-   stay fully readable. Falls back to the .dash-ambient-bg CSS effect
-   underneath if the video errors or never loads. Gym's own equivalent video +
-   overlay was removed outright at the user's request for a clean,
-   high-performance look — Gym now shows the same plain .dash-ambient-bg every
-   other non-video tab (Gear, Academy, Tracker, Pricing, …) already uses. */
-.dash-bg-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 900ms ease; }
-.dash-bg-video.is-playing[data-for="workouts"] { opacity: 0; }
-#dashboard[data-active-tab="workouts"] .dash-bg-video[data-for="workouts"].is-playing { opacity: 0.5; }
-.dash-bg-overlay { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; background: linear-gradient(160deg, rgba(10,15,24,0.82) 0%, rgba(10,15,24,0.65) 55%, rgba(10,15,24,0.82) 100%); }
-#dashboard[data-active-tab="workouts"] .dash-bg-overlay { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .dash-bg-video { display: none; } }
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
    more expansive — a deliberate "flagship feature" width, wider than the
@@ -2065,13 +1985,20 @@ section { position: relative; scroll-margin-top: 96px; }
    exactly the "chaotic, sprawling" complaint this round set out to fix.
    Shrinking to 16:9 (smaller even at a card's own width) plus the
    multi-column grid below (which itself roughly halves each card's width)
-   together bring a card down to a genuinely compact "thumbnail" size. */
+   together bring a card down to a genuinely compact "thumbnail" size.
+   Widened further to 2.4:1 and capped at 110px tall — screenshotting the
+   16:9 version next to the card's own text still showed the frame taking up
+   roughly half of every card's height, reading as an oversized stickman
+   container rather than a compact technique-demo thumbnail; this shrinks it
+   further without losing the demo's legibility (the figure itself is also
+   scaled down slightly, 82%→62%, so it reads as a contained icon-sized
+   diagram rather than a figure stretching edge-to-edge). */
 .gym-anim-frame {
-  margin-top: var(--space-2); width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden;
+  margin-top: var(--space-2); width: 100%; aspect-ratio: 2.4/1; max-height: 110px; position: relative; overflow: hidden;
   background: linear-gradient(135deg, var(--surface-2), var(--bg-alt)); border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
 }
-.gym-anim { height: 82%; width: auto; max-width: 100%; color: var(--aqua); }
+.gym-anim { height: 62%; width: auto; max-width: 100%; color: var(--aqua); }
 .gym-anim path, .gym-anim rect, .gym-anim line { fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .gym-anim circle { fill: currentColor; stroke: none; }
 .gym-anim .p { color: var(--muted-2); }
@@ -3141,39 +3068,15 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <svg viewBox="0 0 1440 120" preserveAspectRatio="none" class="hero-wave hero-wave-2"><path d="M0,70 C240,120 480,20 720,70 C960,120 1200,20 1440,70 L1440,120 L0,120 Z" fill="var(--green)"/></svg>
   </div>
 
-  <div class="hero-ripples r1" aria-hidden="true"><div class="hero-ripple"></div><div class="hero-ripple"></div><div class="hero-ripple"></div></div>
-  <div class="hero-ripples r2" aria-hidden="true"><div class="hero-ripple"></div><div class="hero-ripple"></div><div class="hero-ripple"></div></div>
-
   <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
-
-  <div class="hero-hud" aria-hidden="true">
-    <div class="hero-hud-grid"></div>
-    <span class="hero-hud-corner tl"></span>
-    <span class="hero-hud-corner tr"></span>
-    <span class="hero-hud-corner bl"></span>
-    <span class="hero-hud-corner br"></span>
-    <div class="hero-hud-bar hero-hud-bar-top">
-      <span class="hero-hud-tag">TRAINING DECK · EST. 2025</span>
-      <span class="hero-hud-tag">PROTOCOL ONLINE</span>
-    </div>
-    <div class="hero-hud-bar hero-hud-bar-bottom">
-      <span class="hero-hud-tag"><span class="hero-hud-dot"></span> SYSTEM READY</span>
-      <span class="hero-hud-tag">SET.001 · REP.∞</span>
-    </div>
-  </div>
 
   <div class="wrap hero-content">
     <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
     <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
-    <div class="hero-chips" data-reveal>
-      <span class="hero-chip"><svg class="icon"><use href="#i-stopwatch"/></svg> Daily-rotating swim sets</span>
-      <span class="hero-chip"><svg class="icon"><use href="#i-dumbbell"/></svg> Tailored dryland training</span>
-      <span class="hero-chip"><svg class="icon"><use href="#i-droplet"/></svg> Instant progress tracking</span>
-    </div>
     <div class="hero-actions" data-reveal>
       <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start 3-Day Free Trial — No Card Required</button>
       <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1" data-auth-signed-in style="display:none">Build My Workout</button>
-      <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Today's Gym Focus</button>
+      <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Explore Gym Plan</button>
     </div>
     <div class="hero-stats" data-reveal>
       <div class="stat" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span></div>
@@ -3184,8 +3087,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
   <div class="dash-ambient-bg" aria-hidden="true"></div>
-  <video class="dash-bg-video" id="workoutsBgVideo" data-for="workouts" muted loop playsinline preload="none" aria-hidden="true"></video>
-  <div class="dash-bg-overlay" aria-hidden="true"></div>
   <div class="wrap dash-panels">
 
     <!-- ---------- WORKOUTS (interactive generator) ---------- -->
@@ -4616,31 +4517,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     heroVideo.style.display = 'none';
   }
 
-  // Workouts' full-screen background video — deliberately NOT given a
-  // <source> in the HTML so nothing downloads until a visitor actually opens
-  // that tab. The DASH_BG_VIDEO_SOURCES URL is injected on first activation;
-  // same playing/error/timeout fallback pattern as the hero video above, so
-  // the .dash-ambient-bg CSS layer underneath still shows if the video fails.
-  // Gym's own entry was removed along with its <video> element and CSS above.
-  var DASH_BG_VIDEO_SOURCES = {
-    workouts: 'https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260719_085032_3e352ac2-3f8b-4236-af35-32847ba2203c.mp4'
-  };
-  function loadDashBgVideo(tabId) {
-    var url = DASH_BG_VIDEO_SOURCES[tabId];
-    var video = document.querySelector('.dash-bg-video[data-for="' + tabId + '"]');
-    if (!url || !video || video.dataset.loaded || reduceMotion) return;
-    video.dataset.loaded = '1';
-    var source = document.createElement('source');
-    source.src = url;
-    source.type = 'video/mp4';
-    video.appendChild(source);
-    video.addEventListener('playing', function () { video.classList.add('is-playing'); });
-    video.addEventListener('error', function () { video.style.display = 'none'; }, true);
-    setTimeout(function () { if (video.readyState < 2) video.style.display = 'none'; }, 8000);
-    video.load();
-    video.play().catch(function () {});
-  }
-
   /* ============================= ANNOUNCEMENT BAR ============================= */
   var announceClose = document.getElementById('announceClose');
   if (announceClose) {
@@ -4682,7 +4558,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!next) return;
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
-    if (id === 'workouts') loadDashBgVideo(id);
     // Belt-and-suspenders: the Coach page gate is normally kept correct
     // reactively (every swimfit:accesschange re-renders it), but re-asserting
     // it here too means arriving at the tab can never show a stale gate state
@@ -8350,7 +8225,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'hero.eyebrow': 'Elite Performance Swim Training',
         'hero.headline': 'Outswim Your Limits.<br>Own the <span class="accent">Race.</span>',
         'hero.sub': 'Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.',
-        'hero.cta1': 'Build My Workout', 'hero.cta2': 'Today’s Gym Focus',
+        'hero.cta1': 'Build My Workout', 'hero.cta2': 'Explore Gym Plan',
         'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Swim Workout Generator',
         'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'What Are You Training Today?',
         'gear.eyebrow': 'Equipment Integration', 'gear.heading': 'Gear That Powers Every Set',
@@ -8371,7 +8246,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'hero.eyebrow': 'تدريب السباحة الاحترافي النخبوي',
         'hero.headline': 'تجاوز حدودك.<br>املك <span class="accent">السباق.</span>',
         'hero.sub': 'أطلق العنان لإمكاناتك مع تمارين سباحة عالية الأداء، وتدريب بري مخصص، وتتبّع فوري للتقدم.',
-        'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'تركيز الجيم اليوم',
+        'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'استكشف خطة الجيم',
         'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مولّد تمارين السباحة',
         'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'ماذا تتدرب اليوم؟',
         'gear.eyebrow': 'تكامل المعدات', 'gear.heading': 'معدات تدعم كل تمرين',

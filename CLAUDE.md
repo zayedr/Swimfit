@@ -3114,6 +3114,84 @@ CSS/token changes — no JS, markup structure, Firestore, or Cloud Function chan
   `download` events, Complete Workout logging, and the Beginner-trial-bypass/suspension-lock
   behavior from the immediately preceding round) still passes unchanged.
 
+**A follow-up visual cleanup pass on the Hero, Workouts, and Gym specifically targeting leftover
+"gimmicky/AI" chrome the previous token-level retune didn't touch — the HUD overlay markup,
+Workouts' own background video, and the Gym exercise cards' oversized technique-demo frames were
+all still there structurally even after the grid/glow/card-token retune above, since that round
+was a pure CSS-token pass and didn't touch markup or JS. This round removes them outright.**
+
+- **The Hero's sci-fi HUD overlay is gone entirely — markup, not just CSS.** `.hero-hud` and its
+  children (`.hero-hud-grid`, the four `.hero-hud-corner` brackets, and the top/bottom
+  `.hero-hud-bar`s carrying "TRAINING DECK · EST. 2025" / "PROTOCOL ONLINE" / "SYSTEM READY" /
+  "SET.001 · REP.∞") were deleted from the Hero's markup, along with every one of their CSS rules
+  and the `hudFadeIn`/`hudPulse` keyframes — this was flavor-text chrome with a gaming-HUD/reticle
+  aesthetic, explicitly called out as exactly the kind of clutter this cleanup was asked to strip,
+  not a hidden or `display:none`'d leftover the way `.hero-hud-grid`'s background was handled in
+  the prior round. The `.hero-ripples` concentric "target reticle" circle rings (two `r1`/`r2`
+  instances, three animated rings each) were removed the same way, markup and CSS
+  (`.hero-ripples`/`.hero-ripple`/`@keyframes rippleOut`) both gone. The Hero's other ambient
+  decoration — the swimmer silhouette SVG, the wave shapes, the caustics wash, the blurred
+  `.blob` — was deliberately left alone; none of it reads as HUD/reticle chrome, and the ask was
+  scoped to the sci-fi-overlay elements specifically, not every decorative layer in the Hero.
+- **Hero buttons trimmed to exactly one primary + one secondary, per the explicit ask.** The
+  three `.hero-chip` value-prop pills ("Daily-rotating swim sets" / "Tailored dryland training" /
+  "Instant progress tracking") sitting between the headline and the CTAs are gone — markup and
+  the `.hero-chips`/`.hero-chip` CSS both removed — leaving the headline flow straight into the
+  button row. The button row itself was already effectively "one primary + one secondary" at any
+  given moment (a signed-out primary CTA and a signed-in primary CTA are mutually exclusive via
+  `data-auth-signed-out`/`data-auth-signed-in`, so exactly one primary is ever visible alongside
+  the one ghost secondary), so no button was added or removed there — only the secondary's label
+  changed, from "Today's Gym Focus" to the explicitly requested **"Explore Gym Plan"** (updated in
+  the inline markup and both the `I18N.en`/`I18N.ar` `hero.cta2` dictionary entries, so language
+  switching stays in sync). The staggered `data-reveal` entrance cascade
+  (`.hero-content > [data-reveal]:nth-child(N)`) was renumbered from 5 possible slots down to the
+  3 that still exist (h1, actions, stats) — verified via Playwright that all three still receive
+  `is-visible` correctly on load.
+- **Workouts' own looping background video is gone — markup, CSS, and JS all three.** The
+  `#workoutsBgVideo` `<video>` element, the `.dash-bg-overlay` dark-wash div, the
+  `.dash-bg-video`/`.dash-bg-overlay` CSS rules, and the `DASH_BG_VIDEO_SOURCES`/
+  `loadDashBgVideo()` lazy-load function (plus its one call site in `switchTab()`) were all
+  deleted outright — this was explicitly named as "the hero/ocean background image overlay" the
+  ask wanted replaced with a solid matte background. Workouts now falls back to the exact same
+  plain `.dash-ambient-bg` layer (solid `var(--bg)` matte color + two subtle static corner glows,
+  already established two rounds ago) that Gym and every other tab already use — Gym's own
+  equivalent video had already been removed in an earlier round for the identical reason, so this
+  finally brings Workouts to parity rather than leaving it as the one remaining tab with a video
+  background. No new background color was introduced (`--bg` is already `#0D1117`, functionally
+  identical to the `#0B0F17` the ask named).
+- **Gym's top bar (Strength Profile + Target Focus) was audited, not rebuilt — it was already
+  correctly balanced.** Measured directly via Playwright rather than assumed: both `.gym-top-half`
+  panels compute to the exact same height (196px) and the exact same top/bottom offsets in every
+  case checked, and the "Update My Prescription" button and every `.pill-tab` in the Target Focus
+  group both resolve to a `999px` pill radius — i.e. uniform heights and matching border-radii
+  were already true before this round touched anything. (Text inputs inside Strength Profile use
+  the smaller `--radius-sm` intentionally — a rectangular input field and a pill-shaped button are
+  different control types by convention, not a radius mismatch.) No CSS changes were made here
+  since no actual imbalance was found; inventing a rebuild with nothing broken to fix would have
+  been change for its own sake.
+- **The Gym exercise grid's per-row equal-height stretching was also audited and confirmed already
+  correct** (a `display:grid` container stretches its items to a shared row height by default, and
+  `.gym-card` has no `align-self` override fighting that) — measured directly: every card in the
+  same grid row reports an identical height down to the pixel. The one real, actionable issue was
+  the technique-demo frame's own size relative to the card: `.gym-anim-frame`'s aspect ratio was
+  widened from `16/9` to `2.4/1` with a `110px` height cap, and the SVG figure inside it was scaled
+  down from filling 82% of the frame's height to 62% — screenshotting a card next to its own text
+  content showed the frame consistently occupying roughly half of every card's total height, which
+  read as an oversized stickman container rather than a compact technique-demo thumbnail; this
+  shrinks it further without losing the demo's legibility. The Warm-Up → Core → Main Lifts →
+  Cool-Down section flow itself (`.gym-phase + .gym-phase { margin-top: var(--space-6) }`) was
+  found to already apply a uniform gap between every phase — the apparent "gap" seen in one
+  in-progress test screenshot traced to the page's own `data-reveal` IntersectionObserver-based
+  fade-in not having fired yet for phases scrolled past too quickly by a synthetic `scrollTo` loop
+  in the test harness, not a real layout bug — confirmed by directly reading each phase's
+  `is-visible` class and DOM position rather than trusting a single screenshot's visual gap.
+- Verified via Playwright end-to-end: zero page errors across all 9 tabs; the Hero's three
+  remaining `data-reveal` elements (headline, actions, stats) all resolve to `is-visible`; a 390px
+  mobile viewport shows the trimmed Hero with zero horizontal overflow; the Gym top bar's two
+  halves measure identical heights and border-radii; both Workouts' and Gym's PDF exports still
+  fire real `download` events; the flexible PB add/remove flow, Complete Workout logging, and the
+  Beginner-trial-bypass/suspension-lock behavior from prior rounds are all unaffected.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
