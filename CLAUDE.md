@@ -3192,6 +3192,91 @@ was a pure CSS-token pass and didn't touch markup or JS. This round removes them
   fire real `download` events; the flexible PB add/remove flow, Complete Workout logging, and the
   Beginner-trial-bypass/suspension-lock behavior from prior rounds are all unaffected.
 
+**A ground-up A324-inspired 3D scroll-motion redesign of the Hero/landing experience** — a
+floating capsule nav plus a genuine scroll-driven 3D "orbiting card" showcase between the Hero and
+the app dashboard — delivered entirely in hand-rolled CSS + vanilla JS, since this repo has no
+build step to add a motion library (GSAP/Framer Motion/ScrollTrigger) to; every earlier
+"framer-motion-style" ask in this file's history has likewise been translated into native CSS/JS,
+and this round follows that same precedent at larger scale.
+
+- **`.capsule-nav`** is a new, frosted-glass, pill-shaped nav (`Workouts | Gym | AI Coach |
+  Tracker` + a "Start Training" primary CTA) fixed at top-center of the viewport — deliberately
+  scoped to desktop (`min-width:981px`, matching the sidebar's own breakpoint) and to the landing
+  experience specifically, not a replacement for the app's real navigation (the sidebar/mobile-
+  bottom-nav, which still owns every other tab — Gear, Academy, Support, Settings, Pricing, sign-
+  in/out, the trial badge, the admin link — none of which this capsule duplicates). Below 981px
+  the existing mobile top bar already occupies this exact strip of the viewport, so the capsule
+  stays hidden there rather than colliding with it. Its links carry the same `[data-tab]`
+  attribute every other nav element on this site already uses, so they're picked up for free by
+  the single shared click-delegation loop in the NAV/TAB CONTROLLER script (`tabButtons =
+  document.querySelectorAll('[data-tab]')`, wired once at load) — no new JS click handler was
+  needed, and clicking any capsule link calls the exact same `switchTab()`/
+  `dashboard.scrollIntoView({block:'start'})` every existing nav button already uses, which jumps
+  straight to that tool's content at the top of the dashboard rather than scrolling through the
+  showcase section in between. The capsule fades out (`is-hidden`, toggled by a small rAF-
+  throttled scroll listener) once the swimmer has scrolled past the landing section into the real
+  dashboard, where the sidebar is already the primary nav and a second persistent bar would just
+  be clutter.
+- **`#scrollyShowcase`** is a classic pure-CSS/JS "pin and advance" scrollytelling section: a tall
+  (`height:300vh`) wrapper holds a `position:sticky` stage pinned for a full `100svh` viewport
+  while the swimmer scrolls through it. A single rAF-throttled scroll listener computes `progress`
+  (0→1) from the wrapper's own `getBoundingClientRect()`, maps it to a continuous `t` (0→3, one
+  unit per slide) driving three cross-fading headline/copy pairs — "Outswim Your Limits" (Slide 1,
+  the Swim Generator), "Dryland & Power" (Slide 2, Gym), "A Whole New Universe" (Slide 3, AI Coach
+  & Tracker) — and three real, clickable `<button data-tab="...">` cards arranged on a genuine 3D
+  CSS orbit (`perspective` + `transform-style:preserve-3d` on the stage, each card positioned via
+  `rotateY(angle) translateZ(260px)`), so the cards visibly swing around a central axis as the
+  active slide advances, foreshortening/dimming as they rotate away from front-and-center — the
+  classic "3D carousel" look, achieved with zero external animation library. `will-change:
+  transform, opacity` is set on every card per the ask's own explicit performance requirement.
+  Every card is also a real shortcut into its tool (same `[data-tab]` delegation as the capsule
+  nav above), and the inactive two of the three headline/copy blocks are marked `aria-hidden="true"`
+  (toggled live as the active slide changes) so screen-reader users aren't read three overlapping
+  headlines at once.
+- **A real orbit-math bug was caught and fixed while testing this with actual scroll input (a
+  mouse-wheel simulation), not just by reading the CSS.** The initial version computed each card's
+  angle as a plain, unclamped `(cardIndex - t) * 120°` across the full `t` range (0→3) — since 3
+  cards spaced 120° apart complete exactly one full 360° revolution over that range, by the very
+  end of the section (t→3) card 0 had rotated all the way back around to the front-and-center
+  position it started at, meaning the swim-generator card visibly swung back into focus at the
+  exact moment the "A Whole New Universe" headline (slide 3, meant to pair with the AI-Coach-
+  and-tracker card) was supposed to be the sole focus — two unrelated pieces of content visibly
+  competing for attention. Fixed by clamping only the *rotation* input at `Math.min(t, 2)` (the
+  slide-index calculation elsewhere still uses the real, unclamped `t`) — card 2 now arrives at
+  its front position exactly when slide 3 becomes active and simply holds there for the remaining
+  third of the scroll range, rather than continuing to spin past it. Verified via Playwright with
+  a real wheel-scroll simulation (`page.mouse.wheel`, since programmatic `window.scrollTo` is
+  smoothed by this file's pre-existing global `html{scroll-behavior:smooth}` and doesn't reach its
+  target within a short wait, which is what made the bug hard to see in the first naive test) at
+  four points across the scroll range: the correct card is at full opacity/front-and-center at
+  each of the three slide transitions, and it stays there through the final third instead of
+  fading back out.
+- **Respects `prefers-reduced-motion` completely, not just by disabling the rotation.** Under
+  reduced motion, `.scrolly` collapses to `height:auto`, `.scrolly-sticky` becomes a plain static
+  block (no pinning at all — verified the total document height drops from the animated version's
+  2700px-tall showcase alone down to a normal, single-viewport-ish static stack), all three
+  headline/copy blocks render simultaneously rather than cross-fading, and the cards lay out in a
+  plain wrapping flex row with `transform:none!important`. The JS scroll listener that drives all
+  of the above is also never attached in the first place (gated behind the same `reduceMotion`
+  check every other animation in this file already uses) — so a reduced-motion visitor pays zero
+  scroll-listener cost for a section whose motion they've opted out of, not just a visually-
+  disabled version of it.
+- **The Hero's headline/CTA copy, decorative swimmer SVG/waves/caustics, and the 3-day-trial
+  paywall/access-control system were all left completely untouched** — this was a presentational
+  addition sitting between two already-correct systems (the Hero above it, the tab-switching
+  dashboard below it), not a rewrite of either. `switchTab()` itself was not modified at all; the
+  only genuinely new JS is the two small, independently-gated scroll listeners described above.
+- Verified via Playwright end-to-end: the capsule nav is visible and correctly positioned at
+  desktop widths, hidden (`display:none`) below 981px and on a 390px mobile viewport with zero
+  horizontal overflow at any scroll position through the showcase; the showcase correctly
+  advances through all three slides with the right card in focus at each (post-bugfix); the
+  capsule nav hides once scrolled into the real dashboard; clicking a capsule link or a showcase
+  card jumps directly to that tool's content rather than scrolling through the presentation;
+  reduced-motion mode lays out as a plain static stack with no pinning and no attached scroll
+  listener; and the full pre-existing regression suite (all 9 tabs, both PDF exports, Complete
+  Workout logging, flexible PB add/remove, and the Beginner-trial-bypass/suspension-lock behavior)
+  still passes unchanged with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
