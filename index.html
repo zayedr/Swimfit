@@ -1228,13 +1228,14 @@ section { position: relative; scroll-margin-top: 96px; }
    are overridden here; colors, hover states, and the tab-switching JS are
    completely untouched. */
 @media (min-width: 981px) {
-  body { margin-left: var(--sidebar-w); }
+  body { margin-left: var(--sidebar-w); transition: margin-left var(--dur) var(--ease); }
   .hero { padding-top: 56px; }
 
   .nav {
     left: 0; right: auto; top: var(--announce-h); bottom: 0;
     width: var(--sidebar-w); height: auto; padding-block: var(--space-4); padding-inline: 0;
     border-bottom: none; border-right: 1px solid transparent; overflow-y: auto;
+    transition: opacity var(--dur) var(--ease), width var(--dur) var(--ease);
   }
   .nav.scrolled { border-right-color: var(--border); border-bottom-color: transparent; }
   .nav .wrap {
@@ -1261,6 +1262,51 @@ section { position: relative; scroll-margin-top: 96px; }
   .nav-status-badge { justify-content: center; }
   .nav-toggle { display: none; }
   .mobile-bottom-nav { display: none; }
+
+  /* Collapsible sidebar. Setting --sidebar-w itself to 0 (rather than adding
+     a pile of one-off overrides) is deliberate: every layout rule that
+     already reads the sidebar's width through this one token —
+     body's margin-left, .capsule-nav's centering math, .panel-wide's
+     full-bleed correction, the admin chat FAB's left offset — recomputes
+     correctly for free the moment this single value changes, with zero
+     per-component overrides needed. */
+  body.sidebar-collapsed { --sidebar-w: 0px; }
+  body.sidebar-collapsed .nav { opacity: 0; pointer-events: none; }
+}
+
+/* Toggle button sits outside .nav entirely (not inside it) so it's still
+   reachable to re-expand the sidebar once collapsed — if it lived inside
+   .nav, collapsing would hide the only control that could bring it back.
+   Hidden on mobile by default (mobile already has its own bottom-nav +
+   drawer pattern with no persistent sidebar to collapse in the first
+   place) — flipped to visible in the >=981px media query below, which
+   MUST be declared after this base rule to win the cascade. A REAL
+   ordering bug was caught and fixed here while building this: the first
+   draft put that >=981px `display:flex` override in the earlier sidebar
+   media query above, textually *before* this base `display:none` rule —
+   with equal selector specificity, the later rule in source order always
+   wins regardless of which one sits inside a media query, so the base
+   rule silently overrode the responsive one at every viewport width and
+   the button never rendered at all. */
+.sidebar-collapse-btn {
+  display: none; position: fixed; z-index: 135; top: calc(var(--announce-h) + 16px); left: 16px;
+  width: 40px; height: 40px; border-radius: 50%; align-items: center; justify-content: center;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--fg); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), left var(--dur) var(--ease);
+}
+.sidebar-collapse-btn:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.sidebar-collapse-btn .icon { width: 18px; height: 18px; }
+@media (min-width: 981px) {
+  .sidebar-collapse-btn { display: flex; }
+  /* Once expanded, the button moves just outside the sidebar's own right
+     edge instead of sitting on top of its brand/nav-link content — it
+     started life at a fixed left:16px in both states, but that position
+     sits directly under the sidebar's own brand logo once expanded, a
+     real overlap confirmed via a Playwright bounding-rect measurement
+     (brand right edge vs. button left edge) before this fix, and
+     re-verified clear of it afterward. */
+  body:not(.sidebar-collapsed) .sidebar-collapse-btn { left: calc(var(--sidebar-w) + 8px); }
 }
 
 /* ============================= HERO ============================= */
@@ -1429,76 +1475,69 @@ section { position: relative; scroll-margin-top: 96px; }
 .scrolly-sticky::before {
   content: ''; position: absolute; inset: 0; z-index: 0;
   background:
-    radial-gradient(ellipse 60% 50% at 20% 15%, rgba(34,211,238,0.08), transparent 60%),
-    radial-gradient(ellipse 55% 45% at 85% 85%, rgba(22,214,115,0.07), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 20% 15%, rgba(34,211,238,0.06), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 85%, rgba(22,214,115,0.05), transparent 60%),
     #0A0D14;
 }
-.scrolly-stage {
-  position: relative; z-index: 1; width: min(1160px, 92vw);
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: center;
+/* Full-bleed photographic panel stack — one real, high-res image per slide
+   (dark swimming/gym photography + an app-mockup shot for the AI Coach/
+   Tracker slide) with a bold title/subtitle overlaid directly on a dark
+   gradient wash, replacing the previous flat icon+text card row entirely.
+   Only the active slide's panel is visible at a time; the other two sit at
+   opacity:0 underneath, cross-fading in as scroll progress crosses into
+   their third of the section (see the NAV/TAB CONTROLLER script). */
+.scrolly-media {
+  position: relative; z-index: 1; width: min(1100px, 92vw); height: min(640px, 72svh);
+  border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: 0 40px 100px -30px rgba(0,0,0,0.7);
 }
-.scrolly-copy { position: relative; min-height: 220px; }
+.scrolly-panel {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  border: none; padding: 0; margin: 0; text-align: start; cursor: pointer;
+  opacity: 0; pointer-events: none; z-index: 0;
+  transition: opacity 560ms var(--ease);
+  will-change: opacity;
+}
+.scrolly-panel.is-active { opacity: 1; pointer-events: auto; z-index: 1; }
+.scrolly-panel-media {
+  position: absolute; inset: -8%; background-image: var(--panel-photo);
+  background-size: cover; background-position: center;
+  will-change: transform; transition: transform 220ms linear;
+}
+.scrolly-panel-overlay {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(0deg, rgba(6,9,14,0.94) 0%, rgba(6,9,14,0.6) 42%, rgba(6,9,14,0.12) 72%);
+}
+.scrolly-panel-text {
+  position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-6);
+  color: var(--fg); pointer-events: none;
+}
 .scrolly-index {
-  font-family: var(--font-mono); color: var(--muted-2); font-size: 0.85rem;
+  display: block; font-family: var(--font-mono); color: rgba(240,243,246,0.6); font-size: 0.85rem;
   letter-spacing: 0.1em; margin-bottom: var(--space-3);
 }
-.scrolly-slide-text {
-  position: absolute; inset: 0 auto auto 0; width: 100%;
-  opacity: 0; transform: translateY(18px); transition: opacity 420ms var(--ease), transform 420ms var(--ease);
-  will-change: opacity, transform;
+.scrolly-panel-text h2 {
+  font-size: clamp(2rem, 4.4vw, 3.2rem); text-transform: uppercase; margin-bottom: var(--space-2);
 }
-.scrolly-slide-text.is-active { position: relative; opacity: 1; transform: none; }
-.scrolly-slide-text h2 {
-  font-size: clamp(1.9rem, 3.4vw, 2.8rem); text-transform: uppercase; margin-bottom: var(--space-3);
-}
-.scrolly-slide-text p { color: var(--muted); font-size: 1.05rem; max-width: 46ch; }
-.scrolly-orbit-wrap {
-  position: relative; height: 340px; perspective: 1400px;
-}
-.scrolly-orbit { position: absolute; inset: 0; transform-style: preserve-3d; }
-.scrolly-card {
-  position: absolute; top: 50%; left: 50%; width: 220px;
-  padding: var(--space-5); border-radius: var(--radius-lg);
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  text-align: start; cursor: pointer; will-change: transform, opacity;
-  transition: border-color var(--dur) var(--ease);
-  /* Reset native <button> appearance — these are real buttons (keyboard-
-     focusable, Enter/Space-activatable) for accessibility, not decorative
-     divs, but must look identical to the div-based cards used elsewhere. */
-  appearance: none; font: inherit; color: inherit; display: block;
-}
-.scrolly-card:hover { border-color: var(--card-accent, var(--aqua-bright)); }
-.scrolly-card .icon-tile {
-  width: 44px; height: 44px; border-radius: var(--radius-sm); margin-bottom: var(--space-3);
-  display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--card-accent, var(--aqua-bright)) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-accent, var(--aqua-bright)) 32%, transparent);
-}
-.scrolly-card .icon-tile .icon { width: 20px; height: 20px; color: var(--card-accent, var(--aqua-bright)); }
-.scrolly-card h3 { font-size: 1.02rem; text-transform: none; letter-spacing: normal; margin-bottom: 4px; }
-.scrolly-card p { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.scrolly-panel-text p { color: rgba(240,243,246,0.82); font-size: 1.05rem; max-width: 52ch; }
 @media (max-width: 900px) {
-  .scrolly-stage { grid-template-columns: 1fr; text-align: center; }
-  .scrolly-copy { min-height: 160px; }
-  .scrolly-slide-text p { max-width: none; margin-inline: auto; }
-  .scrolly-orbit-wrap { height: 260px; }
+  .scrolly-media { width: 94vw; height: 66svh; }
+  .scrolly-panel-text { left: var(--space-4); right: var(--space-4); bottom: var(--space-4); }
 }
-/* Reduced motion: no pinning, no 3D — the three slides just stack as plain,
-   already-legible content blocks (reusing the existing [data-reveal] fade-in
-   pattern every other section on this page already uses), and the cards sit
-   in a static row with zero transform/rotation. The JS-side scroll listener
-   that drives all of this is also never attached in the first place (see
-   NAV / TAB CONTROLLER below) — this CSS override exists so the layout is
-   correct even before that JS check runs. */
+/* Reduced motion: no pinning, no scroll-linked scale/parallax — the three
+   slides just stack as plain, already-legible content blocks (reusing the
+   existing [data-reveal] fade-in pattern every other section on this page
+   already uses), each panel shown at full size and full opacity rather
+   than cross-fading. The JS-side scroll listener that drives all of this
+   is also never attached in the first place (see NAV / TAB CONTROLLER
+   below) — this CSS override exists so the layout is correct even before
+   that JS check runs. */
 @media (prefers-reduced-motion: reduce) {
   .scrolly { height: auto; }
-  .scrolly-sticky { position: static; height: auto; padding-block: var(--space-8); }
-  .scrolly-stage { display: block; }
-  .scrolly-slide-text { position: static; opacity: 1; transform: none; margin-bottom: var(--space-6); }
-  .scrolly-orbit-wrap { height: auto; perspective: none; margin-top: var(--space-5); }
-  .scrolly-orbit { position: static; display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
-  .scrolly-card { position: static; transform: none !important; opacity: 1 !important; width: 220px; }
+  .scrolly-sticky { position: static; height: auto; padding-block: var(--space-8); flex-direction: column; gap: var(--space-6); }
+  .scrolly-media { position: static; height: 50svh; }
+  .scrolly-panel { position: static; opacity: 1 !important; pointer-events: auto; margin-bottom: var(--space-6); height: 50svh; }
+  .scrolly-panel-media { transform: none !important; }
 }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
@@ -3028,7 +3067,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
 </style>
 </head>
-<body>
+<body class="sidebar-collapsed">
 
 <!-- ============================= ANNOUNCEMENT BAR ============================= -->
 <div class="announce-bar" id="announceBar" role="region" aria-label="Launch offer">
@@ -3093,6 +3132,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 </svg>
 
 <!-- ============================= NAV / TAB CONTROLLER ============================= -->
+<!-- ============================= SIDEBAR COLLAPSE TOGGLE (desktop) ============================= -->
+<button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Show sidebar" aria-expanded="false" aria-controls="siteNav">
+  <svg class="icon" id="sidebarCollapseIcon" aria-hidden="true"><use href="#i-menu"/></svg>
+</button>
+
 <nav class="nav" id="siteNav">
   <div class="wrap">
     <a href="#top" class="brand" aria-label="Swimfit home">
@@ -3226,41 +3270,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <!-- ============================= A324-STYLE SCROLL SHOWCASE ============================= -->
 <section class="scrolly" id="scrollyShowcase" aria-label="How Swimfit trains you">
   <div class="scrolly-sticky">
-    <div class="scrolly-stage">
-      <div class="scrolly-copy">
-        <p class="scrolly-index" id="scrollyIndex">01 / 03</p>
-        <div class="scrolly-slide-text is-active" data-slide="0">
+    <div class="scrolly-media" id="scrollyMedia">
+      <button type="button" class="scrolly-panel is-active" data-slide="0" data-tab="workouts" style="--panel-photo:var(--hero-photo)">
+        <div class="scrolly-panel-media"></div>
+        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
+        <div class="scrolly-panel-text">
+          <span class="scrolly-index">01 / 03</span>
           <h2>Outswim Your Limits</h2>
           <p>A brand-new swim set, generated fresh every day — warm-up to cool-down, tuned to your stroke, distance and pace.</p>
         </div>
-        <div class="scrolly-slide-text" data-slide="1" aria-hidden="true">
+      </button>
+      <button type="button" class="scrolly-panel" data-slide="1" data-tab="gym" style="--panel-photo:var(--gym-photo)" aria-hidden="true">
+        <div class="scrolly-panel-media"></div>
+        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
+        <div class="scrolly-panel-text">
+          <span class="scrolly-index">02 / 03</span>
           <h2>Dryland &amp; Power</h2>
           <p>Purpose-built gym programming that trains the muscles that actually move you through the water.</p>
         </div>
-        <div class="scrolly-slide-text" data-slide="2" aria-hidden="true">
+      </button>
+      <button type="button" class="scrolly-panel" data-slide="2" data-tab="coach" style="--panel-photo:url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260729_145545_5350fa0c-7fb4-4f43-9e81-29f1eebf969a.png')" aria-hidden="true">
+        <div class="scrolly-panel-media"></div>
+        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
+        <div class="scrolly-panel-text">
+          <span class="scrolly-index">03 / 03</span>
           <h2>A Whole New Universe</h2>
           <p>Real-time AI coaching, live progress tracking, and the analytics to prove it's working.</p>
         </div>
-      </div>
-      <div class="scrolly-orbit-wrap">
-        <div class="scrolly-orbit" id="scrollyOrbit">
-          <button type="button" class="scrolly-card" data-card="0" data-tab="workouts" style="--card-accent:var(--aqua-bright)">
-            <div class="icon-tile"><svg class="icon"><use href="#i-stopwatch"/></svg></div>
-            <h3>Swim Generator</h3>
-            <p>Daily-rotating sets built around your goals.</p>
-          </button>
-          <button type="button" class="scrolly-card" data-card="1" data-tab="gym" style="--card-accent:var(--green-bright)">
-            <div class="icon-tile"><svg class="icon"><use href="#i-dumbbell"/></svg></div>
-            <h3>Dryland &amp; Power</h3>
-            <p>Gym focus that rotates with your swim week.</p>
-          </button>
-          <button type="button" class="scrolly-card" data-card="2" data-tab="coach" style="--card-accent:var(--maroon-bright)">
-            <div class="icon-tile"><svg class="icon"><use href="#i-comment"/></svg></div>
-            <h3>AI Coach &amp; Tracker</h3>
-            <p>Coaching and analytics that adapt with you.</p>
-          </button>
-        </div>
-      </div>
+      </button>
     </div>
   </div>
 </section>
@@ -4733,12 +4770,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // keep correct, not two nav implementations drifting apart.
   if (mobileMoreBtn) mobileMoreBtn.addEventListener('click', function () { navToggle.click(); });
 
+  /* ============================= SIDEBAR COLLAPSE TOGGLE (desktop) =============================
+     <body> already carries `class="sidebar-collapsed"` straight from the
+     markup (a plain default, not a persisted preference — every fresh load
+     of the Home page starts collapsed, no synchronous flash-prevention
+     script needed since there's no stored state to race against first
+     paint). This only manages toggling that class from here on: the manual
+     button click, and switchTab() below auto-expanding the moment a
+     swimmer actually navigates into a tool. */
+  var sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+  var sidebarCollapseIcon = document.getElementById('sidebarCollapseIcon');
+  function setSidebarCollapsed(collapsed) {
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    if (sidebarCollapseBtn) sidebarCollapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    if (sidebarCollapseIcon) sidebarCollapseIcon.innerHTML = '<use href="#' + (collapsed ? 'i-menu' : 'i-close') + '"/>';
+  }
+  if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener('click', function () {
+      setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+    });
+  }
+
   function switchTab(id, opts) {
     tabPanels.forEach(function (p) { p.classList.remove('active', 'in'); });
     var next = document.getElementById('panel-' + id);
     if (!next) return;
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
+    // Opening any tool auto-expands the sidebar if it was left collapsed
+    // (the Home page's default) — a swimmer navigating into an actual tool
+    // needs the full nav available, not the immersive full-bleed landing
+    // treatment that collapsing was meant for. Skipped for the two internal,
+    // non-navigational callers below (establishing the initial default tab
+    // on page load, and the sign-out handler switching away from a
+    // signed-in-only tab before it scrolls back to the Hero) — a REAL bug
+    // caught via testing: without this guard, the page-load call alone
+    // silently re-expanded the sidebar an instant after paint, defeating
+    // the "collapsed by default on Home" requirement entirely.
+    if (!opts || !opts.skipSidebarExpand) setSidebarCollapsed(false);
     // Belt-and-suspenders: the Coach page gate is normally kept correct
     // reactively (every swimfit:accesschange re-renders it), but re-asserting
     // it here too means arriving at the tab can never show a stale gate state
@@ -4791,19 +4860,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     updateCapsuleNav();
   }
 
-  /* ============================= A324-STYLE SCROLL SHOWCASE =============================
-     Drives the 3 orbiting cards + cross-fading headline/copy pairs in
-     #scrollyShowcase purely from scroll position — no animation library (see
-     the CSS block above for why). Skipped entirely under prefers-reduced-motion:
-     the section's own CSS media query already lays it out as a plain static
-     stack in that case, so there is nothing for this listener to drive. */
+  /* ============================= FULL-SCREEN VISUAL SCROLLYTELLING =============================
+     Drives the 3 cross-fading, full-bleed photo panels in #scrollyShowcase
+     purely from scroll position — no animation library (see the CSS block
+     above for why). Skipped entirely under prefers-reduced-motion: the
+     section's own CSS media query already lays it out as a plain static
+     stack in that case, so there is nothing for this listener to drive.
+     Replaces an earlier 3D rotating-carousel version (rotateY/translateZ
+     orbit math over plain icon+text cards) with real photography that
+     scales up and parallax-shifts as the swimmer scrolls through each
+     slide's own third of the section — closer to an Apple/A324-style
+     scroll reveal than a spinning carousel. */
   var scrollyEl = document.getElementById('scrollyShowcase');
   if (scrollyEl && !reduceMotion) {
-    var scrollyOrbit = document.getElementById('scrollyOrbit');
-    var scrollyCards = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-card'));
-    var scrollySlideTexts = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-slide-text'));
-    var scrollyIndexEl = document.getElementById('scrollyIndex');
-    var scrollyOrbitRadius = 260;
+    var scrollyPanels = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-panel'));
+    var scrollyMedias = scrollyPanels.map(function (panel) { return panel.querySelector('.scrolly-panel-media'); });
     var lastActiveSlide = 0;
 
     function updateScrolly() {
@@ -4813,43 +4884,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var progress = totalScrollable > 0 ? (-rect.top) / totalScrollable : 0;
       progress = Math.max(0, Math.min(1, progress));
 
-      // t runs 0 → 3 continuously across the whole section, one full unit per
-      // slide — cardIndex - t is each card's signed offset from "front and
-      // center" at this exact scroll position.
+      // t runs 0 → 3 continuously across the whole section, one full unit
+      // per slide — panelIndex vs. t decides both which panel is the active,
+      // fully-opaque one (cross-fade, handled by CSS .is-active) and, via the
+      // per-panel local progress below, how far that panel has scaled/shifted
+      // through its own third of the scroll range.
       var t = progress * 3;
       var activeSlide = Math.min(2, Math.floor(t));
 
       if (activeSlide !== lastActiveSlide || progress === 0) {
         lastActiveSlide = activeSlide;
-        scrollySlideTexts.forEach(function (el, i) {
+        scrollyPanels.forEach(function (panel, i) {
           var isActive = i === activeSlide;
-          el.classList.toggle('is-active', isActive);
-          el.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+          panel.classList.toggle('is-active', isActive);
+          panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
         });
-        if (scrollyIndexEl) scrollyIndexEl.textContent = '0' + (activeSlide + 1) + ' / 03';
       }
 
-      // A REAL bug caught while testing this with actual scroll input (not
-      // just eyeballing the CSS): a plain, unclamped `(i - t) * 120` lets the
-      // orbit complete a full 360° revolution across the section's whole
-      // scroll range, so as t approaches 3 (the very end, "slide 3" reading
-      // as active), card 0 swings back around into the front-and-center spot
-      // it started at — fighting with the "A Whole New Universe" headline for
-      // attention right when card 2 is supposed to be the sole focus.
-      // Clamping the rotation input (not the slide-index calc above, which
-      // still needs the real unclamped t) at 2 means card 2 settles at its
-      // front position exactly when slide 2 becomes active and simply holds
-      // there for the remainder of the scroll, instead of continuing to spin.
-      var rotationT = Math.min(t, 2);
-      scrollyCards.forEach(function (card, i) {
-        var angle = (i - rotationT) * 120;
-        // Normalize to -180..180 so the depth/opacity falloff below is
-        // symmetric regardless of which direction a card has wrapped around.
-        var norm = ((angle + 180) % 360 + 360) % 360 - 180;
-        var depth = Math.cos(norm * Math.PI / 180); // 1 = front-and-center, -1 = directly behind
-        card.style.transform = 'translate(-50%, -50%) rotateY(' + norm.toFixed(2) + 'deg) translateZ(' + scrollyOrbitRadius + 'px)';
-        card.style.opacity = Math.max(0.1, (depth + 1) / 2).toFixed(2);
-        card.style.zIndex = Math.round((depth + 1) * 100);
+      // Each panel's own local progress is clamped to [0,1] within its own
+      // slide window — this naturally holds a finished slide at its final
+      // scale/shift rather than continuing to drift once the next slide has
+      // taken over (the same "settle, don't keep animating past your own
+      // window" principle the previous orbit version needed an explicit fix
+      // for, here true by construction since local is clamped per-panel).
+      scrollyPanels.forEach(function (panel, i) {
+        var local = Math.max(0, Math.min(1, t - i));
+        var media = scrollyMedias[i];
+        if (!media) return;
+        var scale = 1.04 + local * 0.1;
+        var shiftY = (local - 0.5) * 24;
+        media.style.transform = 'scale(' + scale.toFixed(3) + ') translateY(' + shiftY.toFixed(1) + 'px)';
       });
     }
     var scrollyTicking = false;
@@ -4895,10 +4959,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   document.addEventListener('swimfit:authchange', function (e) {
     if (e.detail.user) return;
     if (SIGNED_IN_ONLY_TABS.indexOf(dashboard.getAttribute('data-active-tab')) > -1) {
-      switchTab('workouts', { scroll: false });
+      switchTab('workouts', { scroll: false, skipSidebarExpand: true });
     }
     var topEl = document.getElementById('top');
     if (topEl) topEl.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    // Signing out always lands back on the Hero, so the sidebar returns to
+    // its immersive collapsed default too, matching a fresh page load.
+    setSidebarCollapsed(true);
   });
 
   /* ============================= DATA: GEAR ============================= */
@@ -10872,7 +10939,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* ============================= INIT ============================= */
   renderGym(currentGymFocus);
   generateWorkout();
-  switchTab('workouts', { scroll: false });
+  switchTab('workouts', { scroll: false, skipSidebarExpand: true });
 })();
 </script>
 </body>

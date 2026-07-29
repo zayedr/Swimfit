@@ -3277,6 +3277,118 @@ and this round follows that same precedent at larger scale.
   Workout logging, flexible PB add/remove, and the Beginner-trial-bypass/suspension-lock behavior)
   still passes unchanged with zero page errors.
 
+**A follow-up round replaced the A324-style 3D orbit carousel with real full-bleed photography,
+and added a genuinely working collapsible sidebar defaulting to hidden on the landing page** — the
+explicit complaint driving this round was that the previous carousel's plain icon-tile cards still
+read as generic template chrome, and that the sidebar (present on every screen, all the time)
+crowded out the immersive, full-screen feel the landing experience was going for.
+
+- **Collapsible sidebar, real toggle, collapsed by default on load.** `<body>` now carries
+  `class="sidebar-collapsed"` directly in the markup — a plain default, not a persisted
+  preference, so there's no synchronous flash-prevention script needed (nothing is racing a stored
+  value on first paint). A new circular glass toggle button (`#sidebarCollapseBtn`, hamburger/×
+  icon, top-left, `.sidebar-collapse-btn`) sits above the sidebar itself so it's reachable
+  regardless of collapsed state. `setSidebarCollapsed(collapsed)` toggles the class, swaps the
+  button's icon and `aria-expanded`, and the existing `--sidebar-w` token (already the single
+  source of truth every dependent `calc()` in this file reads — `body`'s `margin-left`, the
+  capsule nav's centering, `.panel-wide`'s full-bleed math, the Support FAB's left offset) drops to
+  `0px` under `body.sidebar-collapsed`, so every one of those spots correctly recomputes with zero
+  additional per-component overrides — exactly the reason that token was designed the way it was
+  several rounds ago. `switchTab()` calls `setSidebarCollapsed(false)` on every real navigation, so
+  opening any tool auto-expands the sidebar the instant a swimmer actually needs it.
+- **A real bug, caught via Playwright rather than assumed fixed: the sidebar re-expanded itself an
+  instant after every page load, defeating the entire "collapsed by default" ask.** `switchTab()`
+  is also called internally at page-init time (`switchTab('workouts', {scroll:false})`, purely to
+  establish the default active tab/panel) and again inside the sign-out handler (switching away
+  from a signed-in-only tab before scrolling back to the Hero) — neither of those is a real
+  swimmer-initiated navigation, but both ran through the same `setSidebarCollapsed(false)` call
+  every other tab switch does, silently un-collapsing the sidebar a moment after first paint (and
+  again after any sign-out). A first Playwright check caught this directly (`bodyHasClass: false`
+  immediately after load, when it should have read `true`). Fixed with a new `skipSidebarExpand`
+  option on `switchTab()`'s `opts` param, passed by both of those two internal call sites; the
+  sign-out handler additionally now explicitly re-collapses the sidebar right after its existing
+  scroll-back-to-Hero call, so signing out returns to the same immersive collapsed state as a fresh
+  load rather than leaving the sidebar expanded over the landing page.
+- **A second real bug, caught the same way: the expanded toggle button's position overlapped the
+  sidebar's own brand logo.** The button used a single fixed `left: 16px` in both collapsed and
+  expanded states — fine while collapsed (nothing else is there), but once expanded that x-position
+  sits directly under the sidebar's brand/wordmark. A Playwright bounding-rect comparison (button
+  vs. `.nav .brand`) confirmed the overlap before the fix and confirmed clear separation after;
+  fixed by moving the expanded-state position to `left: calc(var(--sidebar-w) + 8px)` — just
+  outside the sidebar's right edge — via a `body:not(.sidebar-collapsed) .sidebar-collapse-btn`
+  override declared in its own `@media (min-width: 981px)` block placed *after* the base
+  `.sidebar-collapse-btn { display: none; ... }` rule. That ordering matters and was itself a real,
+  caught mistake: the first draft put the `display: flex`/positioning override inside the
+  *earlier* desktop-sidebar media query (textually before the base rule), and since both rules
+  have equal specificity, the later base `display: none` rule silently won at every viewport width
+  regardless of the media query — the exact "later source-order rule beats an earlier media-query
+  override" class of bug this file has documented as a recurring mistake to watch for in previous
+  rounds. Fixed by moving the override into its own, later-declared media query block.
+- **The 3D orbit-carousel showcase was replaced with a full-bleed, single-photo-per-slide scroll
+  reveal** — closer to an Apple/A324-style "scale up and cross-fade real photography" showcase than
+  a spinning carousel of icon-tile cards. `#scrollyShowcase`'s markup changed from
+  `.scrolly-stage` (a 2-column grid: a `.scrolly-copy` text column beside a `.scrolly-orbit-wrap`
+  of 3 rotating `.scrolly-card` buttons, each just an icon-tile + `h3` + `p`) to `.scrolly-media`
+  wrapping three stacked, absolutely-positioned `.scrolly-panel` buttons — each one a real
+  photograph (`.scrolly-panel-media`, its background image set via an inline
+  `style="--panel-photo:url(...)"` custom property so no new CSS class per slide was needed), a
+  dark bottom-up gradient scrim (`.scrolly-panel-overlay`) for text legibility, and the slide's own
+  index/heading/copy (`.scrolly-panel-text`) laid directly over the image. Slide 1 (Outswim Your
+  Limits) reuses the existing `--hero-photo` custom property, slide 2 (Dryland & Power) reuses
+  `--gym-photo` — both already-established, already-generated site photography, not new assets —
+  and slide 3 (A Whole New Universe) got one freshly-generated photorealistic image via Higgsfield
+  (an athlete/coaching-technology-styled shot, hosted on the same CloudFront bucket as every other
+  generated image in this file) since no existing photo on the site covered that theme. Only the
+  active slide's panel is opaque/clickable (`.scrolly-panel.is-active { opacity:1; pointer-
+  events:auto; }`, cross-fading via a plain CSS `transition: opacity`) — the other two sit behind it
+  at `opacity:0; pointer-events:none`, which is also why a Playwright click test against an inactive
+  panel correctly fails/times out (an invisible panel genuinely isn't clickable to a real swimmer
+  either, so the test was adjusted to scroll that panel into its own active window first rather
+  than treating this as a bug).
+- **`updateScrolly()` was rewritten from rotateY/translateZ orbit math to per-panel scale +
+  parallax.** The previous version computed one continuous rotation across all 3 cards
+  simultaneously (clamped at `t=2` to stop a full-circle wraparound, a real bug fixed in the prior
+  round). The new version computes, per panel, a **local progress** clamped to `[0,1]` within that
+  panel's own third of the section's scroll range (`Math.max(0, Math.min(1, t - i))` for panel
+  index `i`), then applies a gentle continuous zoom (`scale(1.04 → 1.14)`) and a small vertical
+  parallax shift (`translateY(-12px → +12px)`) to that panel's own `.scrolly-panel-media` layer as
+  the swimmer scrolls through it — each panel naturally settles at its final scale/shift once its
+  own window ends, rather than continuing to drift into the next slide's territory, true by
+  construction from the clamp rather than needing a separate fix the way the old rotation code did.
+  `scrollyOrbit`/`scrollyCards`/`scrollyOrbitRadius`/`scrollyIndexEl` were all removed;
+  `scrollyPanels`/`scrollyMedias` replace them. The per-slide `01 / 03` index number is now static
+  markup inside each panel's own `.scrolly-panel-text` (one literal string per slide) instead of
+  JS-updated shared text — since each panel already inherently knows its own position in the
+  sequence, there was nothing left for JS to compute there.
+- **The "kill all remaining AI template accents" ask was re-audited against the current file, not
+  assumed already satisfied by prior rounds.** Grepped for every remaining `--glow-green`/
+  `--glow-aqua`/`.btn-cta-glow`/dotted-grid usage: the only survivors are the sidebar/mobile nav's
+  active-tab indicator (a small, already-softened glow — functional state signaling, not decorative
+  chrome, and already dialed back in an earlier documented round specifically to avoid this exact
+  complaint) and `.btn-cta-glow` on the Hero's trial CTA and Pricing's Subscribe buttons (the one
+  deliberate, disclosed exception this file has carried since the very first "brand accents only on
+  primary CTAs" round) — both pre-existing, intentional, and out of scope for further softening.
+  Confirmed no dotted-grid/HUD text/corner-bracket markup has been reintroduced anywhere (a grep for
+  the literal removed strings like "SYSTEM READY"/"PROTOCOL ONLINE" turns up only historical
+  comments describing what was already deleted, no live markup). The Hero's faint diagonal
+  `repeating-linear-gradient` "light ray" texture inside `.hero-photo` (used as a duotone fallback
+  layer standing in for real photography, screen-blended at ~0.05 opacity) was inspected and left
+  alone — it simulates underwater light rays for the photographic panel treatment, a materially
+  different pattern from the removed technical grid-line overlays, not a HUD remnant.
+- Verified via Playwright end-to-end: the sidebar starts collapsed on every fresh load
+  (`sidebar-collapsed` present, `--sidebar-w` resolves to `0px`, nav `opacity:0`); the toggle button
+  expands it (nav opacity back to `1`, `margin-left: 232px`) with no overlap against the brand logo;
+  toggling again re-collapses it; clicking any capsule-nav or sidebar tab link auto-expands the
+  sidebar and switches tabs correctly; the three scrolly panels wire the correct photo URLs and
+  cross-fade at the right scroll progress with the expected clamped scale/parallax values; a mobile
+  (390px) viewport shows zero horizontal overflow at any scroll position through the showcase, with
+  the capsule nav correctly hidden; `prefers-reduced-motion` collapses the whole section to a plain
+  static stack (`position: static`, all three panels visible at `opacity:1`, no transform applied,
+  total document height far shorter than the animated 300vh version); and the full existing
+  regression suite (all 9 tabs switch and render with zero page errors, both Workouts' and Gym's
+  PDF exports fire real `download` events, and Complete Workout logging still writes the correct
+  `swim_logs` entry and updates its button state) still passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
