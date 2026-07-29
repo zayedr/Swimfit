@@ -1373,6 +1373,134 @@ section { position: relative; scroll-margin-top: 96px; }
 .stat strong { display: block; font-family: var(--font-mono); font-size: 2.1rem; color: var(--fg); font-weight: 700; }
 .stat span { color: var(--muted-2); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
 
+/* ============================= FLOATING CAPSULE NAV =============================
+   A landing-page-only frosted-glass pill nav, centered at the top of the Hero/
+   scroll-showcase — distinct from (and layered above) the app's own sidebar/
+   mobile-bottom-nav, which stays the real navigation for every signed-in
+   feature. Desktop-only (matching the sidebar's own >=981px breakpoint): below
+   that width the existing mobile top bar already occupies this exact strip of
+   the viewport, and a second fixed bar there would collide with it. Clicking
+   any link here reuses the site's one shared [data-tab] click delegation (see
+   the NAV / TAB CONTROLLER script) — no separate click handler needed, and
+   critically no special "scroll through the presentation" behavior: switchTab()
+   already jumps straight to the target tab's content at y=0 via
+   dashboard.scrollIntoView(), bypassing the scroll-showcase section entirely. */
+.capsule-nav {
+  display: none;
+  position: fixed; z-index: 130; top: calc(var(--announce-h) + 16px);
+  align-items: center; gap: var(--space-4);
+  padding: 8px 8px 8px 22px; border-radius: 999px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 12px 32px -18px rgba(0,0,0,0.6);
+  transition: opacity 320ms var(--ease), transform 320ms var(--ease), top var(--dur) var(--ease);
+}
+.capsule-nav.is-hidden { opacity: 0; transform: translateX(-50%) translateY(-14px); pointer-events: none; }
+@media (min-width: 981px) {
+  .capsule-nav { display: flex; left: calc(50% + var(--sidebar-w) / 2); transform: translateX(-50%); }
+  .capsule-nav.is-hidden { transform: translateX(-50%) translateY(-14px); }
+}
+.capsule-nav-links { display: flex; align-items: center; gap: 4px; }
+.capsule-nav-links button {
+  padding: 9px 16px; border-radius: 999px; font-family: var(--font-display); font-weight: 600;
+  font-size: 0.85rem; letter-spacing: 0.03em; color: var(--muted); white-space: nowrap;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.capsule-nav-links button:hover { color: var(--fg); background: var(--surface-2); }
+.capsule-nav-cta { white-space: nowrap; }
+
+/* ============================= A324-STYLE SCROLL SHOWCASE =============================
+   A pure CSS/JS scroll-driven "pin and advance" section — no external motion
+   library (this file has no build step to add one to; every earlier
+   framer-motion/GSAP-style ask in this codebase has likewise been delivered as
+   hand-rolled CSS+JS). A tall (300vh) wrapper holds a position:sticky stage
+   pinned for the full 100vh viewport while the swimmer scrolls through it;
+   scrollyProgress (0 → 1, computed from the wrapper's own scroll position in
+   the NAV/TAB CONTROLLER script below) drives three floating 3D cards around a
+   CSS rotateY/translateZ orbit and cross-fades three headline/copy pairs, one
+   per third of the scroll range. Purely decorative/narrative — every card is
+   also a real [data-tab] shortcut into that tool, same click delegation as
+   the capsule nav above and every other nav link on the site. */
+.scrolly { position: relative; height: 300vh; }
+.scrolly-sticky {
+  position: sticky; top: 0; height: 100svh; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.scrolly-sticky::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 15%, rgba(34,211,238,0.08), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 85%, rgba(22,214,115,0.07), transparent 60%),
+    #0A0D14;
+}
+.scrolly-stage {
+  position: relative; z-index: 1; width: min(1160px, 92vw);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: center;
+}
+.scrolly-copy { position: relative; min-height: 220px; }
+.scrolly-index {
+  font-family: var(--font-mono); color: var(--muted-2); font-size: 0.85rem;
+  letter-spacing: 0.1em; margin-bottom: var(--space-3);
+}
+.scrolly-slide-text {
+  position: absolute; inset: 0 auto auto 0; width: 100%;
+  opacity: 0; transform: translateY(18px); transition: opacity 420ms var(--ease), transform 420ms var(--ease);
+  will-change: opacity, transform;
+}
+.scrolly-slide-text.is-active { position: relative; opacity: 1; transform: none; }
+.scrolly-slide-text h2 {
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem); text-transform: uppercase; margin-bottom: var(--space-3);
+}
+.scrolly-slide-text p { color: var(--muted); font-size: 1.05rem; max-width: 46ch; }
+.scrolly-orbit-wrap {
+  position: relative; height: 340px; perspective: 1400px;
+}
+.scrolly-orbit { position: absolute; inset: 0; transform-style: preserve-3d; }
+.scrolly-card {
+  position: absolute; top: 50%; left: 50%; width: 220px;
+  padding: var(--space-5); border-radius: var(--radius-lg);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  text-align: start; cursor: pointer; will-change: transform, opacity;
+  transition: border-color var(--dur) var(--ease);
+  /* Reset native <button> appearance — these are real buttons (keyboard-
+     focusable, Enter/Space-activatable) for accessibility, not decorative
+     divs, but must look identical to the div-based cards used elsewhere. */
+  appearance: none; font: inherit; color: inherit; display: block;
+}
+.scrolly-card:hover { border-color: var(--card-accent, var(--aqua-bright)); }
+.scrolly-card .icon-tile {
+  width: 44px; height: 44px; border-radius: var(--radius-sm); margin-bottom: var(--space-3);
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-accent, var(--aqua-bright)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--aqua-bright)) 32%, transparent);
+}
+.scrolly-card .icon-tile .icon { width: 20px; height: 20px; color: var(--card-accent, var(--aqua-bright)); }
+.scrolly-card h3 { font-size: 1.02rem; text-transform: none; letter-spacing: normal; margin-bottom: 4px; }
+.scrolly-card p { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+@media (max-width: 900px) {
+  .scrolly-stage { grid-template-columns: 1fr; text-align: center; }
+  .scrolly-copy { min-height: 160px; }
+  .scrolly-slide-text p { max-width: none; margin-inline: auto; }
+  .scrolly-orbit-wrap { height: 260px; }
+}
+/* Reduced motion: no pinning, no 3D — the three slides just stack as plain,
+   already-legible content blocks (reusing the existing [data-reveal] fade-in
+   pattern every other section on this page already uses), and the cards sit
+   in a static row with zero transform/rotation. The JS-side scroll listener
+   that drives all of this is also never attached in the first place (see
+   NAV / TAB CONTROLLER below) — this CSS override exists so the layout is
+   correct even before that JS check runs. */
+@media (prefers-reduced-motion: reduce) {
+  .scrolly { height: auto; }
+  .scrolly-sticky { position: static; height: auto; padding-block: var(--space-8); }
+  .scrolly-stage { display: block; }
+  .scrolly-slide-text { position: static; opacity: 1; transform: none; margin-bottom: var(--space-6); }
+  .scrolly-orbit-wrap { height: auto; perspective: none; margin-top: var(--space-5); }
+  .scrolly-orbit { position: static; display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
+  .scrolly-card { position: static; transform: none !important; opacity: 1 !important; width: 220px; }
+}
+
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
@@ -3028,6 +3156,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <button type="button" id="mobileMoreBtn" aria-haspopup="true" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg><span>More</span></button>
 </nav>
 
+<!-- ============================= FLOATING CAPSULE NAV (landing page only) ============================= -->
+<nav class="capsule-nav" id="capsuleNav" aria-label="Quick navigation">
+  <div class="capsule-nav-links">
+    <button type="button" data-tab="workouts">Workouts</button>
+    <button type="button" data-tab="gym">Gym</button>
+    <button type="button" data-tab="coach">AI Coach</button>
+    <button type="button" data-tab="tracker">Tracker</button>
+  </div>
+  <button type="button" class="btn btn-primary btn-sm capsule-nav-cta" data-tab="workouts">Start Training</button>
+</nav>
+
 <!-- ============================= HERO ============================= -->
 <!--
   Photography note: this sandbox's network policy blocks every stock-photo host
@@ -3083,6 +3222,48 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </div>
   </div>
 </header>
+
+<!-- ============================= A324-STYLE SCROLL SHOWCASE ============================= -->
+<section class="scrolly" id="scrollyShowcase" aria-label="How Swimfit trains you">
+  <div class="scrolly-sticky">
+    <div class="scrolly-stage">
+      <div class="scrolly-copy">
+        <p class="scrolly-index" id="scrollyIndex">01 / 03</p>
+        <div class="scrolly-slide-text is-active" data-slide="0">
+          <h2>Outswim Your Limits</h2>
+          <p>A brand-new swim set, generated fresh every day — warm-up to cool-down, tuned to your stroke, distance and pace.</p>
+        </div>
+        <div class="scrolly-slide-text" data-slide="1" aria-hidden="true">
+          <h2>Dryland &amp; Power</h2>
+          <p>Purpose-built gym programming that trains the muscles that actually move you through the water.</p>
+        </div>
+        <div class="scrolly-slide-text" data-slide="2" aria-hidden="true">
+          <h2>A Whole New Universe</h2>
+          <p>Real-time AI coaching, live progress tracking, and the analytics to prove it's working.</p>
+        </div>
+      </div>
+      <div class="scrolly-orbit-wrap">
+        <div class="scrolly-orbit" id="scrollyOrbit">
+          <button type="button" class="scrolly-card" data-card="0" data-tab="workouts" style="--card-accent:var(--aqua-bright)">
+            <div class="icon-tile"><svg class="icon"><use href="#i-stopwatch"/></svg></div>
+            <h3>Swim Generator</h3>
+            <p>Daily-rotating sets built around your goals.</p>
+          </button>
+          <button type="button" class="scrolly-card" data-card="1" data-tab="gym" style="--card-accent:var(--green-bright)">
+            <div class="icon-tile"><svg class="icon"><use href="#i-dumbbell"/></svg></div>
+            <h3>Dryland &amp; Power</h3>
+            <p>Gym focus that rotates with your swim week.</p>
+          </button>
+          <button type="button" class="scrolly-card" data-card="2" data-tab="coach" style="--card-accent:var(--maroon-bright)">
+            <div class="icon-tile"><svg class="icon"><use href="#i-comment"/></svg></div>
+            <h3>AI Coach &amp; Tracker</h3>
+            <p>Coaching and analytics that adapt with you.</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
@@ -4587,6 +4768,99 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   tabButtons.forEach(function (btn) {
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
+
+  /* ============================= FLOATING CAPSULE NAV (show/hide) =============================
+     Fades out once the swimmer has scrolled past the landing (Hero + scroll
+     showcase) into the real app dashboard, where the sidebar/bottom-nav is
+     already the primary navigation — a persistent second nav there would just
+     be clutter. Reuses the same rAF-throttled scroll-listener pattern as the
+     scroll-showcase logic below (see the PERF FIX precedent elsewhere in this
+     file for why an unthrottled scroll listener is a real, previously-found
+     bug class, not just a style preference). */
+  var capsuleNav = document.getElementById('capsuleNav');
+  if (capsuleNav) {
+    var capsuleTicking = false;
+    function updateCapsuleNav() {
+      capsuleTicking = false;
+      var rect = dashboard.getBoundingClientRect();
+      capsuleNav.classList.toggle('is-hidden', rect.top < 72);
+    }
+    window.addEventListener('scroll', function () {
+      if (!capsuleTicking) { requestAnimationFrame(updateCapsuleNav); capsuleTicking = true; }
+    }, { passive: true });
+    updateCapsuleNav();
+  }
+
+  /* ============================= A324-STYLE SCROLL SHOWCASE =============================
+     Drives the 3 orbiting cards + cross-fading headline/copy pairs in
+     #scrollyShowcase purely from scroll position — no animation library (see
+     the CSS block above for why). Skipped entirely under prefers-reduced-motion:
+     the section's own CSS media query already lays it out as a plain static
+     stack in that case, so there is nothing for this listener to drive. */
+  var scrollyEl = document.getElementById('scrollyShowcase');
+  if (scrollyEl && !reduceMotion) {
+    var scrollyOrbit = document.getElementById('scrollyOrbit');
+    var scrollyCards = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-card'));
+    var scrollySlideTexts = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-slide-text'));
+    var scrollyIndexEl = document.getElementById('scrollyIndex');
+    var scrollyOrbitRadius = 260;
+    var lastActiveSlide = 0;
+
+    function updateScrolly() {
+      scrollyTicking = false;
+      var rect = scrollyEl.getBoundingClientRect();
+      var totalScrollable = scrollyEl.offsetHeight - window.innerHeight;
+      var progress = totalScrollable > 0 ? (-rect.top) / totalScrollable : 0;
+      progress = Math.max(0, Math.min(1, progress));
+
+      // t runs 0 → 3 continuously across the whole section, one full unit per
+      // slide — cardIndex - t is each card's signed offset from "front and
+      // center" at this exact scroll position.
+      var t = progress * 3;
+      var activeSlide = Math.min(2, Math.floor(t));
+
+      if (activeSlide !== lastActiveSlide || progress === 0) {
+        lastActiveSlide = activeSlide;
+        scrollySlideTexts.forEach(function (el, i) {
+          var isActive = i === activeSlide;
+          el.classList.toggle('is-active', isActive);
+          el.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        });
+        if (scrollyIndexEl) scrollyIndexEl.textContent = '0' + (activeSlide + 1) + ' / 03';
+      }
+
+      // A REAL bug caught while testing this with actual scroll input (not
+      // just eyeballing the CSS): a plain, unclamped `(i - t) * 120` lets the
+      // orbit complete a full 360° revolution across the section's whole
+      // scroll range, so as t approaches 3 (the very end, "slide 3" reading
+      // as active), card 0 swings back around into the front-and-center spot
+      // it started at — fighting with the "A Whole New Universe" headline for
+      // attention right when card 2 is supposed to be the sole focus.
+      // Clamping the rotation input (not the slide-index calc above, which
+      // still needs the real unclamped t) at 2 means card 2 settles at its
+      // front position exactly when slide 2 becomes active and simply holds
+      // there for the remainder of the scroll, instead of continuing to spin.
+      var rotationT = Math.min(t, 2);
+      scrollyCards.forEach(function (card, i) {
+        var angle = (i - rotationT) * 120;
+        // Normalize to -180..180 so the depth/opacity falloff below is
+        // symmetric regardless of which direction a card has wrapped around.
+        var norm = ((angle + 180) % 360 + 360) % 360 - 180;
+        var depth = Math.cos(norm * Math.PI / 180); // 1 = front-and-center, -1 = directly behind
+        card.style.transform = 'translate(-50%, -50%) rotateY(' + norm.toFixed(2) + 'deg) translateZ(' + scrollyOrbitRadius + 'px)';
+        card.style.opacity = Math.max(0.1, (depth + 1) / 2).toFixed(2);
+        card.style.zIndex = Math.round((depth + 1) * 100);
+      });
+    }
+    var scrollyTicking = false;
+    window.addEventListener('scroll', function () {
+      if (!scrollyTicking) { requestAnimationFrame(updateScrolly); scrollyTicking = true; }
+    }, { passive: true });
+    window.addEventListener('resize', function () {
+      if (!scrollyTicking) { requestAnimationFrame(updateScrolly); scrollyTicking = true; }
+    }, { passive: true });
+    updateScrolly();
+  }
 
   // Counts each Pricing card's price up from 0 to its real target every time
   // the tab is opened — the target is read straight off the number already
