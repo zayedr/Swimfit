@@ -867,52 +867,51 @@ input, textarea, select { font: inherit; color: inherit; }
   --aqua-bright:   #4EE9FF;
   --gold:          #E7B65B;
 
-  /* Crisp cool slate — no green/brown tint — replacing the previous
-     near-black background so the site reads as an energetic athletic
-     dashboard rather than a dark, murky one. Every rule in this file reads
-     color exclusively through these custom properties, so this block (plus
-     the light-theme override below) is the entire re-skin. */
-  --bg:        #0C1220;
-  --bg-alt:    #101828;
-  --surface:   #172033;
-  --surface-2: #202C45;
-  --border:    rgba(148,163,184,0.18);
-  --border-strong: rgba(148,163,184,0.32);
+  /* Premium, matte dark SaaS palette — a deliberate move away from the
+     "AI-generated template" look (heavy cyan grid backgrounds, neon glowing
+     borders, harsh shadows) toward a calmer, more expensive-feeling surface.
+     Every rule in this file reads color exclusively through these custom
+     properties, so this block (plus the light-theme override below) is the
+     entire re-skin. */
+  --bg:        #0D1117;
+  --bg-alt:    #10141B;
+  --surface:   #161B22;
+  --surface-2: #1C2128;
+  --border:    rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
 
-  --fg:      #F8FAFC;
-  --muted:   #AEBBCC;
-  --muted-2: #7C8AA0;
+  --fg:      #F0F3F6;
+  --muted:   #8B949E;
+  --muted-2: #6E7681;
 
-  /* Precision card surface — a solid, flat panel with a crisp hairline
-     border, replacing the previous frosted-glass/blur treatment. No
-     backdrop-filter anywhere: depth comes from the border + a thin colored
-     top-accent rail per card family, not from blur or glow, so the UI reads
-     as a precision data instrument (Whoop/Strava/Linear-style) rather than
-     the generic soft-glass look most AI-generated dashboards default to.
-     Every existing .card/.bento-card/etc. rule already reads through these
-     same variable names, so this swap re-skins every card site-wide with no
-     markup changes. */
-  --glass-bg:     var(--surface-2);
-  --glass-bg-2:   #26314C;
-  --glass-border: rgba(148, 163, 184, 0.30);
-  --glass-blur:   none;
+  /* Sleek glassmorphism card surface — a translucent matte fill with a real
+     backdrop blur, replacing the earlier fully-opaque "precision instrument"
+     card treatment. Depth now comes from the blur + soft shadow + a hairline
+     low-opacity border, not from neon glows or heavy borders. Every existing
+     .card/.bento-card/etc. rule already reads through these same variable
+     names, so this swap re-skins every card site-wide with no markup
+     changes. */
+  --glass-bg:     rgba(22,27,34,0.7);
+  --glass-bg-2:   rgba(28,33,40,0.7);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-blur:   blur(10px);
 
   --on-green:  #04120A;
   --on-aqua:   #04191D;
   --on-maroon: #FBEDEF;
 
-  /* Glow shadows for the "energetic" accent treatment — active nav items,
-     primary CTAs, key stat numbers. Kept as tokens (not one-off box-shadow
-     literals) so every glow stays visually consistent and re-themeable. */
-  --glow-green: 0 0 20px rgba(22,214,115,0.45), 0 0 4px rgba(22,214,115,0.6);
-  --glow-aqua:  0 0 20px rgba(34,211,238,0.4), 0 0 4px rgba(34,211,238,0.55);
+  /* Softened, low-key accent shadows — used sparingly (an active nav item's
+     indicator rail) rather than the previous heavy neon bloom, so an accent
+     still reads as "on" without the glowing-template look. */
+  --glow-green: 0 0 10px rgba(22,214,115,0.28);
+  --glow-aqua:  0 0 10px rgba(34,211,238,0.24);
 
-  /* Sharper corners than the previous "soft bubble" bento look — a
-     deliberate, small radius reads as a precision instrument panel rather
-     than a rounded consumer-app card. */
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
+  /* Clean, modern rounded corners — a bigger radius than the previous
+     "precision instrument" look, matching the softer glass-card treatment
+     above. */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
 
   --space-1: 4px; --space-2: 8px; --space-3: 16px; --space-4: 24px;
   --space-5: 32px; --space-6: 48px; --space-7: 64px; --space-8: 96px;
@@ -990,7 +989,7 @@ body {
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.15;
   letter-spacing: 0.01em;
   text-wrap: balance;
 }
@@ -1360,17 +1359,13 @@ section { position: relative; scroll-margin-top: 96px; }
    are flavor text, not live telemetry, so nothing here claims to be real
    data the way the Hero's actual Registered Swimmers/Subscribers stats do. */
 .hero-hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.hero-hud-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(78,233,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(78,233,255,0.05) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 85%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 85%);
-  animation: hudGridDrift 26s linear infinite;
-}
-@keyframes hudGridDrift { from { background-position: 0 0, 0 0; } to { background-position: 42px 42px, -42px 42px; } }
+/* The heavy cyan graph-paper grid line pattern this used to paint here was
+   removed outright — it read as exactly the "AI-generated template"
+   background this round's redesign was asked to get away from. .hero-hud-grid
+   is left as an inert, empty hook (kept rather than deleted so the markup
+   above doesn't need touching) in case a future, much subtler texture is
+   ever wanted here again. */
+.hero-hud-grid { display: none; }
 .hero-hud-corner {
   position: absolute; width: 28px; height: 28px; border-color: rgba(78,233,255,0.4);
   opacity: 0; animation: hudFadeIn 900ms var(--ease) 400ms forwards;
@@ -1449,60 +1444,24 @@ section { position: relative; scroll-margin-top: 96px; }
    Academy and Pricing) and doubles as the graceful fallback if a Workouts/
    Gym video fails or is still loading. Workouts and Gym additionally layer
    a real looping video + dark overlay on top once it starts playing — see
-   .dash-bg-video below. Bakes a near-opaque dark gradient into its own
-   layer so section-head text (which isn't inside a solid-background card)
-   stays fully legible. */
-.dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 1; pointer-events: none; }
+   .dash-bg-video below.
+
+   Rewritten this round to a solid matte background with subtle, mostly
+   static radial gradients, replacing the previous heavy multi-color radial
+   wash + animated cyan graph-paper grid line texture (the ::after grid layer
+   is gone entirely) — that combination was the single biggest contributor
+   to this file's "AI-generated template" look. The result is calmer and far
+   lower-contrast: two low-opacity accent glows anchored to opposite
+   corners, over the flat --bg matte color, with no grid lines and no
+   distracting motion. */
+.dash-ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 1; pointer-events: none; background: var(--bg); }
 .dash-ambient-bg::before {
-  content: ''; position: absolute; inset: -12%;
+  content: ''; position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(56,224,196,0.16), transparent 60%),
-    radial-gradient(ellipse 50% 35% at 88% 25%, rgba(34,211,238,0.12), transparent 60%),
-    radial-gradient(ellipse 60% 45% at 30% 95%, rgba(56,224,196,0.12), transparent 60%),
-    radial-gradient(ellipse 55% 40% at 90% 90%, rgba(120,200,255,0.10), transparent 60%),
-    linear-gradient(180deg, rgba(13,20,32,0.97) 0%, rgba(13,20,32,0.88) 45%, rgba(13,20,32,0.97) 100%);
-  filter: blur(4px);
-  animation: dashAmbientDrift 28s ease-in-out infinite alternate;
+    radial-gradient(ellipse 60% 50% at 15% 0%, rgba(34,211,238,0.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 100% 100%, rgba(22,214,115,0.06), transparent 60%);
 }
-/* The same technical dot/line grid the Hero's .hero-hud-grid uses — applied
-   here too so every tab (Workouts, Gym, Tracker, Gear, Academy, Admin, …)
-   shares the identical "tactical grid" background as the landing page,
-   rather than each surface having its own distinct ambient treatment. */
-.dash-ambient-bg::after {
-  content: ''; position: absolute; inset: -12%;
-  background-image:
-    linear-gradient(rgba(78,233,255,0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(78,233,255,0.055) 1px, transparent 1px);
-  background-size: 42px 42px;
-  /* Same radial vignette mask as the Hero's .hero-hud-grid, so the grid
-     texture reads identically everywhere instead of the Hero's fading
-     out toward the edges while every other tab's stayed flat edge-to-edge. */
-  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
-  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 40%, transparent 90%);
-  animation: dashAmbientCaustic 26s linear infinite;
-  will-change: transform;
-}
-@keyframes dashAmbientDrift {
-  0% { transform: translate(-2%, -1%) scale(1.04); }
-  50% { transform: translate(2%, 2%) scale(1.09); }
-  100% { transform: translate(-1%, 1%) scale(1.06); }
-}
-/* PERF FIX: this used to animate `background-position` — a property that
-   forces the browser to repaint the whole (viewport-sized, inset:-12%)
-   layer on every single frame, for as long as the animation runs, which is
-   forever, on every tab, since this element is the shared ambient
-   background mounted behind the entire dashboard regardless of which tab is
-   active. Animating `transform` instead is compositor-only (no repaint at
-   all, just a GPU layer reposition) — moving by exactly one grid tile
-   (42px, the same value as `background-size`) makes the loop seamless, so
-   the visual drift is identical, it just no longer costs a repaint. */
-@keyframes dashAmbientCaustic {
-  0% { transform: translate(0, 0); }
-  100% { transform: translate(-42px, -42px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dash-ambient-bg::before, .dash-ambient-bg::after { animation: none; }
-}
+.dash-ambient-bg::after { content: none; }
 
 /* Full-screen looping video background for Workouts (swimmer in a pool) —
    loaded lazily on first visit (see the JS in switchTab()), faded in only
@@ -1547,20 +1506,19 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= CARDS (shared) =============================
-   Precision instrument surface — a SOLID flat panel (no blur, no
-   translucency), a crisp hairline border, and a thin colored top-accent
-   rail (added via ::before) instead of an ambient glow. This is the
-   deliberate, distinctive alternative to the generic dark-glassmorphism
-   look most AI-generated dashboards default to: depth reads from the
-   border + rail + a real (not blurred) drop shadow, not from frosted glass.
-   Used by the gear, video/academy, gym-focus and discipline cards; the
-   bespoke dashboard cards (settings/price/tracker/gym-exercise) opt in via
-   .glass-card below. */
+   Sleek glassmorphism/matte finish — a translucent fill with a real
+   backdrop blur, a soft hairline border, generous rounded corners, and a
+   real (not neon-glowing) drop shadow on hover. Used by the gear, video/
+   academy, gym-focus and discipline cards, plus the bespoke dashboard cards
+   (settings/price/tracker/gym-exercise) via .glass-card. */
 .card, .glass-card {
   position: relative; padding: var(--space-5);
-  transition: transform var(--dur) var(--ease);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 8px 24px -16px rgba(0,0,0,0.5);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.card:hover, .glass-card:hover { transform: translateY(-2px); }
+.card:hover, .glass-card:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: 0 16px 36px -18px rgba(0,0,0,0.55); }
 
 /* ============================= BENTO GRID SYSTEM =============================
    A reusable asymmetric grid + card pattern (the "bento box" layout seen
@@ -1593,18 +1551,21 @@ section { position: relative; scroll-margin-top: 96px; }
   --bento-accent: var(--aqua-bright);
   position: relative; text-align: start; width: 100%;
   display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5);
-  transition: transform var(--dur) var(--ease);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 8px 24px -16px rgba(0,0,0,0.5);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-/* Borderless/cardless by explicit request — no fill, no border, no shadow.
-   The only remaining "card family" signal is a thin bottom rule in the
-   section's own accent color, revealed on hover/focus, so a group of
-   related fields still reads as one unit without a boxed container. */
+/* A slim top accent rail in the card's own accent color, revealed on
+   hover/focus — a subtle "card family" identity cue on top of the real
+   glass fill/border above, not a substitute for it. */
 .bento-card::before {
-  content: ''; position: absolute; inset: auto 0 0 0; height: 2px; background: var(--bento-accent);
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bento-accent);
   opacity: 0; transition: opacity var(--dur) var(--ease);
 }
 .bento-card:hover::before, .bento-card:focus-within::before { opacity: 1; }
-.bento-card:hover { transform: translateY(-2px); }
+.bento-card:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: 0 16px 36px -18px rgba(0,0,0,0.55); }
 .bento-card-icon {
   width: 52px; height: 52px; border-radius: var(--radius-sm); flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
