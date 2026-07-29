@@ -3031,6 +3031,89 @@ control/paywall logic since it was reinstated as a real enforcement gate.**
   distance cap, archetype exclusion, and paywall bypass (including the nav dead-end fix) all work
   as described; and a simulated suspended account is correctly unaffected by the new bypass.
 
+**A full design-token retune away from the "AI-generated template" look toward a premium, matte
+dark-mode SaaS aesthetic — the heavy cyan graph-paper grid backgrounds, glowing neon borders, and
+harsh shadows from earlier "precision instrument"/"bento" rounds were the explicit target. Pure
+CSS/token changes — no JS, markup structure, Firestore, or Cloud Function changes anywhere.**
+
+- **The root design tokens (`:root` in `<style>`) were rewritten wholesale.** `--bg`/`--bg-alt`/
+  `--surface`/`--surface-2` moved to a genuine matte-black GitHub-dark-style palette (`#0D1117` /
+  `#10141B` / `#161B22` / `#1C2128`); `--border`/`--border-strong` dropped from a fairly visible
+  slate-tinted `rgba(148,163,184,0.18/0.32)` to a much subtler `rgba(255,255,255,0.08/0.14)`;
+  `--muted`/`--muted-2` became `#8B949E`/`#6E7681` (muted gray secondary text, per explicit spec);
+  `--radius-sm`/`--radius`/`--radius-lg` grew from the previous "precision instrument" sharp
+  corners (6/10/14px) to a softer, more premium 8/12/16px. Every rule in this file already read
+  color/radius exclusively through these custom properties (a discipline established many rounds
+  ago specifically so a re-skin like this never needs a per-component rewrite), so this one block
+  re-themes the entire site.
+- **Glassmorphism is back, deliberately reversing the "no blur, solid flat panel" precision-
+  instrument decision from a much earlier round** — the user this round explicitly asked for
+  translucent glass cards, which is the opposite of that earlier explicit ask, so this entry
+  supersedes it. `--glass-bg`/`--glass-bg-2` changed from solid opaque colors
+  (`var(--surface-2)`/`#26314C`) to real translucency (`rgba(22,27,34,0.7)`/`rgba(28,33,40,0.7)`),
+  `--glass-border` dropped from a fairly visible `rgba(148,163,184,0.30)` to a hairline
+  `rgba(255,255,255,0.08)`, and `--glass-blur` went from `none` back to a real `blur(10px)`. Every
+  card that already read through these tokens (`.settings-card`, `.price-card`,
+  `.tracker-log-form`/`-stat-card`/`-goal-card`/`-chart-card`, the Academy "100% free" banner) picked
+  up the new glass look automatically with zero per-component edits.
+- **`.card`/`.glass-card` and `.bento-card` — both stripped down to bare, borderless/backgroundless
+  surfaces in an earlier "fully cardless" round — regained a real background, border, blur, radius,
+  and soft resting/hover shadow**, directly reversing that round's "no fill, no border, no shadow"
+  decision per this round's explicit "give cards a sleek glassmorphism/matte finish" ask. This
+  re-skins every gear/video/Academy/gym-focus/discipline card (`.card`) and every Workouts/Gym/
+  Tracker bento-grid cell (`.bento-card`) at once, since both are single shared base classes.
+  `.bento-card`'s existing hover-revealed top accent rail (`::before`) was kept as an additional,
+  secondary "card family" cue layered on top of the new real card fill — not a replacement for it.
+- **The heavy cyan graph-paper grid line background is gone, everywhere it appeared.** Two distinct
+  occurrences: `.hero-hud-grid` (the Hero's own decorative grid layer) had its `background-image`/
+  `animation` deleted outright — the rule is now `display:none`, an inert hook rather than a deleted
+  selector, in case a much subtler texture is ever wanted there again — and `.dash-ambient-bg::after`
+  (the identical grid texture shared behind every tab — Workouts, Gym, Gear, Academy, Tracker,
+  Pricing, Admin, Settings, Support, Coach) was removed entirely (`content: none`), along with its
+  now-unused `dashAmbientCaustic` keyframe. A file-wide grep for the same `linear-gradient(...1px,
+  transparent 1px)` grid-line pattern confirmed no other occurrence exists anywhere else in the CSS.
+- **`.dash-ambient-bg::before` (the shared ambient wash behind every tab) was rewritten from a busy,
+  animated, high-saturation four-color radial gradient wash into a solid matte background with two
+  calm, low-opacity, static radial glows** anchored to opposite corners (aqua top-left at 7%
+  opacity, green bottom-right at 6%) — replacing the previous `rgba(*, 0.10–0.16)` intensities, the
+  `filter: blur(4px)`, and the `dashAmbientDrift` 28s scale/translate animation entirely. The result
+  is deliberately calmer and lower-contrast, matching the "solid, sleek matte dark background with
+  subtle radial gradients" spec precisely rather than the previous busy, constantly-drifting wash.
+- **Glow shadows were softened, not removed** (`--glow-green`/`--glow-aqua`, used only by the active-
+  tab indicator rail in the mobile/desktop nav) — from a double-layered `0 0 20px / 0 0 4px` neon
+  bloom down to a single, much smaller `0 0 10px` shadow at roughly half the previous opacity, so an
+  active tab still reads as "on" without the glowing-template look. The `.btn-cta-glow` breathing
+  shadow on Pricing's Subscribe/Get-Started buttons and Hero's trial CTA was deliberately left
+  untouched — it's the one place the ask's own "sleek brand green/cyan accents only on primary
+  call-to-action buttons" language explicitly calls for a visible accent effect.
+- **Typography got a small breathing-room pass**: `h1`–`h4`'s `line-height` increased from a tight
+  `1.05` to `1.15` for better multi-line heading spacing across every section head, tab heading, and
+  card title site-wide (a single shared rule, so no per-heading edits were needed). Body copy was
+  already `line-height: 1.6` and card padding already used the generous `--space-5` (32px) token, so
+  neither needed a separate change — the ask's "breathing room" was already substantially met by the
+  bento-card padding/gap scale, and the new bigger `--radius-lg` (16px) plus real glass shadow already
+  add visible depth/separation between adjacent cards.
+- **Buttons were audited, not rewritten — they were already standardized.** `.btn`'s shared base
+  (44px min-height, consistent `0.85em 1.6em` padding, pill radius, one shared hover-lift transition)
+  and the `.btn-sm` variant (38px min-height) already gave every button on the site — Nav, Hero,
+  Workouts, Gym, Pricing — identical sizing/spacing per size tier; verified computationally (not just
+  by eye) in an earlier round and re-confirmed unchanged here. No button-system rewrite was made
+  since no actual inconsistency was found.
+- **No JS/light-mode changes were made or needed.** A search for `data-theme`/`prefers-color-scheme`/
+  a Light-theme toggle found none currently wired in the live markup (despite earlier documentation
+  in this file describing one) — this site currently ships dark-mode only, which happens to match
+  this round's own explicit "premium dark-mode SaaS UI" brief exactly, so there was no second Light
+  palette to keep in sync with this retune.
+- Verified via Playwright: the shared `.dash-ambient-bg::after` grid layer now resolves to
+  `content: none` (i.e. genuinely gone, not just visually faint), a sampled `.bento-card`'s computed
+  `background-color`/`backdrop-filter`/`border-radius` read exactly `rgba(22,27,34,0.7)` /
+  `blur(10px)` / `16px`, and `body`'s computed background is the new matte `rgb(13,17,23)`; visual
+  screenshots of the Hero, Workouts, Gym, Tracker, Settings and Pricing tabs all confirm a clean,
+  grid-free, glass-carded look; and the full pre-existing regression suite (all 9 tabs load with
+  zero page errors, flexible PB add/remove, both Workouts' and Gym's PDF exports firing real
+  `download` events, Complete Workout logging, and the Beginner-trial-bypass/suspension-lock
+  behavior from the immediately preceding round) still passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
