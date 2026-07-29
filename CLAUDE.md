@@ -3389,6 +3389,118 @@ crowded out the immersive, full-screen feel the landing experience was going for
   PDF exports fire real `download` events, and Complete Workout logging still writes the correct
   `swim_logs` entry and updates its button state) still passes unchanged.
 
+**A CRITICAL FIX round scrapped the capsule-nav/Hero/scrolly hybrid entirely and rebuilt Home as
+a strictly isolated, full-screen presentation view — a genuine architecture change, not another
+visual pass on top of the same structure.** The explicit complaint driving this round: the
+previous build still let a visitor scroll straight from the Hero, through the photo showcase,
+into the live Workouts tool underneath — i.e. "the marketing page and the app were the same
+scroll" — which read as a cheap AI-template widget rather than a real product with a real
+landing page. Every prior round's scrolly/capsule-nav work (the A324-style showcase, the photo
+panels, the collapsible sidebar) is superseded by this entry; the CSS/JS/markup those rounds
+added were replaced outright, not layered on top of.
+
+- **`<body>` now carries either `view-home` or `view-app`, never both** — the single toggle
+  point for whether the swimmer sees the landing presentation or the app's tool workspace. A new
+  `setAppView(active)` function (beside `setSidebarCollapsed()`) flips the two classes together;
+  `switchTab()` calls `setAppView(true)` on every *real* navigation (any actual `[data-tab]`
+  click), and the sign-out handler calls `setAppView(false)` to return to Home. The two existing
+  *internal* `switchTab()` callers (establishing the default tab at page-load, and the sign-out
+  handler's own "switch away from a signed-in-only tab" step) pass an `isInternal: true` option —
+  renamed from the previous round's `skipSidebarExpand`, since it now also suppresses the view
+  flip, not just the sidebar-expand — so neither of those ever forces the App view open on their
+  own. `<body>` starts with `class="sidebar-collapsed view-home"` in the raw markup, so Home is
+  the default on every fresh load with no synchronous flash-prevention script needed (nothing is
+  racing a stored preference).
+- **`#homeView` and every piece of app-only chrome are hard-toggled via plain CSS, not JS
+  show/hide calls.** `body.view-app #homeView { display: none; }` and, symmetrically,
+  `body.view-home #dashboard, footer, #siteNav, .mobile-bottom-nav, .sidebar-collapse-btn,
+  .announce-bar, .coach-fab, .admin-msg-fab { display: none !important; }` — the entire tool
+  workspace (Workouts, Gym, every other tab, the footer's Explore/Membership/Company links, the
+  sidebar/mobile bottom nav, the announcement bar promo banner, and both floating chat FABs) is
+  now unreachable and invisible while on Home, and Home itself is unreachable and invisible once
+  inside the App view. This is the literal "ISOLATE HOME PAGE FROM APP TOOLS" ask — previously
+  these were all just... further down the same page.
+- **The Hero is now Scene 0 of one continuous scroll canvas, not a separate ordinary-scrolling
+  block sitting above a second independently-pinned showcase section.** The old architecture (a
+  normal-flow `.hero` header, then a *separate* `position:sticky` `#scrollyShowcase` immediately
+  below it) was itself the "harsh break" the ask called out — reaching the showcase meant
+  finishing one scroll behavior and starting a completely different one. The new
+  `#homeCanvas`/`.home-canvas-sticky` wraps all 4 scenes — Hero (Scene 0, keeping its existing
+  photo/video/caustics atmosphere) plus the 3 "what Swimfit does" scenes (Outswim Your Limits /
+  Dryland & Power / A Whole New Universe, same copy and photos as before) — as one 400vh pinned
+  stage (100vh dwell per scene, up from the previous 300vh/3-scene canvas). `updateHomeCanvas()`
+  (replacing `updateScrolly()`) generalizes the per-scene clamped-local-progress cross-fade+scale+
+  parallax math from a hardcoded 3 slides to `homeScenes.length`, so scene count is no longer
+  hand-wired into the scroll math. Every scene is strictly edge-to-edge — `position:absolute;
+  inset:0` inside a `100vw`/`100svh` sticky stage — with **zero card sizing, rounded containers,
+  or margins anywhere**, unlike the previous `.scrolly-media` (a centered, rounded, `min(1100px,
+  92vw)`-capped box) that the ask explicitly singled out as reading like a "small card," not a
+  full-screen canvas.
+- **The hand-drawn SVG swimmer silhouette, squiggly wave shapes, and blurred accent blob were
+  deleted outright from the Hero scene** — not hidden, not restyled. These were exactly the kind
+  of low-fidelity "clip art" decoration a cheap AI-generated template leans on, and were called
+  out directly by this round's "cheap AI-looking icons" complaint. The atmospheric photo/video/
+  caustics layers were kept (real generated photography/video, not icon work) along with the
+  headline's subtle gradient-shimmer accent text (a typographic effect, not decorative clip art).
+  `.hero::after` (the old edge-blend layer that faded the Hero into the fixed sidebar on one side
+  and the dashboard section directly below it on the other) was deleted too — neither of those
+  neighbors exist anymore now that Home is an isolated view with nothing beside or below it in
+  the same scroll flow.
+- **The floating capsule nav (4 text links in a glass pill + a CTA) was replaced by `.home-nav` —
+  a slim, fully transparent bar with just a wordmark and ONE polished CTA button**, the literal
+  "single polished CTA button" ask. No pill background, no blur chrome, no second row of nav
+  links funneling into individual tools — the mutually-exclusive signed-out/signed-in CTA pair
+  (`data-auth-signed-out`/`data-auth-signed-in`, same established pattern used everywhere else in
+  this file) reads "Start Training" (opens the signup modal) for a guest and "Launch App" (jumps
+  straight into Workouts) for a signed-in swimmer, so exactly one CTA is ever visible. Clicking
+  any of the 3 non-Hero scenes still jumps directly into that scene's own tool (same
+  `[data-tab]` delegation every nav link on the site already uses) — verified via Playwright that
+  only the currently-active (visible, on-top) scene is ever clickable, which is correct: the other
+  two sit behind it at `opacity:0`/`pointer-events:none`, and a real swimmer could never click
+  what they can't see either.
+- **A real, previously-missing "return to Home" path was added.** Once Home and App became hard-
+  separated views, a signed-in swimmer had no way back to the landing presentation short of
+  signing out — a genuine UX gap the isolation architecture introduced, not something explicitly
+  requested but a necessary consequence of it. The sidebar's own brand/wordmark link
+  (`<a href="#top" class="brand">`, already labeled "Swimfit home") now intercepts its click,
+  calls `setAppView(false)`, re-collapses the sidebar, and scrolls to the top — reusing the exact
+  same `#top` anchor id the sign-out handler already targeted, just without a real page navigation
+  since `#top` now lives inside `#homeView`, which is hidden while `body.view-app`.
+- **`switchTab()`'s own scroll-to-top step was simplified from `dashboard.scrollIntoView(...)` to
+  a plain `window.scrollTo(0, 0)`.** Once `#homeView` is `display:none`, `#dashboard` is
+  unconditionally the first thing in the visible document flow — scrolling to `y=0` lands at
+  exactly the same spot `scrollIntoView` was computing, without depending on `#dashboard`'s
+  current geometry mid-transition (a `getBoundingClientRect()`-based call reading stale geometry
+  the same frame `display:none` was just toggled was a real, if narrow, risk the simpler call
+  sidesteps entirely).
+- **A real test-methodology issue was hit and fixed while verifying the rebuilt canvas, not a
+  product bug**: simulating realistic wheel-scroll input (`page.mouse.wheel()`, this file's own
+  established precedent for scroll-driven sections) intermittently stalled for many iterations
+  before catching up — Chromium can coalesce or queue rapid synthetic wheel deltas rather than
+  applying each one immediately, which reads as flaky scroll-position tests on a 400vh canvas even
+  though nothing in the shipped code is wrong. Switched the test harness to
+  `window.scrollTo({top, behavior:'instant'})` — the explicit `behavior:'instant'` overrides this
+  page's own global `scroll-behavior:smooth` CSS rather than being subject to it (that global rule
+  only intercepts scrolls that don't specify their own behavior), landing at the exact target
+  position synchronously with no animation to wait out. This is a test-infrastructure fix only;
+  no product code changed as a result.
+- Verified via Playwright end-to-end: `body` defaults to `view-home` with `view-app` absent on
+  every fresh load, and `#dashboard`/`footer`/`#siteNav`/`.mobile-bottom-nav`/
+  `.sidebar-collapse-btn`/`.announce-bar`/`.coach-fab`/`.admin-msg-fab` all compute `display:none`
+  while on Home; all 4 scenes wire the correct photo/video sources and cross-fade with the
+  expected clamped scale/parallax transforms at 5 sampled scroll depths; clicking a non-Hero scene
+  (while it's the active, visible one) flips to `view-app`, sets the correct active tab, and lands
+  at `scrollY: 0` with `#homeView` now `display:none`; the signed-out CTA opens the auth modal
+  without leaving Home, and the signed-in CTA (verified to read "Launch App") jumps straight into
+  Workouts; clicking the sidebar brand link from inside the App view returns to `view-home` at
+  `scrollY: 0`; a 390px mobile viewport shows zero horizontal overflow at the top of Home and
+  mid-canvas, with the nav CTA fully on-screen and a normal tap-target size; `prefers-reduced-
+  motion` lays the whole canvas out as a plain static stack (`position:static`, all 4 scenes at
+  `opacity:1`, no pinning, no scroll listener attached); and the full pre-existing regression
+  suite (all 9 tabs switch and render inside the App view with zero page errors, both Workouts'
+  and Gym's PDF exports fire real `download` events, and Complete Workout logging still writes the
+  correct `swim_logs` entry) passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

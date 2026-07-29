@@ -1229,7 +1229,6 @@ section { position: relative; scroll-margin-top: 96px; }
    completely untouched. */
 @media (min-width: 981px) {
   body { margin-left: var(--sidebar-w); transition: margin-left var(--dur) var(--ease); }
-  .hero { padding-top: 56px; }
 
   .nav {
     left: 0; right: auto; top: var(--announce-h); bottom: 0;
@@ -1263,13 +1262,13 @@ section { position: relative; scroll-margin-top: 96px; }
   .nav-toggle { display: none; }
   .mobile-bottom-nav { display: none; }
 
-  /* Collapsible sidebar. Setting --sidebar-w itself to 0 (rather than adding
-     a pile of one-off overrides) is deliberate: every layout rule that
-     already reads the sidebar's width through this one token —
-     body's margin-left, .capsule-nav's centering math, .panel-wide's
-     full-bleed correction, the admin chat FAB's left offset — recomputes
-     correctly for free the moment this single value changes, with zero
-     per-component overrides needed. */
+  /* Collapsible sidebar (App view only — Home never renders it at all, see
+     the "HOME VIEW" CSS block). Setting --sidebar-w itself to 0 (rather than
+     adding a pile of one-off overrides) is deliberate: every layout rule that
+     already reads the sidebar's width through this one token — body's
+     margin-left, .panel-wide's full-bleed correction, the admin chat FAB's
+     left offset — recomputes correctly for free the moment this single value
+     changes, with zero per-component overrides needed. */
   body.sidebar-collapsed { --sidebar-w: 0px; }
   body.sidebar-collapsed .nav { opacity: 0; pointer-events: none; }
 }
@@ -1310,21 +1309,16 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= HERO ============================= */
-.hero { position: relative; min-height: 88svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
-/* Edge-blend layer: fades the hero's photo/video/wave layers into the page
-   background at the left (so there's no hard vertical seam against the fixed
-   sidebar) and at the bottom (so the hero melts into the dashboard section
-   below instead of cutting off on a visible horizontal line). Sits at z-index
-   -1 — above the photo/video (-2) so it can actually blend them, below the
-   hero copy (z-index 0/auto) so text stays crisp and fully readable. Because
-   it's an ::after it paints last within the -1 group, on top of the
-   caustics/waves/swimmer, which is exactly what softens those edges. */
-.hero::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    linear-gradient(90deg, var(--bg) 0%, rgba(10,15,24,0.65) 5%, transparent 15%),
-    linear-gradient(0deg, var(--bg) 0%, rgba(10,15,24,0.85) 8%, transparent 24%);
-}
+/* .hero no longer owns its own layout — it's now Scene 0 inside the Home
+   view's continuous scroll canvas (see .home-scene below), so it only keeps
+   overflow/isolation to contain its own negative-z-index photo/video/caustics
+   layers within a local stacking context; position/size/full-bleed all come
+   from the shared .home-scene rule instead. The old edge-blend ::after (which
+   faded the hero into the fixed sidebar on one side and the dashboard section
+   directly below it on the other) no longer applies now that Home is an
+   isolated view with no sidebar and nothing directly beneath it in the same
+   scroll flow — removed outright rather than left as dead CSS. */
+.hero { overflow: hidden; isolation: isolate; }
 .hero-bg { position: absolute; inset: 0; z-index: -3; background:
   radial-gradient(60% 50% at 15% 20%, rgba(20,104,51,0.35), transparent 60%),
   radial-gradient(50% 45% at 85% 15%, rgba(156,42,68,0.3), transparent 60%),
@@ -1374,170 +1368,147 @@ section { position: relative; scroll-margin-top: 96px; }
   50%  { background-position: 30% 20%, 70% 60%, 40% 70%; }
   100% { background-position: 10% 40%, 90% 30%, 60% 20%; }
 }
-.hero-swimmer { position: absolute; z-index: -1; top: 50%; right: -4%; width: min(46vw, 620px); height: auto; transform: translateY(-50%); opacity: 0.5; }
-.hero-swimmer g { opacity: 0.16; }
-.hero-waves { position: absolute; inset-inline: 0; bottom: 12%; z-index: -1; height: 140px; overflow: hidden; pointer-events: none; }
-.hero-wave { position: absolute; bottom: 0; left: 0; width: 220%; height: 100%; opacity: 0.08; }
-.hero-wave-1 { animation: waveDrift 22s linear infinite; }
-.hero-wave-2 { opacity: 0.06; animation: waveDrift 30s linear infinite reverse; }
-@keyframes waveDrift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* The hand-drawn SVG swimmer silhouette (.hero-swimmer) and squiggly wave
+   shapes (.hero-waves) — along with the blurred accent .blob circle that used
+   to sit near them — were deleted outright this round, not just hidden. They
+   were exactly the kind of low-fidelity "clip art" decoration a cheap,
+   AI-generated template leans on; a "luxury agency" full-bleed photo/video
+   canvas doesn't need cartoon filler on top of it. The water-ripple "target
+   reticle" rings and the sci-fi HUD overlay (corner brackets, readout bars,
+   dummy tech text) were removed in an earlier round for the same reason.
 
-/* The water-ripple "target reticle" rings and the entire sci-fi HUD overlay
-   (corner brackets, top/bottom readout bars, "SYSTEM READY"/"PROTOCOL
-   ONLINE"/"SET.001 · REP.∞" dummy tech text) that used to render here were
-   removed outright — explicitly called out as gimmicky/gaming-overlay
-   clutter, not the clean, premium SaaS look this Hero is meant to have. The
-   markup (.hero-ripples, .hero-hud and its children) was deleted alongside
-   this CSS, not just hidden.
-*/
-
-/* The hero copy is a .wrap capped narrower than the wrap's own 1240px, so
-   .wrap's margin-inline:auto was centering the whole block within the content
-   area (very visible on wide screens once the sidebar took over). Pinning
-   margin-inline-start:0 (logical, so it still flips correctly in RTL) hugs the
-   copy to the LEFT edge of the content area instead — text is already
-   left-aligned by default, this just stops the container itself from being
-   centered. */
-.hero-content { max-width: 820px; margin-inline-start: 0; margin-inline-end: auto; text-align: start; }
-/* Staggered load-in cascade for the hero copy (child 1 is the eyebrow, which has
-   no data-reveal, so the three revealed elements — h1, actions, stats — land
-   on nth-child 2-4). */
-.hero-content > [data-reveal]:nth-child(2) { transition-delay: 60ms; }
-.hero-content > [data-reveal]:nth-child(3) { transition-delay: 200ms; }
-.hero-content > [data-reveal]:nth-child(4) { transition-delay: 340ms; }
-.hero-content h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); text-transform: uppercase; margin-bottom: var(--space-6); }
-.hero-content h1 .accent {
+   The hero copy's accent-gradient shimmer on "Race." is a subtle typographic
+   effect, not decorative clip art, and was kept. */
+.home-scene-text h1 .accent, .home-scene-text h2 .accent {
   background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: shimmerText 6s ease-in-out infinite;
 }
 @keyframes shimmerText { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-.hero-content > p { font-size: clamp(1.05rem, 2vw, 1.2rem); color: var(--muted); max-width: 560px; margin-bottom: var(--space-5); }
-.hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-6); }
-.hero-stats { display: flex; flex-wrap: wrap; gap: var(--space-6); }
-.stat { min-width: 110px; }
-.stat strong { display: block; font-family: var(--font-mono); font-size: 2.1rem; color: var(--fg); font-weight: 700; }
-.stat span { color: var(--muted-2); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
 
-/* ============================= FLOATING CAPSULE NAV =============================
-   A landing-page-only frosted-glass pill nav, centered at the top of the Hero/
-   scroll-showcase — distinct from (and layered above) the app's own sidebar/
-   mobile-bottom-nav, which stays the real navigation for every signed-in
-   feature. Desktop-only (matching the sidebar's own >=981px breakpoint): below
-   that width the existing mobile top bar already occupies this exact strip of
-   the viewport, and a second fixed bar there would collide with it. Clicking
-   any link here reuses the site's one shared [data-tab] click delegation (see
-   the NAV / TAB CONTROLLER script) — no separate click handler needed, and
-   critically no special "scroll through the presentation" behavior: switchTab()
-   already jumps straight to the target tab's content at y=0 via
-   dashboard.scrollIntoView(), bypassing the scroll-showcase section entirely. */
-.capsule-nav {
-  display: none;
-  position: fixed; z-index: 130; top: calc(var(--announce-h) + 16px);
-  align-items: center; gap: var(--space-4);
-  padding: 8px 8px 8px 22px; border-radius: 999px;
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: 0 12px 32px -18px rgba(0,0,0,0.6);
-  transition: opacity 320ms var(--ease), transform 320ms var(--ease), top var(--dur) var(--ease);
-}
-.capsule-nav.is-hidden { opacity: 0; transform: translateX(-50%) translateY(-14px); pointer-events: none; }
-@media (min-width: 981px) {
-  .capsule-nav { display: flex; left: calc(50% + var(--sidebar-w) / 2); transform: translateX(-50%); }
-  .capsule-nav.is-hidden { transform: translateX(-50%) translateY(-14px); }
-}
-.capsule-nav-links { display: flex; align-items: center; gap: 4px; }
-.capsule-nav-links button {
-  padding: 9px 16px; border-radius: 999px; font-family: var(--font-display); font-weight: 600;
-  font-size: 0.85rem; letter-spacing: 0.03em; color: var(--muted); white-space: nowrap;
-  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
-}
-.capsule-nav-links button:hover { color: var(--fg); background: var(--surface-2); }
-.capsule-nav-cta { white-space: nowrap; }
+/* ============================= HOME VIEW (isolated full-screen presentation) =============================
+   A CRITICAL rebuild: the Home experience is now a strictly separate view from
+   the app's tool workspace, not a page you scroll past into the dashboard.
+   Previously scrolling down through the Hero and the scroll-showcase landed
+   directly in the Workouts tool underneath — which read as "the marketing
+   page and the app are the same continuous scroll," exactly what this round's
+   ask called out as needing to stop. <body> now carries either the
+   `view-home` or `view-app` class (never both — see setAppView() in the
+   NAV/TAB CONTROLLER script); #homeView and every piece of app-only chrome
+   (#dashboard, the footer, the sidebar/mobile-bottom-nav, the announcement
+   bar, the two floating chat FABs) are hard-toggled via plain CSS
+   display:none on whichever side is inactive. This is an architectural split,
+   not a visual restyle — see switchTab()'s setAppView(true) call and the
+   sign-out handler's setAppView(false) call for the only two places this
+   ever flips. */
+body.view-app #homeView { display: none; }
+body.view-home #dashboard,
+body.view-home footer,
+body.view-home #siteNav,
+body.view-home .mobile-bottom-nav,
+body.view-home .sidebar-collapse-btn,
+body.view-home .announce-bar,
+body.view-home .coach-fab,
+body.view-home .admin-msg-fab { display: none !important; }
+/* Home is always a true 100vw/100svh canvas — it never carries the sidebar's
+   own left offset or the announcement bar's top offset, since neither of
+   those elements render while body.view-home is active. */
+body.view-home { margin-left: 0 !important; }
 
-/* ============================= A324-STYLE SCROLL SHOWCASE =============================
-   A pure CSS/JS scroll-driven "pin and advance" section — no external motion
+/* A slim, transparent floating top bar — no glass pill, no background box,
+   just a wordmark and ONE polished CTA button floating directly over the
+   scene imagery underneath (the previous capsule nav's 4 extra text links
+   and pill-shaped background were both explicitly called out as reading like
+   template chrome; this is the literal "single polished CTA button" ask). */
+.home-nav {
+  position: fixed; inset-inline: 0; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+}
+.home-nav-brand {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;
+  font-size: 0.95rem; color: var(--fg); text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.5);
+}
+.home-nav-cta {
+  font-family: var(--font-display); font-weight: 600; letter-spacing: 0.05em;
+  font-size: 0.82rem; text-transform: uppercase; color: var(--fg); white-space: nowrap;
+  padding: 0.85em 1.8em; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.04); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.home-nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
+
+/* ============================= CONTINUOUS SCROLL CANVAS =============================
+   A pure CSS/JS scroll-driven "pin and advance" canvas — no external motion
    library (this file has no build step to add one to; every earlier
    framer-motion/GSAP-style ask in this codebase has likewise been delivered as
-   hand-rolled CSS+JS). A tall (300vh) wrapper holds a position:sticky stage
-   pinned for the full 100vh viewport while the swimmer scrolls through it;
-   scrollyProgress (0 → 1, computed from the wrapper's own scroll position in
-   the NAV/TAB CONTROLLER script below) drives three floating 3D cards around a
-   CSS rotateY/translateZ orbit and cross-fades three headline/copy pairs, one
-   per third of the scroll range. Purely decorative/narrative — every card is
-   also a real [data-tab] shortcut into that tool, same click delegation as
-   the capsule nav above and every other nav link on the site. */
-.scrolly { position: relative; height: 300vh; }
-.scrolly-sticky {
-  position: sticky; top: 0; height: 100svh; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-}
-.scrolly-sticky::before {
-  content: ''; position: absolute; inset: 0; z-index: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 15%, rgba(34,211,238,0.06), transparent 60%),
-    radial-gradient(ellipse 55% 45% at 85% 85%, rgba(22,214,115,0.05), transparent 60%),
-    #0A0D14;
-}
-/* Full-bleed photographic panel stack — one real, high-res image per slide
-   (dark swimming/gym photography + an app-mockup shot for the AI Coach/
-   Tracker slide) with a bold title/subtitle overlaid directly on a dark
-   gradient wash, replacing the previous flat icon+text card row entirely.
-   Only the active slide's panel is visible at a time; the other two sit at
-   opacity:0 underneath, cross-fading in as scroll progress crosses into
-   their third of the section (see the NAV/TAB CONTROLLER script). */
-.scrolly-media {
-  position: relative; z-index: 1; width: min(1100px, 92vw); height: min(640px, 72svh);
-  border-radius: var(--radius-lg); overflow: hidden;
-  box-shadow: 0 40px 100px -30px rgba(0,0,0,0.7);
-}
-.scrolly-panel {
-  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
-  border: none; padding: 0; margin: 0; text-align: start; cursor: pointer;
+   hand-rolled CSS+JS). A tall wrapper (100vh per scene) holds a
+   position:sticky stage pinned for the full viewport while the swimmer
+   scrolls through it; updateHomeCanvas() in the NAV/TAB CONTROLLER script
+   cross-fades and gently scales/parallaxes N full-bleed .home-scene layers
+   into one another, one per Nth of the scroll range — the Hero itself is
+   Scene 0, so there is no separate, ordinary-scrolling Hero block above a
+   second independently-pinned section (the previous architecture, and the
+   source of the "harsh break" this round's ask specifically complained
+   about). Every scene is strictly edge-to-edge: no card sizing, no rounded
+   container, no margin — 100vw/100svh, full stop. Every scene past Hero is
+   also a real [data-tab] shortcut into that tool, same shared click
+   delegation as every other nav link on the site. */
+.home-canvas { position: relative; height: 400vh; }
+.home-canvas-sticky { position: sticky; top: 0; height: 100svh; width: 100vw; overflow: hidden; }
+.home-scene {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; border: none; padding: 0; margin: 0; text-align: start;
   opacity: 0; pointer-events: none; z-index: 0;
-  transition: opacity 560ms var(--ease);
+  transition: opacity 700ms var(--ease);
   will-change: opacity;
 }
-.scrolly-panel.is-active { opacity: 1; pointer-events: auto; z-index: 1; }
-.scrolly-panel-media {
-  position: absolute; inset: -8%; background-image: var(--panel-photo);
-  background-size: cover; background-position: center;
-  will-change: transform; transition: transform 220ms linear;
+.home-scene.is-active { opacity: 1; pointer-events: auto; z-index: 1; }
+.home-scene-bg {
+  position: absolute; inset: -8%; will-change: transform; transition: transform 220ms linear;
 }
-.scrolly-panel-overlay {
+.home-scene-bg.is-photo { background-image: var(--scene-photo); background-size: cover; background-position: center; }
+.home-scene-overlay {
   position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(0deg, rgba(6,9,14,0.94) 0%, rgba(6,9,14,0.6) 42%, rgba(6,9,14,0.12) 72%);
+  background: linear-gradient(0deg, rgba(6,9,14,0.92) 0%, rgba(6,9,14,0.45) 45%, rgba(6,9,14,0.16) 75%);
 }
-.scrolly-panel-text {
-  position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-6);
-  color: var(--fg); pointer-events: none;
+.home-scene-text {
+  position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-7);
+  max-width: 900px; color: var(--fg); pointer-events: none;
 }
-.scrolly-index {
-  display: block; font-family: var(--font-mono); color: rgba(240,243,246,0.6); font-size: 0.85rem;
-  letter-spacing: 0.1em; margin-bottom: var(--space-3);
+.home-scene-index {
+  display: block; font-family: var(--font-mono); color: rgba(240,243,246,0.55);
+  font-size: 0.85rem; letter-spacing: 0.12em; margin-bottom: var(--space-3);
 }
-.scrolly-panel-text h2 {
-  font-size: clamp(2rem, 4.4vw, 3.2rem); text-transform: uppercase; margin-bottom: var(--space-2);
+.home-scene-text h1, .home-scene-text h2 {
+  font-size: clamp(2.2rem, 5.4vw, 4.4rem); text-transform: uppercase;
+  line-height: 1.08; margin-bottom: var(--space-3); font-weight: 700;
 }
-.scrolly-panel-text p { color: rgba(240,243,246,0.82); font-size: 1.05rem; max-width: 52ch; }
+.home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
+.home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }
+.home-scene-stat {
+  position: absolute; right: var(--space-6); bottom: var(--space-7); text-align: end;
+  font-family: var(--font-mono); color: rgba(240,243,246,0.7); pointer-events: none;
+}
+.home-scene-stat strong { display: block; font-size: 1.6rem; color: var(--green-bright); font-weight: 700; }
+.home-scene-stat span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,243,246,0.5); }
 @media (max-width: 900px) {
-  .scrolly-media { width: 94vw; height: 66svh; }
-  .scrolly-panel-text { left: var(--space-4); right: var(--space-4); bottom: var(--space-4); }
+  .home-scene-text { left: var(--space-4); right: var(--space-4); bottom: var(--space-5); }
+  .home-nav { padding: var(--space-4); }
+  .home-scene-stat { display: none; }
 }
-/* Reduced motion: no pinning, no scroll-linked scale/parallax — the three
-   slides just stack as plain, already-legible content blocks (reusing the
-   existing [data-reveal] fade-in pattern every other section on this page
-   already uses), each panel shown at full size and full opacity rather
-   than cross-fading. The JS-side scroll listener that drives all of this
-   is also never attached in the first place (see NAV / TAB CONTROLLER
-   below) — this CSS override exists so the layout is correct even before
-   that JS check runs. */
+/* Reduced motion: no pinning, no scroll-linked scale/parallax/cross-fade —
+   every scene just stacks as a plain, already-legible full-viewport block in
+   source order (Hero first), each shown at full opacity rather than fading.
+   The JS-side scroll listener that drives all of this is also never attached
+   in the first place (see NAV / TAB CONTROLLER below) — this CSS override
+   exists so the layout is correct even before that JS check runs. */
 @media (prefers-reduced-motion: reduce) {
-  .scrolly { height: auto; }
-  .scrolly-sticky { position: static; height: auto; padding-block: var(--space-8); flex-direction: column; gap: var(--space-6); }
-  .scrolly-media { position: static; height: 50svh; }
-  .scrolly-panel { position: static; opacity: 1 !important; pointer-events: auto; margin-bottom: var(--space-6); height: 50svh; }
-  .scrolly-panel-media { transform: none !important; }
+  .home-canvas { height: auto; }
+  .home-canvas-sticky { position: static; height: auto; width: auto; }
+  .home-scene { position: static; opacity: 1 !important; pointer-events: auto; height: 100svh; }
+  .home-scene-bg { transform: none !important; }
 }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
@@ -1670,15 +1641,6 @@ section { position: relative; scroll-margin-top: 96px; }
 .bento-card-link .icon { width: 14px; height: 14px; transition: transform var(--dur) var(--ease); }
 .bento-card:hover .bento-card-link { color: var(--green-bright); gap: 10px; }
 .bento-card:hover .bento-card-link .icon { transform: translateX(2px); }
-/* The long-form "Start 3-Day Free Trial — No Card Required" CTA (Hero) is the
-   one button in this file whose label is long enough to overflow a narrow
-   phone width under the global .btn white-space:nowrap — real, verified
-   clipping at 390px, not just a benign scrollWidth artifact. Letting it wrap
-   and go full-width below 480px fixes it without touching the shared .btn
-   rule every other (shorter) button relies on staying single-line. */
-@media (max-width: 480px) {
-  .hero-actions .btn-cta-glow { white-space: normal; width: 100%; text-align: center; line-height: 1.3; padding-block: 0.9em; }
-}
 
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
 .tag-green { background: rgba(22,214,115,0.16); color: var(--green-bright); }
@@ -3067,7 +3029,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
 </style>
 </head>
-<body class="sidebar-collapsed">
+<body class="sidebar-collapsed view-home">
 
 <!-- ============================= ANNOUNCEMENT BAR ============================= -->
 <div class="announce-bar" id="announceBar" role="region" aria-label="Launch offer">
@@ -3200,107 +3162,81 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <button type="button" id="mobileMoreBtn" aria-haspopup="true" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg><span>More</span></button>
 </nav>
 
-<!-- ============================= FLOATING CAPSULE NAV (landing page only) ============================= -->
-<nav class="capsule-nav" id="capsuleNav" aria-label="Quick navigation">
-  <div class="capsule-nav-links">
-    <button type="button" data-tab="workouts">Workouts</button>
-    <button type="button" data-tab="gym">Gym</button>
-    <button type="button" data-tab="coach">AI Coach</button>
-    <button type="button" data-tab="tracker">Tracker</button>
-  </div>
-  <button type="button" class="btn btn-primary btn-sm capsule-nav-cta" data-tab="workouts">Start Training</button>
-</nav>
+<!-- ============================= HOME VIEW (isolated full-screen presentation) =============================
+     A strictly separate view from the app's tool workspace — see the CSS
+     block of the same name for the full rationale. Nothing inside here is
+     ever visible while body.view-app is active, and nothing outside here
+     (the sidebar/mobile nav, the dashboard's tab panels, the footer, the
+     floating chat widgets) is ever visible while body.view-home is active.
 
-<!-- ============================= HERO ============================= -->
-<!--
-  Photography note: this sandbox's network policy blocks every stock-photo host
-  (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and refused), so no
-  licensed stock photo could be fetched or verified from here. The images wired
-  into --hero-photo below are AI-generated (photorealistic
-  swimmer/pool action shots), not licensed photography — swap them for real
-  photos anytime by editing the same custom properties in the :root block above,
-  e.g. --hero-photo: url('https://your-image-url.jpg'). The duotone overlay is
-  tuned to tint whatever image is set to match the brand automatically.
--->
-<header class="hero" id="top">
-  <div class="hero-bg"></div>
-  <div class="hero-photo"></div>
-  <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
-    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
-  </video>
-  <div class="hero-video-overlay" aria-hidden="true"></div>
-  <div class="hero-caustics" aria-hidden="true"></div>
+     Photography note: this sandbox's network policy blocks every stock-photo
+     host (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and
+     refused), so no licensed stock photo could be fetched or verified from
+     here. The images wired into --hero-photo/--gym-photo and Scene 3's own
+     photo below are AI-generated (photorealistic action shots), not licensed
+     photography — swap them for real photos anytime via the same custom
+     properties in the :root block above. -->
+<div id="homeView">
+  <nav class="home-nav" id="homeNav" aria-label="Home">
+    <span class="home-nav-brand">Swimfit</span>
+    <button type="button" class="home-nav-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start Training</button>
+    <button type="button" class="home-nav-cta" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
+  </nav>
 
-  <svg class="hero-swimmer" viewBox="0 0 320 170" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id="swimmerGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="var(--green-bright)"/>
-        <stop offset="1" stop-color="var(--aqua)"/>
-      </linearGradient>
-    </defs>
-    <g fill="url(#swimmerGrad)">
-      <circle cx="34" cy="46" r="15"/>
-      <ellipse cx="20" cy="72" rx="34" ry="8" transform="rotate(18 20 72)"/>
-      <ellipse cx="155" cy="95" rx="112" ry="17" transform="rotate(-6 155 95)"/>
-      <polygon points="252,88 320,101 299,113 246,102"/>
-    </g>
-  </svg>
+  <section class="home-canvas" id="homeCanvas">
+    <div class="home-canvas-sticky">
 
-  <div class="hero-waves" aria-hidden="true">
-    <svg viewBox="0 0 1440 120" preserveAspectRatio="none" class="hero-wave hero-wave-1"><path d="M0,60 C240,10 480,110 720,60 C960,10 1200,110 1440,60 L1440,120 L0,120 Z" fill="var(--aqua)"/></svg>
-    <svg viewBox="0 0 1440 120" preserveAspectRatio="none" class="hero-wave hero-wave-2"><path d="M0,70 C240,120 480,20 720,70 C960,120 1200,20 1440,70 L1440,120 L0,120 Z" fill="var(--green)"/></svg>
-  </div>
+      <!-- Scene 0: Hero — the swimmer/pool photo+video atmosphere, unchanged,
+           minus the hand-drawn SVG swimmer/wave decorations (see the CSS
+           comment by .home-scene-text .accent for why those were cut). -->
+      <header class="hero home-scene is-active" id="top" data-scene="0">
+        <div class="hero-bg"></div>
+        <div class="hero-photo"></div>
+        <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
+          <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+        </video>
+        <div class="hero-video-overlay" aria-hidden="true"></div>
+        <div class="hero-caustics" aria-hidden="true"></div>
+        <div class="home-scene-text">
+          <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+          <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
+        </div>
+        <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
+          <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
+        </div>
+      </header>
 
-  <div class="blob blob-3" data-blob style="position:absolute; width:320px; height:320px; border-radius:50%; filter:blur(70px); opacity:0.18; background:var(--aqua); bottom:-140px; left:30%; z-index:-1;"></div>
-
-  <div class="wrap hero-content">
-    <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
-    <h1 data-reveal="scale" data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
-    <div class="hero-actions" data-reveal>
-      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start 3-Day Free Trial — No Card Required</button>
-      <button type="button" class="btn btn-primary" data-tab="workouts" data-welcome-trigger data-i18n="hero.cta1" data-auth-signed-in style="display:none">Build My Workout</button>
-      <button type="button" class="btn btn-ghost" data-tab="gym" data-i18n="hero.cta2">Explore Gym Plan</button>
-    </div>
-    <div class="hero-stats" data-reveal>
-      <div class="stat" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span></div>
-    </div>
-  </div>
-</header>
-
-<!-- ============================= A324-STYLE SCROLL SHOWCASE ============================= -->
-<section class="scrolly" id="scrollyShowcase" aria-label="How Swimfit trains you">
-  <div class="scrolly-sticky">
-    <div class="scrolly-media" id="scrollyMedia">
-      <button type="button" class="scrolly-panel is-active" data-slide="0" data-tab="workouts" style="--panel-photo:var(--hero-photo)">
-        <div class="scrolly-panel-media"></div>
-        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
-        <div class="scrolly-panel-text">
-          <span class="scrolly-index">01 / 03</span>
+      <button type="button" class="home-scene" data-scene="1" data-tab="workouts" style="--scene-photo:var(--hero-photo)" aria-hidden="true">
+        <div class="home-scene-bg is-photo"></div>
+        <div class="home-scene-overlay" aria-hidden="true"></div>
+        <div class="home-scene-text">
+          <span class="home-scene-index">01 / 03</span>
           <h2>Outswim Your Limits</h2>
           <p>A brand-new swim set, generated fresh every day — warm-up to cool-down, tuned to your stroke, distance and pace.</p>
         </div>
       </button>
-      <button type="button" class="scrolly-panel" data-slide="1" data-tab="gym" style="--panel-photo:var(--gym-photo)" aria-hidden="true">
-        <div class="scrolly-panel-media"></div>
-        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
-        <div class="scrolly-panel-text">
-          <span class="scrolly-index">02 / 03</span>
+      <button type="button" class="home-scene" data-scene="2" data-tab="gym" style="--scene-photo:var(--gym-photo)" aria-hidden="true">
+        <div class="home-scene-bg is-photo"></div>
+        <div class="home-scene-overlay" aria-hidden="true"></div>
+        <div class="home-scene-text">
+          <span class="home-scene-index">02 / 03</span>
           <h2>Dryland &amp; Power</h2>
           <p>Purpose-built gym programming that trains the muscles that actually move you through the water.</p>
         </div>
       </button>
-      <button type="button" class="scrolly-panel" data-slide="2" data-tab="coach" style="--panel-photo:url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260729_145545_5350fa0c-7fb4-4f43-9e81-29f1eebf969a.png')" aria-hidden="true">
-        <div class="scrolly-panel-media"></div>
-        <div class="scrolly-panel-overlay" aria-hidden="true"></div>
-        <div class="scrolly-panel-text">
-          <span class="scrolly-index">03 / 03</span>
+      <button type="button" class="home-scene" data-scene="3" data-tab="coach" style="--scene-photo:url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260729_145545_5350fa0c-7fb4-4f43-9e81-29f1eebf969a.png')" aria-hidden="true">
+        <div class="home-scene-bg is-photo"></div>
+        <div class="home-scene-overlay" aria-hidden="true"></div>
+        <div class="home-scene-text">
+          <span class="home-scene-index">03 / 03</span>
           <h2>A Whole New Universe</h2>
           <p>Real-time AI coaching, live progress tracking, and the analytics to prove it's working.</p>
         </div>
       </button>
+
     </div>
-  </div>
-</section>
+  </section>
+</div>
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
@@ -4772,12 +4708,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ============================= SIDEBAR COLLAPSE TOGGLE (desktop) =============================
      <body> already carries `class="sidebar-collapsed"` straight from the
-     markup (a plain default, not a persisted preference — every fresh load
-     of the Home page starts collapsed, no synchronous flash-prevention
-     script needed since there's no stored state to race against first
-     paint). This only manages toggling that class from here on: the manual
-     button click, and switchTab() below auto-expanding the moment a
-     swimmer actually navigates into a tool. */
+     markup. Now that Home is a strictly separate view (see setAppView()
+     below) that never renders the sidebar at all, this toggle only matters
+     once inside the App view — it's a "give me more width" control there,
+     not the "immersive Home" mechanism it originally was. */
   var sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
   var sidebarCollapseIcon = document.getElementById('sidebarCollapseIcon');
   function setSidebarCollapsed(collapsed) {
@@ -4791,23 +4725,52 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     });
   }
 
+  /* ============================= HOME / APP VIEW SWITCH =============================
+     The one place body.view-home / body.view-app ever flips. Active exactly
+     one at a time — see the "HOME VIEW (isolated full-screen presentation)"
+     CSS block for what each side hides. Called with `true` from switchTab()
+     (a real navigation into a tool) and with `false` from the sign-out
+     handler below (returning to the landing presentation). */
+  function setAppView(active) {
+    document.body.classList.toggle('view-home', !active);
+    document.body.classList.toggle('view-app', active);
+  }
+  // The sidebar's brand/wordmark link is the one way back to Home from
+  // inside the App view (a swimmer would otherwise have no path back to the
+  // presentation short of signing out) — reuses the exact same #top anchor
+  // the sign-out handler already scrolls to, just without a real page
+  // navigation since #top now lives inside the hidden-while-view-app #homeView.
+  var brandLink = document.querySelector('.nav .brand');
+  if (brandLink) {
+    brandLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      setAppView(false);
+      setSidebarCollapsed(true);
+      window.scrollTo(0, 0);
+    });
+  }
+
   function switchTab(id, opts) {
     tabPanels.forEach(function (p) { p.classList.remove('active', 'in'); });
     var next = document.getElementById('panel-' + id);
     if (!next) return;
     next.classList.add('active');
     dashboard.setAttribute('data-active-tab', id);
-    // Opening any tool auto-expands the sidebar if it was left collapsed
-    // (the Home page's default) — a swimmer navigating into an actual tool
-    // needs the full nav available, not the immersive full-bleed landing
-    // treatment that collapsing was meant for. Skipped for the two internal,
-    // non-navigational callers below (establishing the initial default tab
-    // on page load, and the sign-out handler switching away from a
-    // signed-in-only tab before it scrolls back to the Hero) — a REAL bug
-    // caught via testing: without this guard, the page-load call alone
-    // silently re-expanded the sidebar an instant after paint, defeating
-    // the "collapsed by default on Home" requirement entirely.
-    if (!opts || !opts.skipSidebarExpand) setSidebarCollapsed(false);
+    // Opening any tool transitions from the Home presentation into the App
+    // view and expands the sidebar — a swimmer navigating into an actual
+    // tool needs the full workspace, not the immersive landing presentation.
+    // Skipped for the two internal, non-navigational callers below
+    // (establishing the initial default tab on page load, and the sign-out
+    // handler switching away from a signed-in-only tab before it returns to
+    // Home) — a REAL bug caught via testing in an earlier round: without
+    // this guard, the page-load call alone silently expanded the sidebar
+    // (back when that alone was Home's "immersive" signal) an instant after
+    // paint; the same guard now equally prevents page load from ever
+    // flashing into the App view before Home is meant to show.
+    if (!opts || !opts.isInternal) {
+      setSidebarCollapsed(false);
+      setAppView(true);
+    }
     // Belt-and-suspenders: the Coach page gate is normally kept correct
     // reactively (every swimfit:accesschange re-renders it), but re-asserting
     // it here too means arriving at the tab can never show a stale gate state
@@ -4829,101 +4792,79 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     navLinks.classList.remove('open');
     navToggle.setAttribute('aria-expanded', 'false');
     navToggleIcon.innerHTML = '<use href="#i-menu"/>';
-    if (!opts || opts.scroll !== false) {
-      dashboard.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-    }
+    if (!opts || opts.scroll !== false) window.scrollTo(0, 0);
   }
 
   tabButtons.forEach(function (btn) {
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
-  /* ============================= FLOATING CAPSULE NAV (show/hide) =============================
-     Fades out once the swimmer has scrolled past the landing (Hero + scroll
-     showcase) into the real app dashboard, where the sidebar/bottom-nav is
-     already the primary navigation — a persistent second nav there would just
-     be clutter. Reuses the same rAF-throttled scroll-listener pattern as the
-     scroll-showcase logic below (see the PERF FIX precedent elsewhere in this
-     file for why an unthrottled scroll listener is a real, previously-found
-     bug class, not just a style preference). */
-  var capsuleNav = document.getElementById('capsuleNav');
-  if (capsuleNav) {
-    var capsuleTicking = false;
-    function updateCapsuleNav() {
-      capsuleTicking = false;
-      var rect = dashboard.getBoundingClientRect();
-      capsuleNav.classList.toggle('is-hidden', rect.top < 72);
-    }
-    window.addEventListener('scroll', function () {
-      if (!capsuleTicking) { requestAnimationFrame(updateCapsuleNav); capsuleTicking = true; }
-    }, { passive: true });
-    updateCapsuleNav();
-  }
+  /* ============================= HOME CONTINUOUS SCROLL CANVAS =============================
+     Drives the N cross-fading, full-bleed .home-scene layers in #homeCanvas
+     (Hero + 3 "what Swimfit does" scenes) purely from scroll position — no
+     animation library (see the CSS block above for why). Skipped entirely
+     under prefers-reduced-motion: the section's own CSS media query already
+     lays it out as a plain static stack in that case, so there is nothing
+     for this listener to drive. This is a rebuild of the previous
+     #scrollyShowcase (3 photo panels below a separate, ordinary-scrolling
+     Hero) — folding the Hero itself in as Scene 0 removes the "harsh break"
+     between an un-pinned Hero and a second, independently-pinned showcase
+     section that the CRITICAL-FIX round explicitly called out. */
+  var homeCanvas = document.getElementById('homeCanvas');
+  if (homeCanvas && !reduceMotion) {
+    var homeScenes = Array.prototype.slice.call(homeCanvas.querySelectorAll('.home-scene'));
+    var homeSceneBgs = homeScenes.map(function (scene) { return scene.querySelector('.home-scene-bg'); });
+    var lastActiveScene = 0;
 
-  /* ============================= FULL-SCREEN VISUAL SCROLLYTELLING =============================
-     Drives the 3 cross-fading, full-bleed photo panels in #scrollyShowcase
-     purely from scroll position — no animation library (see the CSS block
-     above for why). Skipped entirely under prefers-reduced-motion: the
-     section's own CSS media query already lays it out as a plain static
-     stack in that case, so there is nothing for this listener to drive.
-     Replaces an earlier 3D rotating-carousel version (rotateY/translateZ
-     orbit math over plain icon+text cards) with real photography that
-     scales up and parallax-shifts as the swimmer scrolls through each
-     slide's own third of the section — closer to an Apple/A324-style
-     scroll reveal than a spinning carousel. */
-  var scrollyEl = document.getElementById('scrollyShowcase');
-  if (scrollyEl && !reduceMotion) {
-    var scrollyPanels = Array.prototype.slice.call(scrollyEl.querySelectorAll('.scrolly-panel'));
-    var scrollyMedias = scrollyPanels.map(function (panel) { return panel.querySelector('.scrolly-panel-media'); });
-    var lastActiveSlide = 0;
-
-    function updateScrolly() {
-      scrollyTicking = false;
-      var rect = scrollyEl.getBoundingClientRect();
-      var totalScrollable = scrollyEl.offsetHeight - window.innerHeight;
+    function updateHomeCanvas() {
+      homeCanvasTicking = false;
+      var rect = homeCanvas.getBoundingClientRect();
+      var totalScrollable = homeCanvas.offsetHeight - window.innerHeight;
       var progress = totalScrollable > 0 ? (-rect.top) / totalScrollable : 0;
       progress = Math.max(0, Math.min(1, progress));
 
-      // t runs 0 → 3 continuously across the whole section, one full unit
-      // per slide — panelIndex vs. t decides both which panel is the active,
-      // fully-opaque one (cross-fade, handled by CSS .is-active) and, via the
-      // per-panel local progress below, how far that panel has scaled/shifted
-      // through its own third of the scroll range.
-      var t = progress * 3;
-      var activeSlide = Math.min(2, Math.floor(t));
+      // t runs 0 → sceneCount continuously across the whole canvas, one full
+      // unit per scene — sceneIndex vs. t decides both which scene is the
+      // active, fully-opaque one (cross-fade, handled by CSS .is-active) and,
+      // via the per-scene local progress below, how far that scene has
+      // scaled/shifted through its own Nth of the scroll range.
+      var sceneCount = homeScenes.length;
+      var t = progress * sceneCount;
+      var activeScene = Math.min(sceneCount - 1, Math.floor(t));
 
-      if (activeSlide !== lastActiveSlide || progress === 0) {
-        lastActiveSlide = activeSlide;
-        scrollyPanels.forEach(function (panel, i) {
-          var isActive = i === activeSlide;
-          panel.classList.toggle('is-active', isActive);
-          panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      if (activeScene !== lastActiveScene || progress === 0) {
+        lastActiveScene = activeScene;
+        homeScenes.forEach(function (scene, i) {
+          var isActive = i === activeScene;
+          scene.classList.toggle('is-active', isActive);
+          scene.setAttribute('aria-hidden', isActive ? 'false' : 'true');
         });
       }
 
-      // Each panel's own local progress is clamped to [0,1] within its own
-      // slide window — this naturally holds a finished slide at its final
-      // scale/shift rather than continuing to drift once the next slide has
-      // taken over (the same "settle, don't keep animating past your own
-      // window" principle the previous orbit version needed an explicit fix
-      // for, here true by construction since local is clamped per-panel).
-      scrollyPanels.forEach(function (panel, i) {
+      // Each scene's own local progress is clamped to [0,1] within its own
+      // window — this naturally holds a finished scene at its final
+      // scale/shift rather than continuing to drift once the next scene has
+      // taken over. Scene 0 (Hero) has no .home-scene-bg of its own — its
+      // atmosphere is the existing photo/video/caustics layers, which already
+      // carry their own animation — so it simply cross-fades via .is-active
+      // with no extra scale/parallax applied.
+      homeScenes.forEach(function (scene, i) {
         var local = Math.max(0, Math.min(1, t - i));
-        var media = scrollyMedias[i];
-        if (!media) return;
+        var bg = homeSceneBgs[i];
+        if (!bg) return;
         var scale = 1.04 + local * 0.1;
         var shiftY = (local - 0.5) * 24;
-        media.style.transform = 'scale(' + scale.toFixed(3) + ') translateY(' + shiftY.toFixed(1) + 'px)';
+        bg.style.transform = 'scale(' + scale.toFixed(3) + ') translateY(' + shiftY.toFixed(1) + 'px)';
       });
     }
-    var scrollyTicking = false;
+    var homeCanvasTicking = false;
     window.addEventListener('scroll', function () {
-      if (!scrollyTicking) { requestAnimationFrame(updateScrolly); scrollyTicking = true; }
+      if (!homeCanvasTicking) { requestAnimationFrame(updateHomeCanvas); homeCanvasTicking = true; }
     }, { passive: true });
     window.addEventListener('resize', function () {
-      if (!scrollyTicking) { requestAnimationFrame(updateScrolly); scrollyTicking = true; }
+      if (!homeCanvasTicking) { requestAnimationFrame(updateHomeCanvas); homeCanvasTicking = true; }
     }, { passive: true });
-    updateScrolly();
+    updateHomeCanvas();
   }
 
   // Counts each Pricing card's price up from 0 to its real target every time
@@ -4949,23 +4890,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   // Signing out completely clears the session (signOut(auth) below, plus
   // every feature's own swimfit:authchange listener clearing its local
-  // state) and returns the swimmer to the landing page: scroll back up to
-  // the Hero, and — since a tab that only makes sense signed in (AI Coach,
-  // Distance Tracker, or the admin-only Admin Panel, which also loses its
-  // nav entry entirely via [data-admin-only] above) would otherwise be left
-  // showing a "please sign in" panel or stale admin data underneath — switch
-  // back to a public tab first if that's where they were.
+  // state) and returns the swimmer to the isolated Home presentation — since
+  // a tab that only makes sense signed in (AI Coach, Distance Tracker, or the
+  // admin-only Admin Panel, which also loses its nav entry entirely via
+  // [data-admin-only] above) would otherwise be left showing a "please sign
+  // in" panel or stale admin data underneath — switch back to a public tab
+  // first if that's where they were (an internal call — it must never
+  // itself flip the App view back on, since the very next lines are about
+  // to flip it off).
   var SIGNED_IN_ONLY_TABS = ['coach', 'tracker', 'admin', 'settings', 'support'];
   document.addEventListener('swimfit:authchange', function (e) {
     if (e.detail.user) return;
     if (SIGNED_IN_ONLY_TABS.indexOf(dashboard.getAttribute('data-active-tab')) > -1) {
-      switchTab('workouts', { scroll: false, skipSidebarExpand: true });
+      switchTab('workouts', { scroll: false, isInternal: true });
     }
-    var topEl = document.getElementById('top');
-    if (topEl) topEl.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-    // Signing out always lands back on the Hero, so the sidebar returns to
-    // its immersive collapsed default too, matching a fresh page load.
+    // Signing out always lands back on Home, with the sidebar returned to
+    // its collapsed default too, matching a fresh page load.
+    setAppView(false);
     setSidebarCollapsed(true);
+    window.scrollTo(0, 0);
   });
 
   /* ============================= DATA: GEAR ============================= */
@@ -10939,7 +10882,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* ============================= INIT ============================= */
   renderGym(currentGymFocus);
   generateWorkout();
-  switchTab('workouts', { scroll: false, skipSidebarExpand: true });
+  switchTab('workouts', { scroll: false, isInternal: true });
 })();
 </script>
 </body>
