@@ -3606,6 +3606,118 @@ and still works exactly as that round shipped it.
   this new focus, and the full pre-existing regression suite (all 9 tabs, both PDF exports, Complete
   Workout logging) passes unchanged with zero page errors throughout.
 
+**A round that scrapped the CSS-only orbit carousel for a real Three.js scene pinned + scrubbed by
+a real GSAP ScrollTrigger timeline, plus a generative Web Audio API ambient pad — a genuine new-
+dependency addition, not another hand-rolled CSS/JS substitute like every earlier "framer-motion-
+style" ask in this file's history.** The user explicitly asked for the literal libraries this time
+("Three.js (or Spline/React Three Fiber)... GSAP ScrollTrigger") rather than accepting a CSS
+equivalent, and both ship browser-ready UMD/global builds loadable via plain `<script src>` tags —
+technically compatible with this file's "no build step, no bundler" constraint the same way the
+pre-existing EmailJS CDN-script integration already is, so this was implemented as three additional
+`<script src="https://cdn.jsdelivr.net/...">` tags (Three.js r160, GSAP 3.12.5, and its
+ScrollTrigger plugin) sitting right after the Paddle script tag, not an npm/webpack install.
+
+- **Two real, hard constraints were confirmed before writing any code, and both are disclosed
+  here rather than silently worked around.** (1) This sandbox's own network policy blocks
+  `cdn.jsdelivr.net` outright — confirmed via a direct `curl` to both the Three.js and GSAP URLs,
+  each returning a `403`/tunnel-failure before any browser was even involved — meaning neither the
+  3D scene nor the ScrollTrigger-driven reveal could be visually or functionally verified from
+  inside this sandbox; only the *fallback path* (see below) is actually exercised and testable
+  here, which is itself the reason a robust fallback existed to test at all. (2) There is no
+  music/sound-effect generation capability available in this environment — only speech synthesis —
+  so the "subtle ambient soundtrack loop" was built as a genuine generative Web Audio API pad
+  instead of a sourced/generated audio file, which also sidesteps needing any new binary asset
+  committed to the repo at all.
+- **`chaingptCanvasInit()`** (replacing the previous round's `updateOrbitShowcase()`) gates the
+  entire 3D scene behind a single `canRun` check — `!reduceMotion && typeof window.THREE !==
+  'undefined' && typeof window.gsap !== 'undefined' && typeof window.ScrollTrigger !== 'undefined'
+  && supportsWebGL()` (a small helper that probes for a real WebGL context, since even a THREE
+  global existing doesn't guarantee the browser/GPU can actually render one) — and adds
+  `.is-fallback` to `#chaingptShowcase` the instant any part of that fails, immediately revealing
+  all 3 panels via `.is-visible` since the fallback layout (identical CSS to the pre-existing
+  `prefers-reduced-motion` rules — no pinning, `#chaingptCanvas` hidden, panels laid out as a plain
+  static stack) has nothing to scroll-drive. This is the actual, expected code path in this sandbox
+  and is what the Playwright suite below actually exercises and confirms — a `false` `canRun`
+  reached via a genuinely blocked CDN is functionally identical to a real visitor's ad-blocker or
+  restrictive network doing the same, so testing this path is not a lesser substitute for testing
+  the 3D scene, it's testing the one behavior this round could *actually* guarantee holds in
+  production for every visitor regardless of their own network conditions.
+- **When the libraries ARE available** (the expected case for the overwhelming majority of real
+  visitors, whose networks don't block jsDelivr), `chaingptCanvasInit()` builds a small `THREE.Group`
+  "swim-tech device" — a wireframe icosahedron core (green-bright) nested inside a slightly larger
+  wireframe torus "halo" ring (aqua-bright), plus a faint solid inner mesh for depth — and pins
+  `.chaingpt-sticky` for the full height of `#chaingptShowcase` (400vh) via
+  `ScrollTrigger.create({trigger, start:'top top', end:'bottom bottom', pin:'.chaingpt-sticky',
+  scrub:1, onUpdate...})`, which drives `device.rotation.y`/`.x`, the halo's own `.rotation.z`, and
+  a cross-fading opacity swap between the core and halo materials (the practical, honest
+  interpretation of "dynamically rotates, morphs" for a hand-built wireframe object — a literal
+  geometry morph is a materially bigger undertaking than this round's scope) purely from
+  `self.progress`. The renderer only calls `renderer.render(...)` while `document.body` still
+  carries `view-home` — the same "don't animate what's off-screen" performance discipline this
+  file's own `advanceGymAnims` (Gym's card animation ticker) already established for the identical
+  reason, rather than a render loop running forever once a swimmer enters the app.
+- **Three floating HTML panels — Analytics, AI Coach, Plyometrics** (`.chaingpt-panel[data-panel=
+  "analytics"|"coach"|"plyo"]`) — sit absolutely positioned around the canvas and are revealed one
+  at a time across even thirds of the pinned scroll range via three independent
+  `ScrollTrigger.create({start:'N% top', end:'M% top', onEnter/onLeave/onEnterBack/onLeaveBack})`
+  instances, each just toggling a plain `.is-visible` class rather than tweening inline transform
+  styles — deliberately, since GSAP's transform parser fighting the "plyo" panel's own
+  CSS `translate(-50%, ...)` centering trick (needed because it's horizontally centered, unlike the
+  other two corner-anchored panels) was a foreseeable, avoidable class of bug; a plain CSS
+  transition on `opacity`/`transform` driven by a class toggle sidesteps it entirely. Every panel
+  is still a real, working shortcut into its own tool via the exact same global `[data-tab]`
+  click-delegation every other nav element on this site already uses — no new click-handling code
+  was needed for that part, only the reveal timing. The Plyometrics panel's content
+  ("Depth Jumps — 4×5", "Block Starts"/"Flip-Turn Power" tags) intentionally reuses real
+  exercise/tag language from the previous round's `GYM_FOCUS.plyometrics` build rather than
+  inventing new copy, the same "mirror a real shipped surface, not stock imagery" precedent the
+  original orbit-carousel cards established.
+- **The `#08080C` dark grid background** (`.chaingpt-grid`) is a static (non-animated —
+  deliberately, since this section is scroll-pinned and a drifting grid would visually fight the
+  more prominent 3D object rotating in front of it) `linear-gradient` line grid at 42px spacing,
+  masked to fade out radially toward the edges — the same masking technique this file's own Hero
+  HUD grid and shared dashboard ambient background used in earlier rounds, reapplied here at the
+  darker `#08080C` value this round explicitly asked for (distinct from `#07090E`, the previous
+  round's orbit-carousel background).
+- **The ambient audio pad** (`wireAmbientAudio()`) is genuinely generative — no audio file, no
+  network request, nothing to fail to load. Three gently detuned oscillators (a soft open
+  fifth + octave — 110Hz/164.81Hz/220Hz, sine/triangle) run through a shared lowpass
+  `BiquadFilterNode`, itself slowly swept by a 0.06Hz LFO for a breathing, non-static "futuristic/
+  aquatic synth" motion, into a master `GainNode` that starts at `0` and only ever ramps up
+  (`setTargetAtTime`) inside `#soundToggleBtn`'s own `click` handler. **The `AudioContext` itself is
+  constructed lazily on that first click, never on page load** — the explicit, non-negotiable
+  requirement for autoplay-policy compliance this round called out by name — and every subsequent
+  click just flips a `playing` boolean, ramping the master gain to `0.14` or back to `0` and toggling
+  `aria-pressed`/`aria-label` on the button so its state is announced correctly to assistive tech,
+  not just conveyed visually via the icon swap (`#i-volume`/`#i-volume-mute`, two new stroke-icon
+  `<symbol>`s added to the existing sprite in the same house style as every other nav icon in this
+  file).
+- **Verified via Playwright** (this sandbox's own network policy genuinely blocking
+  `cdn.jsdelivr.net`, so this is the real code path exercised, not a simulated one): `.is-fallback`
+  is correctly added and all 3 panels render at `opacity:1`/`position:static` with `#chaingptCanvas`
+  hidden the instant `THREE`/`gsap` are confirmed `undefined`; the nav renders fully transparent
+  (`rgba(0,0,0,0)` background) with the 3 `[Workouts | Gym | AI Coach]` links, the sound-toggle
+  button, and the single CTA all present; clicking the sound toggle flips `aria-pressed` to `"true"`
+  then back to `"false"` across two clicks with zero page errors (only expected, harmless
+  `net::ERR_FAILED` console entries from the deliberately-blocked CDN routes, no real
+  `pageerror`s); clicking a revealed panel correctly enters the App view at the right tab;
+  `prefers-reduced-motion` produces the identical static fallback layout independent of the CDN
+  check; a 390px mobile viewport shows zero horizontal overflow with the nav links hidden but the
+  sound button still visible and tappable; and the full pre-existing regression suite (all 9 tabs,
+  the Workouts PDF export firing a real `download` event, and Complete Workout correctly logging to
+  the Tracker) passes unchanged.
+- **What this round could NOT verify, and why**: the actual 3D rendering (does the wireframe device
+  actually appear, rotate, and cross-fade correctly), the ScrollTrigger pin itself (does the section
+  actually pin and un-pin at the right scroll offsets), and whether the ambient pad is audibly
+  pleasant (this sandbox has no way to render or judge audio output, generative or otherwise) all
+  require a real browser with an unblocked path to `cdn.jsdelivr.net` — check this in a real browser
+  on a normal network connection before considering the 3D experience itself (as opposed to its
+  fallback) done. If it doesn't render there, the most likely causes, in order, are: a stale/
+  incorrect CDN URL or version pin, a real JS error inside `chaingptCanvasInit()` that only surfaces
+  once the three globals genuinely exist (untestable here since they never do), or a WebGL-disabled
+  browser/GPU context correctly falling into the same `.is-fallback` path this round's tests did
+  confirm works.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
