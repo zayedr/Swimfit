@@ -4862,6 +4862,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
 
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
+    if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
 
@@ -4874,38 +4878,103 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       camera.updateProjectionMatrix();
     }
 
-    // The device: a body, a front screen (its own CanvasTexture, redrawn on
-    // every step/value change), and 4 raycasted button meshes along the
-    // bottom edge — one per step, mirroring the HTML step nav exactly.
+    /* ---- PBR LIGHTING RIG ----
+       A directional key light (casts real shadows + specular highlights on
+       the bevels), a dim brand-green rim light from the opposite side for a
+       subtle "hardware product shot" accent, and a soft hemisphere fill so
+       shadows read as deep rather than pitch-black. Real shadow mapping
+       (not a fake CSS-style blur) via a ground plane colored to match the
+       section's own #05070B background, so its flat edges blend invisibly
+       into the page and only the actual cast shadow reads as a dark patch
+       beneath the device — giving it real, felt weight. */
+    var keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+    keyLight.position.set(3, 4, 5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.camera.left = -3; keyLight.shadow.camera.right = 3;
+    keyLight.shadow.camera.top = 3; keyLight.shadow.camera.bottom = -3;
+    keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 12;
+    scene.add(keyLight);
+    var rimLight = new THREE.DirectionalLight(0x39FF9E, 0.8);
+    rimLight.position.set(-4, 1.5, -3);
+    scene.add(rimLight);
+    scene.add(new THREE.HemisphereLight(0x4a5568, 0x05070b, 0.6));
+    var ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 10),
+      new THREE.MeshStandardMaterial({ color: 0x05070b, roughness: 1, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.85;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    /* ---- THE DEVICE ----
+       A real extruded, beveled rounded-rect body (THREE.ExtrudeGeometry off
+       a rounded THREE.Shape — the literal "true 3D extruded geometry with
+       rounded bevels" ask, no separate RoundedBox addon module needed) in a
+       plastic/metallic MeshPhysicalMaterial (roughness + clearcoat, so the
+       key light throws a real specular highlight along each bevel edge). A
+       thin raised bezel frame sits proud of the body's own front face with
+       the screen recessed fractionally behind it, and each button sits in
+       its own darker recessed socket — both read as physically embedded in
+       the case rather than flat decals stuck on top of it. */
+    function roundedRectShape(w, h, r) {
+      var shape = new THREE.Shape(); var x = -w / 2, y = -h / 2;
+      shape.moveTo(x, y + r);
+      shape.lineTo(x, y + h - r); shape.quadraticCurveTo(x, y + h, x + r, y + h);
+      shape.lineTo(x + w - r, y + h); shape.quadraticCurveTo(x + w, y + h, x + w, y + h - r);
+      shape.lineTo(x + w, y + r); shape.quadraticCurveTo(x + w, y, x + w - r, y);
+      shape.lineTo(x + r, y); shape.quadraticCurveTo(x, y, x, y + r);
+      return shape;
+    }
     var device = new THREE.Group();
-    var bodyGeo = new THREE.BoxGeometry(2.2, 3, 0.3);
-    var bodyMat = new THREE.MeshBasicMaterial({ color: 0x141a24 });
+    var bodyGeo = new THREE.ExtrudeGeometry(roundedRectShape(2.2, 3, 0.26), {
+      depth: 0.34, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 8, curveSegments: 16
+    });
+    bodyGeo.center();
+    var bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x1b212c, metalness: 0.55, roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.25 });
     var body = new THREE.Mesh(bodyGeo, bodyMat);
-    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo), new THREE.LineBasicMaterial({ color: 0x39FF9E, transparent: true, opacity: 0.55 }));
+    body.castShadow = true; body.receiveShadow = true;
+    var FRONT_Z = 0.17;
+
+    var bezelGeo = new THREE.ExtrudeGeometry(roundedRectShape(1.94, 2.24, 0.08), {
+      depth: 0.02, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 4, curveSegments: 8
+    });
+    bezelGeo.center();
+    var bezel = new THREE.Mesh(bezelGeo, new THREE.MeshPhysicalMaterial({ color: 0x0d1218, metalness: 0.3, roughness: 0.55 }));
+    bezel.position.set(0, 0.35, FRONT_Z + 0.01);
+    bezel.castShadow = true;
 
     var screenCanvas = document.createElement('canvas');
     screenCanvas.width = 512; screenCanvas.height = 640;
     var screenTexture = new THREE.CanvasTexture(screenCanvas);
     var screenMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1.8, 2.1),
-      new THREE.MeshBasicMaterial({ map: screenTexture })
+      new THREE.MeshStandardMaterial({ map: screenTexture, emissive: 0xffffff, emissiveMap: screenTexture, emissiveIntensity: 0.7, roughness: 0.4 })
     );
-    screenMesh.position.set(0, 0.35, 0.16);
+    screenMesh.position.set(0, 0.35, FRONT_Z + 0.005);
     screenMesh.userData.isScreen = true;
 
     var buttonMeshes = [];
     for (var bi = 0; bi < 4; bi++) {
+      var socket = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.19, 0.19, 0.03, 24),
+        new THREE.MeshStandardMaterial({ color: 0x0c1016, roughness: 0.9, metalness: 0.1 })
+      );
+      socket.rotation.x = Math.PI / 2;
+      socket.position.set(-0.75 + bi * 0.5, -1.15, FRONT_Z - 0.01);
       var btnMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.16, 0.16, 0.1, 24),
-        new THREE.MeshBasicMaterial({ color: 0x2a3444 })
+        new THREE.CylinderGeometry(0.15, 0.16, 0.09, 24),
+        new THREE.MeshPhysicalMaterial({ color: 0x2a3444, metalness: 0.75, roughness: 0.28, clearcoat: 0.5, clearcoatRoughness: 0.2 })
       );
       btnMesh.rotation.x = Math.PI / 2;
-      btnMesh.position.set(-0.75 + bi * 0.5, -1.15, 0.2);
+      btnMesh.position.set(-0.75 + bi * 0.5, -1.15, FRONT_Z + 0.03);
+      btnMesh.castShadow = true;
       btnMesh.userData.step = bi;
       buttonMeshes.push(btnMesh);
-      device.add(btnMesh);
+      device.add(socket, btnMesh);
     }
-    device.add(body, edges, screenMesh);
+    device.add(body, bezel, screenMesh);
     scene.add(device);
     camera.position.set(0, 0.4, 4.4);
     camera.lookAt(0, 0, 0);
