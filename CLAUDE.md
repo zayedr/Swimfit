@@ -4118,6 +4118,36 @@ light, camera/FOV possibly too tight), pointed at the real root cause directly.
   the next lever to pull is `renderer.toneMappingExposure` (currently 1.3) or a further metalness
   reduction, in that order.
 
+**The Three.js 3D swim-tech device was fully reverted, at the user's explicit request, back to the
+mesh-gradient hero + asymmetric bento Feature Showcase Home page.** Despite the immediately-prior
+round's fix (lower metalness, added Ambient/Point lights, wider camera margin), the user decided
+the 3D device approach itself wasn't working out live and asked to strip it entirely rather than
+keep debugging it — a legitimate reversal, not a failure of the fix; the black-box symptom's root
+cause (metalness with no environment map) was correctly diagnosed and fixed, but the feature was
+dropped anyway per direct instruction. This is a straight `git checkout` of `index.html` from
+commit `a66ccc9` ("Home: premium mesh-gradient hero, asymmetric bento showcase, richer process
+flow") — confirmed via `git log`/`git diff --stat` that every commit between `a66ccc9` and this
+point (`872c895` replace-with-3D-device, `0ddb4f1` PBR polish, `a407032` black-box fix) touched
+only the Home/device section of `index.html`, so no unrelated fix from that window was lost.
+`CLAUDE.md` itself was deliberately **not** reverted — the full history of the 3D device attempts
+stays on record above as-is, with this entry marking where it ends, rather than being erased.
+Restored: the animated mesh-gradient hero (4 blurred drifting color blobs), the asymmetric 4-card
+bento Feature Showcase (a featured 2-row Workout Generator card beside a 2×2 cluster of Gym/AI
+Coach/Tracker cards, each a hand-built UI-mockup — set rows, muscle tags, chat bubbles, a bar
+chart — not stock photography), the connecting-line "How It Works" 3-step section, the closing CTA
+band, and the visible footer on Home. The transparent `.home-nav` (wordmark + `[Workouts | Gym |
+AI Coach]` links + a single signed-out/signed-in CTA pair) was untouched by either the 3D-device
+build or this revert — it predates both and needed no changes either time. Every
+`cdn.jsdelivr.net/npm/three@`/`gsap`/`ScrollTrigger` `<script>` tag, `deviceExperienceInit()`, and
+every `.device-*`/`#deviceCanvas`/`DEVICE_STEPS` reference are gone from the codebase entirely —
+confirmed via grep, not just visually. Verified via Playwright: the 5-breakpoint overlap/clipping
+audit from the round that originally shipped this bento layout (mobile/tablet/laptop/desktop/wide,
+both before and after the `[data-reveal]` scroll-in pass) still reports zero overlaps and zero
+clipped text; a showcase card click still routes into the correct App-view tab and the sidebar
+brand link still returns to Home; the footer is visible on Home; and the full pre-existing
+regression suite (all 9 App-view tabs, a real PDF `download` event, and Complete-Workout-to-Tracker
+logging) passes unchanged with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
