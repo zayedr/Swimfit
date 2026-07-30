@@ -1309,16 +1309,15 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 
 /* ============================= HERO ============================= */
-/* .hero no longer owns its own layout — it's now Scene 0 inside the Home
-   view's continuous scroll canvas (see .home-scene below), so it only keeps
-   overflow/isolation to contain its own negative-z-index photo/video/caustics
-   layers within a local stacking context; position/size/full-bleed all come
-   from the shared .home-scene rule instead. The old edge-blend ::after (which
-   faded the hero into the fixed sidebar on one side and the dashboard section
-   directly below it on the other) no longer applies now that Home is an
-   isolated view with no sidebar and nothing directly beneath it in the same
-   scroll flow — removed outright rather than left as dead CSS. */
-.hero { overflow: hidden; isolation: isolate; }
+/* Back to being an ordinary, ungimmicked top-of-page block — the previous
+   round had folded it into the scroll canvas as "Scene 0"; this round's
+   orbital-showcase rebuild reintroduces a separate, distinct pinned section
+   below it instead (see .orbit-showcase), so the Hero no longer needs to be
+   part of that canvas at all. isolation:isolate still contains its own
+   negative-z-index photo/video/caustics layers within a local stacking
+   context. There is nothing beside or below it in the same scroll flow
+   (Home is still its own isolated view), so no edge-blend layer is needed. */
+.hero { position: relative; min-height: 88svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
 .hero-bg { position: absolute; inset: 0; z-index: -3; background:
   radial-gradient(60% 50% at 15% 20%, rgba(20,104,51,0.35), transparent 60%),
   radial-gradient(50% 45% at 85% 15%, rgba(156,42,68,0.3), transparent 60%),
@@ -1415,14 +1414,14 @@ body.view-home .admin-msg-fab { display: none !important; }
    those elements render while body.view-home is active. */
 body.view-home { margin-left: 0 !important; }
 
-/* A slim, transparent floating top bar — no glass pill, no background box,
-   just a wordmark and ONE polished CTA button floating directly over the
-   scene imagery underneath (the previous capsule nav's 4 extra text links
-   and pill-shaped background were both explicitly called out as reading like
-   template chrome; this is the literal "single polished CTA button" ask). */
+/* An ultra-minimal, fully transparent floating top bar — no background
+   glass, no pill container, no glowing border on the bar itself. A wordmark,
+   3 plain text links (underline-on-active, brighten-on-hover — no pill
+   background per swimmer, matching a "clean crisp text link" reading rather
+   than template-style nav chips), and one CTA button. */
 .home-nav {
   position: fixed; inset-inline: 0; top: 0; z-index: 200;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-5);
   padding: var(--space-5) var(--space-6);
 }
 .home-nav-brand {
@@ -1430,6 +1429,16 @@ body.view-home { margin-left: 0 !important; }
   font-size: 0.95rem; color: var(--fg); text-transform: uppercase;
   text-shadow: 0 2px 14px rgba(0,0,0,0.5);
 }
+.home-nav-links { display: flex; align-items: center; gap: var(--space-5); margin-inline-end: auto; margin-inline-start: var(--space-6); }
+.home-nav-links button {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.04em;
+  color: rgba(240,243,246,0.7); padding-bottom: 4px; border-bottom: 2px solid transparent;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.home-nav-links button:hover { color: #fff; }
+.home-nav-links button[aria-current="true"] { color: #fff; border-bottom-color: var(--green-bright); }
+@media (max-width: 900px) { .home-nav-links { display: none; } }
 .home-nav-cta {
   font-family: var(--font-display); font-weight: 600; letter-spacing: 0.05em;
   font-size: 0.82rem; text-transform: uppercase; color: var(--fg); white-space: nowrap;
@@ -1439,47 +1448,13 @@ body.view-home { margin-left: 0 !important; }
 }
 .home-nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
 
-/* ============================= CONTINUOUS SCROLL CANVAS =============================
-   A pure CSS/JS scroll-driven "pin and advance" canvas — no external motion
-   library (this file has no build step to add one to; every earlier
-   framer-motion/GSAP-style ask in this codebase has likewise been delivered as
-   hand-rolled CSS+JS). A tall wrapper (100vh per scene) holds a
-   position:sticky stage pinned for the full viewport while the swimmer
-   scrolls through it; updateHomeCanvas() in the NAV/TAB CONTROLLER script
-   cross-fades and gently scales/parallaxes N full-bleed .home-scene layers
-   into one another, one per Nth of the scroll range — the Hero itself is
-   Scene 0, so there is no separate, ordinary-scrolling Hero block above a
-   second independently-pinned section (the previous architecture, and the
-   source of the "harsh break" this round's ask specifically complained
-   about). Every scene is strictly edge-to-edge: no card sizing, no rounded
-   container, no margin — 100vw/100svh, full stop. Every scene past Hero is
-   also a real [data-tab] shortcut into that tool, same shared click
-   delegation as every other nav link on the site. */
-.home-canvas { position: relative; height: 400vh; }
-.home-canvas-sticky { position: sticky; top: 0; height: 100svh; width: 100vw; overflow: hidden; }
-.home-scene {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  display: block; border: none; padding: 0; margin: 0; text-align: start;
-  opacity: 0; pointer-events: none; z-index: 0;
-  transition: opacity 700ms var(--ease);
-  will-change: opacity;
-}
-.home-scene.is-active { opacity: 1; pointer-events: auto; z-index: 1; }
-.home-scene-bg {
-  position: absolute; inset: -8%; will-change: transform; transition: transform 220ms linear;
-}
-.home-scene-bg.is-photo { background-image: var(--scene-photo); background-size: cover; background-position: center; }
-.home-scene-overlay {
-  position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(0deg, rgba(6,9,14,0.92) 0%, rgba(6,9,14,0.45) 45%, rgba(6,9,14,0.16) 75%);
-}
+/* Shared text-overlay utility for a full-bleed section (currently only the
+   Hero uses it, hence the name) — bottom-left copy block + bottom-right
+   live-stat corner, both absolutely positioned against the section's own
+   position:relative box. */
 .home-scene-text {
   position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-7);
   max-width: 900px; color: var(--fg); pointer-events: none;
-}
-.home-scene-index {
-  display: block; font-family: var(--font-mono); color: rgba(240,243,246,0.55);
-  font-size: 0.85rem; letter-spacing: 0.12em; margin-bottom: var(--space-3);
 }
 .home-scene-text h1, .home-scene-text h2 {
   font-size: clamp(2.2rem, 5.4vw, 4.4rem); text-transform: uppercase;
@@ -1498,17 +1473,86 @@ body.view-home { margin-left: 0 !important; }
   .home-nav { padding: var(--space-4); }
   .home-scene-stat { display: none; }
 }
-/* Reduced motion: no pinning, no scroll-linked scale/parallax/cross-fade —
-   every scene just stacks as a plain, already-legible full-viewport block in
-   source order (Hero first), each shown at full opacity rather than fading.
-   The JS-side scroll listener that drives all of this is also never attached
-   in the first place (see NAV / TAB CONTROLLER below) — this CSS override
-   exists so the layout is correct even before that JS check runs. */
+
+/* ============================= 3D ORBITAL SHOWCASE =============================
+   A genuine 3D rotating carousel — this codebase's original Round-3 build,
+   later replaced with full-bleed cross-fading photography, now reinstated
+   per this round's own explicit ask (a later, explicit instruction
+   supersedes the earlier one it reverses). A tall pinned wrapper holds a
+   perspective stage; 4 cards revolve continuously around a CSS
+   rotateY/translateZ orbit as the swimmer scrolls — no external motion
+   library (no build step to add one to). Unlike the old per-slide "lock one
+   card front-and-center" design (which needed an explicit clamp to stop the
+   ring completing a full 360° and wrapping awkwardly), this version wants
+   exactly that continuous revolve — a circle has no seam, so nothing needs
+   clamping here for it to "loop continuously... without abrupt breaks." */
+.orbit-showcase { position: relative; height: 300vh; background: #07090E; }
+.orbit-showcase-sticky {
+  position: sticky; top: 0; height: 100svh; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.orbit-showcase-sticky::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(34,211,238,0.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 80% 80%, rgba(22,214,115,0.06), transparent 60%),
+    #07090E;
+}
+.orbit-stage { position: relative; z-index: 1; width: 100%; height: 100%; perspective: 1400px; }
+.orbit-headline {
+  position: absolute; top: var(--space-7); inset-inline: 0; z-index: 2; text-align: center;
+  color: var(--fg); pointer-events: none; max-width: 640px; margin-inline: auto; padding-inline: var(--space-6);
+}
+.orbit-headline .eyebrow { color: rgba(240,243,246,0.6); justify-content: center; }
+.orbit-headline h2 { font-size: clamp(2rem, 4.6vw, 3.4rem); font-weight: 800; text-transform: uppercase; line-height: 1.08; color: #fff; }
+.orbit-ring { position: absolute; inset: 0; transform-style: preserve-3d; }
+/* Cards are UI mockups/metrics previews of a real tool, not stock photos —
+   the swim-set rep chip, the gym muscle tags, the AI Coach chat bubbles and
+   the tracker bar chart all mirror this file's own real, shipped visual
+   language (see .set-rep/.muscle-tag/.coach-bubble/the tracker's SVG charts
+   elsewhere in this file) rather than generic imagery. */
+.orbit-card {
+  position: absolute; top: 50%; left: 50%; width: 260px; height: 200px;
+  display: flex; flex-direction: column; gap: 10px; text-align: start;
+  padding: var(--space-4); border-radius: var(--radius-lg); border: none; margin: 0; cursor: pointer;
+  background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--fg);
+  will-change: transform, opacity; transition: border-color 220ms var(--ease);
+  /* Without this, a card rotated past 90°/270° still renders its front face
+     — just mirrored, as if seen through glass from behind — reading as a
+     glitch rather than a card that's turned away. Hiding the backface makes
+     it correctly disappear outside that range instead. */
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.orbit-card:hover { border-color: rgba(255,255,255,0.3); }
+.orbit-card-eyebrow { font-family: var(--font-display); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,243,246,0.55); }
+.orbit-card-row { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-mono); }
+.orbit-card-chip { font-weight: 700; color: var(--chip-c, var(--aqua-bright)); }
+.orbit-card-name { color: var(--fg); font-size: 0.92rem; }
+.orbit-card-metric { display: flex; flex-direction: column; font-family: var(--font-mono); }
+.orbit-card-metric strong { font-size: 1.3rem; color: var(--green-bright); }
+.orbit-card-metric span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(240,243,246,0.5); }
+.orbit-card-total { margin-top: auto; font-size: 0.76rem; color: rgba(240,243,246,0.6); }
+.orbit-card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.orbit-tag { font-size: 0.66rem; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.75); }
+.orbit-card-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.76rem; }
+.orbit-chat-bubble { padding: 6px 10px; border-radius: 10px; max-width: 92%; }
+.orbit-chat-bubble.is-user { align-self: flex-end; background: rgba(34,211,238,0.16); color: #fff; }
+.orbit-chat-bubble.is-ai { align-self: flex-start; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.85); }
+.orbit-card-chart { width: 100%; height: 40px; fill: var(--green-bright); opacity: 0.85; }
+@media (max-width: 900px) {
+  .orbit-card { width: 210px; height: 180px; padding: var(--space-3); }
+  .orbit-headline h2 { font-size: clamp(1.7rem, 7vw, 2.4rem); }
+}
+/* Reduced motion: no pinning, no 3D rotation — the 4 cards just lay out as a
+   plain, already-legible wrapping row, each at full opacity/no transform. */
 @media (prefers-reduced-motion: reduce) {
-  .home-canvas { height: auto; }
-  .home-canvas-sticky { position: static; height: auto; width: auto; }
-  .home-scene { position: static; opacity: 1 !important; pointer-events: auto; height: 100svh; }
-  .home-scene-bg { transform: none !important; }
+  .orbit-showcase { height: auto; padding-block: var(--space-8); }
+  .orbit-showcase-sticky { position: static; height: auto; display: block; }
+  .orbit-stage { perspective: none; height: auto; }
+  .orbit-headline { position: static; margin-bottom: var(--space-6); }
+  .orbit-ring { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4); }
+  .orbit-card { position: static; transform: none !important; opacity: 1 !important; pointer-events: auto; }
 }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
@@ -3172,68 +3216,84 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      Photography note: this sandbox's network policy blocks every stock-photo
      host (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and
      refused), so no licensed stock photo could be fetched or verified from
-     here. The images wired into --hero-photo/--gym-photo and Scene 3's own
-     photo below are AI-generated (photorealistic action shots), not licensed
-     photography — swap them for real photos anytime via the same custom
-     properties in the :root block above. -->
+     here. The image wired into --hero-photo below is AI-generated
+     (photorealistic action shots), not licensed photography — swap it for a
+     real photo anytime via the same custom property in the :root block
+     above. The orbital showcase below deliberately uses zero photography —
+     every card is a hand-built UI-mockup/metrics preview instead, per this
+     round's own explicit "no generic stock photos" ask. -->
 <div id="homeView">
   <nav class="home-nav" id="homeNav" aria-label="Home">
     <span class="home-nav-brand">Swimfit</span>
+    <div class="home-nav-links" id="homeNavLinks">
+      <button type="button" data-tab="workouts" aria-current="false">Workouts</button>
+      <button type="button" data-tab="gym" aria-current="false">Gym</button>
+      <button type="button" data-tab="coach" aria-current="false">AI Coach</button>
+    </div>
     <button type="button" class="home-nav-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start Training</button>
     <button type="button" class="home-nav-cta" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
   </nav>
 
-  <section class="home-canvas" id="homeCanvas">
-    <div class="home-canvas-sticky">
+  <header class="hero" id="top">
+    <div class="hero-bg"></div>
+    <div class="hero-photo"></div>
+    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
+      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+    </video>
+    <div class="hero-video-overlay" aria-hidden="true"></div>
+    <div class="hero-caustics" aria-hidden="true"></div>
+    <div class="home-scene-text">
+      <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+      <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
+    </div>
+    <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
+      <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
+    </div>
+  </header>
 
-      <!-- Scene 0: Hero — the swimmer/pool photo+video atmosphere, unchanged,
-           minus the hand-drawn SVG swimmer/wave decorations (see the CSS
-           comment by .home-scene-text .accent for why those were cut). -->
-      <header class="hero home-scene is-active" id="top" data-scene="0">
-        <div class="hero-bg"></div>
-        <div class="hero-photo"></div>
-        <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
-          <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
-        </video>
-        <div class="hero-video-overlay" aria-hidden="true"></div>
-        <div class="hero-caustics" aria-hidden="true"></div>
-        <div class="home-scene-text">
-          <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
-          <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
+  <!-- 3D Orbital Showcase: a continuously-revolving ring of 4 cards, each a
+       hand-built mockup of a real Swimfit surface (Workout Generator, Gym,
+       AI Coach, Tracker) rather than a photo — see the CSS block of the same
+       name for how the rotation itself works. -->
+  <section class="orbit-showcase" id="orbitShowcase" aria-label="What Swimfit does">
+    <div class="orbit-showcase-sticky">
+      <div class="orbit-stage">
+        <div class="orbit-headline">
+          <p class="eyebrow">Swimfit Platform</p>
+          <h2>A Whole New<br>Universe</h2>
         </div>
-        <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
-          <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
+        <div class="orbit-ring" id="orbitRing">
+          <button type="button" class="orbit-card" data-tab="workouts" data-card="0">
+            <span class="orbit-card-eyebrow">Swim Workout Generator</span>
+            <span class="orbit-card-row"><span class="orbit-card-chip" style="--chip-c:var(--aqua-bright)">4×200m</span><span class="orbit-card-name">Freestyle</span></span>
+            <span class="orbit-card-metric"><strong>@ 3:00</strong><span>Send-Off</span></span>
+            <span class="orbit-card-total">Total 3.2 km</span>
+          </button>
+          <button type="button" class="orbit-card" data-tab="gym" data-card="1">
+            <span class="orbit-card-eyebrow">Dryland &amp; Gym</span>
+            <span class="orbit-card-tags"><span class="orbit-tag" data-m="back">Back/Lats</span><span class="orbit-tag" data-m="legs">Legs/Glutes</span></span>
+            <span class="orbit-card-name">Barbell Squats — 4×8</span>
+            <span class="orbit-card-total">This Week — Lower Body</span>
+          </button>
+          <button type="button" class="orbit-card" data-tab="coach" data-card="2">
+            <span class="orbit-card-eyebrow">AI Swim Coach</span>
+            <span class="orbit-card-chat">
+              <span class="orbit-chat-bubble is-user">How's my catch looking?</span>
+              <span class="orbit-chat-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
+            </span>
+            <span class="orbit-card-total">Real-time technique feedback</span>
+          </button>
+          <button type="button" class="orbit-card" data-tab="tracker" data-card="3">
+            <span class="orbit-card-eyebrow">Progress Tracker</span>
+            <svg class="orbit-card-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+              <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
+              <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
+              <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
+            </svg>
+            <span class="orbit-card-total">Weekly Volume 12.4 km</span>
+          </button>
         </div>
-      </header>
-
-      <button type="button" class="home-scene" data-scene="1" data-tab="workouts" style="--scene-photo:var(--hero-photo)" aria-hidden="true">
-        <div class="home-scene-bg is-photo"></div>
-        <div class="home-scene-overlay" aria-hidden="true"></div>
-        <div class="home-scene-text">
-          <span class="home-scene-index">01 / 03</span>
-          <h2>Outswim Your Limits</h2>
-          <p>A brand-new swim set, generated fresh every day — warm-up to cool-down, tuned to your stroke, distance and pace.</p>
-        </div>
-      </button>
-      <button type="button" class="home-scene" data-scene="2" data-tab="gym" style="--scene-photo:var(--gym-photo)" aria-hidden="true">
-        <div class="home-scene-bg is-photo"></div>
-        <div class="home-scene-overlay" aria-hidden="true"></div>
-        <div class="home-scene-text">
-          <span class="home-scene-index">02 / 03</span>
-          <h2>Dryland &amp; Power</h2>
-          <p>Purpose-built gym programming that trains the muscles that actually move you through the water.</p>
-        </div>
-      </button>
-      <button type="button" class="home-scene" data-scene="3" data-tab="coach" style="--scene-photo:url('https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260729_145545_5350fa0c-7fb4-4f43-9e81-29f1eebf969a.png')" aria-hidden="true">
-        <div class="home-scene-bg is-photo"></div>
-        <div class="home-scene-overlay" aria-hidden="true"></div>
-        <div class="home-scene-text">
-          <span class="home-scene-index">03 / 03</span>
-          <h2>A Whole New Universe</h2>
-          <p>Real-time AI coaching, live progress tracking, and the analytics to prove it's working.</p>
-        </div>
-      </button>
-
+      </div>
     </div>
   </section>
 </div>
@@ -3424,6 +3484,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
             <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
             <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
+            <button class="pill-tab" role="tab" data-focus="plyometrics" aria-selected="false"><svg class="icon"><use href="#i-target"/></svg> Plyometrics &amp; Explosive Power</button>
           </div>
           <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
        </div><!-- /gym-top-half (focus) -->
@@ -4799,72 +4860,52 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
-  /* ============================= HOME CONTINUOUS SCROLL CANVAS =============================
-     Drives the N cross-fading, full-bleed .home-scene layers in #homeCanvas
-     (Hero + 3 "what Swimfit does" scenes) purely from scroll position — no
-     animation library (see the CSS block above for why). Skipped entirely
-     under prefers-reduced-motion: the section's own CSS media query already
-     lays it out as a plain static stack in that case, so there is nothing
-     for this listener to drive. This is a rebuild of the previous
-     #scrollyShowcase (3 photo panels below a separate, ordinary-scrolling
-     Hero) — folding the Hero itself in as Scene 0 removes the "harsh break"
-     between an un-pinned Hero and a second, independently-pinned showcase
-     section that the CRITICAL-FIX round explicitly called out. */
-  var homeCanvas = document.getElementById('homeCanvas');
-  if (homeCanvas && !reduceMotion) {
-    var homeScenes = Array.prototype.slice.call(homeCanvas.querySelectorAll('.home-scene'));
-    var homeSceneBgs = homeScenes.map(function (scene) { return scene.querySelector('.home-scene-bg'); });
-    var lastActiveScene = 0;
+  /* ============================= 3D ORBITAL SHOWCASE =============================
+     Drives the 4 cards in #orbitRing around a continuous CSS
+     rotateY/translateZ orbit purely from scroll position — no animation
+     library (see the CSS block above for why). Skipped entirely under
+     prefers-reduced-motion: the section's own CSS media query already lays
+     it out as a plain static wrapping row in that case, so there is nothing
+     for this listener to drive. Unlike the discrete-scene cross-fade this
+     replaces, a circular orbit never needs its rotation clamped to "hold at
+     the end" — it's supposed to keep revolving the whole way through the
+     section, and a circle has no seam, so continuing past 360° just looks
+     like the ring completing another lap. */
+  var orbitShowcase = document.getElementById('orbitShowcase');
+  if (orbitShowcase && !reduceMotion) {
+    var orbitRing = document.getElementById('orbitRing');
+    var orbitCards = Array.prototype.slice.call(orbitRing.querySelectorAll('.orbit-card'));
+    var orbitRadius = 320;
 
-    function updateHomeCanvas() {
-      homeCanvasTicking = false;
-      var rect = homeCanvas.getBoundingClientRect();
-      var totalScrollable = homeCanvas.offsetHeight - window.innerHeight;
+    function updateOrbitShowcase() {
+      orbitTicking = false;
+      var rect = orbitShowcase.getBoundingClientRect();
+      var totalScrollable = orbitShowcase.offsetHeight - window.innerHeight;
       var progress = totalScrollable > 0 ? (-rect.top) / totalScrollable : 0;
       progress = Math.max(0, Math.min(1, progress));
 
-      // t runs 0 → sceneCount continuously across the whole canvas, one full
-      // unit per scene — sceneIndex vs. t decides both which scene is the
-      // active, fully-opaque one (cross-fade, handled by CSS .is-active) and,
-      // via the per-scene local progress below, how far that scene has
-      // scaled/shifted through its own Nth of the scroll range.
-      var sceneCount = homeScenes.length;
-      var t = progress * sceneCount;
-      var activeScene = Math.min(sceneCount - 1, Math.floor(t));
-
-      if (activeScene !== lastActiveScene || progress === 0) {
-        lastActiveScene = activeScene;
-        homeScenes.forEach(function (scene, i) {
-          var isActive = i === activeScene;
-          scene.classList.toggle('is-active', isActive);
-          scene.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-        });
-      }
-
-      // Each scene's own local progress is clamped to [0,1] within its own
-      // window — this naturally holds a finished scene at its final
-      // scale/shift rather than continuing to drift once the next scene has
-      // taken over. Scene 0 (Hero) has no .home-scene-bg of its own — its
-      // atmosphere is the existing photo/video/caustics layers, which already
-      // carry their own animation — so it simply cross-fades via .is-active
-      // with no extra scale/parallax applied.
-      homeScenes.forEach(function (scene, i) {
-        var local = Math.max(0, Math.min(1, t - i));
-        var bg = homeSceneBgs[i];
-        if (!bg) return;
-        var scale = 1.04 + local * 0.1;
-        var shiftY = (local - 0.5) * 24;
-        bg.style.transform = 'scale(' + scale.toFixed(3) + ') translateY(' + shiftY.toFixed(1) + 'px)';
+      // One full revolution across the whole section; each card is offset
+      // by its own even share of the circle so all 4 stay evenly spaced.
+      var baseAngle = progress * 360;
+      orbitCards.forEach(function (card, i) {
+        var angle = baseAngle + i * (360 / orbitCards.length);
+        var norm = ((angle % 360) + 360) % 360;
+        var rad = norm * Math.PI / 180;
+        var depth = Math.cos(rad); // 1 = front-and-center, -1 = directly behind
+        card.style.transform = 'translate(-50%, -50%) rotateY(' + norm.toFixed(2) + 'deg) translateZ(' + orbitRadius + 'px)';
+        card.style.opacity = Math.max(0.25, (depth + 1) / 2).toFixed(2);
+        card.style.zIndex = Math.round((depth + 1) * 100);
+        card.style.pointerEvents = depth > 0.3 ? 'auto' : 'none';
       });
     }
-    var homeCanvasTicking = false;
+    var orbitTicking = false;
     window.addEventListener('scroll', function () {
-      if (!homeCanvasTicking) { requestAnimationFrame(updateHomeCanvas); homeCanvasTicking = true; }
+      if (!orbitTicking) { requestAnimationFrame(updateOrbitShowcase); orbitTicking = true; }
     }, { passive: true });
     window.addEventListener('resize', function () {
-      if (!homeCanvasTicking) { requestAnimationFrame(updateHomeCanvas); homeCanvasTicking = true; }
+      if (!orbitTicking) { requestAnimationFrame(updateOrbitShowcase); orbitTicking = true; }
     }, { passive: true });
-    updateHomeCanvas();
+    updateOrbitShowcase();
   }
 
   // Counts each Pricing card's price up from 0 to its real target every time
@@ -7340,6 +7381,81 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         { name: 'Thoracic Rotation Stretch (Open Book)', prescription: '2 x 30s / side', cue: 'Keep the hips stacked and let only the chest rotate open — restores the rotational range every stroke breathes and reaches through.' }
       ]
     },
+    // Explosive/plyometric power for swimmers specifically — block starts,
+    // flip-turn push-off, and reactive strength — not a general strength
+    // day. Deliberately kept low-volume per exercise (2 per phase, not the
+    // 5-6 of a strength focus): real plyometric programming prioritizes full
+    // recovery and movement quality over set/rep volume, so a longer list
+    // here would work against the modality's own training principle, not
+    // just be an implementation shortcut. `main` is nested two levels deep —
+    // gymOrientation() (sprint/distance/balanced, reusing the exact same
+    // Workout Generator goal/distance signal Full Body already reads) picks
+    // WHICH drills based on the swimmer's own stated goal, then state.level
+    // (beginner/competitive/elite, reusing the same Level tabs the Workout
+    // Generator already has) picks how advanced/high-CNS-demand today's
+    // version of those drills is — e.g. a beginner never sees a true depth
+    // jump, only a competitive/elite swimmer does. See renderGym()'s
+    // `focus === 'plyometrics'` branch for how both axes get read together.
+    plyometrics: {
+      warmup: [
+        { name: 'Ankle Pogo Hops', prescription: '2 x 20s', cue: 'Stiff-ankled little bounces — wakes up the reactive strength used in every wall push-off.' },
+        { name: 'High Knees', prescription: '2 x 20m', cue: 'Fast ground contact, tall posture — primes the nervous system for explosive work ahead.' },
+        { name: 'Dynamic Walking Lunge with Reach', prescription: '2 x 8 / side', cue: 'Opens the hips through full range before anything ballistic.' }
+      ],
+      core: [
+        { name: 'Plank-to-Pike', prescription: '3 x 10', cue: 'Explosive hip flexion from a braced plank — the same fast hip-drive used off the blocks.' },
+        { name: 'Rotational Med Ball Throw', prescription: '3 x 8 / side', cue: 'Full hip-and-shoulder rotation, thrown hard — mirrors the torque of a fast flip-turn rotation.' }
+      ],
+      main: {
+        sprint: {
+          beginner: [
+            { name: 'Squat Jumps', prescription: '3 x 6', cue: 'Full reset between reps — grooves the vertical pop behind a block start before adding any bounce-tempo.' },
+            { name: 'Broad Jumps', prescription: '3 x 5', cue: 'Stick every landing — the same horizontal drive as an explosive dive off the blocks.' }
+          ],
+          competitive: [
+            { name: 'Box Step-Off Depth Jumps', prescription: '4 x 5', cue: 'Step off a low box, land, and rebound immediately — teaches the ground-contact speed a real start demands.' },
+            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Chain jumps with a short reset — raw horizontal power for the start.' }
+          ],
+          elite: [
+            { name: 'Depth Jumps (45cm Box)', prescription: '5 x 5', cue: 'Minimal ground contact time on landing — the highest-CNS drill for start and turn explosiveness; always full recovery between reps.' },
+            { name: 'Single-Leg Bounds', prescription: '4 x 6 / side', cue: 'Single-leg landing and re-drive — builds the asymmetric push-off power used on a one-footed turn wall contact.' }
+          ]
+        },
+        distance: {
+          beginner: [
+            { name: 'Squat Jumps', prescription: '3 x 10', cue: 'Higher rep, moderate intensity — builds repeatable explosive endurance for the 15th turn, not just the 1st.' },
+            { name: 'Step-Up Drives', prescription: '3 x 10 / side', cue: 'Drive off the top leg hard — sustained power output that doesn’t fade late in a race.' }
+          ],
+          competitive: [
+            { name: 'Continuous Broad Jumps', prescription: '4 x 8', cue: 'Jump-to-jump with no reset — trains explosive power that holds up across many consecutive turns.' },
+            { name: 'Lateral Bounds', prescription: '4 x 8 / side', cue: 'Side-to-side stick-and-go — builds the repeatable push-off control a long race demands turn after turn.' }
+          ],
+          elite: [
+            { name: 'Continuous Depth Jumps', prescription: '4 x 10', cue: 'Minimal pause between landings — the highest-volume reactive-strength drill, for turn power that never fades late in a race.' },
+            { name: 'Single-Leg Box Jumps', prescription: '4 x 8 / side', cue: 'Repeated single-leg power output — the asymmetric-turn equivalent of distance-swim pacing.' }
+          ]
+        },
+        balanced: {
+          beginner: [
+            { name: 'Squat Jumps', prescription: '3 x 6', cue: 'General explosive leg power — the foundation under every start and turn.' },
+            { name: 'Lateral Bounds', prescription: '3 x 6 / side', cue: 'Side-to-side power and control for a stable, strong wall push-off.' }
+          ],
+          competitive: [
+            { name: 'Box Jumps', prescription: '4 x 6', cue: 'Full-extension vertical power — carries directly into a stronger dive and turn push-off.' },
+            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Horizontal drive — general-purpose start and turn power.' }
+          ],
+          elite: [
+            { name: 'Depth Jumps', prescription: '4 x 6', cue: 'Reactive strength that transfers directly to both the start and every wall turn.' },
+            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive rotational power — the same torque that snaps a flip-turn around fast.' }
+          ]
+        }
+      },
+      cooldown: [
+        { name: 'Standing Calf Stretch', prescription: '2 x 30s / side', cue: 'Releases the calves and Achilles after repeated ground-reactive loading.' },
+        { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Opens the hips loaded by jumping and bounding work.' },
+        { name: 'Deep Breathing Walk', prescription: '3–5 min', cue: 'Active recovery — let the nervous system settle after high-CNS explosive work.' }
+      ]
+    },
     lower: {
       warmup: [
         { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range used in a flutter kick.' },
@@ -7364,8 +7480,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       ]
     }
   };
-  var GYM_TONE = { cardio: 'maroon', full: 'green', upper: 'aqua', lower: 'green', flexibility: 'aqua' };
-  var GYM_LABEL = { cardio: 'Fitness / Cardio', full: 'Full Body', upper: 'Upper Body', lower: 'Lower Body', flexibility: 'Flexibility & Agility' };
+  var GYM_TONE = { cardio: 'maroon', full: 'green', upper: 'aqua', lower: 'green', flexibility: 'aqua', plyometrics: 'aqua' };
+  var GYM_LABEL = { cardio: 'Fitness / Cardio', full: 'Full Body', upper: 'Upper Body', lower: 'Lower Body', flexibility: 'Flexibility & Agility', plyometrics: 'Plyometrics & Explosive Power' };
   var GYM_PHASE_LABEL = { warmup: 'Warm-Up', core: 'Core Activation', main: 'Main Power / Strength Lifts', cooldown: 'Cool-Down & Mobility' };
   var GYM_PHASE_ICON = { warmup: 'i-heart-pulse', core: 'i-core', main: 'i-bolt', cooldown: 'i-droplet' };
 
@@ -7683,7 +7799,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     'Walking Lunges with Rotation': 'lunge',
     'Standing Forward Fold': 'hinge',
     'Seated Straddle Stretch': 'sidelean',
-    'Thoracic Rotation Stretch (Open Book)': 'foamroll'
+    'Thoracic Rotation Stretch (Open Book)': 'foamroll',
+    // Plyometrics & Explosive Power — reuses existing jump/rotation/lunge
+    // archetypes wherever the movement genuinely matches (Broad Jumps and Box
+    // Jumps already existed as exact-name keys above from Full Body's own
+    // sprint-block exercises). Ankle Pogo Hops, High Knees and Squat Jumps
+    // have no dedicated archetype and are deliberately left unmapped here —
+    // same disclosed generic-fallback trade-off Flexibility & Agility's
+    // Agility Ladder/Cone Shuffle drills already established, not worth
+    // hand-drawing three new one-off SVGs for.
+    'Dynamic Walking Lunge with Reach': 'lunge',
+    'Plank-to-Pike': 'plank',
+    'Rotational Med Ball Throw': 'woodchop',
+    'Rotational Med Ball Throws': 'woodchop',
+    'Box Step-Off Depth Jumps': 'boxjump',
+    'Depth Jumps (45cm Box)': 'boxjump',
+    'Depth Jumps': 'boxjump',
+    'Continuous Depth Jumps': 'boxjump',
+    'Single-Leg Box Jumps': 'boxjump',
+    'Single-Leg Bounds': 'lunge',
+    'Step-Up Drives': 'lunge',
+    'Continuous Broad Jumps': 'broadjump',
+    'Standing Calf Stretch': 'calfstretch'
   };
 
   function renderGymAnim(exerciseName) {
@@ -7804,9 +7941,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var workingWeight = parseFirstNumber(document.getElementById('gymWorkingWeight').value);
     var strengthLimit = parseFirstNumber(document.getElementById('gymStrengthLimit').value);
     var refMax = strengthLimit || (workingWeight ? workingWeight * 1.15 : null);
-    var orientation = focus === 'full' ? gymOrientation() : null;
+    // Plyometrics automatically categorizes its main drills on TWO axes, not
+    // just one: gymOrientation() (the swimmer's stated goal — same signal
+    // Full Body already reads) picks WHICH drills, and state.level (the
+    // Workout Generator's own beginner/competitive/elite tabs) picks HOW
+    // advanced today's version of those drills is — a beginner never lands
+    // on a true depth jump, only Competitive/Elite does.
+    var isTwoAxisFocus = focus === 'full' || focus === 'plyometrics';
+    var orientation = isTwoAxisFocus ? gymOrientation() : null;
     var routine = GYM_FOCUS[focus];
-    var mainExercises = focus === 'full' ? routine.main[orientation] : routine.main;
+    var mainExercises = focus === 'full' ? routine.main[orientation]
+      : focus === 'plyometrics' ? routine.main[orientation][state.level]
+      : routine.main;
 
     document.getElementById('gymGrid').innerHTML =
       renderGymPhase('warmup', routine.warmup, tone, focusLabel, age, refMax) +
@@ -7817,6 +7963,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var gymNote = document.getElementById('gymNote');
     var notes = [];
     if (orientation) notes.push(GYM_ORIENTATION_LABEL[orientation] + '.');
+    if (focus === 'plyometrics') notes.push('Drills additionally scaled for your ' + state.level + ' experience level — higher-CNS-demand variations (e.g. true depth jumps) unlock at Competitive and Elite.');
     if (age && age < 12) notes.push('Sets/reps trimmed — youth-appropriate volume for an 11-and-under athlete.');
     if (refMax) notes.push('Suggested loads use ' + (strengthLimit ? 'your strength limit' : 'your working weight') + ' (' + refMax.toFixed(0) + 'kg reference), scaled per exercise for power vs. endurance work.');
     if (notes.length) { gymNote.textContent = notes.join(' '); gymNote.style.display = 'block'; }

@@ -3501,6 +3501,111 @@ added were replaced outright, not layered on top of.
   and Gym's PDF exports fire real `download` events, and Complete Workout logging still writes the
   correct `swim_logs` entry) passes unchanged.
 
+**A round that reversed the immediately-preceding full-bleed-photography Home rebuild back into a
+genuine 3D orbital carousel, rebuilt the floating top nav into an ultra-minimal transparent bar,
+and added a Plyometrics & Explosive Power focus to Gym — a later, explicit user instruction
+superseding an earlier one, not a bug fix.** The prior round's "4-scene continuous scroll canvas"
+(Hero folded in as Scene 0, cross-fading into 3 full-bleed photo scenes) is fully replaced by this
+entry for the showcase portion; the Home/App view-isolation architecture underneath (`body.
+view-home`/`view-app`, `setAppView()`, `#homeView` hard-hidden while `body.view-app`) is untouched
+and still works exactly as that round shipped it.
+
+- **The Hero reverts to an ordinary top-of-page block, no longer "Scene 0" of anything.** `<header
+  class="hero" id="top">` dropped its `home-scene is-active`/`data-scene="0"` classes and regained
+  its own `position:relative; min-height:88svh; display:flex; align-items:center; padding-top:
+  100px` layout (previously stripped down to just `overflow:hidden; isolation:isolate` when it was
+  absorbed into the scroll canvas) — it's back to being a normal, non-pinned page section exactly
+  like the site's very first Home build, just still inside the isolated `#homeView`/`body.
+  view-home` wrapper the immediately-prior round introduced. Its video/photo/caustics atmosphere
+  and bottom-left `.home-scene-text` copy block are unchanged.
+- **A brand-new `.orbit-showcase` section (a separate pinned section below the Hero, not part of
+  it) is the reinstated 3D carousel** — this codebase's original Round-3 build, later replaced with
+  full-bleed cross-fading photography, now brought back per this round's own explicit "3D Orbital
+  Carousel" ask. A tall (300vh) `position:sticky` stage holds a `perspective:1400px` `.orbit-ring`;
+  4 `.orbit-card`s revolve around a CSS `rotateY`/`translateZ` orbit driven by `updateOrbitShowcase()`
+  (replacing the prior round's `updateHomeCanvas()`) — `baseAngle = progress * 360` over the whole
+  section, each card offset by its own even share of the circle (`i * 360/4`), with depth-based
+  opacity/z-index/pointer-events computed from `cos(angle)` exactly like the original Round-3
+  orbit math. Unlike that discrete "lock one card front-and-center per slide" design (which needed
+  an explicit clamp to stop the ring wrapping awkwardly at the very end), this version wants
+  exactly the opposite — continuous, uninterrupted revolution — so nothing needs clamping here:
+  a circle has no seam, so completing more than 360° just reads as the ring taking another full
+  lap, which is the literal "loop continuously... without abrupt breaks" ask.
+- **A real 3D-carousel bug was caught and fixed while screenshotting this**: `.orbit-card` had no
+  `backface-visibility`, so a card rotated past 90°/270° still rendered its front face — just
+  mirrored, as if seen through glass from behind — reading as a glitch rather than a card that's
+  simply turned away. Confirmed via a direct screenshot (the AI Coach card, rotated to 198° in the
+  test, showed backwards text) before the fix, and confirmed clean (card invisible outside the
+  front-facing ±90° range) after adding `backface-visibility: hidden` (+ `-webkit-` prefix).
+- **Every card is a hand-built UI-mockup/metrics preview, not a photo** — the explicit "no generic
+  stock photos" ask. Card 1 mirrors a Workout Generator set row (`4×200m Freestyle`, `@ 3:00`
+  send-off, `Total 3.2 km`, in the same monospace/aqua/green accent language the real result panel
+  already uses); Card 2 mirrors a Gym exercise card (muscle tags + `Barbell Squats — 4×8`); Card 3
+  mirrors an AI Coach chat exchange (a user bubble + an AI reply bubble, same `.coach-bubble`-style
+  visual language); Card 4 is a small inline SVG bar chart mirroring the Tracker's own hand-rolled
+  charts. None of this required new image assets — every visual element is plain HTML/CSS/SVG.
+- **The floating top nav was rebuilt into an ultra-minimal, fully transparent bar**: `.home-nav`
+  itself already had no background (confirmed via computed-style check —
+  `rgba(0,0,0,0)`/`0px` border), so "completely transparent" was already true of the bar itself;
+  what changed is `.home-nav-links`, a new 3-item `[ Workouts | Gym | AI Coach ]` text-link row
+  (replacing nothing visually solid — no pill background, no border, no blur — just plain text
+  with a 2px `border-bottom` that's transparent at rest and turns `var(--green-bright)` on the
+  active link, plus a brightness-only hover state). Hidden below 900px (mirroring the sidebar's own
+  breakpoint precedent — mobile Home still relies on the single CTA only, matching how the app's
+  own mobile-bottom-nav/desktop-sidebar split already works). The single CTA (`Start Training` /
+  `Launch App`, mutually exclusive by sign-in state) is unchanged from the prior round — it's a
+  distinct action button, not a nav link, so it keeps its thin-bordered-pill affordance rather than
+  going fully bare, which would leave zero visual cue that it's the primary action.
+- **Nav-link active-state highlighting needed no new JS** — `switchTab()`'s existing generic
+  `aria-current` sync loop (`document.querySelectorAll('[data-tab]').forEach(...)`) already updates
+  any element carrying the attribute regardless of which bar/drawer it lives in (the same mechanism
+  the mobile-bottom-nav has relied on for many rounds), so giving each new `.home-nav-links` button
+  a plain `aria-current="false"` up front was the only wiring needed — confirmed via screenshot that
+  "Workouts" shows the green underline by default (the Workout Generator is the app's own default
+  tab) with zero extra code.
+- **Gym gained a sixth focus, Plyometrics & Explosive Power** (`GYM_FOCUS.plyometrics`) —
+  deliberately targeted at swim-specific explosiveness (block starts, flip-turn push-off and
+  rotation, reactive strength) rather than generic athletic plyo work; every exercise `cue` ties
+  explicitly back to a start or turn. Like Cardio/Flexibility before it, it's a modality left out
+  of `GYM_WEEKLY_ROTATION` (manually-selected only, not part of the auto-rotating Upper/Lower/Full
+  cycle). Warm-Up/Core/Cool-Down are flat, shared arrays; only `Main` is genuinely, automatically
+  categorized — on **two independent axes**, not one: `gymOrientation()` (sprint/distance/balanced,
+  reusing the exact same Workout Generator goal/distance signal Full Body's own `main` already
+  reads) picks *which* drills, and `state.level` (beginner/competitive/elite, reusing the Workout
+  Generator's own Level tabs) picks *how advanced* today's version of those drills is — a beginner
+  never lands on a true depth jump; only Competitive/Elite does. `renderGym()`'s `mainExercises`
+  selection was generalized from a single `focus === 'full'` special case to
+  `routine.main[orientation][state.level]` for Plyometrics specifically, and `gymNote` gained a
+  second sentence explaining the level-based scaling whenever this focus is active.
+- **Main is deliberately shorter than every other focus's (2 exercises per leaf, not 5-6) — a
+  disclosed training-science choice, not a shortcut.** Real plyometric programming prioritizes full
+  recovery and movement quality over set/rep volume; padding this out to match a strength-day's
+  exercise count would work against the modality's own training principle. The 9-leaf matrix (3
+  orientations × 3 levels) still gives 18 distinct main-exercise pairs in total, e.g. Beginner+
+  Sprint = Squat Jumps/Broad Jumps, up through Elite+Sprint = true Depth Jumps (45cm box)/Single-Leg
+  Bounds.
+- **Animation mapping reused existing archetypes wherever the movement genuinely matched** (`Broad
+  Jumps`/`Box Jumps` already existed as exact-name keys from Full Body's own sprint block; `Depth
+  Jumps` variants and `Single-Leg Box Jumps` all map to the existing `boxjump` archetype; `Single-Leg
+  Bounds`/`Step-Up Drives` map to `lunge`; `Rotational Med Ball Throw(s)` maps to the existing
+  rotational-power `woodchop` archetype; `Plank-to-Pike` maps to `plank`) — `Ankle Pogo Hops`, `High
+  Knees` and `Squat Jumps` have no dedicated archetype and were deliberately left unmapped (falling
+  through to the existing `generic` fallback), the same disclosed trade-off Flexibility & Agility's
+  Agility Ladder/Cone Shuffle drills already established rather than hand-drawing three new one-off
+  SVGs for a single round.
+- Verified via Playwright end-to-end: the transparent nav computes `rgba(0,0,0,0)` background with
+  the 3 links present and the default-active link underlined; the Hero renders as a plain
+  `display:flex` block with no `home-scene` class; the 4 orbit cards rotate continuously with the
+  expected `rotateY`/`translateZ`/opacity values at 4 sampled scroll depths, and clicking whichever
+  card is currently front-and-center correctly enters the App view at the right tab; a 390px mobile
+  viewport hides the nav links with zero horizontal overflow at any scroll depth; `prefers-reduced-
+  motion` lays the 4 cards out as a plain static wrapping row with no pinning and no 3D transform;
+  switching Gym to the new Plyometrics tab at the default (beginner) level shows Squat Jumps/Lateral
+  Bounds, switching to Elite level + a Speed goal (sprint orientation) correctly shows Depth Jumps
+  (45cm Box)/Single-Leg Bounds instead, the Gym PDF export still fires a real `download` event on
+  this new focus, and the full pre-existing regression suite (all 9 tabs, both PDF exports, Complete
+  Workout logging) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
