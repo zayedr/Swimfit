@@ -4061,6 +4061,63 @@ unchanged.
   zero runtime exceptions across geometry/material/light setup, a raycasted canvas click, and a
   multi-depth scroll simulation.
 
+**A live production bug report — "the 3D swim-tech device renders as a solid pitch-black box" —
+was fixed in `deviceExperienceInit()`'s Three.js scene setup.** This is the first genuine visual
+bug report this feature has had that came from a real browser rather than this sandbox's own
+(disclosed, repeatedly-documented) inability to render WebGL at all — `cdn.jsdelivr.net` is
+blocked here, so every earlier round's verification could only prove the fallback path works or
+that the construction code doesn't throw, never that it actually renders correctly. The user's own
+screenshots of it live, plus their itemized diagnosis (lighting too dim, materials absorbing all
+light, camera/FOV possibly too tight), pointed at the real root cause directly.
+
+- **The actual root cause: `MeshPhysicalMaterial`/`MeshStandardMaterial` with a non-trivial
+  `metalness` value and no `scene.environment` map renders almost entirely black.** Physically-based
+  metallic surfaces get their visible color almost entirely from environment reflections, not
+  direct diffuse light — without an environment map (this scene never set one; adding a real HDR
+  environment would need a texture asset this offline sandbox has no way to fetch or generate), a
+  metal surface only shows brightness where a direct light happens to line up for a specular
+  highlight, and reads as flat black everywhere else. The device body (`metalness: 0.55`) and its 4
+  buttons (`metalness: 0.75`) were both well into this range — enough, combined with the scene's
+  fairly modest light intensities, to plausibly read as a "solid pitch-black box" from most viewing
+  angles. Fixed by dropping both to a much lower, diffuse-dominant range (body `0.55 → 0.2`, buttons
+  `0.75 → 0.3`) while keeping a touch of `clearcoat` for a believable plastic/metal sheen under
+  direct light — the same visual intent, just no longer dependent on an environment map that was
+  never going to exist in this build.
+- **Lighting was substantially brightened, per the user's own itemized ask.** Added a real
+  `THREE.AmbientLight(0xffffff, 1.8)` (there was none before — only a dim `HemisphereLight`), so
+  every surface now has a guaranteed flat minimum brightness regardless of its normal or which way
+  the device happens to be rotated at that scroll position — the single biggest lever against
+  "unlit-looking" surfaces. Added a `THREE.PointLight` riding near the camera (`0,1.2,5`) so the
+  front face (screen/buttons/bezel) reliably catches a specular kick as the device rotates through
+  the scroll-driven keyframes, not just whenever it happens to face the fixed key light exactly
+  right. `keyLight` intensity `2.4 → 4.2`, `rimLight` `0.8 → 1.6`, `HemisphereLight` `0.6 → 1.1`
+  (and brightened its sky color), and `renderer.toneMappingExposure` `1.05 → 1.3` — all compounding
+  with the metalness fix above rather than being the fix on its own.
+- **Camera/FOV given more margin, and the ground plane shrunk so it can never read as "a giant
+  black wall."** The camera's field of view widened `42° → 46°` and its resting distance moved back
+  slightly (`z: 4.4 → 5.2`) so the device sits comfortably inside the frame with headroom at every
+  scroll-driven keyframe rather than crowding the canvas edges. The shadow-catching ground plane
+  (deliberately colored near-black, `#05070B`, to blend into the section's own background) was
+  shrunk from a `10×10` unit plane down to `6×6` and moved further below the device (`y: -1.85 →
+  -2.1`) — at its old size/position it was large enough, relative to the ~2-3 unit device, to
+  plausibly dominate the frame as an unlit dark rectangle at some camera angles; shrinking and
+  lowering it removes that risk while it still catches the same contact shadow beneath the device.
+- **Verified via the same stub-backed technique established in the immediately prior round**
+  (a hand-written Three.js API stub — extended this round with a `PointLight` constructor to cover
+  the newly-added light — injected via Playwright so the real, non-fallback construction code
+  actually executes): geometry/material/light setup, a full multi-depth scroll simulation
+  (exercising `updateFromScroll()`'s camera-lerp path across all 4 keyframes), a raycasted canvas
+  click, and a step-button click all run with **zero JS exceptions**. The pre-existing
+  fallback-path regression suite (`.is-fallback` activation and step nav, CTA-to-auth-modal, footer
+  visibility, mobile viewport, `prefers-reduced-motion`, full 9-tab regression including a real PDF
+  `download` event and Complete-Workout-to-Tracker logging) also still passes unchanged with zero
+  page errors. **What this still cannot verify, disclosed as before**: whether the device now
+  actually renders bright and legible in a real browser — the stub proves the code runs without
+  throwing, not what it looks like on screen, since `cdn.jsdelivr.net` remains blocked in this
+  sandbox. Confirm in a real browser on a normal network connection; if it's still too dark there,
+  the next lever to pull is `renderer.toneMappingExposure` (currently 1.3) or a further metalness
+  reduction, in that order.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
