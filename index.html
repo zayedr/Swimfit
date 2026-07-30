@@ -1308,137 +1308,99 @@ section { position: relative; scroll-margin-top: 96px; }
   body:not(.sidebar-collapsed) .sidebar-collapse-btn { left: calc(var(--sidebar-w) + 8px); }
 }
 
-/* ============================= HOME: 3D SWIM DEVICE EXPERIENCE =============================
-   The entire previous Home landing content (Hero video/photo/caustics,
-   Feature Showcase bento grid, How It Works, closing CTA band) was wiped
-   per this round's explicit "replace the entire Home landing page" /
-   "wipe old home components" ask, replaced by a single pinned, scroll-
-   driven interactive 3D swim device — a conceptual (not pixel-clone) take
-   on a Contra-style project-calculator scene: a central device with a
-   live-updating screen, real camera keyframes per step, and clickable 3D
-   controls that drive the same real Swim Workout Generator this site has
-   always had. See deviceExperienceInit() in the NAV/TAB CONTROLLER script
-   for the full implementation and its graceful .is-fallback path.
-
-   Per explicit user decision this round: NO ambient/Lo-Fi audio was added
-   (this environment has no music-generation capability — only speech
-   synthesis — so a real "chill Lo-Fi" loop can't be produced here, and a
-   synthesized substitute is exactly what got called "harsh" and removed
-   twice before; the user chose the 3D device without audio rather than a
-   best-effort synth pad). Three.js is loaded via a single CDN <script> tag
-   (see the <script src> line after the Paddle script) — this sandbox's own
-   network policy blocks that CDN (confirmed via curl in an earlier round),
-   so .is-fallback is the actual, tested code path here; a real browser on
-   an unrestricted network is needed to verify the 3D render itself. */
-.device-experience { position: relative; height: 400vh; background: #05070B; }
-.device-sticky {
-  position: sticky; top: 0; height: 100svh; overflow: hidden;
-  display: flex; align-items: center;
+/* ============================= HERO ============================= */
+/* Back to being an ordinary, ungimmicked top-of-page block — an earlier
+   round had folded it into a scroll canvas as "Scene 0"; the Feature
+   Showcase below it (see .home-showcase) is a separate, ordinary-flow
+   section, so the Hero no longer needs to be part of any canvas at all.
+   isolation:isolate still contains its own
+   negative-z-index photo/video/caustics layers within a local stacking
+   context. There is nothing beside or below it in the same scroll flow
+   (Home is still its own isolated view), so no edge-blend layer is needed. */
+.hero { position: relative; min-height: 92svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
+.hero-bg { position: absolute; inset: 0; z-index: -3; background: linear-gradient(180deg, #05080D 0%, #080C14 55%, #0A0E17 100%); }
+/* Deep-oceanic ambient mesh gradient — several large, heavily-blurred color
+   blobs (not flat radial-gradient stops) drifting slowly, the genuine
+   "soft glowing mesh" look real premium dark-mode brand sites use instead
+   of a template's default hero wash. Sits behind the video/photo/caustics
+   layers and shows through at the edges/vignette they don't cover. Each
+   blob is its own element (not a single multi-stop background) so the blur
+   softens color transitions organically rather than banding. */
+.hero-mesh { position: absolute; inset: -10%; z-index: -3; pointer-events: none; filter: blur(90px); opacity: 0.85; }
+.hero-mesh span {
+  position: absolute; border-radius: 50%; mix-blend-mode: screen;
+  animation: meshDrift 22s ease-in-out infinite alternate;
 }
-/* A tight, functional glow directly behind the device — a spotlight on the
-   product, not a sprawling decorative mesh — plus a calm technical grid,
-   matching a dark, minimal "calculator" viewport rather than an ambient
-   marketing wash. */
-.device-glow {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(38% 46% at 62% 50%, rgba(57,255,158,0.16), transparent 70%);
+.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(20,104,68,0.55), transparent 70%); animation-duration: 26s; }
+.hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(34,211,238,0.4), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
+.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(57,255,158,0.28), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
+.hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(78,233,255,0.22), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
+@keyframes meshDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(4%, -5%) scale(1.08); }
+  100% { transform: translate(-3%, 4%) scale(0.96); }
 }
-.device-grid {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+@media (prefers-reduced-motion: reduce) { .hero-mesh span { animation: none; } }
+/* Photographic-style panel: shows var(--hero-photo) if set (duotone-tinted), else a
+   light-ray / water-depth gradient standing in for real athlete photography. */
+.hero-photo {
+  position: absolute; inset: 0; z-index: -2;
   background-image:
-    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(65% 65% at 50% 50%, #000 45%, transparent 100%);
-  -webkit-mask-image: radial-gradient(65% 65% at 50% 50%, #000 45%, transparent 100%);
+    linear-gradient(120deg, rgba(10,15,24,0.94) 0%, rgba(10,15,24,0.55) 45%, rgba(13,20,32,0.4) 100%),
+    var(--hero-photo),
+    repeating-linear-gradient(115deg, rgba(34,211,238,0.05) 0 2px, transparent 2px 140px),
+    linear-gradient(200deg, #0c211d 0%, #081312 55%, #050807 100%);
+  background-size: cover; background-position: center;
+  background-blend-mode: normal, luminosity, screen, normal;
 }
-#deviceCanvas { position: relative; z-index: 1; width: min(58vw, 620px); height: min(58vw, 620px); display: block; margin-inline-start: auto; margin-inline-end: 6vw; }
-.device-copy {
-  position: absolute; z-index: 2; left: var(--space-6); top: 50%; transform: translateY(-50%);
-  max-width: 480px; color: var(--fg); pointer-events: none;
+.hero-photo::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.9) 100%);
 }
-.device-copy .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }
-.device-copy h1 {
-  font-size: clamp(2.2rem, 5vw, 4rem); text-transform: uppercase; font-weight: 800;
-  line-height: 1.02; letter-spacing: -0.01em;
+.hero-video {
+  position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity 1400ms var(--ease);
 }
-/* The one subtle typographic effect kept from the previous Hero — a
-   gradient shimmer on the accent word, not decorative clip art. */
-.device-copy h1 .accent {
+.hero-video.is-playing { opacity: 0.6; }
+.hero-video-overlay {
+  position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(10,15,24,0.9) 0%, rgba(10,15,24,0.5) 45%, rgba(13,20,32,0.35) 100%),
+    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.92) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .hero-video { display: none; } }
+.hero-caustics {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 30% at 20% 30%, rgba(34,211,238,0.16), transparent 70%),
+    radial-gradient(30% 26% at 70% 60%, rgba(57,255,158,0.14), transparent 70%),
+    radial-gradient(24% 22% at 45% 80%, rgba(34,211,238,0.10), transparent 70%);
+  background-size: 160% 160%;
+  animation: causticDrift 16s ease-in-out infinite alternate;
+  mix-blend-mode: screen;
+}
+@keyframes causticDrift {
+  0%   { background-position: 0% 0%, 100% 100%, 50% 50%; }
+  50%  { background-position: 30% 20%, 70% 60%, 40% 70%; }
+  100% { background-position: 10% 40%, 90% 30%, 60% 20%; }
+}
+/* The hand-drawn SVG swimmer silhouette (.hero-swimmer) and squiggly wave
+   shapes (.hero-waves) — along with the blurred accent .blob circle that used
+   to sit near them — were deleted outright this round, not just hidden. They
+   were exactly the kind of low-fidelity "clip art" decoration a cheap,
+   AI-generated template leans on; a "luxury agency" full-bleed photo/video
+   canvas doesn't need cartoon filler on top of it. The water-ripple "target
+   reticle" rings and the sci-fi HUD overlay (corner brackets, readout bars,
+   dummy tech text) were removed in an earlier round for the same reason.
+
+   The hero copy's accent-gradient shimmer on "Race." is a subtle typographic
+   effect, not decorative clip art, and was kept. */
+.home-scene-text h1 .accent, .home-scene-text h2 .accent {
   background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: shimmerText 6s ease-in-out infinite;
 }
 @keyframes shimmerText { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-/* Bottom-left step navigation — a real, always-functional HTML control
-   (clicking a step scrolls the pinned section to that step's camera
-   keyframe) that stays in sync with the 3D device's own clickable step
-   buttons and with scroll position, whichever drives the change. */
-.device-steps {
-  position: absolute; z-index: 2; left: var(--space-6); bottom: var(--space-7);
-  display: flex; flex-direction: column; gap: 10px;
-}
-.device-step-btn {
-  display: flex; align-items: baseline; gap: 10px; text-align: start;
-  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
-  color: rgba(240,243,246,0.4); padding: 4px 0; border-inline-start: 2px solid transparent;
-  padding-inline-start: 12px; transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.device-step-btn span { font-family: var(--font-display); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 0.86rem; color: rgba(240,243,246,0.5); }
-.device-step-btn.is-active { color: var(--green-bright); border-inline-start-color: var(--green-bright); }
-.device-step-btn.is-active span { color: var(--fg); }
-.device-cta {
-  position: absolute; z-index: 2; right: var(--space-6); bottom: var(--space-7);
-}
-.device-live-stat {
-  position: absolute; z-index: 2; right: var(--space-6); top: calc(var(--space-7) + 90px); text-align: end;
-  font-family: var(--font-mono); color: rgba(240,243,246,0.7); pointer-events: none;
-}
-.device-live-stat strong { display: block; font-size: 1.4rem; color: var(--green-bright); font-weight: 700; }
-.device-live-stat span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,243,246,0.5); }
-@media (max-width: 980px) {
-  .device-sticky { flex-direction: column; justify-content: center; padding-top: 90px; }
-  #deviceCanvas { width: min(70vw, 380px); height: min(70vw, 380px); margin-inline: auto; }
-  .device-copy { position: static; transform: none; max-width: 100%; padding-inline: var(--space-6); text-align: center; margin-bottom: var(--space-5); }
-  .device-copy .eyebrow { justify-content: center; }
-  .device-steps { position: static; align-items: center; margin-top: var(--space-6); padding-inline: var(--space-6); }
-  .device-step-btn { border-inline-start: none; border-bottom: 2px solid transparent; padding-inline-start: 0; padding-bottom: 4px; }
-  .device-step-btn.is-active { border-bottom-color: var(--green-bright); }
-  .device-cta, .device-live-stat { display: none; }
-}
-/* Reduced motion AND the CDN/WebGL-unavailable fallback share this layout:
-   no pinning, no 3D canvas — the copy, all 4 steps (as a plain always-
-   visible list with their first preview value shown), and a direct link
-   into the real generator all render statically instead. */
-@media (prefers-reduced-motion: reduce) {
-  .device-experience { height: auto; padding-block: var(--space-8); }
-  .device-sticky { position: static; height: auto; display: block; padding-top: var(--space-8); padding-bottom: var(--space-8); }
-  .device-grid { position: static; mask-image: none; -webkit-mask-image: none; height: 160px; }
-  #deviceCanvas { display: none; }
-  .device-copy { position: static; transform: none; max-width: 100%; padding-inline: var(--space-6); text-align: center; margin-bottom: var(--space-6); }
-  .device-copy .eyebrow { justify-content: center; }
-  .device-steps { position: static; align-items: center; padding-inline: var(--space-6); }
-  .device-cta, .device-live-stat { position: static; display: block; text-align: center; margin-top: var(--space-6); }
-}
-/* The CDN/WebGL-unavailable fallback (added by deviceExperienceInit() the
-   moment THREE isn't available or WebGL isn't supported — the expected
-   outcome in this sandbox, see the disclosure note above) reuses the exact
-   same static layout as prefers-reduced-motion. */
-.device-experience.is-fallback { height: auto; padding-block: var(--space-8); }
-.device-experience.is-fallback .device-sticky { position: static; height: auto; display: block; padding-top: var(--space-8); padding-bottom: var(--space-8); }
-.device-experience.is-fallback .device-grid { position: static; mask-image: none; -webkit-mask-image: none; height: 160px; }
-.device-experience.is-fallback #deviceCanvas { display: none; }
-.device-experience.is-fallback .device-copy { position: static; transform: none; max-width: 100%; padding-inline: var(--space-6); text-align: center; margin-bottom: var(--space-6); }
-.device-experience.is-fallback .device-copy .eyebrow { justify-content: center; }
-.device-experience.is-fallback .device-steps { position: static; align-items: center; padding-inline: var(--space-6); }
-.device-experience.is-fallback .device-cta,
-.device-experience.is-fallback .device-live-stat { position: static; display: block; text-align: center; margin-top: var(--space-6); }
-/* Fallback-only: show each step's own preview content as a plain readable
-   line under its label, since there's no interactive screen/raycasting to
-   reveal it in this mode. */
-.device-step-preview { display: none; font-size: 0.78rem; color: rgba(240,243,246,0.55); margin-top: 2px; }
-.device-experience.is-fallback .device-step-preview { display: block; }
-@media (prefers-reduced-motion: reduce) { .device-step-preview { display: block; } }
 
 /* ============================= HOME VIEW (isolated full-screen presentation) =============================
    A CRITICAL rebuild: the Home experience is now a strictly separate view from
@@ -1508,6 +1470,185 @@ body.view-home { margin-left: 0 !important; }
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .home-nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
+
+/* Shared text-overlay utility for a full-bleed section (currently only the
+   Hero uses it, hence the name) — bottom-left copy block + bottom-right
+   live-stat corner, both absolutely positioned against the section's own
+   position:relative box. */
+.home-scene-text {
+  position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-7);
+  max-width: 900px; color: var(--fg); pointer-events: none;
+}
+.home-scene-text h1, .home-scene-text h2 {
+  font-size: clamp(2.6rem, 6.4vw, 6rem); text-transform: uppercase;
+  line-height: 0.98; letter-spacing: -0.01em; margin-bottom: var(--space-4); font-weight: 800;
+}
+.home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
+.home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }
+.home-scene-stat {
+  position: absolute; right: var(--space-6); bottom: var(--space-7); text-align: end;
+  font-family: var(--font-mono); color: rgba(240,243,246,0.7); pointer-events: none;
+}
+.home-scene-stat strong { display: block; font-size: 1.6rem; color: var(--green-bright); font-weight: 700; }
+.home-scene-stat span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,243,246,0.5); }
+@media (max-width: 900px) {
+  .home-scene-text { left: var(--space-4); right: var(--space-4); bottom: var(--space-5); }
+  .home-nav { padding: var(--space-4); }
+  .home-scene-stat { display: none; }
+}
+
+/* ============================= HOME: FEATURE SHOWCASE =============================
+   Replaces the previous round's pinned-3D-canvas + ambient-audio showcase
+   entirely, per explicit feedback that a placeholder wireframe sphere and a
+   synthesized beep read as cheap rather than premium. This is a calm,
+   ordinary-flow (no scroll-pinning, no WebGL, no audio) section: a headline
+   over a bento grid of 4 real UI-mockup cards — one per core tool — each
+   reusing this file's own already-shipped visual language (the workout
+   generator's rep-chip/pace-tag, Gym's muscle tags, the AI Coach chat
+   bubbles, the Tracker's bar chart) rather than stock photography or invented
+   3D chrome. Cards use the existing [data-reveal] IntersectionObserver
+   entrance system (see the REVEAL ON SCROLL block below) and a lightweight,
+   hand-built "spotlight" hover — a soft radial glow that follows the pointer,
+   the same effect Magic UI/Aceternity's SpotlightCard popularized, built here
+   in plain CSS custom properties + one small mousemove listener
+   (wireSpotlightCards()) rather than a component-library import, since this
+   file has no build step to install one into. */
+.home-showcase { position: relative; padding-block: var(--space-9) var(--space-8); background: #0A0E16; overflow: hidden; }
+/* A faint echo of the Hero's own mesh-gradient sits behind this section too
+   (much dimmer, no animation — this section isn't scroll-pinned, so a
+   moving background here would just be noise) purely so scrolling from the
+   Hero into the showcase reads as one continuous ambient surface instead of
+   a hard cut into a flat, generic dark panel. */
+.home-showcase::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(50% 40% at 12% 0%, rgba(20,104,68,0.16), transparent 70%),
+    radial-gradient(45% 35% at 90% 10%, rgba(34,211,238,0.1), transparent 70%);
+}
+.home-showcase > * { position: relative; z-index: 1; }
+.home-section-head { max-width: 640px; margin-inline: auto; text-align: center; padding-inline: var(--space-6); margin-bottom: var(--space-7); }
+.home-section-head .eyebrow { justify-content: center; color: rgba(240,243,246,0.6); }
+.home-section-head h2 { font-size: clamp(2.1rem, 4.4vw, 3.2rem); font-weight: 800; line-height: 1.12; letter-spacing: -0.01em; color: #fff; margin-top: var(--space-2); }
+.home-section-head p { color: rgba(240,243,246,0.65); margin-top: var(--space-3); font-size: 1.05rem; }
+/* A genuine asymmetric bento — one large featured cell (the Workout
+   Generator, the app's own default/flagship tool) beside a 2x2 cluster of
+   the other three tools, rather than 4 uniform boxes in a row (the literal
+   "no generic boxes, use a Bento Grid" ask). Collapses to a single column
+   well before the asymmetry would ever cramp on a real phone. */
+.home-showcase-grid {
+  display: grid; grid-template-columns: 1.3fr 1fr; grid-template-rows: repeat(2, minmax(180px, auto));
+  gap: var(--space-4); max-width: 1180px; margin-inline: auto; padding-inline: var(--space-6);
+}
+.home-showcase-card[data-tab="workouts"] { grid-row: 1 / 3; }
+.home-showcase-card {
+  position: relative; overflow: hidden; text-align: start; cursor: pointer;
+  display: flex; flex-direction: column; gap: 12px; padding: var(--space-5);
+  border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 20px 40px -24px rgba(0,0,0,0.5);
+  color: var(--fg);
+  transition: transform 280ms var(--ease), border-color 280ms var(--ease), box-shadow 280ms var(--ease);
+}
+/* The spotlight itself: a radial-gradient positioned at the pointer via
+   --mx/--my (set by wireSpotlightCards()'s mousemove listener), invisible at
+   rest and faded in only on hover/focus — same "calm until interacted with"
+   principle this file has used for every card treatment since the very
+   first bento round. */
+.home-showcase-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; opacity: 0;
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,158,0.16), transparent 70%);
+  transition: opacity 320ms var(--ease); pointer-events: none;
+}
+.home-showcase-card:hover, .home-showcase-card:focus-within {
+  transform: translateY(-6px); border-color: rgba(255,255,255,0.24);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 28px 48px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--card-accent, var(--green-bright)) 30%, transparent);
+}
+.home-showcase-card:hover::before, .home-showcase-card:focus-within::before { opacity: 1; }
+.home-showcase-card > * { position: relative; z-index: 1; }
+.home-showcase-icon {
+  width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-accent, var(--green-bright)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--green-bright)) 35%, transparent);
+  color: var(--card-accent, var(--green-bright));
+}
+.home-showcase-icon .icon { width: 21px; height: 21px; }
+.home-showcase-card h3 { font-size: 1.15rem; font-weight: 700; color: var(--fg); letter-spacing: -0.005em; }
+.home-showcase-card[data-tab="workouts"] h3 { font-size: 1.4rem; }
+/* Mirrors the real Workout Generator result panel's own stage-color-railed
+   set rows (see .workout-block/.set-row elsewhere in this file) — the
+   featured bento cell's own content, not a second invented visual language. */
+.home-showcase-setlist { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.home-showcase-setrow {
+  display: flex; justify-content: space-between; gap: var(--space-3);
+  padding: 8px 12px; border-radius: 8px; font-size: 0.82rem;
+  background: rgba(255,255,255,0.03); border-inline-start: 3px solid var(--stage-c, var(--aqua-bright));
+}
+.home-showcase-setrow span:first-child { color: rgba(240,243,246,0.55); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; }
+.home-showcase-setrow span:last-child { color: var(--fg); font-family: var(--font-mono); }
+.home-showcase-card .home-showcase-metric { display: flex; flex-direction: column; font-family: var(--font-mono); }
+.home-showcase-card .home-showcase-metric strong { font-size: 1.3rem; color: var(--green-bright); }
+.home-showcase-card .home-showcase-metric span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(240,243,246,0.5); }
+.home-showcase-card .home-showcase-note { font-size: 0.84rem; color: rgba(240,243,246,0.6); margin-top: auto; line-height: 1.5; }
+.home-showcase-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.home-showcase-tag { font-size: 0.7rem; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.78); }
+.home-showcase-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; }
+.home-showcase-bubble { padding: 7px 11px; border-radius: 10px; max-width: 94%; }
+.home-showcase-bubble.is-user { align-self: flex-end; background: rgba(34,211,238,0.16); color: #fff; }
+.home-showcase-bubble.is-ai { align-self: flex-start; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.85); }
+.home-showcase-chart { width: 100%; height: 40px; fill: var(--green-bright); opacity: 0.85; }
+@media (max-width: 980px) {
+  .home-showcase-grid { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .home-showcase-card[data-tab="workouts"] { grid-column: 1 / 3; grid-row: auto; }
+}
+@media (max-width: 620px) {
+  .home-showcase-grid { grid-template-columns: 1fr; }
+  .home-showcase-card[data-tab="workouts"] { grid-column: auto; }
+}
+
+/* ============================= HOME: HOW IT WORKS =============================
+   A plain, honest 3-step onboarding explainer (Sign Up → Get Your Plan →
+   Train & Track) — a standard, well-understood landing-page pattern that
+   needs no invented stats or testimonials to justify its own existence. */
+.home-steps { padding-block: var(--space-8); background: #0C1220; }
+.home-steps-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6);
+  max-width: 1000px; margin-inline: auto; padding-inline: var(--space-6);
+}
+.home-step { position: relative; text-align: center; padding: var(--space-4); }
+.home-step-num {
+  position: relative; z-index: 1; width: 52px; height: 52px; margin-inline: auto; margin-bottom: var(--space-4);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;
+  background: #0C1220; color: var(--green-bright); border: 1px solid rgba(57,255,158,0.3);
+  box-shadow: 0 0 0 6px rgba(57,255,158,0.06);
+}
+/* A thin connecting line running through each step's own number circle,
+   the classic "process flow" cue premium onboarding sections use — only
+   drawn between steps (never before the first or after the last), and
+   only at widths where the 3 steps actually sit in one row. */
+@media (min-width: 761px) {
+  .home-step:not(:last-child)::after {
+    content: ''; position: absolute; top: 26px; left: 50%; width: 100%; height: 1px;
+    background: linear-gradient(90deg, rgba(57,255,158,0.35), rgba(57,255,158,0.05));
+    z-index: 0;
+  }
+}
+.home-step h3 { font-size: 1.05rem; font-weight: 700; color: var(--fg); margin-bottom: var(--space-2); }
+.home-step p { font-size: 0.9rem; color: rgba(240,243,246,0.62); line-height: 1.55; }
+@media (max-width: 760px) { .home-steps-grid { grid-template-columns: 1fr; gap: var(--space-7); } }
+
+/* ============================= HOME: CLOSING CTA BAND ============================= */
+.home-cta-band {
+  position: relative; overflow: hidden; padding-block: var(--space-9); text-align: center; background: #0A0E16;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.home-cta-band::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(50% 60% at 50% 100%, rgba(57,255,158,0.14), transparent 70%);
+}
+.home-cta-band > * { position: relative; z-index: 1; }
+.home-cta-band h2 { font-size: clamp(2rem, 4.2vw, 2.8rem); font-weight: 800; letter-spacing: -0.01em; color: #fff; margin-bottom: var(--space-4); }
+.home-cta-band p { color: rgba(240,243,246,0.6); max-width: 480px; margin-inline: auto; margin-bottom: var(--space-6); }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
@@ -3167,17 +3308,15 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      (the sidebar/mobile nav, the dashboard's tab panels, the footer, the
      floating chat widgets) is ever visible while body.view-home is active.
 
-     Note: the --hero-photo custom property in the :root block above is now
-     an inert orphan — its previous sole consumer (the .hero-photo layer)
-     was removed this round along with the rest of the old Hero when the
-     whole Home landing page was replaced by the pinned 3D swim device
-     experience below; left in place as harmless dead data in case a future
-     round wants to reuse the same generated image, matching this file's
-     own long-standing precedent for orphaned custom properties (e.g.
-     --generator-photo, --coach-photo). The device experience itself
-     deliberately uses zero photography — the device's own screen texture
-     and body are hand-built 3D/2D content, per this file's long-standing
-     "no generic stock photos" precedent. -->
+     Photography note: this sandbox's network policy blocks every stock-photo
+     host (Unsplash, Pexels, Pixabay, Wikimedia Commons all tested and
+     refused), so no licensed stock photo could be fetched or verified from
+     here. The image wired into --hero-photo below is AI-generated
+     (photorealistic action shots), not licensed photography — swap it for a
+     real photo anytime via the same custom property in the :root block
+     above. The pinned 3D showcase below deliberately uses zero photography —
+     every card is a hand-built UI-mockup/metrics preview instead, per this
+     round's own explicit "no generic stock photos" ask. -->
 <div id="homeView">
   <nav class="home-nav" id="homeNav" aria-label="Home">
     <span class="home-nav-brand">Swimfit</span>
@@ -3190,45 +3329,108 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <button type="button" class="home-nav-cta" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
   </nav>
 
-  <!-- 3D Swim Device Experience: replaces the entire previous Home content
-       (Hero video/photo/caustics + Feature Showcase + How It Works + CTA
-       band, all wiped) with one pinned, scroll-driven scene — a central
-       interactive 3D device whose screen shows live SwimFit options across
-       4 steps, real camera keyframes per step, and clickable 3D controls
-       that drive the real Workout Generator. See deviceExperienceInit() for
-       the implementation and its .is-fallback static path (the tested code
-       path in this sandbox — see the CSS block's own disclosure note and
-       CLAUDE.md). No audio, per explicit user decision this round. -->
-  <section class="device-experience" id="top" aria-label="Build your swim plan">
-    <div class="device-sticky">
-      <div class="device-glow" aria-hidden="true"></div>
-      <div class="device-grid" aria-hidden="true"></div>
-      <canvas id="deviceCanvas" aria-hidden="true"></canvas>
-      <div class="device-copy">
-        <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
-        <h1>SMARTER SWIM<br>TRAINING,<br><span class="accent">CALCULATED.</span></h1>
+  <header class="hero" id="top">
+    <div class="hero-bg"></div>
+    <div class="hero-mesh" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="hero-photo"></div>
+    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
+      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+    </video>
+    <div class="hero-video-overlay" aria-hidden="true"></div>
+    <div class="hero-caustics" aria-hidden="true"></div>
+    <div class="home-scene-text">
+      <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+      <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
+    </div>
+    <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
+      <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
+    </div>
+  </header>
+
+  <!-- Feature Showcase: a calm, ordinary-flow bento grid of 4 real UI-mockup
+       cards (one per core tool), replacing the previous round's pinned 3D
+       canvas + audio pad entirely. See the HOME: FEATURE SHOWCASE CSS block
+       for the spotlight-hover treatment; every card is a real shortcut into
+       its own tool via the shared [data-tab] click-delegation every nav
+       element on this site already uses. -->
+  <section class="home-showcase" aria-label="What Swimfit does">
+    <div class="home-section-head" data-reveal>
+      <p class="eyebrow"><svg class="icon"><use href="#i-target"/></svg> Explore Swimfit</p>
+      <h2>Everything A Swimmer Needs, One Platform</h2>
+      <p>Daily-rotating swim sets, tailored dryland training, an AI coach that actually watches your technique, and progress tracking that means something.</p>
+    </div>
+    <div class="home-showcase-grid">
+      <button type="button" class="home-showcase-card" data-tab="workouts" data-reveal style="--card-accent:var(--aqua-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
+        <h3>Swim Workout Generator</h3>
+        <span class="home-showcase-setlist">
+          <span class="home-showcase-setrow" style="--stage-c:var(--aqua-bright)"><span>Warm-Up</span><span>400m Freestyle</span></span>
+          <span class="home-showcase-setrow" style="--stage-c:var(--green-bright)"><span>Main Set</span><span>4×200m &#64; 3:00</span></span>
+          <span class="home-showcase-setrow" style="--stage-c:#8AB4F8"><span>Cool-Down</span><span>200m easy</span></span>
+        </span>
+        <span class="home-showcase-metric"><strong>3.2 km</strong><span>Today's Total</span></span>
+        <span class="home-showcase-note">A new set every day, built around your goals</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="gym" data-reveal style="--card-accent:var(--green-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+        <h3>Dryland &amp; Gym</h3>
+        <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
+        <span class="home-showcase-note">Plyometrics, strength and mobility built for swimmers</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="coach" data-reveal style="--card-accent:#4EE9FF">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
+        <h3>AI Swim Coach</h3>
+        <span class="home-showcase-chat">
+          <span class="home-showcase-bubble is-user">How's my catch looking?</span>
+          <span class="home-showcase-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
+        </span>
+        <span class="home-showcase-note">Real-time technique feedback, from photos or video</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="tracker" data-reveal style="--card-accent:var(--green-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
+        <h3>Progress Tracker</h3>
+        <span class="home-showcase-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
+        <svg class="home-showcase-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
+          <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
+          <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- How It Works: a plain 3-step onboarding explainer. -->
+  <section class="home-steps" aria-label="How Swimfit works">
+    <div class="home-section-head" data-reveal>
+      <p class="eyebrow"><svg class="icon"><use href="#i-check"/></svg> Getting Started</p>
+      <h2>How It Works</h2>
+    </div>
+    <div class="home-steps-grid">
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">1</span>
+        <h3>Create Your Account</h3>
+        <p>Sign in with Google and start a 3-day free trial — no card required.</p>
       </div>
-      <div class="device-steps" id="deviceSteps">
-        <button type="button" class="device-step-btn is-active" data-step="0">STEP 01 <span>Swim Goal</span>
-          <span class="device-step-preview" id="deviceStepPreview0"></span>
-        </button>
-        <button type="button" class="device-step-btn" data-step="1">STEP 02 <span>Pace</span>
-          <span class="device-step-preview" id="deviceStepPreview1"></span>
-        </button>
-        <button type="button" class="device-step-btn" data-step="2">STEP 03 <span>AI Stroke Generator</span>
-          <span class="device-step-preview" id="deviceStepPreview2"></span>
-        </button>
-        <button type="button" class="device-step-btn" data-step="3">STEP 04 <span>Target Metrics</span>
-          <span class="device-step-preview" id="deviceStepPreview3"></span>
-        </button>
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">2</span>
+        <h3>Get Your Daily Plan</h3>
+        <p>Set your discipline, distance and goals — Swimfit builds a full swim set and gym session around them.</p>
       </div>
-      <div class="device-cta">
-        <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
-        <button type="button" class="btn btn-primary btn-cta-glow" data-tab="workouts" data-auth-signed-in style="display:none">Open The Builder</button>
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">3</span>
+        <h3>Train &amp; Track</h3>
+        <p>Log every swim, chat with your AI coach, and watch your pace and volume improve over time.</p>
       </div>
-      <div class="device-live-stat" id="activeSubscribersStat" style="display:none">
-        <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
-      </div>
+    </div>
+  </section>
+
+  <!-- Closing CTA band. -->
+  <section class="home-cta-band" aria-label="Get started">
+    <div data-reveal>
+      <h2>Ready To Build Your Plan?</h2>
+      <p>Join free and get your first daily-rotating swim set in under a minute.</p>
+      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
+      <button type="button" class="btn btn-primary" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
     </div>
   </section>
 </div>
@@ -4192,22 +4394,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
-<!-- Three.js for the Home page's pinned interactive 3D swim device (see
-     HOME: 3D SWIM DEVICE EXPERIENCE in <style> and deviceExperienceInit() in
-     the NAV/TAB CONTROLLER script below). A single plain CDN <script> tag —
-     a browser-global UMD build, not an npm/bundler install — the same
-     "zero build step" precedent this file's own EmailJS SDK load already
-     established. No GSAP/ScrollTrigger this round (a plain scroll listener
-     drives the camera lerp instead, one fewer CDN dependency than the
-     previous 3D attempt) and no audio library at all, per explicit user
-     decision. deviceExperienceInit() checks for the THREE global (plus
-     WebGL support) before using it and falls back to a plain static layout
-     otherwise, so a blocked/slow CDN (this sandbox's own network policy
-     blocks cdn.jsdelivr.net outright, confirmed via direct curl in an
-     earlier round, so this fallback path is what's actually exercised and
-     testable from inside this sandbox) degrades gracefully instead of
-     breaking the section. -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <!-- jsPDF bundled locally (not a CDN fetch) so "Save as PDF" never depends on network/ad-blocker conditions — see the PDF WORKOUT EXPORT section for why. -->
 <script>
 /** @license
@@ -4671,6 +4857,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     el.addEventListener('click', playWelcomeVoice, { once: true });
   });
 
+  /* Hero background video — fades in once it actually starts playing; falls back
+     to the static .hero-photo layer beneath if it errors or never loads (e.g. a
+     slow connection or a network policy blocking the video CDN). */
+  var heroVideo = document.getElementById('heroVideo');
+  if (heroVideo && !reduceMotion) {
+    heroVideo.addEventListener('playing', function () { heroVideo.classList.add('is-playing'); });
+    heroVideo.addEventListener('error', function () { heroVideo.style.display = 'none'; }, true);
+    setTimeout(function () { if (heroVideo.readyState < 2) heroVideo.style.display = 'none'; }, 8000);
+  } else if (heroVideo) {
+    heroVideo.style.display = 'none';
+  }
+
   /* ============================= ANNOUNCEMENT BAR ============================= */
   var announceClose = document.getElementById('announceClose');
   if (announceClose) {
@@ -4799,311 +4997,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
-  /* ============================= 3D SWIM DEVICE EXPERIENCE =============================
-     A pinned, scroll-driven interactive 3D swim-performance device — a
-     central Three.js device whose own screen (a CanvasTexture) shows live
-     SwimFit options across 4 steps, with real camera keyframes per step and
-     raycasted-clickable 3D controls. Deliberately built without GSAP (one
-     fewer CDN dependency than the previous 3D attempt — a plain scroll
-     listener drives the camera lerp) and without any audio (this
-     environment has no music-generation capability, and a synthesized
-     substitute is exactly what got called "harsh" and removed twice
-     before — the user explicitly chose the device without audio this
-     round). Every dependency (THREE, WebGL) is checked before use; if
-     either is missing, .is-fallback is added and the section's own CSS
-     collapses it to a plain, fully-visible, non-pinned static layout — the
-     actual, expected code path in this sandbox (cdn.jsdelivr.net is blocked
-     here, confirmed via direct curl in an earlier round), so this is what
-     the Playwright suite below actually exercises and confirms. */
-  var DEVICE_STEPS = [
-    { label: 'SWIM GOAL', values: ['SPEED', 'ENDURANCE', 'TECHNIQUE'] },
-    { label: 'PACE TARGET', values: ['1:15 / 100m', '1:35 / 100m', '1:55 / 100m'] },
-    { label: 'AI STROKE TIP', values: ['FREESTYLE — early vertical forearm', 'BACKSTROKE — hip-driven body roll', 'BUTTERFLY — two-beat kick timing', 'BREASTSTROKE — quiet, controlled glide'] },
-    { label: 'TARGET METRICS', values: ['3.2 km TODAY', '12.4 km THIS WEEK', '3-DAY STREAK'] }
-  ];
-
-  function deviceExperienceInit() {
-    var section = document.getElementById('top');
-    if (!section || !section.classList.contains('device-experience')) return;
-    var canvas = document.getElementById('deviceCanvas');
-    var stepBtns = Array.prototype.slice.call(document.querySelectorAll('.device-step-btn'));
-    var stepValueIndex = [0, 0, 0, 0];
-    var activeStep = 0;
-
-    function previewEl(i) { return document.getElementById('deviceStepPreview' + i); }
-
-    function renderStepUI() {
-      stepBtns.forEach(function (btn, i) {
-        btn.classList.toggle('is-active', i === activeStep);
-        var pv = previewEl(i);
-        if (pv) pv.textContent = DEVICE_STEPS[i].values[stepValueIndex[i]];
+  /* ============================= HOME SHOWCASE: SPOTLIGHT HOVER =============================
+     A lightweight, hand-built "spotlight card" (the Magic UI/Aceternity
+     pattern) — a soft radial glow that tracks the pointer, via one shared
+     mousemove listener setting --mx/--my custom properties the card's own
+     ::before reads (see .home-showcase-card in <style>). No component
+     library needed since it's just two CSS variables and a class toggle;
+     skipped entirely under prefers-reduced-motion (the glow is decorative,
+     not informational, so there's nothing lost by omitting it). */
+  if (!reduceMotion) {
+    document.querySelectorAll('.home-showcase-card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
       });
-    }
-    // Populate every step's preview line immediately, regardless of which
-    // path (3D or fallback) ends up running — the fallback layout relies on
-    // .device-step-preview being filled in since it has no other way to
-    // reveal a step's content without raycasting.
-    renderStepUI();
-
-    function supportsWebGL() {
-      try {
-        var c = document.createElement('canvas');
-        return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
-      } catch (e) { return false; }
-    }
-
-    var canRun = !reduceMotion && canvas && typeof window.THREE !== 'undefined' && supportsWebGL();
-    if (!canRun) {
-      section.classList.add('is-fallback');
-      stepBtns.forEach(function (btn, i) {
-        btn.addEventListener('click', function () { activeStep = i; renderStepUI(); });
-      });
-      return;
-    }
-
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.3; }
-    if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
-
-    function sizeRenderer() {
-      var w = canvas.clientWidth || canvas.parentElement.clientWidth;
-      var h = canvas.clientHeight || w;
-      renderer.setSize(w, h, false);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-
-    /* ---- PBR LIGHTING RIG ----
-       A directional key light (casts real shadows + specular highlights on
-       the bevels), a dim brand-green rim light from the opposite side for a
-       subtle "hardware product shot" accent, a soft hemisphere fill, a flat
-       THREE.AmbientLight so every surface has a real minimum brightness
-       regardless of its normal or the current camera angle, and a
-       THREE.PointLight riding near the camera so the front face (screen,
-       buttons, bezel) always catches a specular kick as the device rotates.
-       Real shadow mapping (not a fake CSS-style blur) via a ground plane
-       colored to match the section's own #05070B background and sized/
-       positioned to sit well clear of the camera frustum, so it can never
-       fill the canvas as a large dark plane — only the actual cast shadow
-       reads as a dark patch beneath the device, giving it real, felt weight
-       without ever reading as a "black wall" behind it. */
-    var keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
-    keyLight.position.set(3, 4, 5);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
-    keyLight.shadow.camera.left = -3; keyLight.shadow.camera.right = 3;
-    keyLight.shadow.camera.top = 3; keyLight.shadow.camera.bottom = -3;
-    keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 12;
-    scene.add(keyLight);
-    var rimLight = new THREE.DirectionalLight(0x39FF9E, 1.6);
-    rimLight.position.set(-4, 1.5, -3);
-    scene.add(rimLight);
-    scene.add(new THREE.HemisphereLight(0x8a94a8, 0x05070b, 1.1));
-    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-    var fillLight = new THREE.PointLight(0xffffff, 2.4, 18, 2);
-    fillLight.position.set(0, 1.2, 5);
-    scene.add(fillLight);
-    var ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(6, 6),
-      new THREE.MeshStandardMaterial({ color: 0x05070b, roughness: 1, metalness: 0 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -2.1;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    /* ---- THE DEVICE ----
-       A real extruded, beveled rounded-rect body (THREE.ExtrudeGeometry off
-       a rounded THREE.Shape — the literal "true 3D extruded geometry with
-       rounded bevels" ask, no separate RoundedBox addon module needed) in a
-       plastic/metallic MeshPhysicalMaterial (roughness + clearcoat, so the
-       key light throws a real specular highlight along each bevel edge). A
-       thin raised bezel frame sits proud of the body's own front face with
-       the screen recessed fractionally behind it, and each button sits in
-       its own darker recessed socket — both read as physically embedded in
-       the case rather than flat decals stuck on top of it. */
-    function roundedRectShape(w, h, r) {
-      var shape = new THREE.Shape(); var x = -w / 2, y = -h / 2;
-      shape.moveTo(x, y + r);
-      shape.lineTo(x, y + h - r); shape.quadraticCurveTo(x, y + h, x + r, y + h);
-      shape.lineTo(x + w - r, y + h); shape.quadraticCurveTo(x + w, y + h, x + w, y + h - r);
-      shape.lineTo(x + w, y + r); shape.quadraticCurveTo(x + w, y, x + w - r, y);
-      shape.lineTo(x + r, y); shape.quadraticCurveTo(x, y, x, y + r);
-      return shape;
-    }
-    var device = new THREE.Group();
-    var bodyGeo = new THREE.ExtrudeGeometry(roundedRectShape(2.2, 3, 0.26), {
-      depth: 0.34, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 8, curveSegments: 16
     });
-    bodyGeo.center();
-    var bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x2a3444, metalness: 0.2, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.25 });
-    var body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.castShadow = true; body.receiveShadow = true;
-    var FRONT_Z = 0.17;
-
-    var bezelGeo = new THREE.ExtrudeGeometry(roundedRectShape(1.94, 2.24, 0.08), {
-      depth: 0.02, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 4, curveSegments: 8
-    });
-    bezelGeo.center();
-    var bezel = new THREE.Mesh(bezelGeo, new THREE.MeshPhysicalMaterial({ color: 0x0d1218, metalness: 0.3, roughness: 0.55 }));
-    bezel.position.set(0, 0.35, FRONT_Z + 0.01);
-    bezel.castShadow = true;
-
-    var screenCanvas = document.createElement('canvas');
-    screenCanvas.width = 512; screenCanvas.height = 640;
-    var screenTexture = new THREE.CanvasTexture(screenCanvas);
-    var screenMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.8, 2.1),
-      new THREE.MeshStandardMaterial({ map: screenTexture, emissive: 0xffffff, emissiveMap: screenTexture, emissiveIntensity: 0.7, roughness: 0.4 })
-    );
-    screenMesh.position.set(0, 0.35, FRONT_Z + 0.005);
-    screenMesh.userData.isScreen = true;
-
-    var buttonMeshes = [];
-    for (var bi = 0; bi < 4; bi++) {
-      var socket = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.19, 0.19, 0.03, 24),
-        new THREE.MeshStandardMaterial({ color: 0x0c1016, roughness: 0.9, metalness: 0.1 })
-      );
-      socket.rotation.x = Math.PI / 2;
-      socket.position.set(-0.75 + bi * 0.5, -1.15, FRONT_Z - 0.01);
-      var btnMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.16, 0.09, 24),
-        new THREE.MeshPhysicalMaterial({ color: 0x3d4a60, metalness: 0.3, roughness: 0.3, clearcoat: 0.55, clearcoatRoughness: 0.2 })
-      );
-      btnMesh.rotation.x = Math.PI / 2;
-      btnMesh.position.set(-0.75 + bi * 0.5, -1.15, FRONT_Z + 0.03);
-      btnMesh.castShadow = true;
-      btnMesh.userData.step = bi;
-      buttonMeshes.push(btnMesh);
-      device.add(socket, btnMesh);
-    }
-    device.add(body, bezel, screenMesh);
-    scene.add(device);
-    camera.position.set(0, 0.4, 5.2);
-    camera.lookAt(0, 0, 0);
-
-    function drawScreen() {
-      var ctx = screenCanvas.getContext('2d');
-      var W = screenCanvas.width, H = screenCanvas.height;
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#050a10'; ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = 'rgba(57,255,158,0.25)'; ctx.lineWidth = 4; ctx.strokeRect(6, 6, W - 12, H - 12);
-      ctx.fillStyle = 'rgba(240,243,246,0.5)';
-      ctx.font = '600 26px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('STEP 0' + (activeStep + 1), W / 2, 90);
-      ctx.fillStyle = '#39FF9E';
-      ctx.font = '700 32px "JetBrains Mono", monospace';
-      ctx.fillText(DEVICE_STEPS[activeStep].label, W / 2, 150);
-      ctx.fillStyle = '#F0F3F6';
-      ctx.font = '700 40px Arial, sans-serif';
-      var lines = String(DEVICE_STEPS[activeStep].values[stepValueIndex[activeStep]]).split(' — ');
-      ctx.fillText(lines[0], W / 2, H / 2);
-      if (lines[1]) {
-        ctx.font = '400 24px Arial, sans-serif';
-        ctx.fillStyle = 'rgba(240,243,246,0.7)';
-        wrapText(ctx, lines[1], W / 2, H / 2 + 50, W - 80, 32);
-      }
-      ctx.fillStyle = 'rgba(240,243,246,0.4)';
-      ctx.font = '500 20px "JetBrains Mono", monospace';
-      ctx.fillText('TAP SCREEN TO CYCLE', W / 2, H - 60);
-      screenTexture.needsUpdate = true;
-    }
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-      var words = text.split(' '), line = '', yy = y;
-      for (var i = 0; i < words.length; i++) {
-        var test = line + words[i] + ' ';
-        if (ctx.measureText(test).width > maxWidth && line) {
-          ctx.fillText(line, x, yy); line = words[i] + ' '; yy += lineHeight;
-        } else { line = test; }
-      }
-      ctx.fillText(line, x, yy);
-    }
-    drawScreen();
-
-    function setActiveStep(i, scrollToo) {
-      activeStep = Math.max(0, Math.min(DEVICE_STEPS.length - 1, i));
-      renderStepUI();
-      drawScreen();
-      if (scrollToo) {
-        var rect = section.getBoundingClientRect();
-        var sectionTop = window.scrollY + rect.top;
-        var scrollable = section.offsetHeight - window.innerHeight;
-        window.scrollTo(0, sectionTop + Math.max(0, (activeStep / DEVICE_STEPS.length) * scrollable) + 2);
-      }
-    }
-    stepBtns.forEach(function (btn, i) {
-      btn.addEventListener('click', function () { setActiveStep(i, true); });
-    });
-
-    var raycaster = new THREE.Raycaster();
-    var pointer = new THREE.Vector2();
-    canvas.addEventListener('click', function (e) {
-      var rect = canvas.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      var hits = raycaster.intersectObjects(buttonMeshes.concat([screenMesh]));
-      if (!hits.length) return;
-      var obj = hits[0].object;
-      if (obj.userData.isScreen) {
-        stepValueIndex[activeStep] = (stepValueIndex[activeStep] + 1) % DEVICE_STEPS[activeStep].values.length;
-        renderStepUI(); drawScreen();
-      } else if (typeof obj.userData.step === 'number') {
-        setActiveStep(obj.userData.step, true);
-      }
-    });
-
-    sizeRenderer();
-    window.addEventListener('resize', function () {
-      if (!deviceResizeTicking) { requestAnimationFrame(function () { sizeRenderer(); deviceResizeTicking = false; }); deviceResizeTicking = true; }
-    }, { passive: true });
-    var deviceResizeTicking = false;
-
-    // Camera keyframes — one per step, lerped continuously across the
-    // pinned scroll range rather than snapping between them.
-    var KEYFRAMES = [
-      { pos: [0, 0.4, 4.4], rot: [0.04, -0.25, 0] },
-      { pos: [1.1, 0.15, 3.7], rot: [0.08, 0.35, 0.04] },
-      { pos: [-1.0, 0.55, 3.3], rot: [-0.05, -0.55, 0.08] },
-      { pos: [0, -0.2, 3.0], rot: [0.14, 0.12, -0.04] }
-    ];
-    function lerp(a, b, t) { return a + (b - a) * t; }
-    var deviceScrollTicking = false;
-    var lastScrollStep = 0;
-    function updateFromScroll() {
-      deviceScrollTicking = false;
-      var rect = section.getBoundingClientRect();
-      var scrollable = section.offsetHeight - window.innerHeight;
-      var progress = scrollable > 0 ? Math.max(0, Math.min(1, -rect.top / scrollable)) : 0;
-      var scaled = progress * (KEYFRAMES.length - 1);
-      var i0 = Math.floor(scaled), i1 = Math.min(KEYFRAMES.length - 1, i0 + 1);
-      var t = scaled - i0;
-      var a = KEYFRAMES[i0], b = KEYFRAMES[i1];
-      camera.position.set(lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t));
-      camera.lookAt(0, 0, 0);
-      device.rotation.set(lerp(a.rot[0], b.rot[0], t), lerp(a.rot[1], b.rot[1], t), lerp(a.rot[2], b.rot[2], t));
-      var stepFromScroll = Math.max(0, Math.min(DEVICE_STEPS.length - 1, Math.round(progress * (DEVICE_STEPS.length - 1))));
-      if (stepFromScroll !== lastScrollStep) { lastScrollStep = stepFromScroll; setActiveStep(stepFromScroll, false); }
-    }
-    window.addEventListener('scroll', function () {
-      if (!deviceScrollTicking) { requestAnimationFrame(updateFromScroll); deviceScrollTicking = true; }
-    }, { passive: true });
-    updateFromScroll();
-
-    function renderLoop() {
-      if (document.body.classList.contains('view-home')) renderer.render(scene, camera);
-      requestAnimationFrame(renderLoop);
-    }
-    renderLoop();
   }
-  deviceExperienceInit();
 
   // Counts each Pricing card's price up from 0 to its real target every time
   // the tab is opened — the target is read straight off the number already
