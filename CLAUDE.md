@@ -3810,6 +3810,84 @@ library" or "framer-motion" ask in its history.
   Workouts PDF export fires a real `download` event, and Complete Workout correctly logs to the
   Tracker and updates its own button state) passes unchanged with zero page errors throughout.
 
+**A "make it look Apple/Nike-premium, not a generic template" pass on Home** — pure CSS/markup, no
+JS logic or Firestore/Cloud Function changes, in response to continued feedback that the previous
+round's calm showcase still read as flat/generic.
+
+- **Hero got a genuine animated mesh-gradient ambient layer** (`.hero-mesh`, 4 large heavily-
+  blurred (`filter: blur(90px)`) color blobs — deep green, aqua, emerald, cyan — each its own
+  absolutely-positioned `<span>` drifting slowly and independently (`meshDrift`, 24–34s, offset
+  delays so they never move in lockstep), replacing the previous flat 3-stop radial-gradient
+  `.hero-bg` wash. This is the literal "soft glowing mesh gradient" ask — several overlapping blurred
+  blobs read as organic ambient light, where flat radial-gradient stops read as a template's default
+  hero background. Sits behind the existing photo/video/caustics layers (z-index -3, unchanged
+  stacking otherwise) and is neutralized under `prefers-reduced-motion`.
+- **Headline typography was substantially scaled up for real impact**: `.home-scene-text h1`'s
+  clamp went from `2.2rem–4.4rem` to `2.6rem–6rem`, line-height tightened `1.08 → 0.98`, weight
+  `700 → 800`, and a small negative letter-spacing (`-0.01em`) was added — reads as a confident,
+  high-impact display headline rather than a slightly-oversized body heading.
+- **The Feature Showcase was rebuilt from 4 uniform boxes into a genuine asymmetric bento** — the
+  literal "no generic boxes, use a Bento Grid" ask. The Workout Generator card (the app's own
+  default/flagship tool) now spans both rows of a `1.3fr 1fr` / 2-row grid as a real featured cell,
+  beside a 2×2 cluster of the other three tools — collapsing cleanly to 2-then-1 columns on
+  tablet/mobile. The featured cell's own content was enriched to match its taller size (three
+  stage-color-railed mini set-rows — Warm-Up/Main Set/Cool-Down — mirroring the real Workout
+  Generator result panel's own `.workout-block`/`.set-row` visual language, plus a "Today's Total"
+  metric) specifically so a taller cell never reads as sparse/awkwardly-scaled, which is exactly the
+  failure mode the "ensure zero... awkwardly scaled cards" ask called out. Every card gained a
+  resting elevation (an inset top-highlight + a real drop shadow, not just an on-hover effect),
+  bigger/bordered icon tiles (a color-mixed ring instead of a flat fill), and a stronger hover state
+  (deeper lift, an accent-tinted glow ring) — reads as a considered, premium surface at rest, not
+  only differentiated on interaction.
+- **A subtle echo of the Hero's mesh gradient carries into the Showcase section's own background**
+  (two much dimmer, non-animated radial-gradient washes) so scrolling from Hero into Showcase reads
+  as one continuous ambient surface rather than a hard cut into a flat panel — deliberately static
+  here (unlike the Hero's own drifting blobs), since this section isn't scroll-pinned and a moving
+  background wouldn't add anything but visual noise.
+- **"How It Works" gained a thin connecting line running through each step number circle** (only
+  between steps, only at the ≥761px width where all three sit in one row) — the standard "process
+  flow" visual cue premium onboarding sections use, plus each numbered circle picked up a soft
+  outer glow ring for a touch more depth than a flat bordered circle.
+- **The closing CTA band gained its own soft ambient glow** (a bottom-anchored radial-gradient wash
+  in the same green accent as the Hero's mesh and the CTA button's own `.btn-cta-glow`) so the very
+  last thing a visitor sees before the footer still feels like the same considered surface as the
+  top of the page, not a flat closing banner.
+- **A real, previously-unnoticed issue was caught while auditing "why does the redesign still feel
+  generic" — not a code bug, but confirmed genuinely fixed here**: the earlier bento grid used 4
+  perfectly uniform cells, which is itself a recognizable "AI-template SaaS grid" tell regardless of
+  how polished each individual card's content is — asymmetry (one deliberately larger, more
+  content-rich cell) is what actually reads as "designed," not just "populated with real data."
+  This is a layout-composition fix, not a content or code-quality fix, and is the main reason this
+  round targeted the grid's own column/row structure rather than only restyling the existing 4
+  equal cards further.
+- **A dedicated cross-breakpoint overlap/clipping audit was run and came back clean** — a Playwright
+  script checked every sibling pair inside `.home-showcase-grid` and `.home-steps-grid` for genuine
+  bounding-rect intersection, and every showcase card/step/section-head for `scrollHeight` exceeding
+  `clientHeight` (text overflowing its own box), at 5 breakpoints (390/768/1280/1440/1920px), both
+  immediately on load and again after fully scrolling through the page to trigger every
+  `[data-reveal]` entrance — zero overlaps, zero clipped text, and zero horizontal overflow
+  (`scrollWidth === clientWidth`) at every single width.
+- **Two more apparent issues surfaced during this round's own screenshot verification and were both
+  confirmed to be test-script mistakes, not product bugs, before being dismissed** — continuing the
+  same discipline the immediately-prior round established: (1) a screenshot taken right after
+  `window.scrollTo(0, 0)` showed the "How It Works"/CTA sections instead of the Hero — traced to the
+  test calling `scrollTo` with no explicit `behavior`, which inherits this page's own global
+  `html { scroll-behavior: smooth }` CSS and animates the scroll over time; the screenshot fired
+  before that animation finished. Fixed in the test by passing `{ top, behavior: 'instant' }`
+  explicitly (the same override this file's own `switchTab()` scroll-reset already uses, for the
+  identical reason), after which the Hero screenshot showed correctly. (2) The "How It Works"
+  heading appearing faded/grey mid-transition in one screenshot was confirmed to just be the
+  `[data-reveal]` entrance's own opacity tween caught mid-flight at that exact instant — not a
+  contrast or color bug — verified by letting the transition settle before re-checking.
+- Verified via Playwright: the mesh-gradient blobs render with the correct blur/opacity/animation
+  values and are neutralized under `prefers-reduced-motion`; the featured Workout Generator card
+  spans both grid rows on desktop and collapses to full-width-then-single-column at tablet/mobile
+  widths; the connecting line between step circles renders only at ≥761px; zero overlaps/clipping/
+  horizontal overflow at 5 breakpoints both before and after the reveal-on-scroll pass; and the full
+  pre-existing regression suite (all 9 App-view tabs, the Workouts PDF export firing a real
+  `download` event, and Complete Workout correctly logging to the Tracker) passes unchanged with
+  zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

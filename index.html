@@ -1317,13 +1317,30 @@ section { position: relative; scroll-margin-top: 96px; }
    negative-z-index photo/video/caustics layers within a local stacking
    context. There is nothing beside or below it in the same scroll flow
    (Home is still its own isolated view), so no edge-blend layer is needed. */
-.hero { position: relative; min-height: 88svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
-.hero-bg { position: absolute; inset: 0; z-index: -3; background:
-  radial-gradient(60% 50% at 15% 20%, rgba(20,104,51,0.35), transparent 60%),
-  radial-gradient(50% 45% at 85% 15%, rgba(156,42,68,0.3), transparent 60%),
-  radial-gradient(70% 60% at 50% 100%, rgba(34,211,238,0.12), transparent 60%),
-  linear-gradient(180deg, #060A11 0%, #0A0F18 60%, #0C1420 100%);
+.hero { position: relative; min-height: 92svh; display: flex; align-items: center; padding-top: 100px; overflow: hidden; isolation: isolate; }
+.hero-bg { position: absolute; inset: 0; z-index: -3; background: linear-gradient(180deg, #05080D 0%, #080C14 55%, #0A0E17 100%); }
+/* Deep-oceanic ambient mesh gradient — several large, heavily-blurred color
+   blobs (not flat radial-gradient stops) drifting slowly, the genuine
+   "soft glowing mesh" look real premium dark-mode brand sites use instead
+   of a template's default hero wash. Sits behind the video/photo/caustics
+   layers and shows through at the edges/vignette they don't cover. Each
+   blob is its own element (not a single multi-stop background) so the blur
+   softens color transitions organically rather than banding. */
+.hero-mesh { position: absolute; inset: -10%; z-index: -3; pointer-events: none; filter: blur(90px); opacity: 0.85; }
+.hero-mesh span {
+  position: absolute; border-radius: 50%; mix-blend-mode: screen;
+  animation: meshDrift 22s ease-in-out infinite alternate;
 }
+.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(20,104,68,0.55), transparent 70%); animation-duration: 26s; }
+.hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(34,211,238,0.4), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
+.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(57,255,158,0.28), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
+.hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(78,233,255,0.22), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
+@keyframes meshDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(4%, -5%) scale(1.08); }
+  100% { transform: translate(-3%, 4%) scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) { .hero-mesh span { animation: none; } }
 /* Photographic-style panel: shows var(--hero-photo) if set (duotone-tinted), else a
    light-ray / water-depth gradient standing in for real athlete photography. */
 .hero-photo {
@@ -1463,8 +1480,8 @@ body.view-home { margin-left: 0 !important; }
   max-width: 900px; color: var(--fg); pointer-events: none;
 }
 .home-scene-text h1, .home-scene-text h2 {
-  font-size: clamp(2.2rem, 5.4vw, 4.4rem); text-transform: uppercase;
-  line-height: 1.08; margin-bottom: var(--space-3); font-weight: 700;
+  font-size: clamp(2.6rem, 6.4vw, 6rem); text-transform: uppercase;
+  line-height: 0.98; letter-spacing: -0.01em; margin-bottom: var(--space-4); font-weight: 800;
 }
 .home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
 .home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }
@@ -1496,21 +1513,41 @@ body.view-home { margin-left: 0 !important; }
    in plain CSS custom properties + one small mousemove listener
    (wireSpotlightCards()) rather than a component-library import, since this
    file has no build step to install one into. */
-.home-showcase { position: relative; padding-block: var(--space-9) var(--space-8); background: #0A0E16; }
+.home-showcase { position: relative; padding-block: var(--space-9) var(--space-8); background: #0A0E16; overflow: hidden; }
+/* A faint echo of the Hero's own mesh-gradient sits behind this section too
+   (much dimmer, no animation — this section isn't scroll-pinned, so a
+   moving background here would just be noise) purely so scrolling from the
+   Hero into the showcase reads as one continuous ambient surface instead of
+   a hard cut into a flat, generic dark panel. */
+.home-showcase::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(50% 40% at 12% 0%, rgba(20,104,68,0.16), transparent 70%),
+    radial-gradient(45% 35% at 90% 10%, rgba(34,211,238,0.1), transparent 70%);
+}
+.home-showcase > * { position: relative; z-index: 1; }
 .home-section-head { max-width: 640px; margin-inline: auto; text-align: center; padding-inline: var(--space-6); margin-bottom: var(--space-7); }
 .home-section-head .eyebrow { justify-content: center; color: rgba(240,243,246,0.6); }
-.home-section-head h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); font-weight: 800; line-height: 1.15; color: #fff; margin-top: var(--space-2); }
-.home-section-head p { color: rgba(240,243,246,0.65); margin-top: var(--space-3); font-size: 1.02rem; }
+.home-section-head h2 { font-size: clamp(2.1rem, 4.4vw, 3.2rem); font-weight: 800; line-height: 1.12; letter-spacing: -0.01em; color: #fff; margin-top: var(--space-2); }
+.home-section-head p { color: rgba(240,243,246,0.65); margin-top: var(--space-3); font-size: 1.05rem; }
+/* A genuine asymmetric bento — one large featured cell (the Workout
+   Generator, the app's own default/flagship tool) beside a 2x2 cluster of
+   the other three tools, rather than 4 uniform boxes in a row (the literal
+   "no generic boxes, use a Bento Grid" ask). Collapses to a single column
+   well before the asymmetry would ever cramp on a real phone. */
 .home-showcase-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);
-  max-width: 1240px; margin-inline: auto; padding-inline: var(--space-6);
+  display: grid; grid-template-columns: 1.3fr 1fr; grid-template-rows: repeat(2, minmax(180px, auto));
+  gap: var(--space-4); max-width: 1180px; margin-inline: auto; padding-inline: var(--space-6);
 }
+.home-showcase-card[data-tab="workouts"] { grid-row: 1 / 3; }
 .home-showcase-card {
   position: relative; overflow: hidden; text-align: start; cursor: pointer;
-  display: flex; flex-direction: column; gap: 10px; padding: var(--space-4);
+  display: flex; flex-direction: column; gap: 12px; padding: var(--space-5);
   border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.035); color: var(--fg);
-  transition: transform 260ms var(--ease), border-color 260ms var(--ease), box-shadow 260ms var(--ease);
+  background: linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 20px 40px -24px rgba(0,0,0,0.5);
+  color: var(--fg);
+  transition: transform 280ms var(--ease), border-color 280ms var(--ease), box-shadow 280ms var(--ease);
 }
 /* The spotlight itself: a radial-gradient positioned at the pointer via
    --mx/--my (set by wireSpotlightCards()'s mousemove listener), invisible at
@@ -1519,32 +1556,54 @@ body.view-home { margin-left: 0 !important; }
    first bento round. */
 .home-showcase-card::before {
   content: ''; position: absolute; inset: 0; z-index: 0; opacity: 0;
-  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,158,0.14), transparent 70%);
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,158,0.16), transparent 70%);
   transition: opacity 320ms var(--ease); pointer-events: none;
 }
-.home-showcase-card:hover, .home-showcase-card:focus-within { transform: translateY(-4px); border-color: rgba(255,255,255,0.22); box-shadow: 0 16px 32px rgba(0,0,0,0.28); }
+.home-showcase-card:hover, .home-showcase-card:focus-within {
+  transform: translateY(-6px); border-color: rgba(255,255,255,0.24);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 28px 48px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--card-accent, var(--green-bright)) 30%, transparent);
+}
 .home-showcase-card:hover::before, .home-showcase-card:focus-within::before { opacity: 1; }
 .home-showcase-card > * { position: relative; z-index: 1; }
 .home-showcase-icon {
-  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--card-accent, var(--green-bright)) 16%, transparent);
+  width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-accent, var(--green-bright)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--green-bright)) 35%, transparent);
   color: var(--card-accent, var(--green-bright));
 }
-.home-showcase-icon .icon { width: 20px; height: 20px; }
-.home-showcase-card h3 { font-size: 1rem; font-weight: 700; color: var(--fg); }
+.home-showcase-icon .icon { width: 21px; height: 21px; }
+.home-showcase-card h3 { font-size: 1.15rem; font-weight: 700; color: var(--fg); letter-spacing: -0.005em; }
+.home-showcase-card[data-tab="workouts"] h3 { font-size: 1.4rem; }
+/* Mirrors the real Workout Generator result panel's own stage-color-railed
+   set rows (see .workout-block/.set-row elsewhere in this file) — the
+   featured bento cell's own content, not a second invented visual language. */
+.home-showcase-setlist { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.home-showcase-setrow {
+  display: flex; justify-content: space-between; gap: var(--space-3);
+  padding: 8px 12px; border-radius: 8px; font-size: 0.82rem;
+  background: rgba(255,255,255,0.03); border-inline-start: 3px solid var(--stage-c, var(--aqua-bright));
+}
+.home-showcase-setrow span:first-child { color: rgba(240,243,246,0.55); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; }
+.home-showcase-setrow span:last-child { color: var(--fg); font-family: var(--font-mono); }
 .home-showcase-card .home-showcase-metric { display: flex; flex-direction: column; font-family: var(--font-mono); }
-.home-showcase-card .home-showcase-metric strong { font-size: 1.2rem; color: var(--green-bright); }
-.home-showcase-card .home-showcase-metric span { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(240,243,246,0.5); }
-.home-showcase-card .home-showcase-note { font-size: 0.8rem; color: rgba(240,243,246,0.6); margin-top: auto; }
+.home-showcase-card .home-showcase-metric strong { font-size: 1.3rem; color: var(--green-bright); }
+.home-showcase-card .home-showcase-metric span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(240,243,246,0.5); }
+.home-showcase-card .home-showcase-note { font-size: 0.84rem; color: rgba(240,243,246,0.6); margin-top: auto; line-height: 1.5; }
 .home-showcase-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.home-showcase-tag { font-size: 0.66rem; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.75); }
-.home-showcase-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; }
-.home-showcase-bubble { padding: 6px 10px; border-radius: 10px; max-width: 94%; }
+.home-showcase-tag { font-size: 0.7rem; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.78); }
+.home-showcase-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; }
+.home-showcase-bubble { padding: 7px 11px; border-radius: 10px; max-width: 94%; }
 .home-showcase-bubble.is-user { align-self: flex-end; background: rgba(34,211,238,0.16); color: #fff; }
 .home-showcase-bubble.is-ai { align-self: flex-start; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.85); }
-.home-showcase-chart { width: 100%; height: 34px; fill: var(--green-bright); opacity: 0.85; }
-@media (max-width: 980px) { .home-showcase-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .home-showcase-grid { grid-template-columns: 1fr; } }
+.home-showcase-chart { width: 100%; height: 40px; fill: var(--green-bright); opacity: 0.85; }
+@media (max-width: 980px) {
+  .home-showcase-grid { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .home-showcase-card[data-tab="workouts"] { grid-column: 1 / 3; grid-row: auto; }
+}
+@media (max-width: 620px) {
+  .home-showcase-grid { grid-template-columns: 1fr; }
+  .home-showcase-card[data-tab="workouts"] { grid-column: auto; }
+}
 
 /* ============================= HOME: HOW IT WORKS =============================
    A plain, honest 3-step onboarding explainer (Sign Up → Get Your Plan →
@@ -1555,12 +1614,24 @@ body.view-home { margin-left: 0 !important; }
   display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6);
   max-width: 1000px; margin-inline: auto; padding-inline: var(--space-6);
 }
-.home-step { text-align: center; padding: var(--space-4); }
+.home-step { position: relative; text-align: center; padding: var(--space-4); }
 .home-step-num {
-  width: 52px; height: 52px; margin-inline: auto; margin-bottom: var(--space-4);
+  position: relative; z-index: 1; width: 52px; height: 52px; margin-inline: auto; margin-bottom: var(--space-4);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;
-  background: rgba(57,255,158,0.12); color: var(--green-bright); border: 1px solid rgba(57,255,158,0.3);
+  background: #0C1220; color: var(--green-bright); border: 1px solid rgba(57,255,158,0.3);
+  box-shadow: 0 0 0 6px rgba(57,255,158,0.06);
+}
+/* A thin connecting line running through each step's own number circle,
+   the classic "process flow" cue premium onboarding sections use — only
+   drawn between steps (never before the first or after the last), and
+   only at widths where the 3 steps actually sit in one row. */
+@media (min-width: 761px) {
+  .home-step:not(:last-child)::after {
+    content: ''; position: absolute; top: 26px; left: 50%; width: 100%; height: 1px;
+    background: linear-gradient(90deg, rgba(57,255,158,0.35), rgba(57,255,158,0.05));
+    z-index: 0;
+  }
 }
 .home-step h3 { font-size: 1.05rem; font-weight: 700; color: var(--fg); margin-bottom: var(--space-2); }
 .home-step p { font-size: 0.9rem; color: rgba(240,243,246,0.62); line-height: 1.55; }
@@ -1568,11 +1639,16 @@ body.view-home { margin-left: 0 !important; }
 
 /* ============================= HOME: CLOSING CTA BAND ============================= */
 .home-cta-band {
-  padding-block: var(--space-8); text-align: center; background: #0A0E16;
+  position: relative; overflow: hidden; padding-block: var(--space-9); text-align: center; background: #0A0E16;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
-.home-cta-band h2 { font-size: clamp(1.7rem, 3.6vw, 2.4rem); font-weight: 800; color: #fff; margin-bottom: var(--space-4); }
-.home-cta-band p { color: rgba(240,243,246,0.6); max-width: 480px; margin-inline: auto; margin-bottom: var(--space-5); }
+.home-cta-band::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(50% 60% at 50% 100%, rgba(57,255,158,0.14), transparent 70%);
+}
+.home-cta-band > * { position: relative; z-index: 1; }
+.home-cta-band h2 { font-size: clamp(2rem, 4.2vw, 2.8rem); font-weight: 800; letter-spacing: -0.01em; color: #fff; margin-bottom: var(--space-4); }
+.home-cta-band p { color: rgba(240,243,246,0.6); max-width: 480px; margin-inline: auto; margin-bottom: var(--space-6); }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
@@ -3255,6 +3331,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
   <header class="hero" id="top">
     <div class="hero-bg"></div>
+    <div class="hero-mesh" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     <div class="hero-photo"></div>
     <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
       <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
@@ -3286,7 +3363,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" class="home-showcase-card" data-tab="workouts" data-reveal style="--card-accent:var(--aqua-bright)">
         <span class="home-showcase-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
         <h3>Swim Workout Generator</h3>
-        <span class="home-showcase-metric"><strong>4×200m</strong><span>Freestyle · @ 3:00</span></span>
+        <span class="home-showcase-setlist">
+          <span class="home-showcase-setrow" style="--stage-c:var(--aqua-bright)"><span>Warm-Up</span><span>400m Freestyle</span></span>
+          <span class="home-showcase-setrow" style="--stage-c:var(--green-bright)"><span>Main Set</span><span>4×200m &#64; 3:00</span></span>
+          <span class="home-showcase-setrow" style="--stage-c:#8AB4F8"><span>Cool-Down</span><span>200m easy</span></span>
+        </span>
+        <span class="home-showcase-metric"><strong>3.2 km</strong><span>Today's Total</span></span>
         <span class="home-showcase-note">A new set every day, built around your goals</span>
       </button>
       <button type="button" class="home-showcase-card" data-tab="gym" data-reveal style="--card-accent:var(--green-bright)">
