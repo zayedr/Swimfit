@@ -900,18 +900,21 @@ input, textarea, select { font: inherit; color: inherit; }
   --on-aqua:   #04191D;
   --on-maroon: #FBEDEF;
 
-  /* Softened, low-key accent shadows — used sparingly (an active nav item's
-     indicator rail) rather than the previous heavy neon bloom, so an accent
-     still reads as "on" without the glowing-template look. */
-  --glow-green: 0 0 10px rgba(22,214,115,0.28);
-  --glow-aqua:  0 0 10px rgba(34,211,238,0.24);
+  /* Accent shadows — a deliberately bigger, softer bloom than the previous
+     round's dialed-back version, per an explicit "glowing hero aesthetics /
+     luxury futuristic" ask. Still used selectively (active nav rail, hero
+     headline, primary CTAs) rather than on every card, so it reads as a
+     considered accent rather than the "everything glows" template look an
+     earlier round moved away from. */
+  --glow-green: 0 0 22px rgba(22,214,115,0.4), 0 0 4px rgba(57,255,158,0.5);
+  --glow-aqua:  0 0 22px rgba(34,211,238,0.36), 0 0 4px rgba(78,233,255,0.45);
 
-  /* Clean, modern rounded corners — a bigger radius than the previous
-     "precision instrument" look, matching the softer glass-card treatment
-     above. */
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
+  /* Sharper, tighter corners than the previous rounded-glass look — a
+     "sharp layout" pass toward a crisper, more precision-cut edge while
+     keeping the same glass fill/blur treatment underneath. */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
 
   --space-1: 4px; --space-2: 8px; --space-3: 16px; --space-4: 24px;
   --space-5: 32px; --space-6: 48px; --space-7: 64px; --space-8: 96px;
@@ -1027,6 +1030,7 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= BUTTONS ============================= */
 .btn {
+  position: relative; overflow: hidden;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   padding: 0.85em 1.6em; border-radius: 999px;
   font-family: var(--font-display); font-weight: 600; font-size: 1rem; letter-spacing: 0.04em; text-transform: uppercase;
@@ -1034,12 +1038,24 @@ section { position: relative; scroll-margin-top: 96px; }
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .btn:active { transform: scale(0.96); }
+/* A luxury "light sweep" micro-interaction — a diagonal highlight that
+   glides across the button on hover, the classic premium-button polish cue.
+   Pure CSS (a pseudo-element translated via transform, not repainted), and
+   skipped entirely under reduced-motion below. */
+.btn::before {
+  content: ''; position: absolute; inset: -40% -20%; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  transform: translateX(-140%); transition: transform 650ms var(--ease);
+}
+.btn:hover::before { transform: translateX(140%); }
+.btn > * { position: relative; z-index: 2; }
+@media (prefers-reduced-motion: reduce) { .btn::before { display: none; } }
 /* whileHover-style lift+scale on every button variant — the `translateY(-2px)
    scale(1.02)` combo is the CSS equivalent of framer-motion's
    whileHover={{ y: -2, scale: 1.02 }}, and the base .btn transition above
    already eases it smoothly in both directions. */
 .btn-primary { background: var(--green); color: var(--on-green); }
-.btn-primary:hover { background: var(--green-bright); transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 30px rgba(57,255,158,0.35); }
+.btn-primary:hover { background: var(--green-bright); transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 36px rgba(57,255,158,0.45), 0 0 0 1px rgba(57,255,158,0.2); }
 @keyframes btnPulse { 0% { box-shadow: 0 0 0 0 rgba(57,255,158,0.55); } 100% { box-shadow: 0 0 0 18px rgba(57,255,158,0); } }
 .btn-pulse { animation: btnPulse 550ms ease-out; }
 .btn-ghost { background: transparent; color: var(--fg); border: 1px solid var(--border-strong); }
@@ -1331,10 +1347,10 @@ section { position: relative; scroll-margin-top: 96px; }
   position: absolute; border-radius: 50%; mix-blend-mode: screen;
   animation: meshDrift 22s ease-in-out infinite alternate;
 }
-.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(20,104,68,0.55), transparent 70%); animation-duration: 26s; }
-.hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(34,211,238,0.4), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
-.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(57,255,158,0.28), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
-.hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(78,233,255,0.22), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
+.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(20,104,68,0.68), transparent 70%); animation-duration: 26s; }
+.hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(34,211,238,0.5), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
+.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(57,255,158,0.36), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
+.hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(78,233,255,0.3), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
 @keyframes meshDrift {
   0%   { transform: translate(0, 0) scale(1); }
   50%  { transform: translate(4%, -5%) scale(1.08); }
@@ -1481,7 +1497,12 @@ body.view-home { margin-left: 0 !important; }
 }
 .home-scene-text h1, .home-scene-text h2 {
   font-size: clamp(2.6rem, 6.4vw, 6rem); text-transform: uppercase;
-  line-height: 0.98; letter-spacing: -0.01em; margin-bottom: var(--space-4); font-weight: 800;
+  line-height: 0.96; letter-spacing: -0.02em; margin-bottom: var(--space-4); font-weight: 800;
+  /* A soft ambient glow behind the headline glyphs themselves — layered with
+     the accent span's own shimmer gradient below, this is what makes the
+     Hero read as "glowing" rather than just a bright color, without going
+     back to the sci-fi HUD/reticle look this file has twice already removed. */
+  text-shadow: 0 0 46px rgba(57,255,158,0.22), 0 0 90px rgba(34,211,238,0.14);
 }
 .home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
 .home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }

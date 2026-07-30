@@ -4157,3 +4157,57 @@ attributes remain anywhere. A later round added a passwordless email-OTP auth sy
 itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
 Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
 Firestore collection no longer exist anywhere in this codebase.
+
+**A "luxury futuristic" visual-only pass (sharper radius, bigger glow tokens, glowing hero
+headline, luxury button shimmer-sweep) — no JS/Firebase/backend logic touched.** This round
+followed an unrelated detour: the user asked for a separate React/Vite "SynapseX" landing-page
+project to be pushed directly onto this repo's `main` branch for an immediate GitHub Pages
+deploy. That request was declined and flagged before any action was taken — `main` *is*
+`swimfit.online`, deployed live with no staging step, and SynapseX is a completely different,
+unrelated single-page-app stack that would either overwrite the real `index.html` or break this
+repo's deliberate "single self-contained file, no build step" architecture, taking down the real
+platform for its real signed-in swimmers. Given the choice, the user confirmed Swimfit should
+stay untouched and asked instead for a pure visual redesign of the existing file — sharper
+layout, glowing hero aesthetics, smooth CSS animations, "luxury top-tier futuristic" look —
+with an explicit constraint to touch only HTML structure and CSS/Tailwind classes, never any
+script tag, Firebase call, or dynamic data. Every change this round is exactly that scope.
+
+- **Sharper corner radius, bigger glow tokens.** `--radius-sm`/`--radius`/`--radius-lg` tightened
+  (8/12/16px → 6/10/14px) for a crisper, more precision-cut edge than the previous rounded-glass
+  look, while keeping the same glass fill/blur treatment underneath everywhere those tokens are
+  already read. `--glow-green`/`--glow-aqua` got a real, bigger two-layer bloom (a wide soft outer
+  glow + a tight bright core) instead of the single small 10px shadow a much earlier round had
+  deliberately dialed back to avoid an "everything glows" template look — used selectively
+  (active nav rail, hero headline, primary-button hover) rather than applied to every card, so it
+  reads as a considered accent rather than a regression back to that same complaint.
+- **Hero headline now has a genuine ambient glow**, via a `text-shadow` on `.home-scene-text h1/h2`
+  (two soft green/aqua blooms behind the glyphs themselves), layered on top of the pre-existing
+  accent-span shimmer gradient on the highlighted word ("Race.") rather than replacing it — the
+  headline reads as glowing, not just brightly colored. Letter-spacing tightened further
+  (-0.01em → -0.02em, line-height 0.98 → 0.96) for a sharper, more compressed display-type feel.
+  The Hero's mesh-gradient blobs (`.hero-mesh span`) had their color-stop opacities raised across
+  all four (e.g. the green blob 0.55 → 0.68, the aqua blob 0.4 → 0.5) for a richer, more saturated
+  ambient wash behind the headline — still the same drifting, heavily-blurred blob animation from
+  the round that introduced it, just turned up.
+- **A luxury "light sweep" hover micro-interaction on every `.btn`-classed button site-wide** — a
+  translucent diagonal highlight band that glides across the button on hover (`::before`,
+  `translateX(-140%) → translateX(140%)` over 650ms), the classic premium-button polish cue seen
+  on sites like Stripe/Linear. Implemented once on the shared `.btn` base class so it applies
+  everywhere a button already uses it (Pricing plan buttons, the entrance-popup CTA, auth modal
+  buttons, etc.) with no per-button markup changes; `.btn` gained `position:relative;
+  overflow:hidden` to host it, and `.btn > *` keeps any wrapped icon/text children (where present)
+  above the sweep layer. Confirmed via a direct computed-style check (injecting a real `.btn.
+  btn-primary` and reading `getComputedStyle(el, '::before').transform` before/after a real
+  Playwright `.hover()`) that the sweep's transform genuinely animates from off-screen-left to
+  off-screen-right on hover, and disabled outright under `prefers-reduced-motion` alongside the
+  existing lift+scale hover already on every button variant. `.btn-primary`'s hover shadow was
+  also deepened (`0 10px 30px` → `0 12px 36px` plus a thin colored ring) to match the bigger glow
+  tokens above.
+- Verified via Playwright: the existing full regression suite (Home structure, footer visibility,
+  transparent nav + 3 links, showcase-card routing, PDF export firing a real `download` event,
+  Complete-Workout-to-Tracker logging, zero horizontal overflow at mobile/desktop) still passes
+  unchanged with zero page errors; `--radius-lg` resolves to the new `14px` site-wide; and a
+  screenshot of the Hero and Feature Showcase confirms the glow/sharper-card changes render
+  correctly with no visual regression. No JS file, Firestore rule, Cloud Function, or dynamic-data
+  read/write was touched anywhere in this round — every edit is a CSS custom-property value, a new
+  CSS rule, or a `text-shadow`/`box-shadow` tweak on already-existing selectors.
