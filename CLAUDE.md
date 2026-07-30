@@ -3888,6 +3888,104 @@ round's calm showcase still read as flat/generic.
   `download` event, and Complete Workout correctly logging to the Tracker) passes unchanged with
   zero page errors throughout.
 
+**A full Home landing-page replacement: the entire previous content (mesh-gradient Hero, bento
+Feature Showcase, How It Works, closing CTA band) was wiped and replaced with a single pinned,
+scroll-driven interactive 3D "Swim Performance Device" scene** — a conceptual (not pixel-clone)
+take on a Contra-style project-calculator page, per the user's own explicit request. **This
+reverses the two immediately-preceding rounds' explicit "remove the 3D wireframe and the harsh
+audio" direction** — flagged directly to the user before starting, along with two hard
+constraints, and the user chose to proceed with the 3D device but explicitly **without any
+audio** (see `AskUserQuestion` exchange): this environment has no music-generation capability
+(only speech synthesis), so a real "chill Lo-Fi" loop was never achievable here, and a
+synthesized substitute is exactly what got called "harsh" and removed twice already — rather than
+ship a best-effort synth pad again, the user chose the 3D device alone.
+
+- **`deviceExperienceInit()`** builds the scene behind a single `canRun` check —
+  `!reduceMotion && canvas && typeof window.THREE !== 'undefined' && supportsWebGL()` — and adds
+  `.is-fallback` to the section the instant any part fails, which is the actual, expected outcome
+  in this sandbox (`cdn.jsdelivr.net`, needed for the single Three.js `<script src>` tag, is
+  confirmed blocked here via direct curl, same disclosed limitation as the prior 3D attempt).
+  Unlike that prior attempt, **no GSAP/ScrollTrigger was added this round** — a plain
+  `window.addEventListener('scroll', ...)` handler computes progress through the pinned section
+  and lerps the camera/device transforms directly, one fewer CDN dependency than before.
+- **The device**: a `THREE.Group` with a boxy body (`BoxGeometry` + an `EdgesGeometry` outline in
+  the brand's green-bright accent), a front screen (a `PlaneGeometry` textured with a
+  `CanvasTexture` redrawn on every step/value change — the literal "screen dynamically displays
+  live SwimFit options" ask), and 4 small cylinder "buttons" along the bottom edge, one per step.
+  `DEVICE_STEPS` (Swim Goal → Pace Target → AI Stroke Tip → Target Metrics) is a small,
+  **intentionally local** literal array — not a reference into the Workout Generator's own deep
+  `GOALS`/`DISCIPLINES`/`TECHNIQUE_MICRO_CUES` arrays defined later in the same script, since
+  referencing a `var` before its own assignment line has run is exactly the "script-ordering bug"
+  class this file has been bitten by twice before (documented in earlier rounds); a small
+  duplicated literal sidesteps that risk entirely for what is just flavor content on a device
+  screen, not a shared source of truth.
+- **Real interaction, layered so nothing critical depends on unverifiable 3D raycast math**: a
+  `THREE.Raycaster` on canvas click detects hits against the screen plane (cycles the active
+  step's value, redrawing the texture) and the 4 button meshes (jumps to that step, same as
+  clicking the equivalent HTML nav button). The bottom-left `STEP 01–04` HTML buttons are the
+  **guaranteed-working** control — clicking one updates `.is-active` state, redraws the screen,
+  and scrolls the pinned section to that step's keyframe range, so the 3D camera flies there via
+  the existing scroll listener with no special-cased "jump" animation needed. A dedicated
+  `.device-cta` ("Start 3-Day Free Trial" / "Open The Builder", swapped by sign-in state exactly
+  like every other `data-auth-signed-out`/`data-auth-signed-in` pair on this site) is the
+  **guaranteed bridge into the real Swim Workout Generator** — deliberately not dependent on
+  precise 3D hit-testing the way the ask's "clicking screen items interacts with the calculator"
+  phrasing could otherwise imply; the device's own local Goal/Pace/Metric state is a preview, not
+  wired into the real generator's `state.goals` etc., a disclosed scope boundary rather than a
+  fragile, unverifiable cross-wiring attempt.
+- **Camera keyframes**: 4 hand-placed `{pos, rot}` pairs, one per step, continuously lerped
+  (`lerp()`, plain linear interpolation — no easing library) across the pinned section's scroll
+  range rather than snapping between them; scrolling also drives which step is "active" (and thus
+  which screen content shows) via the same progress calculation, kept in sync with clicking either
+  the HTML or 3D step controls.
+- **Old Home components fully wiped, not hidden** — the literal `<header class="hero">` (video/
+  photo/caustics layers, `causticDrift`/`meshDrift` keyframes), `.home-showcase`/`.home-steps`/
+  `.home-cta-band` (markup, CSS, and the now-fully-dead `wireSpotlightCards`-style mousemove
+  listener), and the `heroVideo` JS wiring block are all deleted outright. The `--hero-photo`
+  custom property in `:root` is left as an inert orphan — this file's own established precedent
+  for a removed feature's leftover asset reference (see `--generator-photo`/`--coach-photo`) — in
+  case a future round wants to reuse the same generated image. The live "Total Active
+  Subscribers" Firestore-backed stat (`#activeSubscribersStat`/`#activeSubscribersCount`,
+  maintained server-side by `onSubscriptionWrite`) was **kept**, just repositioned into the new
+  `.device-live-stat` corner slot — deleting a genuinely-live, functioning feature would have been
+  removing working functionality nobody asked to remove, not "wiping old home components."
+  `id="top"` (the sidebar brand-link's return-to-Home anchor) was moved onto the new
+  `.device-experience` section's root so that existing behavior needed no changes.
+- **The transparent minimal top navbar was already exactly what this round's ask #3 wanted** — 3
+  plain text links + one CTA, no pill background — so it was left completely untouched.
+- **A real regex false-positive was caught and dismissed during this round's own verification, not
+  a product bug**: an early syntax-check script flagged one script block as containing invalid
+  JS — traced to the script's own preceding HTML *comment* containing the literal text "a single
+  plain CDN `<script>` tag" (describing the new Three.js script tag), which a naive
+  comment-unaware regex misread as a real opening tag, then captured everything up to the next
+  real `</script>` as bogus "content." Confirmed as a test-tooling artifact, not a real defect, by
+  re-running the check with HTML comments stripped first — all 6 actual script blocks parse
+  correctly (`new Function(src)` on every non-module, non-external block, zero errors).
+- **What this round could NOT verify, and why (same disclosed class of gap as the prior 3D
+  attempt)**: whether the device actually renders, whether the raycasted clicks land on the
+  correct meshes, and whether the camera keyframes look smooth/premium in motion all require a
+  real browser with an unblocked path to `cdn.jsdelivr.net` — check this in a real browser on a
+  normal network connection. If it doesn't render there, the most likely causes are a stale/
+  incorrect Three.js CDN URL or version pin, a real JS error inside `deviceExperienceInit()` that
+  only surfaces once `THREE` genuinely exists (untestable here since it never does), or a
+  WebGL-disabled browser/GPU context correctly falling into the same `.is-fallback` path this
+  round's tests did confirm works end-to-end.
+- Verified via Playwright (the sandbox's own network policy genuinely blocking
+  `cdn.jsdelivr.net`, so `.is-fallback` is the real, exercised code path, not a simulated one):
+  `.is-fallback` is added and all 4 step previews populate correctly the instant `THREE` is
+  confirmed `undefined`; clicking a step button (both in fallback and as the general control)
+  correctly updates `.is-active` state; the nav renders fully transparent with the 3 links, no
+  sound button anywhere in the DOM; the device CTA opens the real auth modal for a signed-out
+  visitor; the footer remains visible on Home; a 390px mobile viewport shows zero horizontal
+  overflow; `prefers-reduced-motion` produces the identical static fallback layout; the sidebar
+  brand-link's return-to-Home flow still works with the device section present; and the full
+  pre-existing regression suite (all 9 App-view tabs, the Workouts PDF export firing a real
+  `download` event, and Complete Workout correctly logging to the Tracker) passes unchanged with
+  zero page errors throughout. A single screenshot artifact (the entrance promo popup's own
+  closing CSS transition still fading out at the exact instant of a screenshot taken 300ms after
+  triggering its close) was confirmed, by re-checking after a longer settle time, to be unrelated
+  to this round's changes and not a real overlap bug.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
