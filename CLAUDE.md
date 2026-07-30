@@ -3986,6 +3986,81 @@ ship a best-effort synth pad again, the user chose the 3D device alone.
   triggering its close) was confirmed, by re-checking after a longer settle time, to be unrelated
   to this round's changes and not a real overlap bug.
 
+**A visual-polish pass on the 3D swim device: real extruded/beveled geometry, PBR materials, and a
+proper lighting rig, replacing the previous round's flat, unlit placeholder shapes** — purely
+inside `deviceExperienceInit()`'s 3D-construction branch; the fallback path, the HTML step nav,
+the CTA bridge into the real generator, and everything else about the device experience are
+unchanged.
+
+- **The device body is now a real extruded, beveled rounded-rect** (`THREE.ExtrudeGeometry` off a
+  `THREE.Shape` built via `quadraticCurveTo` corners, `bevelEnabled: true`) instead of a flat
+  `BoxGeometry` — the literal "true 3D extruded geometry with rounded bevels" ask, achieved with
+  Three.js core only (no `RoundedBoxGeometry` addon module, which would have meant a second CDN
+  script/import path and more surface area to fail on a blocked network). `bodyGeo.center()`
+  re-centers the extruded geometry so it behaves like the old `BoxGeometry` for positioning
+  purposes downstream.
+- **Materials switched from unlit `MeshBasicMaterial` to `MeshPhysicalMaterial`** (body: `metalness
+  0.55, roughness 0.32, clearcoat 0.6` — a plastic/metal hybrid; buttons: `metalness 0.75, roughness
+  0.28, clearcoat 0.5`) so the new PBR lighting rig actually produces specular highlights along the
+  bevel edges instead of the flat, shadeless look every earlier version had.
+- **A full PBR lighting rig replaces the previous "no lights at all" scene** (which only worked
+  because everything was unlit `MeshBasicMaterial`): a `DirectionalLight` key light
+  (`castShadow: true`, its own shadow-camera frustum sized to the device) for real cast shadows and
+  edge highlights, a dim brand-green `DirectionalLight` rim light from the opposite side for a
+  subtle "product shot" accent consistent with the site's own green-bright token, and a
+  `HemisphereLight` fill so shadows read as deep rather than crushed to pure black. A
+  shadow-receiving ground plane sits well below the device, colored to exactly match
+  `.device-experience`'s own `#05070B` CSS background so its flat rectangular edges blend
+  invisibly into the page — only the actual cast shadow beneath the device reads as a darker patch,
+  which is what gives it felt hardware weight rather than a fake CSS-style drop shadow.
+  `renderer.shadowMap.enabled/type`, `ACESFilmicToneMapping`, and `SRGBColorSpace` were all added to
+  the renderer so the PBR materials render with correct, non-washed-out color and tonemapping.
+- **Screen and buttons now read as embedded in the case, not decals stuck on top of it** — a thin
+  raised bezel frame (a second, smaller `ExtrudeGeometry`) sits proud of the body's own front face
+  with the screen positioned a hair behind it (simple z-layering rather than a true CSG cutout,
+  which Three.js core doesn't support without a separate library — a disclosed, deliberate
+  simplification), and each button now sits in its own darker recessed "socket" mesh rather than
+  floating directly on the body's flat face. The screen's material switched from an unlit `map`-only
+  `MeshBasicMaterial` to `MeshStandardMaterial` with both `map` and `emissiveMap` set to the same
+  `CanvasTexture` — `emissive` content stays readable regardless of which way the device is rotated
+  toward the key light (a real screen emits its own light), while the `map` channel still picks up
+  ambient/key light for a subtle "glass under lighting" feel rather than looking like a pasted-on
+  sticker.
+- **The old full-body green wireframe edge overlay (`EdgesGeometry`/`LineSegments`) was removed
+  outright** — with real bevels and real lighting now defining the shape, keeping a HUD-style
+  wireframe on top of a solid PBR body would have reintroduced exactly the "cheap AI wireframe"
+  look this whole feature has twice already been criticized for and had removed.
+- **A real, previously-uncaught class of bug was proactively caught this round via a purpose-built
+  verification technique**: since this sandbox cannot load the real Three.js library (the CDN is
+  blocked, as established in earlier rounds) or render WebGL, there was previously no way to catch
+  a typo'd method/property name or wrong constructor signature before a real visitor's browser hit
+  it. This round built a minimal, hand-written Three.js API stub (`three-stub.js`, scratchpad-only,
+  not shipped) covering just the classes/methods `deviceExperienceInit()` actually calls —
+  `Shape`, `ExtrudeGeometry`, `PlaneGeometry`, `CylinderGeometry`, `MeshPhysicalMaterial`,
+  `MeshStandardMaterial`, `DirectionalLight`, `HemisphereLight`, `WebGLRenderer`, `CanvasTexture`,
+  `Raycaster`, etc. — injected into the page via Playwright's `addInitScript()` *before* the page's
+  own scripts run, plus a `getContext('webgl')` override so `supportsWebGL()` resolves truthy. This
+  lets the real 3D-construction branch (not just the `.is-fallback` branch every earlier round's
+  tests were limited to) actually execute and be checked for runtime exceptions. It immediately
+  caught two real problems — both traced to gaps in the *stub's* own prototype-chain wiring
+  (`ExtrudeGeometry`/`PlaneGeometry`/etc. not inheriting `BufferGeometry.prototype.center()`, and
+  `PerspectiveCamera` not inheriting `Object3D.prototype.lookAt()`) rather than bugs in the actual
+  product code — confirmed by checking that `bodyGeo.center()` and `camera.lookAt()` are both
+  correct, real, standard Three.js APIs before fixing the stub rather than the code. After fixing
+  the stub, the full construction path — geometry/material/light creation, device assembly, a
+  simulated canvas click (exercising the `THREE.Raycaster` hit-test path against the button/screen
+  meshes), and a simulated scroll through several depths (exercising the per-frame camera-lerp
+  path) — runs with **zero real JS exceptions**. This is a meaningfully stronger correctness check
+  than any earlier 3D round could do (which could only ever prove the fallback path works), though
+  it still cannot confirm the actual rendered visual result (bevel quality, shadow softness,
+  material appearance, whether the recessed-screen illusion reads convincingly) — that remains
+  something only a real browser on an unrestricted network can verify.
+- Verified via Playwright: the pre-existing fallback-path suite (`.is-fallback` activation, step
+  nav, CTA-to-auth-modal, footer visibility, mobile/reduced-motion, full 9-tab regression) still
+  passes unchanged with zero page errors; and the new stub-backed construction-path check confirms
+  zero runtime exceptions across geometry/material/light setup, a raycasted canvas click, and a
+  multi-depth scroll simulation.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
