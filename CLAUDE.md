@@ -3718,6 +3718,98 @@ ScrollTrigger plugin) sitting right after the Paddle script tag, not an npm/webp
   browser/GPU context correctly falling into the same `.is-fallback` path this round's tests did
   confirm works.
 
+**A full Home page rebuild that reverses the immediately-preceding Three.js/GSAP/ambient-audio round
+entirely, per explicit feedback that a placeholder wireframe sphere and a synthesized beep read as
+cheap rather than premium.** Guided by the `ui-ux-pro-max` design-intelligence skill (queried for a
+dark-mode athletic-SaaS design system, a "Feature-Rich Showcase" landing pattern, and hover/reveal
+motion presets) — the user also named "Magic UI," a React/Tailwind component library that cannot be
+installed into this file (no build step, no React, a constraint this file has held since its first
+line), so its well-known patterns (a spotlight-hover card, a bento feature grid) were hand-built in
+plain CSS/vanilla JS instead, the same translation this file has applied to every prior "component
+library" or "framer-motion" ask in its history.
+
+- **The pinned Three.js canvas, GSAP ScrollTrigger timeline, and generative Web Audio ambient pad
+  were removed in full** — `#chaingptShowcase`/`#chaingptCanvas`/`.chaingpt-*` CSS and markup,
+  `chaingptCanvasInit()`, `wireAmbientAudio()`, the nav's `#soundToggleBtn`, its `i-volume`/
+  `i-volume-mute` icon symbols, and the three `cdn.jsdelivr.net` `<script>` tags (Three.js, GSAP,
+  ScrollTrigger) are all gone — not hidden, not disabled, deleted outright, per the explicit "stop
+  using placeholder 3D wireframes," "remove the harsh audio completely," and "remove legacy junk
+  components" asks. This also removes the one real, disclosed limitation the previous round
+  carried (that its 3D rendering and audio quality could never be verified from inside this
+  sandbox, since `cdn.jsdelivr.net` is blocked here) — there is nothing left in this area that
+  depends on an external CDN at all.
+- **A calm, ordinary-flow "Feature Showcase" section replaces it** (`.home-showcase`): a headline
+  over a 4-card bento grid — Swim Workout Generator, Dryland & Gym, AI Swim Coach, Progress
+  Tracker — each a hand-built UI-mockup/metrics preview reusing this file's own already-shipped
+  visual language (the workout generator's rep-chip/pace-tag, Gym's muscle tags, the AI Coach chat
+  bubbles, the Tracker's bar chart), the same "no generic stock photos, mirror a real shipped
+  surface" precedent the very first orbit-carousel build established several rounds ago — carried
+  forward rather than reinvented. Every card is still a real, working shortcut into its own tool
+  via the identical `[data-tab]` click-delegation every nav element on this site already uses.
+  Cards use the pre-existing `[data-reveal]` IntersectionObserver entrance system (unchanged,
+  reused as-is) plus a new lightweight **spotlight hover** — a soft radial glow that tracks the
+  pointer via two CSS custom properties (`--mx`/`--my`) set by one shared `mousemove` listener
+  (the vanilla-JS/CSS translation of Magic UI's SpotlightCard pattern) — invisible at rest, fading
+  in only on hover/focus, matching this file's long-standing "calm until interacted with" card
+  philosophy. Skipped entirely under `prefers-reduced-motion` since the glow is decorative, not
+  informational.
+- **A new "How It Works" 3-step section** (Create Your Account → Get Your Daily Plan → Train &
+  Track) gives first-time visitors a plain, honest onboarding explainer — a standard landing-page
+  pattern that needs no invented stats or testimonials to justify itself, consistent with this
+  file's own repeated refusal to reintroduce fake social proof (the testimonials marquee and the
+  Instagram/TikTok follow-card section were each removed in earlier rounds for exactly this reason,
+  and neither was touched or reintroduced here).
+- **A closing CTA band** ("Ready To Build Your Plan?") repeats the primary conversion action right
+  before the footer, matching the "Hero → Feature Showcase → CTA" landing pattern the `landing`
+  domain query recommended (`Primary CTA Placement: Hero (sticky) + After features + Bottom`) —
+  reusing the same `.btn-cta-glow` breathing-glow treatment already established for Pricing's
+  Subscribe buttons and the Hero's own trial CTA, so it reads as the same brand accent rather than
+  a new, unrelated effect.
+- **The footer is now visible on the Home page — a genuine "hero down to footer" continuous
+  landing page for the first time.** `body.view-home footer { display:none }` (added when Home was
+  first isolated into its own view several rounds ago, since Home had no footer content of its own
+  at the time) was removed from the hidden-selector list; the shared `<footer>` element already
+  sits in the DOM directly after the now-hidden, zero-height `#dashboard`, so it naturally renders
+  right below Home's own content in both views with no structural change needed — the exact same
+  footer the App view already used, not a duplicate. This does **not** reverse the Home/App view
+  isolation architecture itself (`body.view-home`/`view-app`, `setAppView()`) from the round that
+  built it at the user's own explicit "stop scrolling straight into the app" request — that
+  isolation is unchanged, and clicking any nav link, showcase card, or CTA still cleanly transitions
+  into the App view exactly as before; only the footer's own visibility rule changed.
+- **A pure CSS/token retune, not a new palette** — every new section reads color exclusively
+  through this file's already-established custom properties (`--green-bright`, `--aqua-bright`,
+  `--font-mono`, `--font-display`, `--radius-lg`, `--space-*`), so Dark mode's own existing palette
+  carries through automatically with zero new tokens introduced; the three new sections'
+  background values (`#0A0E16`/`#0C1220`) were chosen to sit visually between the Hero's existing
+  dark gradient and the shared `.dash-ambient-bg` tone already used across every App-view tab, so
+  scrolling through Home reads as one continuous dark surface rather than a patchwork of
+  differently-toned bands.
+- **Two apparent bugs surfaced during Playwright verification and were both confirmed to be
+  screenshot-tooling artifacts, not real defects, before being dismissed** — a discipline this file
+  has followed before (e.g. the documented off-canvas-drawer false positive in an earlier
+  responsive audit): (1) a `fullPage: true` screenshot taken immediately after load showed the "How
+  It Works" and closing-CTA sections completely blank — traced to Chromium's full-page capture not
+  actually scrolling through the page frame-by-frame, so the `[data-reveal]` IntersectionObserver
+  entries for content far below the initial viewport had never fired at capture time; a follow-up
+  test that genuinely scrolled through the whole document in 8 steps (`window.scrollTo` per step)
+  before reading `classList`/`getComputedStyle` confirmed every section correctly reaches
+  `is-visible`/`opacity:1`. (2) That same `fullPage` screenshot appeared to show the transparent nav
+  bar duplicated mid-page, floating above the CTA band — confirmed via a direct
+  `document.querySelectorAll('.home-nav').length` check (`1`, not 2) and a normal (non-`fullPage`)
+  viewport screenshot at that exact scroll position (rendering the nav correctly pinned at the top
+  of the viewport with clean, non-overlapping content beneath it) that this is Chromium's own
+  known behavior of repeating a `position:fixed` element at each viewport-height stitch boundary
+  when compositing a full-page capture — not a real second nav element or a z-index/overlap bug.
+- Verified via Playwright: every `chaingpt`/`orbit`/sound-toggle reference is fully gone from both
+  markup and JS (`grep` confirms zero remaining matches outside historical CLAUDE.md prose); the 4
+  showcase cards render with the correct icons/mockup content and route to the correct tab on
+  click; the spotlight hover's `--mx`/`--my` custom properties update correctly on a real
+  `mousemove`/dispatched event; the footer is visible and non-empty while `body.view-home`; a 390px
+  mobile viewport shows zero horizontal overflow at both the top and the very bottom of the page
+  (past the footer); and the full pre-existing regression suite (all 9 App-view tabs load, the
+  Workouts PDF export fires a real `download` event, and Complete Workout correctly logs to the
+  Tracker and updates its own button state) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

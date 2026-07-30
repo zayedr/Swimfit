@@ -1310,9 +1310,9 @@ section { position: relative; scroll-margin-top: 96px; }
 
 /* ============================= HERO ============================= */
 /* Back to being an ordinary, ungimmicked top-of-page block — an earlier
-   round had folded it into the scroll canvas as "Scene 0"; the pinned 3D
-   showcase below it (see .chaingpt-showcase) is a separate, distinct
-   section, so the Hero no longer needs to be part of that canvas at all.
+   round had folded it into a scroll canvas as "Scene 0"; the Feature
+   Showcase below it (see .home-showcase) is a separate, ordinary-flow
+   section, so the Hero no longer needs to be part of any canvas at all.
    isolation:isolate still contains its own
    negative-z-index photo/video/caustics layers within a local stacking
    context. There is nothing beside or below it in the same scroll flow
@@ -1401,8 +1401,14 @@ section { position: relative; scroll-margin-top: 96px; }
    sign-out handler's setAppView(false) call for the only two places this
    ever flips. */
 body.view-app #homeView { display: none; }
+/* The footer is deliberately NOT hidden while body.view-home — this round's
+   "hero down to footer" ask wants Home to be a genuinely continuous
+   landing page ending in the same shared footer the App view uses, rather
+   than Home cutting off with no footer at all (the previous behavior). It
+   sits right after #homeView in the DOM and right after the now-hidden,
+   zero-height #dashboard, so it naturally renders directly below Home's own
+   content in both views with no structural change needed. */
 body.view-home #dashboard,
-body.view-home footer,
 body.view-home #siteNav,
 body.view-home .mobile-bottom-nav,
 body.view-home .sidebar-collapse-btn,
@@ -1447,30 +1453,6 @@ body.view-home { margin-left: 0 !important; }
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .home-nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
-/* Sound Toggle — mute/unmute for the generative Web Audio ambient pad (see
-   createAmbientAudio() in the NAV/TAB CONTROLLER script). Deliberately a
-   plain icon button, no label, so it reads as a small utility control next
-   to the CTA rather than competing with it. Audio only ever starts inside
-   this button's own click handler (a real user gesture), never on page
-   load — required for autoplay-policy compliance and disclosed as such in
-   CLAUDE.md. */
-.home-nav-sound-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.04);
-  color: var(--fg); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.home-nav-sound-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); }
-.home-nav-sound-btn .icon { width: 18px; height: 18px; }
-/* aria-pressed="true" means sound is currently ON — so the "unmuted"
-   speaker icon shows only once actually playing; at rest (sound off,
-   the initial/default state before any click) the muted-speaker icon
-   shows, matching a swimmer's expectation of what the button will do
-   next if pressed. */
-.home-nav-sound-btn .icon-unmuted { display: none; }
-.home-nav-sound-btn[aria-pressed="true"] .icon-unmuted { display: block; }
-.home-nav-sound-btn[aria-pressed="true"] .icon-muted { display: none; }
 
 /* Shared text-overlay utility for a full-bleed section (currently only the
    Hero uses it, hence the name) — bottom-left copy block + bottom-right
@@ -1498,124 +1480,99 @@ body.view-home { margin-left: 0 !important; }
   .home-scene-stat { display: none; }
 }
 
-/* ============================= CHAINGPT-STYLE 3D SHOWCASE =============================
-   Scraps the CSS-only orbit carousel entirely per this round's explicit
-   "scrap the static card-scroll completely" ask, in favor of a real WebGL
-   scene (Three.js) driven by a real scroll-linked animation library (GSAP +
-   ScrollTrigger) — both loaded as plain CDN <script> tags (see the two
-   <script src> lines right after the Paddle script tag), the same
-   "browser-global UMD build, zero build step" precedent this file's own
-   EmailJS integration already established. A tall pinned wrapper holds a
-   centered <canvas> (the "swim-tech device") plus 3 floating HTML panels
-   (Analytics / AI Coach / Plyometrics) that chaingptCanvasInit() reveals at
-   different scroll milestones via ScrollTrigger.
+/* ============================= HOME: FEATURE SHOWCASE =============================
+   Replaces the previous round's pinned-3D-canvas + ambient-audio showcase
+   entirely, per explicit feedback that a placeholder wireframe sphere and a
+   synthesized beep read as cheap rather than premium. This is a calm,
+   ordinary-flow (no scroll-pinning, no WebGL, no audio) section: a headline
+   over a bento grid of 4 real UI-mockup cards — one per core tool — each
+   reusing this file's own already-shipped visual language (the workout
+   generator's rep-chip/pace-tag, Gym's muscle tags, the AI Coach chat
+   bubbles, the Tracker's bar chart) rather than stock photography or invented
+   3D chrome. Cards use the existing [data-reveal] IntersectionObserver
+   entrance system (see the REVEAL ON SCROLL block below) and a lightweight,
+   hand-built "spotlight" hover — a soft radial glow that follows the pointer,
+   the same effect Magic UI/Aceternity's SpotlightCard popularized, built here
+   in plain CSS custom properties + one small mousemove listener
+   (wireSpotlightCards()) rather than a component-library import, since this
+   file has no build step to install one into. */
+.home-showcase { position: relative; padding-block: var(--space-9) var(--space-8); background: #0A0E16; }
+.home-section-head { max-width: 640px; margin-inline: auto; text-align: center; padding-inline: var(--space-6); margin-bottom: var(--space-7); }
+.home-section-head .eyebrow { justify-content: center; color: rgba(240,243,246,0.6); }
+.home-section-head h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); font-weight: 800; line-height: 1.15; color: #fff; margin-top: var(--space-2); }
+.home-section-head p { color: rgba(240,243,246,0.65); margin-top: var(--space-3); font-size: 1.02rem; }
+.home-showcase-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);
+  max-width: 1240px; margin-inline: auto; padding-inline: var(--space-6);
+}
+.home-showcase-card {
+  position: relative; overflow: hidden; text-align: start; cursor: pointer;
+  display: flex; flex-direction: column; gap: 10px; padding: var(--space-4);
+  border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.035); color: var(--fg);
+  transition: transform 260ms var(--ease), border-color 260ms var(--ease), box-shadow 260ms var(--ease);
+}
+/* The spotlight itself: a radial-gradient positioned at the pointer via
+   --mx/--my (set by wireSpotlightCards()'s mousemove listener), invisible at
+   rest and faded in only on hover/focus — same "calm until interacted with"
+   principle this file has used for every card treatment since the very
+   first bento round. */
+.home-showcase-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; opacity: 0;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,158,0.14), transparent 70%);
+  transition: opacity 320ms var(--ease); pointer-events: none;
+}
+.home-showcase-card:hover, .home-showcase-card:focus-within { transform: translateY(-4px); border-color: rgba(255,255,255,0.22); box-shadow: 0 16px 32px rgba(0,0,0,0.28); }
+.home-showcase-card:hover::before, .home-showcase-card:focus-within::before { opacity: 1; }
+.home-showcase-card > * { position: relative; z-index: 1; }
+.home-showcase-icon {
+  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-accent, var(--green-bright)) 16%, transparent);
+  color: var(--card-accent, var(--green-bright));
+}
+.home-showcase-icon .icon { width: 20px; height: 20px; }
+.home-showcase-card h3 { font-size: 1rem; font-weight: 700; color: var(--fg); }
+.home-showcase-card .home-showcase-metric { display: flex; flex-direction: column; font-family: var(--font-mono); }
+.home-showcase-card .home-showcase-metric strong { font-size: 1.2rem; color: var(--green-bright); }
+.home-showcase-card .home-showcase-metric span { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(240,243,246,0.5); }
+.home-showcase-card .home-showcase-note { font-size: 0.8rem; color: rgba(240,243,246,0.6); margin-top: auto; }
+.home-showcase-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.home-showcase-tag { font-size: 0.66rem; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.75); }
+.home-showcase-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; }
+.home-showcase-bubble { padding: 6px 10px; border-radius: 10px; max-width: 94%; }
+.home-showcase-bubble.is-user { align-self: flex-end; background: rgba(34,211,238,0.16); color: #fff; }
+.home-showcase-bubble.is-ai { align-self: flex-start; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.85); }
+.home-showcase-chart { width: 100%; height: 34px; fill: var(--green-bright); opacity: 0.85; }
+@media (max-width: 980px) { .home-showcase-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .home-showcase-grid { grid-template-columns: 1fr; } }
 
-   DISCLOSED LIMITATION: this sandbox's own network policy blocks
-   cdn.jsdelivr.net outright (confirmed via a direct curl — 403/tunnel
-   failure — before writing this section), so neither the 3D scene nor the
-   scroll-driven reveal could be visually verified from inside this sandbox.
-   The .is-fallback class (added by chaingptCanvasInit() the moment either
-   library, or WebGL itself, isn't available — which is the actual, expected
-   outcome in THIS sandbox) collapses this section to the same plain,
-   non-pinned, fully-visible layout prefers-reduced-motion uses, so a broken
-   CDN load (a real risk for any visitor on a restrictive network/ad-blocker,
-   not just this sandbox) degrades gracefully instead of leaving a blank or
-   broken section. See CLAUDE.md for the full disclosure. */
-.chaingpt-showcase { position: relative; height: 400vh; background: #08080C; }
-.chaingpt-sticky {
-  position: sticky; top: 0; height: 100svh; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
+/* ============================= HOME: HOW IT WORKS =============================
+   A plain, honest 3-step onboarding explainer (Sign Up → Get Your Plan →
+   Train & Track) — a standard, well-understood landing-page pattern that
+   needs no invented stats or testimonials to justify its own existence. */
+.home-steps { padding-block: var(--space-8); background: #0C1220; }
+.home-steps-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6);
+  max-width: 1000px; margin-inline: auto; padding-inline: var(--space-6);
 }
-/* Precise technical grid lines — the "#08080C grid" ask — a static, cheap
-   linear-gradient grid (no animation cost; this section is scroll-pinned so
-   a drifting grid would fight the eye against the deliberately more dynamic
-   3D object rotating in front of it). */
-.chaingpt-grid {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 100%);
-  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 100%);
+.home-step { text-align: center; padding: var(--space-4); }
+.home-step-num {
+  width: 52px; height: 52px; margin-inline: auto; margin-bottom: var(--space-4);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;
+  background: rgba(57,255,158,0.12); color: var(--green-bright); border: 1px solid rgba(57,255,158,0.3);
 }
-#chaingptCanvas { position: relative; z-index: 1; width: min(64vw, 680px); height: min(64vw, 680px); display: block; }
-.chaingpt-headline {
-  position: absolute; top: var(--space-7); inset-inline: 0; z-index: 3; text-align: center;
-  color: var(--fg); pointer-events: none; max-width: 640px; margin-inline: auto; padding-inline: var(--space-6);
+.home-step h3 { font-size: 1.05rem; font-weight: 700; color: var(--fg); margin-bottom: var(--space-2); }
+.home-step p { font-size: 0.9rem; color: rgba(240,243,246,0.62); line-height: 1.55; }
+@media (max-width: 760px) { .home-steps-grid { grid-template-columns: 1fr; gap: var(--space-7); } }
+
+/* ============================= HOME: CLOSING CTA BAND ============================= */
+.home-cta-band {
+  padding-block: var(--space-8); text-align: center; background: #0A0E16;
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
-.chaingpt-headline .eyebrow { color: rgba(240,243,246,0.6); justify-content: center; }
-.chaingpt-headline h2 { font-size: clamp(2rem, 4.6vw, 3.4rem); font-weight: 800; text-transform: uppercase; line-height: 1.08; color: #fff; }
-/* Floating UI panels — hidden at rest (opacity 0, small y-offset), revealed
-   one at a time by chaingptCanvasInit()'s ScrollTrigger.create() calls as the
-   swimmer scrolls through the pinned section. Each is a real shortcut into
-   its own tool via the same global [data-tab] click-delegation every other
-   nav element on this site already uses (see tabButtons.forEach near the NAV
-   / TAB CONTROLLER script) — no new click-handling code was needed for that
-   part. pointer-events is toggled alongside opacity so a swimmer can never
-   click a panel that isn't actually visible yet. */
-.chaingpt-panel {
-  position: absolute; z-index: 2; width: 240px; text-align: start; cursor: pointer;
-  display: flex; flex-direction: column; gap: 8px; padding: var(--space-4);
-  border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.045); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  color: var(--fg); opacity: 0; pointer-events: none;
-  transition: border-color 220ms var(--ease), opacity 420ms var(--ease), transform 420ms var(--ease);
-}
-.chaingpt-panel:hover { border-color: rgba(255,255,255,0.3); }
-/* Revealed by toggling .is-visible (chaingptCanvasInit()'s ScrollTrigger
-   onEnter/onLeave/onEnterBack/onLeaveBack callbacks) rather than by tweening
-   inline styles — a plain class + CSS transition avoids GSAP's transform
-   parser fighting the percentage-based translate(-50%, ...) the centered
-   "plyo" panel already needs for its own horizontal centering. */
-.chaingpt-panel.is-visible { opacity: 1; pointer-events: auto; }
-.chaingpt-panel[data-panel="analytics"] { top: 18%; left: 8%; transform: translateY(18px); }
-.chaingpt-panel[data-panel="analytics"].is-visible { transform: translateY(0); }
-.chaingpt-panel[data-panel="coach"] { top: 62%; right: 8%; left: auto; transform: translateY(18px); }
-.chaingpt-panel[data-panel="coach"].is-visible { transform: translateY(0); }
-.chaingpt-panel[data-panel="plyo"] { bottom: 12%; left: 50%; transform: translate(-50%, 18px); }
-.chaingpt-panel[data-panel="plyo"].is-visible { transform: translate(-50%, 0); }
-.chaingpt-panel-eyebrow { font-family: var(--font-display); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,243,246,0.55); }
-.chaingpt-panel-row { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-mono); }
-.chaingpt-panel-metric { display: flex; flex-direction: column; font-family: var(--font-mono); }
-.chaingpt-panel-metric strong { font-size: 1.3rem; color: var(--green-bright); }
-.chaingpt-panel-metric span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(240,243,246,0.5); }
-.chaingpt-panel-note { font-size: 0.76rem; color: rgba(240,243,246,0.65); }
-.chaingpt-panel-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.chaingpt-tag { font-size: 0.66rem; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.75); }
-.chaingpt-panel-chat { display: flex; flex-direction: column; gap: 6px; font-size: 0.76rem; }
-.chaingpt-chat-bubble { padding: 6px 10px; border-radius: 10px; max-width: 92%; }
-.chaingpt-chat-bubble.is-user { align-self: flex-end; background: rgba(34,211,238,0.16); color: #fff; }
-.chaingpt-chat-bubble.is-ai { align-self: flex-start; background: rgba(255,255,255,0.08); color: rgba(240,243,246,0.85); }
-.chaingpt-panel-chart { width: 100%; height: 36px; fill: var(--green-bright); opacity: 0.85; }
-@media (max-width: 900px) {
-  .chaingpt-panel { width: 190px; padding: var(--space-3); }
-  .chaingpt-panel[data-panel="analytics"] { top: 14%; left: 4%; }
-  .chaingpt-panel[data-panel="coach"] { top: 68%; right: 4%; }
-  .chaingpt-headline h2 { font-size: clamp(1.7rem, 7vw, 2.4rem); }
-  #chaingptCanvas { width: min(80vw, 420px); height: min(80vw, 420px); }
-}
-/* Reduced motion AND the CDN/WebGL-unavailable fallback share this exact
-   layout: no pinning, no 3D canvas, the 3 panels just lay out as a plain,
-   already-legible wrapping row at full opacity, no transform. */
-@media (prefers-reduced-motion: reduce) {
-  .chaingpt-showcase { height: auto; padding-block: var(--space-8); }
-  .chaingpt-sticky { position: static; height: auto; display: block; }
-  .chaingpt-grid { position: static; mask-image: none; -webkit-mask-image: none; height: 160px; }
-  #chaingptCanvas { display: none; }
-  .chaingpt-headline { position: static; margin-bottom: var(--space-6); }
-  .chaingpt-panel { position: static; transform: none !important; opacity: 1 !important; pointer-events: auto; width: auto; margin: var(--space-3) auto; max-width: 320px; }
-}
-/* The CDN/WebGL-unavailable fallback (added by chaingptCanvasInit() the
-   moment THREE/gsap/ScrollTrigger/WebGL aren't all available — the expected
-   outcome in this sandbox, see the disclosure note above) reuses the exact
-   same static layout as prefers-reduced-motion. */
-.chaingpt-showcase.is-fallback { height: auto; padding-block: var(--space-8); }
-.chaingpt-showcase.is-fallback .chaingpt-sticky { position: static; height: auto; display: block; }
-.chaingpt-showcase.is-fallback .chaingpt-grid { position: static; mask-image: none; -webkit-mask-image: none; height: 160px; }
-.chaingpt-showcase.is-fallback #chaingptCanvas { display: none; }
-.chaingpt-showcase.is-fallback .chaingpt-headline { position: static; margin-bottom: var(--space-6); }
-.chaingpt-showcase.is-fallback .chaingpt-panel { position: static; transform: none !important; opacity: 1 !important; pointer-events: auto; width: auto; margin: var(--space-3) auto; max-width: 320px; }
+.home-cta-band h2 { font-size: clamp(1.7rem, 3.6vw, 2.4rem); font-weight: 800; color: #fff; margin-bottom: var(--space-4); }
+.home-cta-band p { color: rgba(240,243,246,0.6); max-width: 480px; margin-inline: auto; margin-bottom: var(--space-5); }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
@@ -3196,8 +3153,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
 <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c0.5-1 2-2.5 2-6.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
-<symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></symbol>
-<symbol id="i-volume-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6"/></symbol>
 </defs>
 </svg>
 
@@ -3294,10 +3249,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" data-tab="gym" aria-current="false">Gym</button>
       <button type="button" data-tab="coach" aria-current="false">AI Coach</button>
     </div>
-    <button type="button" class="home-nav-sound-btn" id="soundToggleBtn" aria-pressed="false" aria-label="Play ambient sound">
-      <svg class="icon icon-unmuted"><use href="#i-volume"/></svg>
-      <svg class="icon icon-muted"><use href="#i-volume-mute"/></svg>
-    </button>
     <button type="button" class="home-nav-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start Training</button>
     <button type="button" class="home-nav-cta" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
   </nav>
@@ -3319,47 +3270,85 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </div>
   </header>
 
-  <!-- Pinned 3D Showcase (ChainGPT-style): a centered Three.js wireframe
-       "swim-tech device" pinned in the viewport while GSAP ScrollTrigger
-       rotates it and reveals 3 floating UI panels (Analytics, AI Coach,
-       Plyometrics) as the swimmer scrolls. See chaingptCanvasInit() in the
-       NAV/TAB CONTROLLER script for the full implementation, including the
-       graceful .is-fallback static layout used if the CDN/WebGL isn't
-       available (a real, disclosed risk — see CLAUDE.md). Every panel is
-       still a real shortcut into its own tool via the shared [data-tab]
-       click-delegation every nav element on this site already uses. -->
-  <section class="chaingpt-showcase" id="chaingptShowcase" aria-label="What Swimfit does">
-    <div class="chaingpt-sticky">
-      <div class="chaingpt-grid" aria-hidden="true"></div>
-      <canvas id="chaingptCanvas" aria-hidden="true"></canvas>
-      <div class="chaingpt-headline">
-        <p class="eyebrow">Swimfit Platform</p>
-        <h2>A Whole New<br>Universe</h2>
-      </div>
-      <button type="button" class="chaingpt-panel" data-panel="analytics" data-tab="tracker">
-        <span class="chaingpt-panel-eyebrow">Analytics</span>
-        <span class="chaingpt-panel-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
-        <svg class="chaingpt-panel-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+  <!-- Feature Showcase: a calm, ordinary-flow bento grid of 4 real UI-mockup
+       cards (one per core tool), replacing the previous round's pinned 3D
+       canvas + audio pad entirely. See the HOME: FEATURE SHOWCASE CSS block
+       for the spotlight-hover treatment; every card is a real shortcut into
+       its own tool via the shared [data-tab] click-delegation every nav
+       element on this site already uses. -->
+  <section class="home-showcase" aria-label="What Swimfit does">
+    <div class="home-section-head" data-reveal>
+      <p class="eyebrow"><svg class="icon"><use href="#i-target"/></svg> Explore Swimfit</p>
+      <h2>Everything A Swimmer Needs, One Platform</h2>
+      <p>Daily-rotating swim sets, tailored dryland training, an AI coach that actually watches your technique, and progress tracking that means something.</p>
+    </div>
+    <div class="home-showcase-grid">
+      <button type="button" class="home-showcase-card" data-tab="workouts" data-reveal style="--card-accent:var(--aqua-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
+        <h3>Swim Workout Generator</h3>
+        <span class="home-showcase-metric"><strong>4×200m</strong><span>Freestyle · @ 3:00</span></span>
+        <span class="home-showcase-note">A new set every day, built around your goals</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="gym" data-reveal style="--card-accent:var(--green-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+        <h3>Dryland &amp; Gym</h3>
+        <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
+        <span class="home-showcase-note">Plyometrics, strength and mobility built for swimmers</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="coach" data-reveal style="--card-accent:#4EE9FF">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
+        <h3>AI Swim Coach</h3>
+        <span class="home-showcase-chat">
+          <span class="home-showcase-bubble is-user">How's my catch looking?</span>
+          <span class="home-showcase-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
+        </span>
+        <span class="home-showcase-note">Real-time technique feedback, from photos or video</span>
+      </button>
+      <button type="button" class="home-showcase-card" data-tab="tracker" data-reveal style="--card-accent:var(--green-bright)">
+        <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
+        <h3>Progress Tracker</h3>
+        <span class="home-showcase-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
+        <svg class="home-showcase-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
           <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
           <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
           <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
         </svg>
-        <span class="chaingpt-panel-note">Progress Tracker</span>
       </button>
-      <button type="button" class="chaingpt-panel" data-panel="coach" data-tab="coach">
-        <span class="chaingpt-panel-eyebrow">AI Swim Coach</span>
-        <span class="chaingpt-panel-chat">
-          <span class="chaingpt-chat-bubble is-user">How's my catch looking?</span>
-          <span class="chaingpt-chat-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
-        </span>
-        <span class="chaingpt-panel-note">Real-time technique feedback</span>
-      </button>
-      <button type="button" class="chaingpt-panel" data-panel="plyo" data-tab="gym">
-        <span class="chaingpt-panel-eyebrow">Plyometrics &amp; Explosive Power</span>
-        <span class="chaingpt-panel-row"><span class="chaingpt-panel-note" style="color:var(--fg)">Depth Jumps — 4×5</span></span>
-        <span class="chaingpt-panel-tags"><span class="chaingpt-tag">Block Starts</span><span class="chaingpt-tag">Flip-Turn Power</span></span>
-        <span class="chaingpt-panel-note">Dryland &amp; Gym</span>
-      </button>
+    </div>
+  </section>
+
+  <!-- How It Works: a plain 3-step onboarding explainer. -->
+  <section class="home-steps" aria-label="How Swimfit works">
+    <div class="home-section-head" data-reveal>
+      <p class="eyebrow"><svg class="icon"><use href="#i-check"/></svg> Getting Started</p>
+      <h2>How It Works</h2>
+    </div>
+    <div class="home-steps-grid">
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">1</span>
+        <h3>Create Your Account</h3>
+        <p>Sign in with Google and start a 3-day free trial — no card required.</p>
+      </div>
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">2</span>
+        <h3>Get Your Daily Plan</h3>
+        <p>Set your discipline, distance and goals — Swimfit builds a full swim set and gym session around them.</p>
+      </div>
+      <div class="home-step" data-reveal>
+        <span class="home-step-num">3</span>
+        <h3>Train &amp; Track</h3>
+        <p>Log every swim, chat with your AI coach, and watch your pace and volume improve over time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Closing CTA band. -->
+  <section class="home-cta-band" aria-label="Get started">
+    <div data-reveal>
+      <h2>Ready To Build Your Plan?</h2>
+      <p>Join free and get your first daily-rotating swim set in under a minute.</p>
+      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
+      <button type="button" class="btn btn-primary" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
     </div>
   </section>
 </div>
@@ -4323,21 +4312,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
-<!-- Three.js + GSAP/ScrollTrigger for the Home page's pinned 3D showcase
-     (see CHAINGPT-STYLE 3D SHOWCASE in <style> and chaingptCanvasInit() in
-     the NAV/TAB CONTROLLER script below). Plain CDN <script> tags — a
-     browser-global UMD build, not an npm/bundler install — the same
-     "zero build step" precedent this file's own EmailJS SDK load already
-     established. chaingptCanvasInit() checks for all three globals (plus
-     WebGL support) before using any of them and falls back to a plain
-     static layout otherwise, so a blocked/slow CDN (ad-blocker, restrictive
-     network — this sandbox's own network policy blocks cdn.jsdelivr.net
-     outright, confirmed via direct curl, so this fallback path is in fact
-     the one exercised and testable from inside this sandbox — see
-     CLAUDE.md) degrades gracefully instead of breaking the section. -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <!-- jsPDF bundled locally (not a CDN fetch) so "Save as PDF" never depends on network/ad-blocker conditions — see the PDF WORKOUT EXPORT section for why. -->
 <script>
 /** @license
@@ -4941,208 +4915,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
-  /* ============================= CHAINGPT-STYLE 3D SHOWCASE =============================
-     Scraps the previous round's CSS-only orbit carousel for a real Three.js
-     scene pinned + scrubbed by a real GSAP ScrollTrigger timeline — both
-     loaded as plain CDN <script> tags right after the Paddle script tag
-     above. Every dependency (THREE, gsap, ScrollTrigger, and WebGL itself)
-     is checked before use; if any is missing, .is-fallback is added and the
-     section's own CSS collapses it to the identical plain, fully-visible,
-     non-pinned layout prefers-reduced-motion already uses — so a blocked
-     CDN (this sandbox's own network policy blocks cdn.jsdelivr.net outright,
-     confirmed via direct curl before writing this, which is exactly why
-     this fallback path — not the 3D scene itself — is what's actually
-     testable from inside this sandbox; see CLAUDE.md) degrades gracefully
-     instead of shipping a blank/broken section to any real visitor whose
-     own network/ad-blocker does the same. */
-  function chaingptCanvasInit() {
-    var showcase = document.getElementById('chaingptShowcase');
-    if (!showcase) return;
-    var canvas = document.getElementById('chaingptCanvas');
-    var panels = Array.prototype.slice.call(showcase.querySelectorAll('.chaingpt-panel'));
-
-    function supportsWebGL() {
-      try {
-        var c = document.createElement('canvas');
-        return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
-      } catch (e) { return false; }
-    }
-
-    var canRun = !reduceMotion && canvas &&
-      typeof window.THREE !== 'undefined' &&
-      typeof window.gsap !== 'undefined' &&
-      typeof window.ScrollTrigger !== 'undefined' &&
-      supportsWebGL();
-
-    if (!canRun) {
-      showcase.classList.add('is-fallback');
-      // Reveal every panel immediately — the fallback layout is a plain,
-      // always-visible stack (same as prefers-reduced-motion), so nothing
-      // should stay hidden waiting for a scroll-driven reveal that will
-      // never fire.
-      panels.forEach(function (p) { p.classList.add('is-visible'); });
-      return;
-    }
-
-    gsap.registerPlugin(ScrollTrigger);
-
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.z = 5.2;
-
-    function sizeRenderer() {
-      var w = canvas.clientWidth || canvas.parentElement.clientWidth;
-      var h = canvas.clientHeight || w;
-      renderer.setSize(w, h, false);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-
-    // The "Swim-Tech Device": a nested wireframe core + halo ring, in the
-    // site's own brand accent colors (green-bright / aqua-bright) rather
-    // than a generic default material.
-    var device = new THREE.Group();
-    var core = new THREE.LineSegments(
-      new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.5, 1)),
-      new THREE.LineBasicMaterial({ color: 0x39FF9E, transparent: true, opacity: 0.85 })
-    );
-    var halo = new THREE.LineSegments(
-      new THREE.WireframeGeometry(new THREE.TorusGeometry(2.15, 0.05, 8, 64)),
-      new THREE.LineBasicMaterial({ color: 0x4EE9FF, transparent: true, opacity: 0.6 })
-    );
-    halo.rotation.x = Math.PI / 2.4;
-    var innerCore = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.5, 1),
-      new THREE.MeshBasicMaterial({ color: 0x0C1220, transparent: true, opacity: 0.35 })
-    );
-    device.add(innerCore, core, halo);
-    scene.add(device);
-
-    sizeRenderer();
-    var resizeTicking = false;
-    window.addEventListener('resize', function () {
-      if (!resizeTicking) {
-        requestAnimationFrame(function () { sizeRenderer(); resizeTicking = false; });
-        resizeTicking = true;
-      }
-    }, { passive: true });
-
-    // Renderer only ever runs while the Home view is actually visible —
-    // matches this file's own established performance precedent (see
-    // advanceGymAnims's own active-tab gate) rather than rendering to a
-    // hidden canvas forever once a swimmer enters the app.
-    function renderLoop() {
-      if (document.body.classList.contains('view-home')) renderer.render(scene, camera);
-      requestAnimationFrame(renderLoop);
-    }
-    renderLoop();
-
-    // Pin the section and drive the device's rotation/"morph" (the halo
-    // ring and core cross-fade their opacity as the core rotates) purely
-    // from scroll progress through the pinned range.
-    ScrollTrigger.create({
-      trigger: showcase,
-      start: 'top top',
-      end: 'bottom bottom',
-      pin: '.chaingpt-sticky',
-      scrub: 1,
-      onUpdate: function (self) {
-        device.rotation.y = self.progress * Math.PI * 6;
-        device.rotation.x = Math.sin(self.progress * Math.PI * 2) * 0.6;
-        halo.rotation.z = -self.progress * Math.PI * 4;
-        core.material.opacity = 0.4 + Math.abs(Math.sin(self.progress * Math.PI * 3)) * 0.5;
-        halo.material.opacity = 0.25 + (1 - Math.abs(Math.sin(self.progress * Math.PI * 3))) * 0.45;
-      }
-    });
-
-    // Reveal the 3 floating panels one at a time across even thirds of the
-    // pinned scroll range — plain class toggles (CSS handles the
-    // opacity/transform transition) rather than tweening inline styles, so
-    // there's no conflict with the "plyo" panel's own CSS
-    // translate(-50%, ...) centering transform.
-    var segments = [[0, 34], [33, 67], [66, 100]];
-    panels.forEach(function (panel, i) {
-      var seg = segments[i] || segments[segments.length - 1];
-      ScrollTrigger.create({
-        trigger: showcase,
-        start: seg[0] + '% top',
-        end: seg[1] + '% top',
-        onEnter: function () { panel.classList.add('is-visible'); },
-        onLeave: function () { panel.classList.remove('is-visible'); },
-        onEnterBack: function () { panel.classList.add('is-visible'); },
-        onLeaveBack: function () { panel.classList.remove('is-visible'); }
+  /* ============================= HOME SHOWCASE: SPOTLIGHT HOVER =============================
+     A lightweight, hand-built "spotlight card" (the Magic UI/Aceternity
+     pattern) — a soft radial glow that tracks the pointer, via one shared
+     mousemove listener setting --mx/--my custom properties the card's own
+     ::before reads (see .home-showcase-card in <style>). No component
+     library needed since it's just two CSS variables and a class toggle;
+     skipped entirely under prefers-reduced-motion (the glow is decorative,
+     not informational, so there's nothing lost by omitting it). */
+  if (!reduceMotion) {
+    document.querySelectorAll('.home-showcase-card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
       });
     });
   }
-  chaingptCanvasInit();
-
-  /* ============================= AMBIENT AUDIO (Sound Toggle) =============================
-     A self-contained, generative Web Audio API ambient pad — soft detuned
-     sine/triangle oscillators through a slow-modulated lowpass filter, no
-     external audio file at all (there is no music/SFX-generation tool
-     available in this environment — only speech synthesis — so a
-     hand-built generative pad is the honest alternative to a sourced
-     track). The AudioContext is only ever created/resumed inside
-     #soundToggleBtn's own click handler — a real user gesture — never on
-     page load, per the Web Audio autoplay policy this round explicitly
-     asked to respect. */
-  (function wireAmbientAudio() {
-    var btn = document.getElementById('soundToggleBtn');
-    if (!btn) return;
-    var ctx = null, master = null, playing = false, nodes = [];
-
-    function buildPad() {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain();
-      master.gain.value = 0;
-      master.connect(ctx.destination);
-
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 900;
-      filter.Q.value = 0.7;
-      filter.connect(master);
-
-      // Slow LFO sweeping the filter cutoff for a soft, breathing "aquatic
-      // synth" motion rather than a static drone.
-      var lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.06;
-      var lfoGain = ctx.createGain();
-      lfoGain.gain.value = 260;
-      lfo.connect(lfoGain);
-      lfoGain.connect(filter.frequency);
-      lfo.start();
-
-      // Three gently detuned tones (a soft open fifth + octave) approximate
-      // a warm ambient pad without needing a real synth engine.
-      [110, 164.81, 220].forEach(function (freq, i) {
-        var osc = ctx.createOscillator();
-        osc.type = i === 1 ? 'triangle' : 'sine';
-        osc.frequency.value = freq;
-        osc.detune.value = (i - 1) * 6;
-        var g = ctx.createGain();
-        g.gain.value = 0.22;
-        osc.connect(g);
-        g.connect(filter);
-        osc.start();
-        nodes.push(osc);
-      });
-      nodes.push(lfo);
-    }
-
-    btn.addEventListener('click', function () {
-      if (!ctx) buildPad();
-      if (ctx.state === 'suspended') ctx.resume();
-      playing = !playing;
-      var now = ctx.currentTime;
-      master.gain.cancelScheduledValues(now);
-      master.gain.setTargetAtTime(playing ? 0.14 : 0, now, 0.6);
-      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
-      btn.setAttribute('aria-label', playing ? 'Mute ambient sound' : 'Play ambient sound');
-    });
-  })();
 
   // Counts each Pricing card's price up from 0 to its real target every time
   // the tab is opened — the target is read straight off the number already
