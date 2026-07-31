@@ -4148,16 +4148,6 @@ brand link still returns to Home; the footer is visible on Home; and the full pr
 regression suite (all 9 App-view tabs, a real PDF `download` event, and Complete-Workout-to-Tracker
 logging) passes unchanged with zero page errors.
 
-## History for context
-
-An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
-rebuilt from scratch) used MemberSpace for authentication and billing. MemberSpace has since
-been **fully removed** from the codebase — no script tags, checkout links, or `data-ms-member`
-attributes remain anywhere. A later round added a passwordless email-OTP auth system, which was
-itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
-Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
-Firestore collection no longer exist anywhere in this codebase.
-
 **A "luxury futuristic" visual-only pass (sharper radius, bigger glow tokens, glowing hero
 headline, luxury button shimmer-sweep) — no JS/Firebase/backend logic touched.** This round
 followed an unrelated detour: the user asked for a separate React/Vite "SynapseX" landing-page
@@ -4211,3 +4201,54 @@ script tag, Firebase call, or dynamic data. Every change this round is exactly t
   correctly with no visual regression. No JS file, Firestore rule, Cloud Function, or dynamic-data
   read/write was touched anywhere in this round — every edit is a CSS custom-property value, a new
   CSS rule, or a `text-shadow`/`box-shadow` tweak on already-existing selectors.
+
+**A follow-up round pushed the same luxury/glow pass significantly further, per explicit
+feedback that the first pass was too subtle.** Still purely CSS/token edits — no JS, Firebase, or
+backend logic touched anywhere.
+
+- **Deeper near-black background for sharper contrast.** `--bg`/`--bg-alt`/`--surface`/
+  `--surface-2` all deepened (`#0D1117`→`#080A0F`, `#10141B`→`#0C0F15`, `#161B22`→`#141920`,
+  `#1C2128`→`#1B212A`) — a richer, more "true black" canvas for the neon accents to pop against,
+  rather than the previous round's more moderate slate-black.
+- **Glow tokens widened substantially again** — `--glow-green`/`--glow-aqua` grew from a
+  22px/4px two-layer bloom to a 40px/10px one (opacity also raised), and the hero headline's
+  `text-shadow` gained a third layer (a tight white core plus two wider green/aqua blooms) for a
+  genuine "neon sign" look confirmed via screenshot, not just a faint halo. The hero mesh-gradient
+  blobs' color-stop opacities were raised a second time (e.g. the green blob 0.68 → 0.8) for a
+  visibly richer ambient wash.
+- **CTA breathing-glow keyframes (`ctaGlowGreen`/`Aqua`/`Maroon`) widened** from a 18–28px/
+  0.25–0.55-opacity swing to 20–48px/0.28–0.85 — a much more noticeable pulse on the Pricing plan
+  buttons and the Feature Showcase's "Start 3-Day Free Trial" CTA. `.btn-primary`/`.btn-ghost`/
+  `.btn-outline-aqua`/`.btn-outline-maroon`'s own hover shadows were switched to reuse the same
+  `--glow-green`/`--glow-aqua` tokens (rather than their own smaller one-off shadow values) so
+  every button's hover state now matches the same bigger glow scale, and their hover lift/scale
+  bumped slightly (`-2px scale(1.02)` → `-3px scale(1.03)`).
+- **Card/bento-card hover now has a real colored glow ring, not just a bigger black shadow.**
+  `.card:hover`/`.bento-card:hover` gained a `color-mix(in srgb, var(--bento-accent) 45%,
+  transparent)` glow layered under the existing drop shadow, plus a bigger lift (`-2px` → `-6px`)
+  and a subtle scale (`1.012`). The `.bento-card`'s existing hover-revealed top accent rail grew
+  from 2px to 3px and picked up its own matching glow (`box-shadow: 0 0 16px var(--bento-accent)`)
+  — the base rule's `transition` list was extended to cover `height`/`box-shadow` alongside the
+  pre-existing `opacity`, so this animates smoothly rather than snapping.
+- **A new animated glow-pulse on the shared `.eyebrow` accent bar** — the small 22×2px dash that
+  leads every section's small-caps label site-wide (Hero, Home Feature Showcase, and every tab's
+  own section head: Workouts, Gym, Gear, Academy, Coach, Tracker, Support, Pricing) now pulses a
+  soft aqua glow on a 2.4s loop, a single shared-class edit that reaches every section header in
+  the app at once. Disabled under `prefers-reduced-motion` down to a static glow.
+- Verified via Playwright: the eyebrow's `::before` computed `animationName` resolves to
+  `eyebrowGlowPulse` with a live, mid-cycle `box-shadow` sampled directly (not just assumed from
+  the CSS source); a real `.hover()` on a Feature Showcase card screenshots a visible aqua-tinted
+  glow ring plus lift; and the full pre-existing regression suite (Home structure, footer
+  visibility, transparent nav, showcase-card routing, PDF export firing a real `download` event,
+  Complete-Workout-to-Tracker logging, zero horizontal overflow at mobile/desktop) still passes
+  unchanged with zero page errors.
+
+## History for context
+
+An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
+rebuilt from scratch) used MemberSpace for authentication and billing. MemberSpace has since
+been **fully removed** from the codebase — no script tags, checkout links, or `data-ms-member`
+attributes remain anywhere. A later round added a passwordless email-OTP auth system, which was
+itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
+Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
+Firestore collection no longer exist anywhere in this codebase.
