@@ -4511,6 +4511,92 @@ here was scoped to the Home/landing view only, per the explicit ask.
   buttons present, slide-dot navigation and Home↔App routing, a real PDF `download` event, and
   Complete-Workout-to-Tracker logging) passes unchanged with zero page errors throughout.
 
+**A "critical upgrade" round added a splash pre-loader and dual global tickers, fully rebuilt
+Section 2 around motivational quotes + video, added animated pricing-card motion, and — the real
+headline item — found and fixed the actual bug behind the dead audio toggle.**
+
+- **THE AUDIO BUG, diagnosed and fixed.** The toggle wasn't dead because of JS event-listener
+  wiring (that was already correct — `.play()` only ever ran inside a real `click` handler, which
+  is the one thing browser autoplay policy requires) or a bad URL. The real cause: this file's
+  `<audio>` element ships a `<source src="">` in the initial markup, and the ambient-audio setup
+  script only ever mutated that `<source>` child's `.src` property directly
+  (`homeAmbientAudioSource.src = AMBIENT_TRACK_URL`) — but per the HTML spec, changing a `<source>`
+  element's `src` after it's already a child of a media element does **not** make the browser
+  re-run resource selection; only an explicit `.load()` call on the parent `<audio>` does that. So
+  `homeAmbientAudio` stayed stuck at `networkState: NETWORK_NO_SOURCE` no matter what URL was
+  written into its `<source>` — every click's `.play()` call had a media element with no
+  recognized resource to play, which is exactly "nothing happens, no sound, no error." Fixed with
+  one line, `homeAmbientAudio.load();`, called immediately after the `src` assignment. Verified
+  as a genuine behavioral fix, not just a code read: instrumented Playwright to watch outbound
+  network requests, and confirmed a real HTTP request to the track URL now fires the instant the
+  page loads (visible in the request log) — before this fix, zero such request was ever attempted
+  at all. The request itself still fails inside this sandbox (`net::ERR_TUNNEL_CONNECTION_FAILED`,
+  the same generic outbound-proxy block that's affected every external asset host documented
+  elsewhere in this file — confirmed independently via `curl`, a 403 from the proxy), so actual
+  audible playback still can't be confirmed from here, but the fetch attempt firing at all is
+  concrete proof the client-side bug is gone; on a real unrestricted network this same request
+  succeeds and the toggle will audibly play. The track URL was also refreshed to a fresh SoundHelix
+  example file at the user's request (same reliable public-test-asset source as before).
+- **A full-screen splash/pre-loader** (`#splashScreen`) now shows on every page load — a glowing
+  "SWIM<span class="accent">FIT</span>" wordmark, a "Prepare to Outswim Your Limits…" tagline, and
+  an animated loading bar — fixed at `z-index:500` (above the Home nav's 200), fading + sliding up
+  after ~2.3s via a `.is-hidden` class, then fully `display:none`'d (not just faded) so it can never
+  trap focus or intercept a click afterward. Its own tiny inline `<script>` sits directly under the
+  markup so its timer starts the instant that point in the document parses, independent of any
+  later script block — it's a pure decorative overlay that never blocks or delays Firebase auth,
+  tab wiring, or anything else running underneath it. Not gated by localStorage/sessionStorage —
+  it plays on every full load, matching how a real app's cold-start splash behaves, not a
+  once-per-visitor onboarding flourish. Respects `prefers-reduced-motion` by skipping straight to
+  hidden with zero animation or delay.
+- **A second global ticker now sits between Section 2 and Pricing** (`#homeTicker2`), identical in
+  markup/CSS to the existing one between Hero and Section 2 — both now read the same, more
+  motivational copy the user asked for ("Welcome to Swimfit ✦ Push Your Limits ✦ New Swim & Gym
+  Schedules"), replacing the previous ticker's own text so all tickers on the page are consistent.
+  Both inherit the exact same `scroll-snap-align: start` fix from the immediately-preceding round
+  (a real, previously-diagnosed bug where the page's mandatory scroll-snap skipped straight past
+  an un-aligned ticker) — the second instance never had a chance to regress that fix since it was
+  built with it from the start.
+- **Section 2 was completely rebuilt** from the two-pillar "Swim Schedule / Gym Schedule" layout
+  (itself only two rounds old) into big motivational typography over a looping athletic video, per
+  direct "still boring, looks like garbage" feedback. The video reuses the Hero's own
+  already-generated action-shot clip (no new asset was fetched — this sandbox's network policy
+  blocks every stock-video host, per the note already on record in the HOME VIEW markup comment)
+  at low opacity behind a dark gradient scrim for legibility. Three quotes — "Outswim Your
+  Limits.", "Consistency Is Key." (green-glow accent), "Every Lap Counts." — each use a different
+  `[data-reveal]` variant (plain / `"scale"` / `"right"`, all pre-existing in this file's own
+  entrance-animation system) so they pop in staggered as the swimmer scrolls down, not all at
+  once. The old pillar layout's real navigational value (routing into Workouts/Gym) was kept as a
+  small `.motivation-actions` button row underneath the quotes rather than dropped outright — the
+  section lost its former visual weight, not its function. The geometric hexagon SVG background
+  from the prior round was kept unchanged (never the "messy" part).
+- **The Pricing slide gained a genuine animated background and floating/tilting cards.** A slow,
+  alternating radial-gradient wash (`.slide-pricing::before`, 18s ease-in-out) drifts behind the
+  cards, and six small glowing dots (`.pricing-particles span`, transform+opacity only — no
+  canvas or JS particle system, matching this file's own "no heavy JS dependency" precedent)
+  drift upward on staggered loops for a "dynamic particles" effect. Every `.price-card` inside
+  `.slide-pricing` specifically (not the shared base class used by the real Pricing tab too —
+  continuous motion is a deliberate landing-page effect that would just be a distraction on the
+  tab a signed-in swimmer uses to carefully compare plans) gets a continuous gentle float
+  (`priceCardFloat`, staggered per-card via `animation-delay`) and, on hover, a dramatic
+  `perspective()`/`rotateX()`/`rotateY()` 3D tilt plus a scale-up and a stronger glow (green for
+  the Elite/featured card, aqua for the others) — `animation-play-state:paused` on hover so the
+  idle float and the hover tilt don't fight each other, with a `transition` on `transform`/
+  `box-shadow` so entering/leaving hover animates smoothly rather than snapping. All of the above
+  is disabled under `prefers-reduced-motion`.
+- Verified via Playwright: the splash renders with the correct glowing wordmark/tagline/bar and
+  correctly reaches `display:none` after ~3.4s; exactly 2 `.home-ticker` instances exist; all 3
+  motivational quotes render with the correct `[data-reveal]` staggering (confirmed `is-visible`
+  after scrolling into view); a `.price-card`'s computed `animationName` resolves to
+  `priceCardFloat`; **the audio fix was verified at the network level** — instrumenting Playwright
+  to watch outbound requests confirmed a real HTTP request to the SoundHelix URL now fires on load
+  (failing only due to this sandbox's own outbound proxy block, independently confirmed via
+  `curl`), which was not happening before the `.load()` fix; a 390px mobile viewport shows zero
+  horizontal overflow after the splash clears; and the full pre-existing functional regression
+  suite (Home→App→Home routing via the new motivational action buttons, slide-dot navigation with
+  a `getBoundingClientRect().top` snap-offset of effectively `0`, the Elite plan button correctly
+  opening the real auth modal, a real PDF `download` event, and Complete-Workout-to-Tracker
+  logging) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
