@@ -1739,6 +1739,96 @@ body.view-home { margin-left: 0 !important; }
 .home-cta-band h2 { font-size: clamp(2rem, 4.2vw, 2.8rem); font-weight: 800; letter-spacing: -0.01em; color: #fff; margin-bottom: var(--space-4); }
 .home-cta-band p { color: rgba(240,243,246,0.6); max-width: 480px; margin-inline: auto; margin-bottom: var(--space-6); }
 
+/* ============================= HOME: FULL SLIDE PRESENTATION =============================
+   Replaces the previous scrolling stack (Feature Showcase → How It Works →
+   CTA band, CSS above left in place as harmless orphans, same "don't touch
+   working rules, just stop using them" precedent this file has followed
+   elsewhere) with 3 genuine full-viewport slides under native CSS
+   scroll-snap — deliberately not a JS scroll-jacking library; this codebase
+   has repeatedly tried and reverted heavier pinned-canvas approaches (see
+   CLAUDE.md history), so this stays simple and robust. :has() scopes
+   snapping to Home only, so it never affects the App view's own tab
+   scrolling. */
+html:has(body.view-home) { scroll-snap-type: y mandatory; }
+@media (prefers-reduced-motion: reduce) { html:has(body.view-home) { scroll-snap-type: y proximity; } }
+.home-slide {
+  min-height: 100svh; scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: 0;
+  display: flex; align-items: center; padding-block: var(--space-8);
+}
+.hero.home-slide { min-height: 100svh; padding-block: 100px var(--space-6); }
+.slide-showcase, .slide-pricing { position: relative; overflow: hidden; background: #0A0E16; }
+.slide-pricing { background: #0C1220; }
+.slide-showcase > .wrap, .slide-pricing > .wrap { position: relative; z-index: 1; width: 100%; }
+
+/* Hero's own AI Coach pitch line + CTA row, sitting between the headline
+   and the (already-existing, unchanged) live subscriber-count stat. */
+.hero-ai-pitch {
+  display: inline-flex; align-items: center; gap: 10px; margin-inline: auto;
+  margin-top: var(--space-2); margin-bottom: var(--space-5); max-width: 54ch;
+  font-size: clamp(0.95rem, 1.3vw, 1.08rem); color: rgba(240,243,246,0.82);
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px; padding: 10px 20px; backdrop-filter: blur(8px);
+}
+.hero-ai-pitch .icon { color: var(--aqua-bright); flex-shrink: 0; }
+.hero-slide-actions { display: flex; align-items: center; justify-content: center; gap: var(--space-3); flex-wrap: wrap; pointer-events: auto; }
+@media (max-width: 480px) { .hero-ai-pitch { font-size: 0.86rem; padding: 8px 16px; text-align: left; } }
+
+/* Slide 2's geometric SVG background pattern — a hexagon grid + two large
+   thin-stroke rings, low-opacity, purely decorative (aria-hidden). */
+.slide-geo-bg { position: absolute; inset: 0; z-index: 0; opacity: 0.8; }
+.slide-geo-bg svg { width: 100%; height: 100%; }
+.showcase-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-top: var(--space-6); }
+@media (max-width: 760px) { .showcase-split { grid-template-columns: 1fr; } }
+.visual-card {
+  position: relative; overflow: hidden; text-align: start; cursor: pointer; border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.1); background: var(--surface); min-height: 320px;
+  display: flex; flex-direction: column; transition: transform 280ms var(--ease), box-shadow 280ms var(--ease);
+}
+.visual-card:hover, .visual-card:focus-within {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 48px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--card-accent) 45%, transparent), 0 0 40px -8px color-mix(in srgb, var(--card-accent) 55%, transparent);
+}
+/* "High-res swim visual container" — reuses this file's own already-generated
+   photography (--gym-photo / --hero-photo, both real AI-generated action
+   shots already wired into :root — no new photo asset was fetched for this,
+   since this sandbox's network policy blocks every stock-photo host, per the
+   note already on record in the HOME VIEW markup comment above). */
+.visual-card-media {
+  height: 46%; min-height: 150px; background-image: var(--visual-photo); background-size: cover; background-position: center;
+  position: relative;
+}
+.visual-card-media::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(10,14,22,0.15) 0%, var(--surface) 100%), linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35));
+}
+.visual-card-body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); flex: 1; }
+
+/* Slide 3's pricing panels — reuses the existing .price-card (glass fill +
+   border already established elsewhere in this file) plus an added
+   .glass-glow for the "sleek glowing glass panel" emphasis this specific
+   slide asked for. */
+.slide-pricing-grid { margin-top: var(--space-6); }
+.price-card.glass-glow { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 0 40px -10px rgba(34,211,238,0.25); }
+.price-card.glass-glow.featured { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, var(--glow-green); }
+.slide-pricing-note { text-align: center; margin-top: var(--space-5); color: rgba(240,243,246,0.55); font-size: 0.9rem; }
+.slide-pricing-link { background: none; border: none; color: var(--aqua-bright); text-decoration: underline; cursor: pointer; font-size: inherit; padding: 0; }
+
+/* Slide navigation dots — right edge, Home-only (hidden while view-app via
+   the same #dashboard-visibility precedent every other Home-only element
+   already uses). Active dot tracked by a small self-contained
+   IntersectionObserver, never touching switchTab()/auth/Paddle JS. */
+.slide-dots {
+  position: fixed; right: var(--space-5); top: 50%; transform: translateY(-50%); z-index: 190;
+  display: flex; flex-direction: column; gap: 14px;
+}
+body.view-app .slide-dots { display: none; }
+.slide-dot {
+  width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.35);
+  background: transparent; padding: 0; transition: background 220ms var(--ease), border-color 220ms var(--ease), transform 220ms var(--ease);
+}
+.slide-dot.is-active { background: var(--green-bright); border-color: var(--green-bright); transform: scale(1.3); box-shadow: 0 0 10px rgba(57,255,158,0.7); }
+@media (max-width: 760px) { .slide-dots { display: none; } }
+
 /* ============================= APP DASHBOARD SHELL ============================= */
 .dashboard { padding-block: var(--space-6) var(--space-8); position: relative; }
 .dash-panels { position: relative; z-index: 1; }
@@ -3439,113 +3529,136 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <audio id="homeAmbientAudio" loop preload="none"><source id="homeAmbientAudioSource" src="" type="audio/mpeg"></audio>
   </nav>
 
-  <header class="hero" id="top">
-    <div class="hero-bg"></div>
-    <div class="hero-mesh" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-    <div class="hero-photo"></div>
-    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
-      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
-    </video>
-    <div class="hero-video-overlay" aria-hidden="true"></div>
-    <div class="hero-caustics" aria-hidden="true"></div>
-    <div class="home-scene-text">
-      <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
-      <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
-    </div>
-    <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
-      <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
-    </div>
-  </header>
+  <!-- ============================= HOME SLIDES (full slide presentation) =============================
+       A genuine slide deck, not a scrolling stack of cards — 3 full-viewport
+       slides under CSS scroll-snap (no JS scroll-jacking, no pinned canvas;
+       this codebase has repeatedly tried and reverted heavier scroll-jack
+       approaches, so this stays deliberately simple/robust). Each slide is a
+       real `.home-slide`; #slideDots (below, right edge) tracks/controls the
+       active one via a small self-contained IntersectionObserver — it never
+       touches switchTab()/auth/Paddle logic, only reads which slide is in
+       view and calls scrollIntoView(). -->
+  <div class="home-slides" id="homeSlides">
+    <header class="hero home-slide" id="top" data-slide="0">
+      <div class="hero-bg"></div>
+      <div class="hero-mesh" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <div class="hero-photo"></div>
+      <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
+        <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+      </video>
+      <div class="hero-video-overlay" aria-hidden="true"></div>
+      <div class="hero-caustics" aria-hidden="true"></div>
+      <div class="home-scene-text">
+        <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+        <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
+        <p class="hero-ai-pitch"><svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg> Meet your AI Swim Coach — real-time technique feedback on every set, every stroke.</p>
+        <div class="hero-slide-actions">
+          <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
+          <button type="button" class="btn btn-primary" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
+          <button type="button" class="btn btn-ghost" data-tab="coach">Ask The AI Coach</button>
+        </div>
+      </div>
+      <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
+        <strong id="activeSubscribersCount">0</strong><span>Total Active Subscribers</span>
+      </div>
+    </header>
 
-  <!-- Feature Showcase: a calm, ordinary-flow bento grid of 4 real UI-mockup
-       cards (one per core tool), replacing the previous round's pinned 3D
-       canvas + audio pad entirely. See the HOME: FEATURE SHOWCASE CSS block
-       for the spotlight-hover treatment; every card is a real shortcut into
-       its own tool via the shared [data-tab] click-delegation every nav
-       element on this site already uses. -->
-  <section class="home-showcase" aria-label="What Swimfit does">
-    <div class="home-section-head" data-reveal>
-      <p class="eyebrow"><svg class="icon"><use href="#i-target"/></svg> Explore Swimfit</p>
-      <h2>One Platform. Every Tool.</h2>
-      <p>Smarter Sets. Sharper Technique. Real Progress.</p>
-    </div>
-    <div class="home-showcase-grid">
-      <button type="button" class="home-showcase-card" data-tab="workouts" data-reveal style="--card-accent:var(--aqua-bright)">
-        <span class="home-showcase-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
-        <h3>Swim Workout Generator</h3>
-        <span class="home-showcase-setlist">
-          <span class="home-showcase-setrow" style="--stage-c:var(--aqua-bright)"><span>Warm-Up</span><span>400m Freestyle</span></span>
-          <span class="home-showcase-setrow" style="--stage-c:var(--green-bright)"><span>Main Set</span><span>4×200m &#64; 3:00</span></span>
-          <span class="home-showcase-setrow" style="--stage-c:#8AB4F8"><span>Cool-Down</span><span>200m easy</span></span>
-        </span>
-        <span class="home-showcase-metric"><strong>3.2 km</strong><span>Today's Total</span></span>
-        <span class="home-showcase-note">New Set. Every Day.</span>
-      </button>
-      <button type="button" class="home-showcase-card" data-tab="gym" data-reveal style="--card-accent:var(--green-bright)">
-        <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
-        <h3>Dryland &amp; Gym</h3>
-        <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
-        <span class="home-showcase-metric"><strong>6</strong><span>Gym Focuses</span></span>
-      </button>
-      <button type="button" class="home-showcase-card" data-tab="coach" data-reveal style="--card-accent:#4EE9FF">
-        <span class="home-showcase-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
-        <h3>AI Swim Coach</h3>
-        <span class="home-showcase-chat">
-          <span class="home-showcase-bubble is-user">How's my catch looking?</span>
-          <span class="home-showcase-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
-        </span>
-        <span class="home-showcase-note">Real-Time Feedback.</span>
-      </button>
-      <button type="button" class="home-showcase-card" data-tab="tracker" data-reveal style="--card-accent:var(--green-bright)">
-        <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
-        <h3>Progress Tracker</h3>
-        <span class="home-showcase-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
-        <svg class="home-showcase-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
-          <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
-          <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
-          <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
+    <!-- Slide 2: Smart Gym & Tracking — a geometric SVG pattern behind two
+         real UI-mockup visual cards (Gym + Tracker), each a real shortcut
+         into its own tool via the shared [data-tab] click-delegation. -->
+    <section class="home-slide slide-showcase" data-slide="1" aria-label="Smart Gym and Tracking">
+      <div class="slide-geo-bg" aria-hidden="true">
+        <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="geoHex" width="86" height="100" patternUnits="userSpaceOnUse" patternTransform="scale(1.1)">
+              <polygon points="43,0 86,25 86,75 43,100 0,75 0,25" fill="none" stroke="rgba(34,211,238,0.16)" stroke-width="1.2"/>
+            </pattern>
+          </defs>
+          <rect width="800" height="600" fill="url(#geoHex)"/>
+          <circle cx="120" cy="120" r="150" fill="none" stroke="rgba(57,255,158,0.14)" stroke-width="1.4"/>
+          <circle cx="700" cy="480" r="200" fill="none" stroke="rgba(34,211,238,0.12)" stroke-width="1.4"/>
         </svg>
-      </button>
-    </div>
-  </section>
+      </div>
+      <div class="wrap">
+        <div class="home-section-head" data-reveal>
+          <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> Smart Training</p>
+          <h2>Smart Gym &amp; Tracking</h2>
+          <p>Dryland programming and live progress data, built around your swim.</p>
+        </div>
+        <div class="showcase-split">
+          <button type="button" class="visual-card" data-tab="gym" data-reveal="left" style="--visual-photo:var(--gym-photo); --card-accent:var(--green-bright)">
+            <div class="visual-card-media"></div>
+            <div class="visual-card-body">
+              <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+              <h3>Dryland &amp; Gym</h3>
+              <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
+              <span class="home-showcase-metric"><strong>6</strong><span>Gym Focuses</span></span>
+            </div>
+          </button>
+          <button type="button" class="visual-card" data-tab="tracker" data-reveal="right" style="--visual-photo:var(--hero-photo); --card-accent:var(--aqua-bright)">
+            <div class="visual-card-media"></div>
+            <div class="visual-card-body">
+              <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
+              <h3>Progress Tracker</h3>
+              <span class="home-showcase-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
+              <svg class="home-showcase-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+                <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
+                <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
+                <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
+              </svg>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
 
-  <!-- How It Works: a plain 3-step onboarding explainer. -->
-  <section class="home-steps" aria-label="How Swimfit works">
-    <div class="home-section-head" data-reveal>
-      <p class="eyebrow"><svg class="icon"><use href="#i-check"/></svg> Getting Started</p>
-      <h2>How It Works</h2>
-    </div>
-    <div class="home-steps-grid">
-      <div class="home-step" data-reveal>
-        <span class="home-step-tag">Step</span>
-        <span class="home-step-num">01</span>
-        <h3>Create Your Account</h3>
-        <p>Google Sign-In. Instant Access.</p>
+    <!-- Slide 3: Pricing & Paddle checkout, embedded directly as real
+         .price-card elements — the existing `.price-card [data-plan]`
+         click-delegation (wired once, at load, against whatever .price-card
+         buttons already exist in the initial HTML) picks these up for free,
+         with zero changes to goToPaddleCheckout() or any auth/Paddle JS. -->
+    <section class="home-slide slide-pricing" data-slide="2" aria-label="Pricing">
+      <div class="wrap">
+        <div class="home-section-head center" data-reveal>
+          <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="#i-trophy"/></svg> Membership</p>
+          <h2>Simple Pricing, Serious Results</h2>
+          <p>Every account starts with a free 3-day trial. Cancel anytime.</p>
+        </div>
+        <div class="pricing-grid slide-pricing-grid">
+          <div class="price-card glass-glow" data-reveal>
+            <span class="price-tier">Pro</span>
+            <div class="price-amount"><span class="cur">$</span><span class="num">13</span></div>
+            <p class="price-period">per month</p>
+            <button type="button" class="btn btn-ghost btn-block btn-cta-glow" data-plan="pro">Get Started</button>
+          </div>
+          <div class="price-card featured glass-glow" data-reveal>
+            <span class="price-badge">Most Popular</span>
+            <span class="price-tier">Elite</span>
+            <div class="price-amount"><span class="cur">$</span><span class="num">21</span></div>
+            <p class="price-period">per month</p>
+            <button type="button" class="btn btn-primary btn-block btn-cta-glow" data-plan="elite">Get Started</button>
+          </div>
+          <div class="price-card glass-glow" data-reveal>
+            <span class="price-badge price-badge-maroon">2 Months Free</span>
+            <span class="price-tier">Ultra</span>
+            <div class="price-amount"><span class="cur">$</span><span class="num">135</span></div>
+            <p class="price-period">per year</p>
+            <button type="button" class="btn btn-outline-maroon btn-block btn-cta-glow" data-plan="ultra">Get Started</button>
+          </div>
+        </div>
+        <p class="slide-pricing-note">Prices in USD &middot; <button type="button" data-tab="pricing" class="slide-pricing-link">See full plan comparison &rarr;</button></p>
       </div>
-      <div class="home-step" data-reveal>
-        <span class="home-step-tag">Step</span>
-        <span class="home-step-num">02</span>
-        <h3>Get Your Daily Plan</h3>
-        <p>Pick Your Goals. We Build The Set.</p>
-      </div>
-      <div class="home-step" data-reveal>
-        <span class="home-step-tag">Step</span>
-        <span class="home-step-num">03</span>
-        <h3>Train &amp; Track</h3>
-        <p>Log Swims. Track Progress.</p>
-      </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
-  <!-- Closing CTA band. -->
-  <section class="home-cta-band" aria-label="Get started">
-    <div data-reveal>
-      <h2>Ready To Build Your Plan?</h2>
-      <p>Join free and get your first daily-rotating swim set in under a minute.</p>
-      <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
-      <button type="button" class="btn btn-primary" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
-    </div>
-  </section>
+  <!-- Slide navigation dots — click to jump, active dot tracked by scroll
+       position via a small self-contained IntersectionObserver (see the NAV
+       / TAB CONTROLLER script section). Home-only; hidden while view-app. -->
+  <div class="slide-dots" id="slideDots" role="tablist" aria-label="Slide navigation">
+    <button type="button" class="slide-dot" data-slide-index="0" aria-label="Hero slide"></button>
+    <button type="button" class="slide-dot" data-slide-index="1" aria-label="Smart Gym and Tracking slide"></button>
+    <button type="button" class="slide-dot" data-slide-index="2" aria-label="Pricing slide"></button>
+  </div>
 </div>
 
 <!-- ============================= APP DASHBOARD ============================= -->
@@ -5037,15 +5150,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   /* ============================= HOME AMBIENT AUDIO TOGGLE =============================
-     Full working plumbing shipped ahead of an actual track — set
-     AMBIENT_TRACK_URL to a real, royalty-free ambient/lo-fi MP3 URL to turn
-     this on; until then the button is present but a no-op (playback fails
-     silently and the button reverts to its muted state, so a blank source
-     never throws or leaves the UI stuck "on" with no sound). Never
-     autoplays — every browser's autoplay policy blocks unmuted audio before
-     a real user gesture, so the toggle starts muted/off by design, not as a
-     workaround. */
-  var AMBIENT_TRACK_URL = '';
+     A real track URL is now wired in (a royalty-free Pixabay ambient loop,
+     supplied directly by the user). Disclosed limitation: this sandbox's
+     network policy blocks direct fetches to cdn.pixabay.com (confirmed via
+     curl — 403 from the proxy, same class of block already documented for
+     swimfit.online/api.paddle.com/jsdelivr elsewhere in this file), so
+     whether this exact URL actually resolves to playable audio could not be
+     verified from here — only that the wiring itself (play/pause, icon
+     swap, graceful failure) is correct. Confirm it plays in a real browser
+     on an unrestricted network; if it 404s or the asset was moved/removed,
+     swap in a fresh Pixabay (or other royalty-free) direct MP3 URL here.
+     Never autoplays — every browser's autoplay policy blocks unmuted audio
+     before a real user gesture, so the toggle still starts muted/off by
+     design, not as a workaround. */
+  var AMBIENT_TRACK_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3';
   var homeAudioToggle = document.getElementById('homeAudioToggle');
   var homeAmbientAudio = document.getElementById('homeAmbientAudio');
   var homeAmbientAudioSource = document.getElementById('homeAmbientAudioSource');
@@ -5073,6 +5191,34 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }
     });
   }
+
+  /* ============================= HOME SLIDE-DECK NAVIGATION =============================
+     A small, fully self-contained IIFE — never touches switchTab(), auth, or
+     Paddle logic. Clicking a dot scrolls its slide into view (native CSS
+     scroll-snap does the rest); an IntersectionObserver keeps whichever dot
+     matches the slide currently in view lit up. */
+  (function () {
+    var slides = document.querySelectorAll('.home-slide');
+    var dots = document.querySelectorAll('.slide-dot');
+    if (!slides.length || !dots.length) return;
+    dots.forEach(function (dot, i) {
+      dot.addEventListener('click', function () {
+        if (slides[i]) slides[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    if ('IntersectionObserver' in window) {
+      var slideObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var idx = Array.prototype.indexOf.call(slides, entry.target);
+          dots.forEach(function (d, i) { d.classList.toggle('is-active', i === idx); });
+        });
+      }, { threshold: 0.5 });
+      slides.forEach(function (s) { slideObserver.observe(s); });
+    } else {
+      dots[0].classList.add('is-active');
+    }
+  })();
 
   /* ============================= HOME / APP VIEW SWITCH =============================
      The one place body.view-home / body.view-app ever flips. Active exactly
