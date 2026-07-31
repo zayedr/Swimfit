@@ -4427,6 +4427,90 @@ wired into the mute toggle the previous round shipped as scaffolding-only.
   event and Complete-Workout-to-Tracker logging, both run against the sidebar's own tab buttons,
   unaffected by anything in this round) passes unchanged with zero page errors throughout.
 
+**A follow-up round fixed real copy/clutter/audio complaints on Home: an honest hero subtitle,
+full removal of AI Coach references from the landing page specifically, a genuine scrolling
+welcome ticker between Hero and Section 2, a clean two-pillar redesign of Section 2, and a swap
+to a more reliable public audio URL.** All markup/CSS changes; the real AI Coach feature elsewhere
+in the app (App view, floating widget, full-screen page) is completely untouched — every removal
+here was scoped to the Home/landing view only, per the explicit ask.
+
+- **Hero subtitle** ("Elite Performance Swim Training") was overblown/inaccurate marketing copy
+  per direct feedback — changed to **"Swim & Gym Workout Schedules"**, a literal, honest
+  description of what the product does. Updated in three places kept in sync: the inline
+  `data-i18n="hero.eyebrow"` markup, and both the `I18N.en`/`I18N.ar` dictionary entries (Arabic:
+  "جداول تمارين السباحة والجيم") — missing any one of these would have left the eyebrow
+  reverting to the old text on a language switch. The pricing tier literally named "Elite"
+  ($21/mo, `data-plan="elite"`) was correctly left untouched — that's a real billing/product tier
+  name threaded through Paddle price IDs and the Admin Panel, not marketing puffery, and the ask
+  was specifically about the Hero's own descriptive copy.
+- **Every "AI" reference was removed from the Home/landing view specifically** — the
+  `.hero-ai-pitch` pill ("Meet your AI Swim Coach…"), the "Ask The AI Coach" hero button, and the
+  `.home-nav-links` "AI Coach" entry (replaced with "Tracker," since Section 2 below now covers
+  Swim/Gym and Tracker is the one remaining core tool with no other Home nav entry) are all gone.
+  Confirmed via a full grep of the `#homeView` markup range post-edit — the only remaining
+  `elite`/`ai` hits are the legitimate pricing-tier name and, correctly, nothing else. The real AI
+  Coach tab/floating widget/full-screen page inside the App view were never touched — this was a
+  landing-page-only cleanup, not a feature removal.
+- **A genuine infinite scrolling marquee** (`.home-ticker`) replaces what used to be a plain gap
+  between the Hero slide and Section 2 — a glassmorphic, neon-glow band showing "✦ Welcome to
+  Swimfit ✦ Get Your Daily Swim & Gym Schedules ✦ Train Smarter ✦" on an endless loop.
+  Implementation: two identical `.home-ticker-set` DOM twins sit side by side inside
+  `.home-ticker-track`, which animates `translateX` from `0` to exactly `-50%` — since both halves
+  are pixel-identical (not a guessed/measured distance), the loop is seamless at any viewport
+  width. Respects `prefers-reduced-motion` (animation disabled, static text). **A real,
+  previously-invisible bug was found and fixed while verifying this**: the Home slides' own
+  `scroll-snap-type: mandatory` (set on `html:has(body.view-home)`) forces every scroll gesture to
+  rest on the nearest registered snap point — and only `.home-slide` elements had
+  `scroll-snap-align`, so the browser always snapped straight past this thin ticker band back to
+  the Hero or Section 2, meaning a real visitor could never actually stop and read it (confirmed
+  directly: `scrollIntoView()` under the default mandatory snap left the ticker's
+  `getBoundingClientRect()` sitting off-screen/cut-off at the viewport edge every time, while the
+  identical call under `prefers-reduced-motion`'s `proximity` mode correctly centered it — proving
+  mandatory snapping was the actual cause, not a text-rendering issue). Fixed by giving
+  `.home-ticker` its own `scroll-snap-align: start` (default `scroll-snap-stop`, not `always` — a
+  fast fling can still skip past a purely decorative banner; only the 3 real content slides force
+  a stop), re-verified afterward landing at exactly `top: 0`.
+- **Section 2 was rebuilt from the previous dense UI-mockup cards (tags, a metrics figure, a
+  chart inset) into two clean, minimal "schedule pillar" cards** — a big glow icon circle, a short
+  heading, one line of copy, nothing else — per direct "looks like garbage, too confusing"
+  feedback. Retitled to match the Hero exactly ("Swim & Gym Workout Schedules"), and the pillars
+  themselves changed focus from the previous Gym+Tracker pairing to **Swim Schedule** (→ Workouts
+  tab) and **Gym Schedule** (→ Gym tab) — Tracker is still reachable via its own nav link and the
+  Pricing slide is unaffected. The geometric hexagon SVG background from the previous round was
+  kept (it was never the "messy" part — the dense card content was) and now reads as a calm
+  backdrop behind two large, breathing cards instead of competing with cluttered foreground text.
+  The old `.showcase-split`/`.visual-card*` CSS rules were left in place as harmless orphans (no
+  element in the DOM references them anymore), matching this file's established "don't touch
+  working rules, just stop reading them" precedent.
+- **The ambient-audio URL was swapped from the previous round's Pixabay download link to a
+  SoundHelix example track** (`soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`), at the user's
+  own explicit request — SoundHelix's example assets are a long-standing, widely-used public test
+  resource specifically kept freely hotlinkable, unlike Pixabay's download URLs (which can require
+  a referrer/session and expire), making this a materially more reliable choice for a plain
+  `<audio src="...">`. The play/pause JS itself was audited, not rewritten: `.play()` already only
+  ever runs inside the toggle button's own `click` handler, which is a genuine user gesture — the
+  one thing browser autoplay policy actually requires — so if audio still doesn't play once this
+  ships, the far more likely cause was the previous Pixabay URL itself being expired/session-gated,
+  not a JS logic bug. **Disclosed limitation, same class as every external-asset note already on
+  record in this file**: this sandbox's network policy also blocks direct fetches to
+  soundhelix.com (confirmed via `curl` — 403 from the proxy, the same generic outbound allowlist
+  that already blocks swimfit.online/api.paddle.com/jsdelivr/cdn.pixabay.com elsewhere in this
+  file), so actual audio playback still could not be verified from here — only that the `<audio>`
+  element's `src` resolves to the correct URL and the toggle's play/pause/icon-swap logic is
+  correct. Confirm playback on a real, unrestricted network; if this URL ever goes down, swap in
+  another public, hotlinkable MP3 URL in the same one-line `AMBIENT_TRACK_URL` spot. Never
+  autoplays — that remains correct, required browser behavior, not a workaround.
+- Verified via Playwright: the hero eyebrow reads the new text exactly; zero AI-related text or
+  buttons remain anywhere inside `#homeView`; the nav reads "Workouts | Gym | Tracker"; the ticker
+  renders with 6 duplicated marquee spans and a confirmed-running CSS animation, and — after the
+  scroll-snap-align fix — is reachable via `scrollIntoView()` and lands flush at the viewport top
+  under the site's real, default (mandatory) snap mode; both schedule pillars render with the
+  correct heading/copy and route to the correct tab on click; the audio `<source>` resolves to the
+  new SoundHelix URL; a 390px mobile viewport shows zero horizontal overflow at both the hero and
+  the ticker; and the full pre-existing regression suite (3 slides/3 dots/3 Paddle-wired pricing
+  buttons present, slide-dot navigation and Home↔App routing, a real PDF `download` event, and
+  Complete-Workout-to-Tracker logging) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

@@ -1760,18 +1760,74 @@ html:has(body.view-home) { scroll-snap-type: y mandatory; }
 .slide-pricing { background: #0C1220; }
 .slide-showcase > .wrap, .slide-pricing > .wrap { position: relative; z-index: 1; width: 100%; }
 
-/* Hero's own AI Coach pitch line + CTA row, sitting between the headline
-   and the (already-existing, unchanged) live subscriber-count stat. */
-.hero-ai-pitch {
-  display: inline-flex; align-items: center; gap: 10px; margin-inline: auto;
-  margin-top: var(--space-2); margin-bottom: var(--space-5); max-width: 54ch;
-  font-size: clamp(0.95rem, 1.3vw, 1.08rem); color: rgba(240,243,246,0.82);
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 999px; padding: 10px 20px; backdrop-filter: blur(8px);
+/* Hero's CTA row, sitting between the headline and the (already-existing,
+   unchanged) live subscriber-count stat. The previous "AI Coach pitch" pill
+   was removed outright per an explicit "no AI clutter on the homepage" ask
+   — the real AI Coach feature is untouched inside the App view, this was
+   scoped to the landing page only. */
+.hero-slide-actions { display: flex; align-items: center; justify-content: center; gap: var(--space-3); flex-wrap: wrap; pointer-events: auto; margin-top: var(--space-5); }
+
+/* ============================= HOME: SCROLLING WELCOME TICKER =============================
+   A genuine infinite marquee, replacing what used to be a plain divider
+   between the Hero and Section 2. Two identical duplicated
+   `.home-ticker-set`s sit side by side; animating the parent track by
+   exactly -50% loops seamlessly regardless of rendered text width, since
+   both halves are pixel-identical twins rather than a guessed distance. */
+/* A real, previously-invisible bug: with the Home slides' own
+   scroll-snap-type:mandatory, any scroll gesture is forced to rest on the
+   nearest registered snap point — and only .home-slide elements had
+   scroll-snap-align, so the browser always snapped straight past this thin
+   banner back to Hero or Slide 2, meaning it could never actually be read
+   at rest (confirmed by testing under prefers-reduced-motion's proximity
+   mode, where scrollIntoView correctly centered it — proving mandatory
+   snap was the cause). scroll-snap-align:start (with the default, not
+   "always", scroll-snap-stop — a fast fling can still skip past it, only
+   the 3 real content slides force a stop) makes the ticker a genuine,
+   reachable snap point of its own. */
+.home-ticker {
+  position: relative; overflow: hidden; padding-block: 16px;
+  background: rgba(255,255,255,0.04); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-block: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 0 40px -12px rgba(34,211,238,0.3) inset;
+  scroll-snap-align: start; scroll-margin-top: 0;
 }
-.hero-ai-pitch .icon { color: var(--aqua-bright); flex-shrink: 0; }
-.hero-slide-actions { display: flex; align-items: center; justify-content: center; gap: var(--space-3); flex-wrap: wrap; pointer-events: auto; }
-@media (max-width: 480px) { .hero-ai-pitch { font-size: 0.86rem; padding: 8px 16px; text-align: left; } }
+.home-ticker-track { display: flex; width: max-content; animation: homeTickerScroll 30s linear infinite; }
+.home-ticker-set { display: flex; flex-shrink: 0; }
+.home-ticker-item {
+  display: inline-flex; align-items: center; white-space: nowrap; padding-inline: var(--space-6);
+  font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 0.92rem; color: var(--aqua-bright); text-shadow: 0 0 14px rgba(34,211,238,0.65);
+}
+@keyframes homeTickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .home-ticker-track { animation: none; } }
+
+/* ============================= HOME: SWIM & GYM SCHEDULE PILLARS =============================
+   A clean, minimal two-pillar layout replacing the previous dense
+   UI-mockup cards (tags, metrics, a chart inset) per explicit "too
+   cluttered/confusing" feedback — a big glow icon, a short heading, one
+   line of copy, nothing else. */
+.schedule-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-top: var(--space-7); max-width: 860px; margin-inline: auto; }
+@media (max-width: 760px) { .schedule-split { grid-template-columns: 1fr; gap: var(--space-5); } }
+.schedule-pillar {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4);
+  padding: var(--space-8) var(--space-5); border-radius: var(--radius-lg); cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); backdrop-filter: blur(10px);
+  transition: transform 280ms var(--ease), border-color 280ms var(--ease), box-shadow 280ms var(--ease);
+}
+.schedule-pillar:hover, .schedule-pillar:focus-visible {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--card-accent) 50%, transparent);
+  box-shadow: 0 24px 48px -24px rgba(0,0,0,0.6), 0 0 40px -10px color-mix(in srgb, var(--card-accent) 55%, transparent);
+}
+.schedule-pillar-icon {
+  width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 40%, transparent);
+  box-shadow: 0 0 30px -6px color-mix(in srgb, var(--card-accent) 55%, transparent);
+}
+.schedule-pillar-icon .icon { width: 30px; height: 30px; color: var(--card-accent); }
+.schedule-pillar h3 { font-size: 1.3rem; font-weight: 700; color: var(--fg); }
+.schedule-pillar p { font-size: 0.95rem; color: rgba(240,243,246,0.62); max-width: 32ch; line-height: 1.55; }
 
 /* Slide 2's geometric SVG background pattern — a hexagon grid + two large
    thin-stroke rings, low-opacity, purely decorative (aria-hidden). */
@@ -3518,7 +3574,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="home-nav-links" id="homeNavLinks">
       <button type="button" data-tab="workouts" aria-current="false">Workouts</button>
       <button type="button" data-tab="gym" aria-current="false">Gym</button>
-      <button type="button" data-tab="coach" aria-current="false">AI Coach</button>
+      <button type="button" data-tab="tracker" aria-current="false">Tracker</button>
     </div>
     <button type="button" class="home-audio-toggle" id="homeAudioToggle" aria-pressed="false" aria-label="Play ambient background music">
       <svg class="icon icon-muted" aria-hidden="true"><use href="#i-volume-mute"/></svg>
@@ -3549,13 +3605,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="hero-video-overlay" aria-hidden="true"></div>
       <div class="hero-caustics" aria-hidden="true"></div>
       <div class="home-scene-text">
-        <p class="eyebrow" data-i18n="hero.eyebrow">Elite Performance Swim Training</p>
+        <p class="eyebrow" data-i18n="hero.eyebrow">Swim &amp; Gym Workout Schedules</p>
         <h1 data-i18n="hero.headline" data-i18n-html>Outswim Your Limits.<br>Own the <span class="accent">Race.</span></h1>
-        <p class="hero-ai-pitch"><svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg> Meet your AI Swim Coach — real-time technique feedback on every set, every stroke.</p>
         <div class="hero-slide-actions">
           <button type="button" class="btn btn-primary btn-cta-glow" data-open-auth="signup" data-auth-signed-out>Start 3-Day Free Trial</button>
           <button type="button" class="btn btn-primary" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
-          <button type="button" class="btn btn-ghost" data-tab="coach">Ask The AI Coach</button>
         </div>
       </div>
       <div class="home-scene-stat" id="activeSubscribersStat" style="display:none">
@@ -3563,10 +3617,34 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
     </header>
 
-    <!-- Slide 2: Smart Gym & Tracking — a geometric SVG pattern behind two
-         real UI-mockup visual cards (Gym + Tracker), each a real shortcut
-         into its own tool via the shared [data-tab] click-delegation. -->
-    <section class="home-slide slide-showcase" data-slide="1" aria-label="Smart Gym and Tracking">
+    <!-- Scrolling welcome ticker — a genuine infinite marquee (two identical
+         duplicated sets, translated by exactly -50% so the loop is seamless
+         regardless of rendered width), replacing what used to be a plain
+         divider between the Hero and Section 2. Sits in normal document flow
+         between the two .home-slide elements (no scroll-snap-align of its
+         own), so it never becomes a forced dwell point. -->
+    <div class="home-ticker" aria-hidden="true">
+      <div class="home-ticker-track">
+        <div class="home-ticker-set">
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+        </div>
+        <div class="home-ticker-set">
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2: a clean, minimal two-pillar layout — Swim Schedule / Gym
+         Schedule — replacing the previous dense UI-mockup cards (tags,
+         metrics, a chart inset) per explicit "too cluttered/confusing"
+         feedback. Each pillar is a real shortcut into its own tool via the
+         shared [data-tab] click-delegation; the geometric SVG background
+         pattern is kept (decorative, not "messy"). -->
+    <section class="home-slide slide-showcase" data-slide="1" aria-label="Swim and Gym schedules">
       <div class="slide-geo-bg" aria-hidden="true">
         <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
           <defs>
@@ -3580,33 +3658,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </svg>
       </div>
       <div class="wrap">
-        <div class="home-section-head" data-reveal>
-          <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> Smart Training</p>
-          <h2>Smart Gym &amp; Tracking</h2>
-          <p>Dryland programming and live progress data, built around your swim.</p>
+        <div class="home-section-head center" data-reveal>
+          <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="#i-target"/></svg> Your Plan</p>
+          <h2>Swim &amp; Gym Workout Schedules</h2>
+          <p>A fresh swim set and a matching dryland session — every single day.</p>
         </div>
-        <div class="showcase-split">
-          <button type="button" class="visual-card" data-tab="gym" data-reveal="left" style="--visual-photo:var(--gym-photo); --card-accent:var(--green-bright)">
-            <div class="visual-card-media"></div>
-            <div class="visual-card-body">
-              <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
-              <h3>Dryland &amp; Gym</h3>
-              <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
-              <span class="home-showcase-metric"><strong>6</strong><span>Gym Focuses</span></span>
-            </div>
+        <div class="schedule-split">
+          <button type="button" class="schedule-pillar" data-tab="workouts" data-reveal="left" style="--card-accent:var(--aqua-bright)">
+            <span class="schedule-pillar-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
+            <h3>Swim Schedule</h3>
+            <p>A new swim workout, built for you, every day.</p>
           </button>
-          <button type="button" class="visual-card" data-tab="tracker" data-reveal="right" style="--visual-photo:var(--hero-photo); --card-accent:var(--aqua-bright)">
-            <div class="visual-card-media"></div>
-            <div class="visual-card-body">
-              <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
-              <h3>Progress Tracker</h3>
-              <span class="home-showcase-metric"><strong>12.4 km</strong><span>Weekly Volume</span></span>
-              <svg class="home-showcase-chart" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
-                <rect x="4" y="26" width="10" height="14"/><rect x="20" y="20" width="10" height="20"/>
-                <rect x="36" y="16" width="10" height="24"/><rect x="52" y="10" width="10" height="30"/>
-                <rect x="68" y="4" width="10" height="36"/><rect x="84" y="8" width="10" height="32"/>
-              </svg>
-            </div>
+          <button type="button" class="schedule-pillar" data-tab="gym" data-reveal="right" style="--card-accent:var(--green-bright)">
+            <span class="schedule-pillar-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+            <h3>Gym Schedule</h3>
+            <p>Dryland strength and mobility work that matches your swim.</p>
           </button>
         </div>
       </div>
@@ -3656,7 +3722,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
        / TAB CONTROLLER script section). Home-only; hidden while view-app. -->
   <div class="slide-dots" id="slideDots" role="tablist" aria-label="Slide navigation">
     <button type="button" class="slide-dot" data-slide-index="0" aria-label="Hero slide"></button>
-    <button type="button" class="slide-dot" data-slide-index="1" aria-label="Smart Gym and Tracking slide"></button>
+    <button type="button" class="slide-dot" data-slide-index="1" aria-label="Swim and Gym schedules slide"></button>
     <button type="button" class="slide-dot" data-slide-index="2" aria-label="Pricing slide"></button>
   </div>
 </div>
@@ -5150,20 +5216,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   /* ============================= HOME AMBIENT AUDIO TOGGLE =============================
-     A real track URL is now wired in (a royalty-free Pixabay ambient loop,
-     supplied directly by the user). Disclosed limitation: this sandbox's
-     network policy blocks direct fetches to cdn.pixabay.com (confirmed via
-     curl — 403 from the proxy, same class of block already documented for
-     swimfit.online/api.paddle.com/jsdelivr elsewhere in this file), so
-     whether this exact URL actually resolves to playable audio could not be
-     verified from here — only that the wiring itself (play/pause, icon
-     swap, graceful failure) is correct. Confirm it plays in a real browser
-     on an unrestricted network; if it 404s or the asset was moved/removed,
-     swap in a fresh Pixabay (or other royalty-free) direct MP3 URL here.
-     Never autoplays — every browser's autoplay policy blocks unmuted audio
-     before a real user gesture, so the toggle still starts muted/off by
-     design, not as a workaround. */
-  var AMBIENT_TRACK_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3';
+     The Pixabay URL wired in last round is swapped for a SoundHelix example
+     track (soundhelix.com/examples/mp3/*) at the user's own explicit
+     request — a long-standing, widely-used public test asset specifically
+     kept freely hotlinkable (unlike Pixabay's download URLs, which can
+     require a referrer/session and expire), so it's a materially more
+     reliable choice for a plain <audio src="..."> tag. Disclosed limitation,
+     same class as before: this sandbox's network policy also blocks direct
+     fetches to soundhelix.com (confirmed via curl — 403 from the proxy,
+     the same generic outbound allowlist that blocks swimfit.online/
+     api.paddle.com/jsdelivr/cdn.pixabay.com elsewhere in this file), so
+     actual playback still could not be verified from here — only that the
+     wiring (play/pause, icon swap, graceful failure) is correct. The
+     play/pause logic itself was audited, not rewritten: `.play()` already
+     only ever runs inside the button's own `click` handler, which IS a
+     genuine user gesture — the one thing browser autoplay policy actually
+     requires — so if audio still doesn't play in a real browser once this
+     ships, the far more likely cause was the previous Pixabay URL itself
+     (an expired/session-gated download link), not the JS. Confirm playback
+     on a real, unrestricted network; if this URL ever goes down, swap in
+     another public, hotlinkable MP3 URL in this same spot. Still never
+     autoplays — that remains correct, required behavior, not a workaround. */
+  var AMBIENT_TRACK_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
   var homeAudioToggle = document.getElementById('homeAudioToggle');
   var homeAmbientAudio = document.getElementById('homeAmbientAudio');
   var homeAmbientAudioSource = document.getElementById('homeAmbientAudioSource');
@@ -9057,7 +9131,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
         'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
         'nav.signin': 'Sign In',
-        'hero.eyebrow': 'Elite Performance Swim Training',
+        'hero.eyebrow': 'Swim & Gym Workout Schedules',
         'hero.headline': 'Outswim Your Limits.<br>Own the <span class="accent">Race.</span>',
         'hero.sub': 'Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.',
         'hero.cta1': 'Build My Workout', 'hero.cta2': 'Explore Gym Plan',
@@ -9078,7 +9152,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'nav.workouts': 'التمارين', 'nav.gym': 'الجيم', 'nav.gear': 'المعدات', 'nav.academy': 'الأكاديمية',
         'nav.coach': 'المدرب الذكي', 'nav.tracker': 'المتتبع', 'nav.support': 'الدعم', 'nav.settings': 'الإعدادات', 'nav.pricing': 'الأسعار',
         'nav.signin': 'تسجيل الدخول',
-        'hero.eyebrow': 'تدريب السباحة الاحترافي النخبوي',
+        'hero.eyebrow': 'جداول تمارين السباحة والجيم',
         'hero.headline': 'تجاوز حدودك.<br>املك <span class="accent">السباق.</span>',
         'hero.sub': 'أطلق العنان لإمكاناتك مع تمارين سباحة عالية الأداء، وتدريب بري مخصص، وتتبّع فوري للتقدم.',
         'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'استكشف خطة الجيم',
