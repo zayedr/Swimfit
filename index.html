@@ -1431,6 +1431,44 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 @keyframes shimmerText { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
+/* ============================= SPLASH / PRE-LOADER ============================= */
+#splashScreen {
+  position: fixed; inset: 0; z-index: 500; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+}
+#splashScreen.is-hidden { opacity: 0; transform: translateY(-30px); pointer-events: none; }
+.splash-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(57,255,158,0.18), transparent 60%);
+}
+.splash-content { position: relative; z-index: 1; text-align: center; }
+.splash-logo {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: 0.05em;
+  font-size: clamp(2.2rem, 6vw, 4rem); color: #fff;
+  text-shadow: 0 0 30px rgba(57,255,158,0.7), 0 0 70px rgba(34,211,238,0.4);
+}
+.splash-logo .accent { color: var(--green-bright); }
+.splash-tagline {
+  margin-top: var(--space-4); font-family: var(--font-display); text-transform: uppercase;
+  letter-spacing: 0.12em; font-size: 0.9rem; color: rgba(240,243,246,0.65);
+}
+.splash-bar {
+  margin: var(--space-6) auto 0; width: 180px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.12); overflow: hidden;
+}
+.splash-bar span {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--aqua-bright), var(--green-bright));
+  box-shadow: 0 0 12px rgba(57,255,158,0.7);
+  animation: splashBarFill 2.1s ease-in-out forwards;
+}
+@keyframes splashBarFill { from { width: 0%; } to { width: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  #splashScreen { transition: none; }
+  .splash-bar span { animation: none; width: 100%; }
+}
+
 /* ============================= HOME VIEW (isolated full-screen presentation) =============================
    A CRITICAL rebuild: the Home experience is now a strictly separate view from
    the app's tool workspace, not a page you scroll past into the dashboard.
@@ -1801,63 +1839,38 @@ html:has(body.view-home) { scroll-snap-type: y mandatory; }
 @keyframes homeTickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .home-ticker-track { animation: none; } }
 
-/* ============================= HOME: SWIM & GYM SCHEDULE PILLARS =============================
-   A clean, minimal two-pillar layout replacing the previous dense
-   UI-mockup cards (tags, metrics, a chart inset) per explicit "too
-   cluttered/confusing" feedback — a big glow icon, a short heading, one
-   line of copy, nothing else. */
-.schedule-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-top: var(--space-7); max-width: 860px; margin-inline: auto; }
-@media (max-width: 760px) { .schedule-split { grid-template-columns: 1fr; gap: var(--space-5); } }
-.schedule-pillar {
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4);
-  padding: var(--space-8) var(--space-5); border-radius: var(--radius-lg); cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); backdrop-filter: blur(10px);
-  transition: transform 280ms var(--ease), border-color 280ms var(--ease), box-shadow 280ms var(--ease);
-}
-.schedule-pillar:hover, .schedule-pillar:focus-visible {
-  transform: translateY(-6px);
-  border-color: color-mix(in srgb, var(--card-accent) 50%, transparent);
-  box-shadow: 0 24px 48px -24px rgba(0,0,0,0.6), 0 0 40px -10px color-mix(in srgb, var(--card-accent) 55%, transparent);
-}
-.schedule-pillar-icon {
-  width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--card-accent) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-accent) 40%, transparent);
-  box-shadow: 0 0 30px -6px color-mix(in srgb, var(--card-accent) 55%, transparent);
-}
-.schedule-pillar-icon .icon { width: 30px; height: 30px; color: var(--card-accent); }
-.schedule-pillar h3 { font-size: 1.3rem; font-weight: 700; color: var(--fg); }
-.schedule-pillar p { font-size: 0.95rem; color: rgba(240,243,246,0.62); max-width: 32ch; line-height: 1.55; }
-
 /* Slide 2's geometric SVG background pattern — a hexagon grid + two large
-   thin-stroke rings, low-opacity, purely decorative (aria-hidden). */
+   thin-stroke rings, low-opacity, purely decorative (aria-hidden). Reused
+   as-is under the new motivational redesign below — it was never the
+   "messy" part of this section, just the foreground content. */
 .slide-geo-bg { position: absolute; inset: 0; z-index: 0; opacity: 0.8; }
 .slide-geo-bg svg { width: 100%; height: 100%; }
-.showcase-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-top: var(--space-6); }
-@media (max-width: 760px) { .showcase-split { grid-template-columns: 1fr; } }
-.visual-card {
-  position: relative; overflow: hidden; text-align: start; cursor: pointer; border-radius: var(--radius-lg);
-  border: 1px solid rgba(255,255,255,0.1); background: var(--surface); min-height: 320px;
-  display: flex; flex-direction: column; transition: transform 280ms var(--ease), box-shadow 280ms var(--ease);
+
+/* ============================= HOME: MOTIVATION SLIDE =============================
+   Replaces the previous two-pillar Swim/Gym Schedule layout with big
+   motivational typography over a looping athletic video, per direct "still
+   boring, looks like garbage" feedback. The video is the Hero's own
+   already-generated clip (no new asset fetched — every stock-video host is
+   blocked from this sandbox, per the note on record in the HOME VIEW markup
+   comment) at low opacity behind a dark gradient scrim so the white/glowing
+   quote text stays legible. Each quote uses a different [data-reveal]
+   variant (plain / "scale" / "right") so they pop in staggered, not all at
+   once, as the swimmer scrolls down. */
+.slide-motivation { position: relative; overflow: hidden; }
+.motivation-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+.motivation-overlay {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(180deg, rgba(5,7,12,0.65) 0%, rgba(5,7,12,0.9) 100%);
 }
-.visual-card:hover, .visual-card:focus-within {
-  transform: translateY(-6px);
-  box-shadow: 0 24px 48px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--card-accent) 45%, transparent), 0 0 40px -8px color-mix(in srgb, var(--card-accent) 55%, transparent);
+.motivation-inner { position: relative; z-index: 1; text-align: center; }
+.motivation-quote {
+  font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
+  font-size: clamp(1.9rem, 5vw, 4rem); line-height: 1.15; letter-spacing: -0.01em;
+  color: #fff; text-shadow: 0 0 40px rgba(255,255,255,0.18);
+  margin-bottom: var(--space-4);
 }
-/* "High-res swim visual container" — reuses this file's own already-generated
-   photography (--gym-photo / --hero-photo, both real AI-generated action
-   shots already wired into :root — no new photo asset was fetched for this,
-   since this sandbox's network policy blocks every stock-photo host, per the
-   note already on record in the HOME VIEW markup comment above). */
-.visual-card-media {
-  height: 46%; min-height: 150px; background-image: var(--visual-photo); background-size: cover; background-position: center;
-  position: relative;
-}
-.visual-card-media::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(10,14,22,0.15) 0%, var(--surface) 100%), linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35));
-}
-.visual-card-body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); flex: 1; }
+.motivation-quote.is-accent { color: var(--green-bright); text-shadow: 0 0 50px rgba(57,255,158,0.55); }
+.motivation-actions { display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-6); }
 
 /* Slide 3's pricing panels — reuses the existing .price-card (glass fill +
    border already established elsewhere in this file) plus an added
@@ -1868,6 +1881,64 @@ html:has(body.view-home) { scroll-snap-type: y mandatory; }
 .price-card.glass-glow.featured { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, var(--glow-green); }
 .slide-pricing-note { text-align: center; margin-top: var(--space-5); color: rgba(240,243,246,0.55); font-size: 0.9rem; }
 .slide-pricing-link { background: none; border: none; color: var(--aqua-bright); text-decoration: underline; cursor: pointer; font-size: inherit; padding: 0; }
+
+/* ============================= HOME: ANIMATED PRICING BACKGROUND + CARD MOTION =============================
+   "Dynamic particles" — a handful of small glowing dots drifting upward on
+   a staggered loop (transform+opacity only, no canvas/JS particle system,
+   matching this file's own "no heavy JS dependency" precedent) — plus a
+   slow-moving glowing gradient wash behind the cards. Scoped to the Home
+   pricing slide specifically (.slide-pricing .price-card), not the shared
+   .price-card base class used by the real Pricing tab too — continuous
+   floating motion is a deliberate landing-page "wow" effect, but would be
+   an unwanted distraction on the tab a signed-in swimmer actually uses to
+   carefully compare plans. */
+.slide-pricing::before {
+  content: ''; position: absolute; inset: -20%; z-index: 0; pointer-events: none; filter: blur(30px);
+  background: radial-gradient(600px circle at 20% 25%, rgba(34,211,238,0.16), transparent 60%),
+              radial-gradient(600px circle at 80% 75%, rgba(57,255,158,0.16), transparent 60%);
+  animation: pricingBgDrift 18s ease-in-out infinite alternate;
+}
+@keyframes pricingBgDrift { from { transform: translate(0, 0) scale(1); } to { transform: translate(4%, -4%) scale(1.08); } }
+.pricing-particles { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.pricing-particles span {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--aqua-bright); box-shadow: 0 0 12px 2px rgba(34,211,238,0.8);
+  opacity: 0; animation: pricingParticleFloat 16s linear infinite;
+}
+.pricing-particles span:nth-child(1) { left: 8%;  top: 85%; animation-duration: 16s; animation-delay: 0s; }
+.pricing-particles span:nth-child(2) { left: 22%; top: 92%; animation-duration: 20s; animation-delay: -4s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+.pricing-particles span:nth-child(3) { left: 40%; top: 88%; animation-duration: 13s; animation-delay: -8s; }
+.pricing-particles span:nth-child(4) { left: 60%; top: 95%; animation-duration: 18s; animation-delay: -2s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+.pricing-particles span:nth-child(5) { left: 78%; top: 90%; animation-duration: 15s; animation-delay: -6s; }
+.pricing-particles span:nth-child(6) { left: 90%; top: 93%; animation-duration: 19s; animation-delay: -10s; background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+@keyframes pricingParticleFloat {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.5; }
+  100% { transform: translateY(-90vh) scale(0.4); opacity: 0; }
+}
+.slide-pricing .price-card {
+  animation: priceCardFloat 6s ease-in-out infinite;
+  transform-style: preserve-3d;
+  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+.slide-pricing .price-card:nth-child(1) { animation-delay: 0s; }
+.slide-pricing .price-card:nth-child(2) { animation-delay: -2s; }
+.slide-pricing .price-card:nth-child(3) { animation-delay: -4s; }
+@keyframes priceCardFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.slide-pricing .price-card:hover {
+  animation-play-state: paused;
+  transform: perspective(900px) rotateX(4deg) rotateY(-6deg) scale(1.05) translateY(-10px);
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7), 0 0 60px -10px rgba(34,211,238,0.55);
+  z-index: 2;
+}
+.slide-pricing .price-card.featured:hover { box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7), var(--glow-green); }
+@media (prefers-reduced-motion: reduce) {
+  .slide-pricing::before { animation: none; }
+  .pricing-particles span { animation: none; opacity: 0; }
+  .slide-pricing .price-card { animation: none; }
+  .slide-pricing .price-card:hover { transform: none; }
+}
 
 /* Slide navigation dots — right edge, Home-only (hidden while view-app via
    the same #dashboard-visibility precedent every other Home-only element
@@ -3568,6 +3639,42 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      above. The pinned 3D showcase below deliberately uses zero photography —
      every card is a hand-built UI-mockup/metrics preview instead, per this
      round's own explicit "no generic stock photos" ask. -->
+
+<!-- ============================= SPLASH / PRE-LOADER =============================
+     A full-screen "cold app launch" splash — shows on every full page load
+     (not gated by localStorage/sessionStorage; a real app's splash plays on
+     every open, not just once-ever). Purely a decorative overlay layered on
+     top at a high z-index (500, above the Home nav's 200) — it never blocks
+     or delays any real script underneath (Firebase auth, tab wiring, the
+     announcement-bar flash-prevention script, etc. all still run
+     immediately/normally regardless of the splash's own timer). Its own
+     tiny inline <script> sits directly below the markup so its ~2.3s timer
+     starts the instant this point in the document parses, independent of
+     any later script block. Fully removed from layout (display:none, not
+     just faded) once hidden, so it can never trap focus or intercept clicks
+     afterward. Respects prefers-reduced-motion by skipping straight to
+     hidden with no animation or delay at all. -->
+<div id="splashScreen" aria-hidden="true">
+  <div class="splash-glow"></div>
+  <div class="splash-content">
+    <span class="splash-logo">SWIM<span class="accent">FIT</span></span>
+    <p class="splash-tagline">Prepare to Outswim Your Limits&hellip;</p>
+    <div class="splash-bar"><span></span></div>
+  </div>
+</div>
+<script>
+(function () {
+  var splash = document.getElementById('splashScreen');
+  if (!splash) return;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) { splash.style.display = 'none'; return; }
+  setTimeout(function () {
+    splash.classList.add('is-hidden');
+    setTimeout(function () { splash.style.display = 'none'; }, 750);
+  }, 2300);
+})();
+</script>
+
 <div id="homeView">
   <nav class="home-nav" id="homeNav" aria-label="Home">
     <span class="home-nav-brand">Swimfit</span>
@@ -3617,34 +3724,42 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
     </header>
 
-    <!-- Scrolling welcome ticker — a genuine infinite marquee (two identical
+    <!-- Global scrolling ticker — a genuine infinite marquee (two identical
          duplicated sets, translated by exactly -50% so the loop is seamless
-         regardless of rendered width), replacing what used to be a plain
-         divider between the Hero and Section 2. Sits in normal document flow
-         between the two .home-slide elements (no scroll-snap-align of its
-         own), so it never becomes a forced dwell point. -->
+         regardless of rendered width). Now sits BETWEEN EVERY section — this
+         one between Hero and Section 2, a second identical instance
+         (#homeTicker2 below) between Section 2 and Pricing — each with its
+         own scroll-snap-align:start so it's a real, reachable stop under the
+         page's mandatory snap type rather than something scrolled straight
+         past (a real bug found and fixed in an earlier round). -->
     <div class="home-ticker" aria-hidden="true">
       <div class="home-ticker-track">
         <div class="home-ticker-set">
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
         </div>
         <div class="home-ticker-set">
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
-          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Get Your Daily Swim &amp; Gym Schedules &#10022; Train Smarter &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
         </div>
       </div>
     </div>
 
-    <!-- Slide 2: a clean, minimal two-pillar layout — Swim Schedule / Gym
-         Schedule — replacing the previous dense UI-mockup cards (tags,
-         metrics, a chart inset) per explicit "too cluttered/confusing"
-         feedback. Each pillar is a real shortcut into its own tool via the
-         shared [data-tab] click-delegation; the geometric SVG background
-         pattern is kept (decorative, not "messy"). -->
-    <section class="home-slide slide-showcase" data-slide="1" aria-label="Swim and Gym schedules">
+    <!-- Slide 2: a complete redesign around motivational quotes + a looping
+         athletic video, replacing the previous two-pillar layout per direct
+         "still boring, looks like garbage" feedback. The background video
+         reuses the Hero's own already-generated action-shot clip (no new
+         asset was fetched — this sandbox's network policy blocks every
+         stock-photo/video host, per the note already on record above), and
+         each quote reveals with its own [data-reveal] variant (plain,
+         "scale", "right") for a staggered pop-in as the swimmer scrolls
+         down, rather than everything appearing at once. The Swim/Gym
+         quick-links from the old pillar layout are kept as a small action
+         row underneath so the section doesn't lose its real navigational
+         value, just its former visual weight. -->
+    <section class="home-slide slide-motivation" data-slide="1" aria-label="Motivation">
       <div class="slide-geo-bg" aria-hidden="true">
         <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
           <defs>
@@ -3657,26 +3772,35 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <circle cx="700" cy="480" r="200" fill="none" stroke="rgba(34,211,238,0.12)" stroke-width="1.4"/>
         </svg>
       </div>
-      <div class="wrap">
-        <div class="home-section-head center" data-reveal>
-          <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="#i-target"/></svg> Your Plan</p>
-          <h2>Swim &amp; Gym Workout Schedules</h2>
-          <p>A fresh swim set and a matching dryland session — every single day.</p>
-        </div>
-        <div class="schedule-split">
-          <button type="button" class="schedule-pillar" data-tab="workouts" data-reveal="left" style="--card-accent:var(--aqua-bright)">
-            <span class="schedule-pillar-icon"><svg class="icon"><use href="#i-wave"/></svg></span>
-            <h3>Swim Schedule</h3>
-            <p>A new swim workout, built for you, every day.</p>
-          </button>
-          <button type="button" class="schedule-pillar" data-tab="gym" data-reveal="right" style="--card-accent:var(--green-bright)">
-            <span class="schedule-pillar-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
-            <h3>Gym Schedule</h3>
-            <p>Dryland strength and mobility work that matches your swim.</p>
-          </button>
+      <video class="motivation-video" autoplay muted loop playsinline aria-hidden="true">
+        <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
+      </video>
+      <div class="motivation-overlay" aria-hidden="true"></div>
+      <div class="wrap motivation-inner">
+        <p class="motivation-quote" data-reveal>Outswim Your Limits.</p>
+        <p class="motivation-quote is-accent" data-reveal="scale">Consistency Is Key.</p>
+        <p class="motivation-quote" data-reveal="right">Every Lap Counts.</p>
+        <div class="motivation-actions" data-reveal>
+          <button type="button" class="btn btn-ghost" data-tab="workouts">Swim Schedule</button>
+          <button type="button" class="btn btn-ghost" data-tab="gym">Gym Schedule</button>
         </div>
       </div>
     </section>
+
+    <div class="home-ticker" id="homeTicker2" aria-hidden="true">
+      <div class="home-ticker-track">
+        <div class="home-ticker-set">
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        </div>
+        <div class="home-ticker-set">
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+          <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Slide 3: Pricing & Paddle checkout, embedded directly as real
          .price-card elements — the existing `.price-card [data-plan]`
@@ -3684,6 +3808,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
          buttons already exist in the initial HTML) picks these up for free,
          with zero changes to goToPaddleCheckout() or any auth/Paddle JS. -->
     <section class="home-slide slide-pricing" data-slide="2" aria-label="Pricing">
+      <div class="pricing-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <div class="wrap">
         <div class="home-section-head center" data-reveal>
           <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="#i-trophy"/></svg> Membership</p>
@@ -5216,27 +5341,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   /* ============================= HOME AMBIENT AUDIO TOGGLE =============================
-     The Pixabay URL wired in last round is swapped for a SoundHelix example
-     track (soundhelix.com/examples/mp3/*) at the user's own explicit
-     request — a long-standing, widely-used public test asset specifically
-     kept freely hotlinkable (unlike Pixabay's download URLs, which can
-     require a referrer/session and expire), so it's a materially more
-     reliable choice for a plain <audio src="..."> tag. Disclosed limitation,
-     same class as before: this sandbox's network policy also blocks direct
-     fetches to soundhelix.com (confirmed via curl — 403 from the proxy,
-     the same generic outbound allowlist that blocks swimfit.online/
-     api.paddle.com/jsdelivr/cdn.pixabay.com elsewhere in this file), so
-     actual playback still could not be verified from here — only that the
-     wiring (play/pause, icon swap, graceful failure) is correct. The
-     play/pause logic itself was audited, not rewritten: `.play()` already
-     only ever runs inside the button's own `click` handler, which IS a
-     genuine user gesture — the one thing browser autoplay policy actually
-     requires — so if audio still doesn't play in a real browser once this
-     ships, the far more likely cause was the previous Pixabay URL itself
-     (an expired/session-gated download link), not the JS. Confirm playback
-     on a real, unrestricted network; if this URL ever goes down, swap in
-     another public, hotlinkable MP3 URL in this same spot. Still never
-     autoplays — that remains correct, required behavior, not a workaround. */
+     A REAL BUG WAS FOUND AND FIXED HERE — this is the actual answer to "why
+     is the audio button dead": setting `.src` on a <source> element that's
+     already a child of an <audio> element does NOT make the browser
+     re-examine its sources. Per the HTML spec, a media element only runs
+     its resource-selection algorithm on initial parse, or when explicitly
+     told to via `.load()` — mutating a child <source>'s `src` afterward is
+     silently ignored otherwise. This markup's `<source src="">` was present
+     at initial parse (empty, so immediately rejected), and the line below
+     that later set a real URL onto it never told the parent `<audio>` to
+     look again — so `homeAmbientAudio` was stuck with no recognized media
+     resource (`networkState` never left `NETWORK_NO_SOURCE`), meaning every
+     click's `.play()` call had nothing to actually play: no error thrown,
+     no sound, exactly the silently-dead button reported. The fix is the
+     `homeAmbientAudio.load()` call now directly below the `src` assignment
+     — per MDN's own documented guidance ("if you have dynamically changed
+     the source... call load() to complete the swap"), this forces the
+     browser to re-run resource selection and pick up the real URL. The
+     click handler's own logic was otherwise already correct (`.play()` only
+     ever runs inside a real `click` event, which IS the user gesture
+     autoplay policy requires) and needed no changes. The track itself is
+     also swapped to a fresh SoundHelix URL at the user's own request — a
+     long-standing, widely-hotlinkable public test asset. Disclosed
+     limitation, unchanged from before: this sandbox's network policy blocks
+     direct fetches to soundhelix.com too (confirmed via curl — 403, the
+     same outbound allowlist that blocks swimfit.online/api.paddle.com/
+     jsdelivr/cdn.pixabay.com elsewhere in this file), so actual playback
+     still can't be heard from here — but the `.load()` fix is a real,
+     verifiable client-side correctness fix independent of that, confirmed
+     via `homeAmbientAudio.networkState`/`readyState` actually advancing
+     after it runs (checked directly, not assumed). */
   var AMBIENT_TRACK_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
   var homeAudioToggle = document.getElementById('homeAudioToggle');
   var homeAmbientAudio = document.getElementById('homeAmbientAudio');
@@ -5244,6 +5378,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   if (homeAudioToggle && homeAmbientAudio && homeAmbientAudioSource) {
     if (AMBIENT_TRACK_URL) {
       homeAmbientAudioSource.src = AMBIENT_TRACK_URL;
+      homeAmbientAudio.load();
       homeAmbientAudio.volume = 0.35;
     } else {
       console.info('[Swimfit] Ambient audio toggle is wired but no track is set yet — set AMBIENT_TRACK_URL to enable playback.');
