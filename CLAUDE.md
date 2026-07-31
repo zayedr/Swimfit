@@ -4710,6 +4710,98 @@ the splash's own inline script.**
   background, the Workouts PDF export firing a real `download` event, and Complete Workout logging)
   passes unchanged with zero page errors.
 
+**A round fixing real mobile-only layout bugs (traced to the previous round's own top-ticker
+change), a mobile breathing-room pass, quieter audio, and two Workout Generator logic
+improvements — all reported as "desktop looks great, mobile is broken."**
+
+- **A real, previously-undiscovered bug was found and fixed: `#homeTopTicker` (added last round)
+  was never actually `position:fixed` at all.** Its positioning was declared as a plain `.home-
+  top-ticker` class rule, but `.home-ticker`'s own base rule — declared *later* in this stylesheet,
+  with equal specificity — sets `position:relative`, and CSS resolves equal-specificity conflicts
+  by source order alone regardless of which rule "looks" more specific by name. The practical
+  effect: the ticker just sat once in normal document flow at the very top of the page. On the
+  Hero this was invisible (page loads at scrollY 0, so a relatively-positioned element at the top
+  of the flow looks identical to a fixed one there) — which is exactly why the previous round's own
+  verification never caught it. But it meant the ticker scrolled away entirely on Slides 2/3, and
+  `.home-nav` (which *is* correctly fixed) stayed pinned over the top of whatever content scrolled
+  up underneath it with nothing compensating — so the Pricing slide's own "Membership" eyebrow/
+  heading rendered **partially behind the nav**, reading exactly as "the section is cut off,"
+  matching the bug report precisely. Fixed by pinning `#homeTopTicker`'s positioning properties to
+  the `#id` instead of the shared `.class`, immune to any future reordering of `.home-ticker`'s own
+  rule. Verified via Playwright: the ticker's computed `position` now reads `fixed` and its
+  `getBoundingClientRect().bottom` stays a constant `36` across every scroll position (Hero, Slide
+  2, Slide 3) — it was previously scrolling thousands of pixels off-screen on Slides 2/3.
+- **A second, downstream bug in the same area: every `.home-slide`'s own top padding never
+  accounted for the fixed nav+ticker header stack at all** — only the Hero had a hand-tuned
+  `padding-top`, and even that was silently overridden by a more-specific `.hero.home-slide` rule
+  that used to sit below it (a `padding-block` shorthand beats a lone `padding-top` at equal
+  specificity when it comes later in source, per the CSS Logical Properties "corresponding
+  properties" resolution rule). Fixed by giving the shared `.home-slide` rule itself the same
+  `calc(100px + var(--home-ticker-h, 0px))` top clearance the Hero had always used, and deleting
+  the now-fully-redundant `.hero`-specific overrides. Verified via Playwright: the Pricing slide's
+  "Membership" eyebrow now renders at `y=152` (previously `y=112`, `17px` of which sat behind the
+  nav's `129px`-tall fixed bottom edge) with zero overlap on all three slides.
+- **The App-view's global ticker (`#dashGlobalTicker`) had the identical root problem on mobile,
+  just inverted — nothing on inner pages ever reserved room for the mobile top nav bar's own real
+  height** (only the announce bar's height was ever subtracted from `body`'s top padding), so the
+  ticker rendered with its own top edge partially behind the fixed nav. Per direct request, it's
+  now the genuine topmost element on every inner tab below the sidebar breakpoint (981px) — a
+  `position:fixed` strip at true viewport `y=0`, with the announce bar and nav both pushed down by
+  its height (a new `--dash-ticker-h` token, threaded through `.announce-bar`/`.nav`/`.nav-links`/
+  `.toast-stack`'s existing `--announce-h`-based offsets via higher-specificity `body.view-app`-
+  prefixed overrides, so they can never lose to the base rules regardless of source order — the
+  same defensive pattern used for the ticker fix above). Scoped entirely to ≤980px — the desktop
+  layout the swimmer explicitly called "great" is completely untouched, the ticker keeps its
+  original in-flow position inside `#dashboard` there. Verified via Playwright: the ticker is now
+  the first element in the viewport at `y=0` on Workouts/Gym/Tracker on mobile, with zero overlap
+  against the nav.
+- **A moderate mobile breathing-room pass**, per the `@media (max-width: 768px)` breakpoint
+  explicitly requested — widens `.wrap`/`.panel-wide-inner` padding, `.bento-grid`/`.workouts-col-*`/
+  `.gym-top-bar` gaps, `.chip-group`/`.equipment-grid` gaps (8px → 10px), chip/equipment-pill
+  padding, and card padding across `.card`/`.price-card`/the Tracker/Settings cards — every value
+  only *widens* an existing gap/padding already in use elsewhere in this file, so nothing can
+  regress into overlap, only spread further apart. A direct sibling-overlap audit of the Equipment/
+  Discipline/Goal chip groups at 375px found no actual overlapping elements before this change
+  (the "cramped" read was a real but more diffuse spacing complaint, not a specific broken layout),
+  so this is an honest polish pass rather than a claimed bug fix.
+- **Ambient audio volume lowered a third time, 0.05 → 0.02**, per continued feedback it was still
+  audible — the third reduction this file has made to the same value (0.35 → 0.12 → 0.05 → 0.02).
+- **Fitness Goals relabeled to match the Weekly Training Schedule's own terminology.** The picker's
+  three buttons ("Endurance"/"Speed"/"Technique") read as a disconnected vocabulary from the
+  schedule sitting directly above them, which already uses "Sprint / Power," "Aerobic / Distance,"
+  "Threshold," "Technique / Drills," and "Race Pace" for its six day names. Relabeled to "Aerobic /
+  Distance," "Sprint / Power," and "Technique / Drills" — three of the schedule's own exact terms —
+  with only the `label` field changed; every `key` (`'endurance'`/`'speed'`/`'technique'`) and every
+  archetype-pool/pace/gym-orientation lookup keyed off it is untouched, so this is a display-only
+  rename. "Threshold" and "Race Pace" (the schedule's other two non-technique day names) weren't
+  added as separate 4th/5th buttons since they already draw from these same two pools rather than
+  having distinct archetype content of their own — a button with no distinct backing logic would
+  just be a cosmetic duplicate, not a real new choice.
+- **A real, reachable bug in the Main Set generator was found and fixed: a Sprinter-type swimmer
+  (Race Goal card) on an Endurance-themed day could be handed a genuine "4×400m"-style long
+  unbroken swim**, exactly as described in the bug report. Root cause: `Aerobic Base`'s own
+  `build()` computes `Math.max(2, Math.round(m / 400))` reps of a 400m rep once total distance hits
+  3000m+ — appropriate training for a distance-oriented swimmer, but not for one whose training is
+  built around fast-twitch, race-specific work. `Build-By-Thirds` (a single continuous rep that
+  scales directly with distance) and `Distance Ladder` (long descending rungs) are the same
+  category of problem. Fixed with a new `SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES` filter — mirroring
+  the existing `BEGINNER_EXCLUDED_ARCHETYPES` pattern exactly, including its same empty-pool safety
+  net — that removes these three archetypes from the combined pool only when `state.swimmerType ===
+  'sprinter'` AND Endurance is one of the selected goals (a Sprinter on a pure Speed/Technique day
+  is completely unaffected). This leaves exactly the Endurance archetypes already built around
+  short reps and short rest — `Negative-Split Pull` (100m reps), `Descend Ladder` (50m reps), and
+  `Broken Threshold Swim` (200m broken into 2×100) — which is the actual "high-repetition 50s/100s,
+  short rest" adaptation the bug report asked for, achieved by routing to already-correct archetypes
+  rather than rewriting the pool's own pacing logic. Verified via Playwright across 20 simulated
+  calendar days at 5000m: a Sprinter+Endurance combo never once rendered `Aerobic Base`/`Build-By-
+  Thirds`/`Distance Ladder` in the generated output, while an identical Distance+Endurance control
+  run across the same 20 days did render `Aerobic Base`/`Build-By-Thirds` — confirming the filter is
+  condition-specific, not an accidental removal from the whole pool.
+- Verified via Playwright: the full pre-existing regression suite (all 9 App-view tabs with zero
+  page errors, zero genuine horizontal overflow on desktop and mobile, the Workouts PDF export
+  firing a real `download` event, Complete Workout logging, and the Home page's splash/slide/audio
+  behavior from prior rounds) passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
