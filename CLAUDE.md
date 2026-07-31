@@ -4243,6 +4243,100 @@ backend logic touched anywhere.
   Complete-Workout-to-Tracker logging, zero horizontal overflow at mobile/desktop) still passes
   unchanged with zero page errors.
 
+**A follow-up round centered the Home page's marketing copy, redesigned the lower sections into a
+punchier geometric bento/timeline, and shipped a working (but track-less) ambient-audio toggle —
+pure CSS/markup plus one small, additive, self-contained JS block; no existing script tag,
+Firebase call, or Paddle logic was touched, per the round's own explicit constraint.**
+
+- **Hero and every section head are now genuinely centered**, not just visually close. The
+  previous round's centering was inconsistent: `.home-scene-text` (the Hero's eyebrow+headline
+  wrapper) was still left-aligned via `position:absolute; left/right: var(--space-6)` with no
+  `text-align`/`margin-inline` of its own — it happened to sit near the middle of the viewport
+  only because its `max-width:900px` box was roughly centered by coincidence, but the text inside
+  it was never actually centered. Fixed by adding `margin-inline:auto; text-align:center` to
+  `.home-scene-text` directly (the Feature Showcase's and How-It-Works' own `.home-section-head`
+  wrapper was already correctly `text-align:center` from an earlier round — audited, not touched).
+- **A real, screenshot-caught centering bug in the Hero eyebrow was found and fixed**: `.eyebrow`
+  is `display:inline-flex` (a leading 22×2px dash `::before` plus the label text as two flex
+  siblings). Once the parent gained `text-align:center`, the eyebrow's long label ("Elite
+  Performance Swim Training") wrapped to two lines inside its own flex item, and — since
+  `align-items:center` (the default) vertically centers each flex item against the *tallest*
+  sibling's height — the short, non-wrapping dash ended up floating at the vertical midpoint
+  between the two text lines, visually disconnected and left-anchored rather than reading as one
+  centered unit. Confirmed via a direct Playwright screenshot before diagnosing the cause (not
+  just from reading the CSS). Fixed by scoping `flex-wrap:wrap; justify-content:center` onto
+  `.home-scene-text .eyebrow` specifically — the dash now wraps onto its own centered line above
+  the (still possibly two-line) label whenever space is tight, instead of floating mid-height.
+  Re-verified via a follow-up screenshot at both desktop and 390px mobile widths (zero horizontal
+  overflow at either).
+- **The Feature Showcase's copy was shortened to punchy 2-4 word fragments**, replacing full
+  sentences: the section head's supporting line became "Smarter Sets. Sharper Technique. Real
+  Progress." (was a full sentence listing every feature), the Workout Generator card's note became
+  "New Set. Every Day.", the AI Coach card's became "Real-Time Feedback.", and the Dryland & Gym
+  card's long note was replaced entirely with a real stat — `<span class="home-showcase-metric">
+  <strong>6</strong><span>Gym Focuses</span></span>` (6, matching the real count of `GYM_FOCUS`
+  entries: upper/lower/full/cardio/flexibility/plyometrics) — reusing the exact stat-tile markup
+  pattern the Progress Tracker card already had, rather than inventing a new one.
+- **Every Feature Showcase card gained real glassmorphism and a glowing geometric corner accent.**
+  `.home-showcase-card` picked up a translucent gradient fill (`backdrop-filter: blur(14px)`), a
+  hairline border, and a soft resting shadow; a new `::after` pseudo-element draws a 34×34px
+  accent-colored corner bracket (top-left, using each card's own `--card-accent` custom property,
+  the same per-card accent variable already driving the icon tile) at low opacity, brightening to
+  full opacity on hover/focus alongside a stronger lift, a colored border, and a glow ring —
+  reusing the established `color-mix(in srgb, var(--card-accent) N%, transparent)` pattern already
+  used elsewhere in this file rather than inventing a new color-mixing convention.
+- **A stagger-delay entrance was added for the Feature Showcase and How-It-Works grids** — neither
+  uses the shared `.grid` class (they're their own bespoke bento/timeline layouts), so the
+  pre-existing `.grid > [data-reveal]:nth-child(N) { transition-delay: … }` stagger rules never
+  applied to them; every card/step in both sections previously revealed simultaneously with zero
+  choreography. New `.home-showcase-grid > [data-reveal]:nth-child(N)` / `.home-steps-grid >
+  [data-reveal]:nth-child(N)` rules (0/110/220/330ms) give both sections the same cascading
+  entrance every other `.grid`-based section on the site already had.
+- **How It Works was rebuilt into a real interactive-feeling timeline** — each step now shows a
+  small "STEP" label above a bold "01"/"02"/"03" (was a plain "1"/"2"/"3"), and each step's
+  supporting copy was shortened to a punchy fragment ("Google Sign-In. Instant Access." /
+  "Pick Your Goals. We Build The Set." / "Log Swims. Track Progress." — was a full sentence per
+  step). The number itself moved from a plain 52px circle to a 60px **octagon** (`clip-path:
+  polygon(...)`, not a circle — a deliberately more "geometric/technical" marker per the ask) with
+  a real two-layer glow reusing the existing `--glow-green` token, and gained a genuine hover
+  interaction (`.home-step:hover .home-step-num` scales up and brightens its glow; the step's own
+  heading tints green on hover too) — a tactile, "this timeline responds to you" feel with no JS
+  state machine needed, just CSS. The horizontal connecting line between steps (desktop only,
+  ≥761px) had its vertical offset (`top`) recalculated from 26px (half of the old 52px circle) to
+  74px to re-align through the center of the new, taller node+label stack — confirmed via a direct
+  Playwright measurement that the line now sits within ~4px of the node's true vertical center.
+- **A working (but currently track-less) ambient background music toggle** — a new circular,
+  glass-styled `#homeAudioToggle` button sits in the transparent `.home-nav` bar beside the
+  Start Training / Launch App CTA (two new sound-wave stroke icons, `i-volume`/`i-volume-mute`,
+  added to the shared SVG sprite in the same house line-icon style as every other nav icon — the
+  identically-named icons from the fully-reverted 3D-device round no longer existed anywhere in
+  the codebase, confirmed via grep, so these are freshly drawn, not restored). **A real, disclosed
+  limitation**: this sandbox has no music-generation capability (only text-to-speech), and was
+  explicitly forbidden from substituting a speech model or the internal game-pipeline's
+  reserved music/SFX models for a standalone request like this — flagged to the user directly
+  before proceeding, mirroring the identical disclosed limitation from the separate SynapseX
+  project's own build. Per the user's own explicit choice, this round ships the toggle's complete,
+  working plumbing ahead of an actual track: `AMBIENT_TRACK_URL` (currently `''`) is the one line
+  to fill in with a real royalty-free ambient/lo-fi MP3 URL to turn playback on — until then, a
+  new `<audio id="homeAmbientAudio" loop>` element's `<source>` stays blank, a console.info notes
+  the toggle is wired but trackless, and clicking the button calls `.play()` against that empty
+  source, which rejects its promise and the button's own `.catch()` reverts `aria-pressed` back to
+  `false` cleanly — no page error, no stuck "on" state, no silent failure. The button never
+  autoplays on load (every browser's autoplay policy blocks unmuted audio before a real user
+  gesture regardless), so starting muted/off is correct behavior, not a workaround forced by the
+  missing track. Once a real URL is set, the same click handler already toggles `.play()`/`.pause()`,
+  flips `aria-pressed`/`aria-label` correctly, and the CSS already swaps the mute/unmute icon via
+  `[aria-pressed]` attribute selectors — no further JS changes needed at that point.
+- Verified via Playwright: the eyebrow/headline render as one genuinely centered unit at both
+  desktop and 390px mobile widths with zero horizontal overflow; the Feature Showcase's 4 cards
+  render the shortened copy/stat and the corner-bracket accent; the How-It-Works timeline renders
+  all 3 octagonal nodes with the connecting line correctly aligned; clicking the audio toggle with
+  no track set logs the expected `console.info`, throws zero page errors, and cleanly reverts to
+  the muted state; and the full pre-existing regression suite (Home structure, footer visibility,
+  transparent nav + 3 links, showcase-card routing into the correct App-view tab, the sidebar
+  brand-link return-to-Home flow, a real PDF `download` event, and Complete-Workout-to-Tracker
+  logging) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
