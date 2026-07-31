@@ -4653,6 +4653,63 @@ volume, and a real layout bug fix on the Workout Generator's result card.**
   correct distance and updates its own button text; and the full regression suite (zero page
   errors across every tab, zero genuine horizontal overflow on desktop and mobile) passes.
 
+**A splash-screen motion upgrade, a fixed top marquee above the Home nav, and an even quieter
+ambient volume — three targeted UI/UX refinements, all CSS/markup plus one small timing tweak in
+the splash's own inline script.**
+
+- **The splash/pre-loader wordmark now genuinely animates letter-by-letter, with a continuous glow
+  pulse, instead of appearing all at once.** `#splashScreen`'s `SWIMFIT` markup was rewritten from
+  one plain `<span class="splash-logo">` into 7 individual `<span class="l">` letters (the `FIT`
+  half keeping the existing `.accent` class), each fading up from `opacity:0 translateY(16px)
+  scale(0.82)` on its own `animation-delay: calc(var(--i) * 65ms)` — a real, staggered reveal
+  confirmed via Playwright by sampling computed opacity through the animation (the last letter
+  measurably still mid-fade at t≈1s, fully settled by t≈1.36s). `.splash-logo` itself now carries a
+  `splashLogoGlowPulse` `filter: drop-shadow(...)` animation (replacing the old static `text-shadow`)
+  that breathes between a soft and a brighter glow on a 2.6s loop once the letters have mostly
+  landed. The tagline and progress bar now cascade in after the wordmark (staggered
+  `splashFadeUp` entrances at 620ms/780ms) rather than being visible from frame one.
+- **The exit transition was rewritten from a flat slide-up-and-fade into a genuine cinematic
+  "zoom past the logo into the app" effect**, per the explicit "needs to feel like an app
+  launching" ask. Previously `#splashScreen.is-hidden` just applied `opacity:0;
+  transform:translateY(-30px)` to the whole overlay. Now the overlay itself only fades opacity,
+  while `.splash-content` independently scales up to `1.4×` and blurs out (`filter: blur(10px)`)
+  on its own 900ms transition — verified via Playwright by sampling the computed transform through
+  the transition (a real `matrix(1.24,...)` → `matrix(1.35,...)` → `matrix(1.40,...)` progression,
+  not a value that only ever reads as its start or end state), which is what actually produces the
+  "camera pushing through the wordmark" sensation rather than a slide. The JS's removal timeout was
+  bumped from 750ms to 950ms to match the new 900ms transition duration, so the element is never
+  ripped out of the layout mid-fade. `prefers-reduced-motion` skips straight to the fully-settled
+  state with zero animation, same as before, just extended to cover the new per-letter/glow/zoom
+  rules specifically.
+- **A fixed marquee ticker now sits directly above the transparent Home nav**, reusing the exact
+  same `.home-ticker`/`.home-ticker-track`/`.home-ticker-set`/`.home-ticker-item` markup and
+  keyframes already used between the Home slides — no new animation logic, just a second instance
+  (`#homeTopTicker`) repositioned `position:fixed; top:0` at a slim, header-height `36px`
+  (`--home-ticker-h`) with a smaller `0.68rem` item font so it reads as part of the header rather
+  than a full section divider. `.home-nav`'s own `top` now reads `var(--home-ticker-h, 0px)`
+  instead of a hardcoded `0`, so the nav sits directly below the ticker instead of overlapping it,
+  and the Hero's `padding-top` was bumped by the same `--home-ticker-h` amount
+  (`calc(100px + var(--home-ticker-h, 0px))`) so the headline/CTA content still clears the now-taller
+  header stack — verified via Playwright that the ticker and nav's bounding boxes never overlap and
+  the Hero's own copy renders fully below both. Living inside `#homeView` (right before `.home-nav`
+  in the DOM), it's automatically hidden by the pre-existing `body.view-app #homeView {
+  display:none }` rule the instant a swimmer enters the App view — confirmed via Playwright rather
+  than assumed.
+- **Ambient background music volume lowered again, from 0.12 to 0.05** (`homeAmbientAudio.volume`),
+  per direct repeated feedback that it was still too loud — this is the second reduction this file
+  has made to the same value (0.35 → 0.12 → 0.05), each time in response to the same complaint
+  persisting; no other change to the toggle's `.load()`/play/pause wiring, which was already
+  correctly fixed in an earlier round.
+- Verified via Playwright: the splash's per-letter stagger and mid-transition zoom/blur values were
+  sampled directly (not assumed from the CSS source) across a dense timeline of the full ~3.2s
+  lifecycle; the top ticker renders with zero overlap against the nav and is confirmed hidden in the
+  App view; `prefers-reduced-motion` collapses the splash to its settled state instantly and disables
+  the new ticker's marquee animation, matching every other animated element in this file;
+  `homeAmbientAudio.volume` reads exactly `0.05`; a 390px mobile viewport shows zero new horizontal
+  overflow; and the full pre-existing regression suite (all 9 App-view tabs, the tech-grid/particle
+  background, the Workouts PDF export firing a real `download` event, and Complete Workout logging)
+  passes unchanged with zero page errors.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
