@@ -4337,6 +4337,96 @@ Firebase call, or Paddle logic was touched, per the round's own explicit constra
   brand-link return-to-Home flow, a real PDF `download` event, and Complete-Workout-to-Tracker
   logging) passes unchanged with zero page errors throughout.
 
+**Home was rebuilt from a scrolling stack (Hero → Feature Showcase → How It Works → CTA band)
+into a genuine full-screen slide presentation** — 3 slides under native CSS scroll-snap, per an
+explicit "this is not a slide deck, rebuild it as one" ask — plus a real ambient-audio track URL
+wired into the mute toggle the previous round shipped as scaffolding-only.
+
+- **`.home-slides`** wraps 3 `.home-slide` elements — the existing Hero (now `data-slide="0"`),
+  a new **Slide 2 "Smart Gym & Tracking"** (`data-slide="1"`), and a new **Slide 3 "Pricing"**
+  (`data-slide="2"`) — each `min-height:100svh` with `scroll-snap-align:start` /
+  `scroll-snap-stop:always`. Snapping itself is scoped to Home only via
+  `html:has(body.view-home) { scroll-snap-type: y mandatory; }` (falling back to `proximity`
+  under `prefers-reduced-motion`) — deliberately **native CSS scroll-snap, not a JS scroll-
+  jacking library**: this codebase has already built and reverted two heavier pinned-canvas
+  approaches (a 3D orbit carousel, a Three.js/GSAP ScrollTrigger scene), so this stays intentionally
+  simple and robust rather than repeating that pattern a third time. The old Feature-Showcase/
+  How-It-Works/CTA-band markup was removed outright (their CSS rules were left in place as
+  harmless orphans, this file's established "don't touch working rules, just stop reading them"
+  precedent). A small, fully self-contained IIFE drives the right-edge **slide-dot navigation**
+  (`#slideDots`, 3 dots) — a click scrolls its slide into view, and an `IntersectionObserver`
+  keeps whichever dot matches the slide actually in view lit up — never touching `switchTab()`,
+  auth, or Paddle logic.
+- **Slide 1 (Hero)** gained the content it never actually had before (previously the CTA lived
+  only in the nav bar): a **glowing pill "AI Swim Coach pitch"** line
+  (`.hero-ai-pitch`, aqua icon + "Meet your AI Swim Coach — real-time technique feedback on every
+  set, every stroke.") and a **CTA row** — Start 3-Day Free Trial / Launch App (the existing
+  signed-out/signed-in pair) plus a new "Ask The AI Coach" button (`data-tab="coach"`, using the
+  same `[data-tab]` click-delegation every nav element already relies on).
+- **Slide 2 "Smart Gym & Tracking"** combines the Gym and Tracker showcase cards behind a
+  **geometric SVG background pattern** (`.slide-geo-bg`, an inline hexagon `<pattern>` + two thin
+  decorative rings, low-opacity, `aria-hidden`) — a real "geometric background," not another
+  card-grid texture. Each of the two cards (`.visual-card`) is now a **"high-res swim visual
+  container"**: a photo-backed media strip (`.visual-card-media`, `background-image:
+  var(--visual-photo)`) above the existing UI-mockup body content, duotone-darkened for text
+  legibility. No new photography was generated for this — `--gym-photo`/`--hero-photo` (both
+  already-existing, already-generated AI photography wired into `:root` from earlier rounds) were
+  reused directly, consistent with this file's own repeated disclosure that its sandbox's network
+  policy blocks every stock-photo host it has ever tested (Unsplash/Pexels/Pixabay/Wikimedia
+  Commons) — confirmed again this round that the same block extends to its own already-generated
+  CloudFront-hosted media (`d8j0ntlcm91z4.cloudfront.net`), so neither this round's new visual
+  cards nor the pre-existing Hero photo/video could be pixel-verified from inside this sandbox;
+  both resolve to the correct URL in the DOM (confirmed via computed-style inspection) and will
+  render correctly in a real browser on a normal network, exactly like every other photo already
+  shipped on this site.
+- **Slide 3 "Pricing"** embeds the real Pro/Elite/Ultra plan cards directly on the landing page —
+  condensed `.price-card` panels (tier, price, one "Get Started" button per plan; the full feature
+  lists stay on the dedicated Pricing tab, linked via a "See full plan comparison →" button) with
+  an added `.glass-glow` class for a stronger "sleek glowing glass panel" emphasis specific to this
+  slide (a colored glow ring layered under the existing glass fill/border). **Zero JS or Paddle
+  logic was touched to make checkout work here** — `goToPaddleCheckout()`'s existing
+  `document.querySelectorAll('.price-card [data-plan]')` wiring runs once, at script-load time,
+  against whatever `.price-card` buttons already exist in the initial HTML; since these new panels
+  are real `.price-card` elements with the same `data-plan="pro"/"elite"/"ultra"` attributes the
+  Pricing tab's own buttons already use, they were picked up automatically with no new selector,
+  event listener, or function needed. Verified end-to-end: clicking "Get Started" on the Elite
+  panel while signed out opens the real auth modal (the exact same `pendingSubscribePlan` flow the
+  Pricing tab's own Subscribe buttons trigger), proving the reuse works correctly rather than just
+  looking identical.
+- **A real, measurement-caught bug (not a screenshot artifact) was found and fixed**: Slides 2 and
+  3 (both real `<section>` elements) were inheriting this file's pre-existing global
+  `section { scroll-margin-top: 96px; }` rule — added in an earlier round purely to offset
+  anchor-link scrolling behind the fixed nav elsewhere on the site — which, combined with
+  `scroll-snap-align:start`, shifted their actual snap point 96px below the true viewport top
+  (confirmed via a direct `getBoundingClientRect().top` measurement reading `96`, not just eyeballed
+  from a screenshot showing a stray sliver of the previous slide's background bleeding through at
+  the top edge). Slide 1 (a `<header>`, not a `<section>`) never inherited that rule and snapped
+  correctly, which is what made this slide-2/3-only inconsistency reproducible rather than
+  intermittent. Fixed by adding `scroll-margin-top: 0` to the shared `.home-slide` class (specificity
+  correctly beats the bare-element `section` rule regardless of source order) — re-measured at
+  exactly `0` afterward.
+- **The ambient-audio toggle now has a real track URL** — `AMBIENT_TRACK_URL` (previously an
+  intentionally-blank scaffold) is now set to a Pixabay royalty-free ambient loop supplied directly
+  by the user. **Disclosed limitation, same class as the photography note above**: this sandbox's
+  network policy also blocks direct fetches to `cdn.pixabay.com` (confirmed via `curl`, a 403 from
+  the proxy), so whether this specific URL actually resolves to playable audio could not be verified
+  from here — only that the wiring itself (the `<audio>` element's `src`, `.play()`/`.pause()`,
+  `aria-pressed`/icon swap, and the graceful `.catch()` fallback the previous round already built)
+  is correct. Confirm playback in a real browser on an unrestricted network; if the asset 404s or
+  was moved, swap in a fresh royalty-free direct MP3 URL in the same one-line spot. The toggle still
+  never autoplays — every browser's autoplay policy blocks unmuted audio before a real user
+  gesture, unchanged from the previous round.
+- Verified via Playwright: the old showcase/steps/CTA-band markup is gone and 3 `.home-slide`s / 3
+  `.slide-dot`s / 3 `.price-card [data-plan]` buttons exist; clicking a Slide-2 visual card
+  correctly enters the App view at the right tab and the sidebar brand-link still returns to Home;
+  clicking a slide dot scrolls to and correctly lights up the matching dot, with the target slide's
+  `getBoundingClientRect().top` landing at exactly `0` (the scroll-margin fix, re-verified after a
+  full Home→App→Home round trip, not just in isolation); clicking the Elite plan button opens the
+  real auth modal; a 390px mobile viewport shows zero horizontal overflow on both the hero and
+  pricing slides; and the full pre-existing functional regression suite (a real PDF `download`
+  event and Complete-Workout-to-Tracker logging, both run against the sidebar's own tab buttons,
+  unaffected by anything in this round) passes unchanged with zero page errors throughout.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
