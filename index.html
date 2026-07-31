@@ -1500,13 +1500,35 @@ body.view-home { margin-left: 0 !important; }
 }
 .home-nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
 
+/* A sleek circular mute/unmute toggle beside the nav CTA. Defaults to the
+   muted (sound-off) icon/state — browsers block audio with sound before a
+   user gesture, so there is nothing to "resume" on load either way. The
+   audio track itself (#homeAmbientAudio's <source src>) is intentionally
+   blank — see AMBIENT_TRACK_URL in the JS below — this ships the toggle's
+   full working plumbing ahead of a track being supplied. */
+.home-audio-toggle {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 50%; color: var(--fg);
+  border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.home-audio-toggle:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); transform: translateY(-1px); }
+.home-audio-toggle .icon { width: 17px; height: 17px; }
+.home-audio-toggle .icon-muted { display: block; }
+.home-audio-toggle .icon-unmuted { display: none; }
+.home-audio-toggle[aria-pressed="true"] .icon-muted { display: none; }
+.home-audio-toggle[aria-pressed="true"] .icon-unmuted { display: block; }
+@media (max-width: 480px) { .home-audio-toggle { width: 36px; height: 36px; } }
+
 /* Shared text-overlay utility for a full-bleed section (currently only the
    Hero uses it, hence the name) — bottom-left copy block + bottom-right
    live-stat corner, both absolutely positioned against the section's own
    position:relative box. */
 .home-scene-text {
   position: absolute; left: var(--space-6); right: var(--space-6); bottom: var(--space-7);
-  max-width: 900px; color: var(--fg); pointer-events: none;
+  max-width: 900px; margin-inline: auto; text-align: center;
+  color: var(--fg); pointer-events: none;
 }
 .home-scene-text h1, .home-scene-text h2 {
   font-size: clamp(2.6rem, 6.4vw, 6rem); text-transform: uppercase;
@@ -1518,7 +1540,11 @@ body.view-home { margin-left: 0 !important; }
   text-shadow: 0 0 18px rgba(255,255,255,0.22), 0 0 60px rgba(57,255,158,0.4), 0 0 130px rgba(34,211,238,0.3);
 }
 .home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
-.home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); }
+/* justify-content/flex-wrap keep the leading dash glued to the label as one
+   centered unit even when the label itself wraps to two lines — without
+   this, inline-flex's shrink-to-fit sizing let the dash drift to the box's
+   left edge, floating disconnected from centered wrapped text above it. */
+.home-scene-text .eyebrow { color: rgba(240,243,246,0.6); margin-bottom: var(--space-4); flex-wrap: wrap; justify-content: center; }
 .home-scene-stat {
   position: absolute; right: var(--space-6); bottom: var(--space-7); text-align: end;
   font-family: var(--font-mono); color: rgba(240,243,246,0.7); pointer-events: none;
@@ -1574,15 +1600,29 @@ body.view-home { margin-left: 0 !important; }
   gap: var(--space-4); max-width: 1180px; margin-inline: auto; padding-inline: var(--space-6);
 }
 .home-showcase-card[data-tab="workouts"] { grid-row: 1 / 3; }
+/* Genuine glassmorphism (a real backdrop blur, not just a translucent flat
+   fill) plus a static, low-key geometric corner accent — two thin
+   accent-colored lines meeting at the top-inside corner, evoking a
+   technical/geometric frame rather than a plain rounded box — brightening
+   into a full glowing border on hover. */
 .home-showcase-card {
   position: relative; overflow: hidden; text-align: start; cursor: pointer;
   display: flex; flex-direction: column; gap: 12px; padding: var(--space-5);
   border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);
-  background: linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+  background: linear-gradient(165deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 20px 40px -24px rgba(0,0,0,0.5);
   color: var(--fg);
   transition: transform 280ms var(--ease), border-color 280ms var(--ease), box-shadow 280ms var(--ease);
 }
+.home-showcase-card::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 34px; height: 34px; z-index: 1; pointer-events: none;
+  border-top: 2px solid color-mix(in srgb, var(--card-accent, var(--green-bright)) 70%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--card-accent, var(--green-bright)) 70%, transparent);
+  border-radius: var(--radius-lg) 0 0 0;
+  opacity: 0.55; transition: opacity 280ms var(--ease);
+}
+.home-showcase-card:hover::after, .home-showcase-card:focus-within::after { opacity: 1; }
 /* The spotlight itself: a radial-gradient positioned at the pointer via
    --mx/--my (set by wireSpotlightCards()'s mousemove listener), invisible at
    rest and faded in only on hover/focus — same "calm until interacted with"
@@ -1594,8 +1634,8 @@ body.view-home { margin-left: 0 !important; }
   transition: opacity 320ms var(--ease); pointer-events: none;
 }
 .home-showcase-card:hover, .home-showcase-card:focus-within {
-  transform: translateY(-6px); border-color: rgba(255,255,255,0.24);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 28px 48px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--card-accent, var(--green-bright)) 30%, transparent);
+  transform: translateY(-8px) scale(1.012); border-color: color-mix(in srgb, var(--card-accent, var(--green-bright)) 55%, transparent);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 28px 48px -20px rgba(0,0,0,0.6), 0 0 40px -6px color-mix(in srgb, var(--card-accent, var(--green-bright)) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--card-accent, var(--green-bright)) 40%, transparent);
 }
 .home-showcase-card:hover::before, .home-showcase-card:focus-within::before { opacity: 1; }
 .home-showcase-card > * { position: relative; z-index: 1; }
@@ -1648,21 +1688,36 @@ body.view-home { margin-left: 0 !important; }
   display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6);
   max-width: 1000px; margin-inline: auto; padding-inline: var(--space-6);
 }
-.home-step { position: relative; text-align: center; padding: var(--space-4); }
-.home-step-num {
-  position: relative; z-index: 1; width: 52px; height: 52px; margin-inline: auto; margin-bottom: var(--space-4);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;
-  background: #0C1220; color: var(--green-bright); border: 1px solid rgba(57,255,158,0.3);
-  box-shadow: 0 0 0 6px rgba(57,255,158,0.06);
+.home-step { position: relative; text-align: center; padding: var(--space-4); transition: transform 280ms var(--ease); }
+.home-step-tag {
+  display: block; font-family: var(--font-display); font-weight: 700; font-size: 0.72rem;
+  letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,243,246,0.4); margin-bottom: 6px;
 }
+/* A "glowing geometric node" — an octagon (clip-path, not a plain circle)
+   so each step reads as a distinct technical/geometric marker rather than a
+   generic dot, with a real two-layer glow using the shared --glow-green
+   token. Scales up and brightens on hover for a tactile, "interactive
+   timeline" feel without needing any JS state machine. */
+.home-step-num {
+  position: relative; z-index: 1; width: 60px; height: 60px; margin-inline: auto; margin-bottom: var(--space-4);
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.15rem;
+  background: #0C1220; color: var(--green-bright); border: 1px solid rgba(57,255,158,0.35);
+  box-shadow: var(--glow-green);
+  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+.home-step:hover .home-step-num { transform: scale(1.12); box-shadow: 0 0 56px rgba(57,255,158,0.7), 0 0 14px rgba(57,255,158,0.85); }
+.home-step:hover h3 { color: var(--green-bright); }
+.home-step h3 { transition: color 220ms var(--ease); }
+@media (prefers-reduced-motion: reduce) { .home-step-num { transition: none; } .home-step:hover .home-step-num { transform: none; } }
 /* A thin connecting line running through each step's own number circle,
    the classic "process flow" cue premium onboarding sections use — only
    drawn between steps (never before the first or after the last), and
    only at widths where the 3 steps actually sit in one row. */
 @media (min-width: 761px) {
   .home-step:not(:last-child)::after {
-    content: ''; position: absolute; top: 26px; left: 50%; width: 100%; height: 1px;
+    content: ''; position: absolute; top: 74px; left: 50%; width: 100%; height: 1px;
     background: linear-gradient(90deg, rgba(57,255,158,0.35), rgba(57,255,158,0.05));
     z-index: 0;
   }
@@ -2484,6 +2539,17 @@ footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding
 .grid > [data-reveal]:nth-child(7) { transition-delay: 420ms; }
 .grid > [data-reveal]:nth-child(8) { transition-delay: 490ms; }
 .grid > [data-reveal]:nth-child(9) { transition-delay: 560ms; }
+/* Same stagger pattern applied to the Home Feature Showcase and How-It-Works
+   grids — neither uses the shared .grid class (they're their own bespoke
+   bento/timeline layouts), so without this every card/step in each
+   previously revealed simultaneously with no choreography at all. */
+.home-showcase-grid > [data-reveal]:nth-child(1),
+.home-steps-grid > [data-reveal]:nth-child(1) { transition-delay: 0ms; }
+.home-showcase-grid > [data-reveal]:nth-child(2),
+.home-steps-grid > [data-reveal]:nth-child(2) { transition-delay: 110ms; }
+.home-showcase-grid > [data-reveal]:nth-child(3),
+.home-steps-grid > [data-reveal]:nth-child(3) { transition-delay: 220ms; }
+.home-showcase-grid > [data-reveal]:nth-child(4) { transition-delay: 330ms; }
 
 /* ============================= MODAL ============================= */
 .modal-overlay { position: fixed; inset: 0; background: rgba(5,8,13,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-4); opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease); }
@@ -3262,6 +3328,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-yt" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></symbol>
 <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5c.35 0 .68.04 1 .12"/><path d="M14 3c.3 2.3 2 4 4.5 4.2"/></symbol>
 <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4V8z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+<symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.8a5 5 0 0 1 0 6.4"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
+<symbol id="i-volume-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6"/></symbol>
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
 <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
 <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
@@ -3362,8 +3430,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" data-tab="gym" aria-current="false">Gym</button>
       <button type="button" data-tab="coach" aria-current="false">AI Coach</button>
     </div>
+    <button type="button" class="home-audio-toggle" id="homeAudioToggle" aria-pressed="false" aria-label="Play ambient background music">
+      <svg class="icon icon-muted" aria-hidden="true"><use href="#i-volume-mute"/></svg>
+      <svg class="icon icon-unmuted" aria-hidden="true"><use href="#i-volume"/></svg>
+    </button>
     <button type="button" class="home-nav-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>Start Training</button>
     <button type="button" class="home-nav-cta" data-tab="workouts" data-auth-signed-in style="display:none">Launch App</button>
+    <audio id="homeAmbientAudio" loop preload="none"><source id="homeAmbientAudioSource" src="" type="audio/mpeg"></audio>
   </nav>
 
   <header class="hero" id="top">
@@ -3393,8 +3466,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <section class="home-showcase" aria-label="What Swimfit does">
     <div class="home-section-head" data-reveal>
       <p class="eyebrow"><svg class="icon"><use href="#i-target"/></svg> Explore Swimfit</p>
-      <h2>Everything A Swimmer Needs, One Platform</h2>
-      <p>Daily-rotating swim sets, tailored dryland training, an AI coach that actually watches your technique, and progress tracking that means something.</p>
+      <h2>One Platform. Every Tool.</h2>
+      <p>Smarter Sets. Sharper Technique. Real Progress.</p>
     </div>
     <div class="home-showcase-grid">
       <button type="button" class="home-showcase-card" data-tab="workouts" data-reveal style="--card-accent:var(--aqua-bright)">
@@ -3406,13 +3479,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <span class="home-showcase-setrow" style="--stage-c:#8AB4F8"><span>Cool-Down</span><span>200m easy</span></span>
         </span>
         <span class="home-showcase-metric"><strong>3.2 km</strong><span>Today's Total</span></span>
-        <span class="home-showcase-note">A new set every day, built around your goals</span>
+        <span class="home-showcase-note">New Set. Every Day.</span>
       </button>
       <button type="button" class="home-showcase-card" data-tab="gym" data-reveal style="--card-accent:var(--green-bright)">
         <span class="home-showcase-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
         <h3>Dryland &amp; Gym</h3>
         <span class="home-showcase-tags"><span class="home-showcase-tag">Block Starts</span><span class="home-showcase-tag">Flip-Turn Power</span></span>
-        <span class="home-showcase-note">Plyometrics, strength and mobility built for swimmers</span>
+        <span class="home-showcase-metric"><strong>6</strong><span>Gym Focuses</span></span>
       </button>
       <button type="button" class="home-showcase-card" data-tab="coach" data-reveal style="--card-accent:#4EE9FF">
         <span class="home-showcase-icon"><svg class="icon"><use href="#i-comment"/></svg></span>
@@ -3421,7 +3494,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <span class="home-showcase-bubble is-user">How's my catch looking?</span>
           <span class="home-showcase-bubble is-ai">Try an earlier, higher elbow&hellip;</span>
         </span>
-        <span class="home-showcase-note">Real-time technique feedback, from photos or video</span>
+        <span class="home-showcase-note">Real-Time Feedback.</span>
       </button>
       <button type="button" class="home-showcase-card" data-tab="tracker" data-reveal style="--card-accent:var(--green-bright)">
         <span class="home-showcase-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
@@ -3444,19 +3517,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </div>
     <div class="home-steps-grid">
       <div class="home-step" data-reveal>
-        <span class="home-step-num">1</span>
+        <span class="home-step-tag">Step</span>
+        <span class="home-step-num">01</span>
         <h3>Create Your Account</h3>
-        <p>Sign in with Google and start a 3-day free trial — no card required.</p>
+        <p>Google Sign-In. Instant Access.</p>
       </div>
       <div class="home-step" data-reveal>
-        <span class="home-step-num">2</span>
+        <span class="home-step-tag">Step</span>
+        <span class="home-step-num">02</span>
         <h3>Get Your Daily Plan</h3>
-        <p>Set your discipline, distance and goals — Swimfit builds a full swim set and gym session around them.</p>
+        <p>Pick Your Goals. We Build The Set.</p>
       </div>
       <div class="home-step" data-reveal>
-        <span class="home-step-num">3</span>
+        <span class="home-step-tag">Step</span>
+        <span class="home-step-num">03</span>
         <h3>Train &amp; Track</h3>
-        <p>Log every swim, chat with your AI coach, and watch your pace and volume improve over time.</p>
+        <p>Log Swims. Track Progress.</p>
       </div>
     </div>
   </section>
@@ -4957,6 +5033,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   if (sidebarCollapseBtn) {
     sidebarCollapseBtn.addEventListener('click', function () {
       setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+    });
+  }
+
+  /* ============================= HOME AMBIENT AUDIO TOGGLE =============================
+     Full working plumbing shipped ahead of an actual track — set
+     AMBIENT_TRACK_URL to a real, royalty-free ambient/lo-fi MP3 URL to turn
+     this on; until then the button is present but a no-op (playback fails
+     silently and the button reverts to its muted state, so a blank source
+     never throws or leaves the UI stuck "on" with no sound). Never
+     autoplays — every browser's autoplay policy blocks unmuted audio before
+     a real user gesture, so the toggle starts muted/off by design, not as a
+     workaround. */
+  var AMBIENT_TRACK_URL = '';
+  var homeAudioToggle = document.getElementById('homeAudioToggle');
+  var homeAmbientAudio = document.getElementById('homeAmbientAudio');
+  var homeAmbientAudioSource = document.getElementById('homeAmbientAudioSource');
+  if (homeAudioToggle && homeAmbientAudio && homeAmbientAudioSource) {
+    if (AMBIENT_TRACK_URL) {
+      homeAmbientAudioSource.src = AMBIENT_TRACK_URL;
+      homeAmbientAudio.volume = 0.35;
+    } else {
+      console.info('[Swimfit] Ambient audio toggle is wired but no track is set yet — set AMBIENT_TRACK_URL to enable playback.');
+    }
+    homeAudioToggle.addEventListener('click', function () {
+      var playing = homeAudioToggle.getAttribute('aria-pressed') === 'true';
+      if (playing) {
+        homeAmbientAudio.pause();
+        homeAudioToggle.setAttribute('aria-pressed', 'false');
+        homeAudioToggle.setAttribute('aria-label', 'Play ambient background music');
+      } else {
+        homeAmbientAudio.play().then(function () {
+          homeAudioToggle.setAttribute('aria-pressed', 'true');
+          homeAudioToggle.setAttribute('aria-label', 'Mute ambient background music');
+        }).catch(function (err) {
+          console.info('[Swimfit] Ambient audio not playing yet (no track set or playback blocked):', err && err.message);
+          homeAudioToggle.setAttribute('aria-pressed', 'false');
+        });
+      }
     });
   }
 
