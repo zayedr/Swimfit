@@ -4597,6 +4597,62 @@ headline item — found and fixed the actual bug behind the dead audio toggle.**
   opening the real auth modal, a real PDF `download` event, and Complete-Workout-to-Tracker
   logging) passes unchanged with zero page errors throughout.
 
+**A "final refinements" round: a distinct Section 2 image, the Pricing slide's animated tech-grid
+background applied to every App-view tab, a global marquee ticker on every tab, a quieter ambient
+volume, and a real layout bug fix on the Workout Generator's result card.**
+
+- **Section 2 no longer reuses the Hero's own photo.** `.motivation-video` (a `<video>` reusing the
+  Hero's already-generated clip) was replaced with a plain `<div class="motivation-photo"
+  style="background-image:var(--gym-photo)">` — `--gym-photo` is a different, already-generated,
+  already-unused-elsewhere-on-Home CloudFront asset (the same dark, moody gym photo Gym's own tab
+  used before its own background video was removed several rounds ago), so this needed no new
+  image generation, just reusing an existing distinct asset. The CSS rule was renamed/adapted to
+  match (`background-size:cover; background-position:center;` in place of the video-specific
+  `object-fit:cover`).
+- **Every App-view tab (Workouts, Gym, Tracker, Gear, Academy, Coach, Settings, Support, Pricing)
+  now shares the exact "tech grid + glowing particles" look the Home page's own Pricing slide
+  already had**, applied once at the shared `.dash-ambient-bg` layer so every tab picked it up with
+  zero per-tab markup changes. `.dash-ambient-bg::after` (previously `content: none;`) now paints a
+  slowly-drifting hex-grid pattern — the identical hex polygon from `.slide-geo-bg`'s inline SVG,
+  reused as a static CSS `background-image` data-URI since this pseudo-element has no DOM of its
+  own to hold real markup — and a new `.dash-particles` block (6 glowing aqua/green dots, floating
+  upward on staggered loops) reuses the Pricing slide's own `pricingParticleFloat` keyframes,
+  inserted once inside `#dashboard`'s existing `.dash-ambient-bg` div. Photo backgrounds remain
+  exclusive to the Home hero/slides, per the explicit "only the homepage should have photo
+  backgrounds" instruction — every App tab's background is now this same dark tech-grid look, never
+  a photo. Both the grid drift and the particle float respect `prefers-reduced-motion`.
+- **The scrolling marquee ticker is now global**, not just a Home-page-only element between slides.
+  A second `.home-ticker` instance (`#dashGlobalTicker`) — identical markup/CSS/animation, no new
+  styling needed — was added inside `#dashboard`, directly after `.dash-ambient-bg` and before the
+  tab-content wrap, so it renders once, right below the nav, and stays visible across every tab
+  switch (since `#dashboard` itself doesn't remount between tabs, only its inner panels toggle).
+- **Ambient background music volume lowered from 0.35 to 0.12** (`homeAmbientAudio.volume`), per
+  direct feedback that the previous level was too loud/distracting for what's meant to be a soft,
+  calm ambient loop. No other change to the toggle's play/pause/`.load()` wiring — that was
+  correctly fixed in the immediately preceding round and needed no further changes.
+- **A real, previously-unnoticed layout bug was found and fixed on the Workout Generator's result
+  card while auditing inner-page alignment.** `.result-watermark` (the large, deliberately
+  oversized decorative stopwatch icon in the result panel's corner) is positioned with `top:-30px;
+  right:-30px;` by design — a "peeking from behind the card" watermark effect — but `.result-panel`
+  itself had no `overflow:hidden`, so that intentionally-oversized icon spilled ~30px past the
+  panel's own right edge and pushed the whole document's horizontal scroll width out by 6px at
+  desktop widths, a real (if narrow) horizontal-scroll bug on the single most-used tab in the app.
+  Fixed by adding `overflow:hidden` to `.result-panel` — confirmed via a direct Playwright
+  measurement that `document.documentElement.scrollWidth` dropped from a 6px overflow to exactly 0
+  afterward, with the watermark still rendering identically (now correctly clipped to the card's own
+  bounds instead of bleeding past it). A broader Playwright-driven overlap/overflow audit across
+  Workouts, Gym, and Tracker found nothing else genuinely broken — every other flagged element
+  traced to one of two already-documented, harmless false positives from this codebase's own
+  history: `sr-only` screen-reader-only utility elements (a 1px visible box by design) and the
+  off-canvas `.nav-links` mobile drawer (parked off-screen, mitigated by this file's pre-existing
+  `body { overflow-x: hidden }`) — neither is a real visible defect, so neither was touched.
+- Verified via Playwright: `.motivation-photo` resolves to the `--gym-photo` URL (confirmed distinct
+  from `--hero-photo`); every one of the 9 App-view tabs shows both the drifting hex-grid
+  `::after` layer and the global ticker; `homeAmbientAudio.volume` reads exactly `0.12`; the
+  Workouts PDF export still fires a real `download` event and Complete Workout still logs the
+  correct distance and updates its own button text; and the full regression suite (zero page
+  errors across every tab, zero genuine horizontal overflow on desktop and mobile) passes.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

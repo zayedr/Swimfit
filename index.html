@@ -1857,7 +1857,10 @@ html:has(body.view-home) { scroll-snap-type: y mandatory; }
    variant (plain / "scale" / "right") so they pop in staggered, not all at
    once, as the swimmer scrolls down. */
 .slide-motivation { position: relative; overflow: hidden; }
-.motivation-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+.motivation-photo {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center; opacity: 0.5;
+}
 .motivation-overlay {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(180deg, rgba(5,7,12,0.65) 0%, rgba(5,7,12,0.9) 100%);
@@ -1979,7 +1982,40 @@ body.view-app .slide-dots { display: none; }
     radial-gradient(ellipse 60% 50% at 15% 0%, rgba(34,211,238,0.07), transparent 60%),
     radial-gradient(ellipse 55% 45% at 100% 100%, rgba(22,214,115,0.06), transparent 60%);
 }
-.dash-ambient-bg::after { content: none; }
+/* Round D: the Pricing slide's own "tech grid + glowing particles" look is
+   now the shared background for every App-view tab (Workouts, Gym, Tracker,
+   etc.), not just the Home page's Pricing slide — reusing the identical hex
+   pattern from .slide-geo-bg (as a static CSS data-URI instead of inline SVG,
+   since this layer has no DOM element of its own to hold markup) plus a slow
+   drift, so every tab now shares the same dark "tech" aesthetic the Pricing
+   slide already had. Photo backgrounds stay exclusive to the Home hero/
+   slides, per the user's own explicit "only the homepage should have photo
+   backgrounds" instruction. */
+.dash-ambient-bg::after {
+  content: '';
+  position: absolute; inset: -10%; z-index: 0; pointer-events: none;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='86' height='100' viewBox='0 0 86 100'%3E%3Cpolygon points='43,0 86,25 86,75 43,100 0,75 0,25' fill='none' stroke='rgba(34,211,238,0.10)' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-size: 86px 100px;
+  animation: dashGridDrift 40s linear infinite;
+}
+@keyframes dashGridDrift { from { transform: translate(0, 0); } to { transform: translate(-86px, -100px); } }
+.dash-particles { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.dash-particles span {
+  position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--aqua-bright); box-shadow: 0 0 12px 2px rgba(34,211,238,0.75);
+  opacity: 0; animation: pricingParticleFloat 20s linear infinite;
+}
+.dash-particles span:nth-child(1) { left: 6%;  top: 90%; animation-duration: 19s; animation-delay: -1s; }
+.dash-particles span:nth-child(2) { left: 24%; top: 96%; animation-duration: 24s; animation-delay: -6s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.75); }
+.dash-particles span:nth-child(3) { left: 46%; top: 92%; animation-duration: 16s; animation-delay: -11s; }
+.dash-particles span:nth-child(4) { left: 66%; top: 98%; animation-duration: 22s; animation-delay: -4s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.75); }
+.dash-particles span:nth-child(5) { left: 84%; top: 94%; animation-duration: 18s; animation-delay: -9s; }
+.dash-particles span:nth-child(6) { left: 94%; top: 97%; animation-duration: 23s; animation-delay: -13s; background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.75); }
+@media (prefers-reduced-motion: reduce) {
+  .dash-ambient-bg::after { animation: none; }
+  .dash-particles span { animation: none; opacity: 0; }
+}
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
    more expansive — a deliberate "flagship feature" width, wider than the
@@ -2413,7 +2449,7 @@ body.view-app .slide-dots { display: none; }
 .quote-card cite { color: var(--muted-2); font-size: 0.72rem; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; }
 
 .result-panel {
-  position: relative; padding: 0; min-height: 100%;
+  position: relative; padding: 0; min-height: 100%; overflow: hidden;
 }
 .result-panel > * { position: relative; z-index: 1; }
 .result-watermark { position: absolute; top: -30px; right: -30px; width: 220px; height: 220px; color: var(--aqua); opacity: 0.06; pointer-events: none; z-index: 0; }
@@ -3772,9 +3808,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <circle cx="700" cy="480" r="200" fill="none" stroke="rgba(34,211,238,0.12)" stroke-width="1.4"/>
         </svg>
       </div>
-      <video class="motivation-video" autoplay muted loop playsinline aria-hidden="true">
-        <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
-      </video>
+      <div class="motivation-photo" style="background-image:var(--gym-photo)" aria-hidden="true"></div>
       <div class="motivation-overlay" aria-hidden="true"></div>
       <div class="wrap motivation-inner">
         <p class="motivation-quote" data-reveal>Outswim Your Limits.</p>
@@ -3854,7 +3888,31 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
 <!-- ============================= APP DASHBOARD ============================= -->
 <section class="dashboard section-alt" id="dashboard">
-  <div class="dash-ambient-bg" aria-hidden="true"></div>
+  <div class="dash-ambient-bg" aria-hidden="true">
+    <div class="dash-particles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+  <!-- Round D: the same scrolling marquee used on the Home page now runs
+       globally across every App-view tab too, right below the nav, so the
+       "cool vibe" (per direct user request) isn't exclusive to Home. Reuses
+       the identical .home-ticker markup/CSS/animation — no new styling
+       needed — just a second, always-visible instance living inside the
+       shared #dashboard container instead of between Home's slides. -->
+  <div class="home-ticker" id="dashGlobalTicker" aria-hidden="true">
+    <div class="home-ticker-track">
+      <div class="home-ticker-set">
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+      </div>
+      <div class="home-ticker-set">
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+      </div>
+    </div>
+  </div>
   <div class="wrap dash-panels">
 
     <!-- ---------- WORKOUTS (interactive generator) ---------- -->
@@ -5379,7 +5437,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (AMBIENT_TRACK_URL) {
       homeAmbientAudioSource.src = AMBIENT_TRACK_URL;
       homeAmbientAudio.load();
-      homeAmbientAudio.volume = 0.35;
+      homeAmbientAudio.volume = 0.12; // Round D: lowered per feedback that 0.35 was too loud/distracting for a soft ambient loop
     } else {
       console.info('[Swimfit] Ambient audio toggle is wired but no track is set yet — set AMBIENT_TRACK_URL to enable playback.');
     }
