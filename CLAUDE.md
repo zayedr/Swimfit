@@ -4977,6 +4977,69 @@ every change here is HTML/CSS/JS only.**
   positive); the Home scroll-lock fix, the desktop marquee fix, and the Admin rings all verified
   independently as described above.
 
+**A round rebuilding the Admin dashboard around real hand-rolled SVG charts (donut, bar, trend
+line — no Chart.js/Recharts, matching this file's own long-standing "no CDN dependency" precedent)
+and reversing the Home marquee's role entirely per explicit request — again under the same
+no-database-changes constraint, so every change here is HTML/CSS/JS only.**
+
+- **Admin Panel: three real charts added below the stat-ring tiles, all computed from the exact
+  same `adminListUsers()` array the table already reads — no new endpoint, Firestore field, or
+  Cloud Function.** A **Plan Distribution donut** (Pro/Elite/Ultra/No Plan, fixed categorical hue
+  order — aqua/green/maroon/muted-gray, never cycled — plus a legend and a `<title>` per arc for
+  hover tooltips); an **Account Status bar chart** using reserved status semantics rather than an
+  arbitrary rotation (Active=green "good", Trial=aqua "neutral/in-progress", Expired=gold
+  "warning", Suspended=maroon "critical" — a new `Expired` bucket was derived for this chart
+  specifically, since no prior UI needed to distinguish "trial still running" from "trial ended,
+  no plan" as separate counts); and a **New Signups trend line/area chart** bucketing every
+  swimmer's real `createdAt` timestamp (the same field the table's own "Joined" column already
+  reads) into the last 14 calendar days. The trend chart is a deliberate, disclosed substitute for
+  "visitor trend" data this app has no way to track — real registrations, not a fabricated number,
+  consistent with the Total Site Visitors tile's own honest `N/A` disclosure from the prior round.
+  Built as plain inline SVG (`donut` via `stroke-dasharray`/`stroke-dashoffset` circle segments,
+  `bar` via width-percent divs, `trend` via a `<polyline>`/`<polygon>` pair over day-bucketed
+  points) per the `dataviz` skill's own rules — fixed-order categorical hues, a legend for 2+
+  series, values kept in text tokens rather than colored, recessive gridlines, and a `<title>` per
+  mark for zero-JS hover tooltips (the same precedent the Distance Tracker's own charts already
+  established). Verified via Playwright against an 8-user mocked roster spanning every plan/status/
+  trial-age combination: the donut renders the correct 4 non-zero arcs plus legend rows, the bar
+  chart's computed widths correctly reflect each status's share of the max bucket (verified
+  Active/Trial/Expired/Suspended = 4/2/1/1, matching the mock exactly), and the trend line renders
+  exactly 14 points/dots, one per bucketed day — all with zero horizontal overflow on desktop and
+  mobile and zero page errors.
+- **Home marquee's role was fully reversed per explicit request: the always-fixed top ticker is
+  gone, and the two in-flow tickers are now the page's only marquee, sitting as seamless dividers
+  between sections rather than being hidden.** Two prior rounds fought a "duplicate marquee" bug by
+  hiding `#homeTicker1`/`#homeTicker2` (the in-flow tickers between Hero/Slide 2 and Slide 2/
+  Pricing) so only `#homeTopTicker` (fixed at the very top) remained visible. This round deletes
+  `#homeTopTicker` outright — markup, its dedicated CSS block, and the `--home-ticker-h` custom
+  property it drove (which used to offset `.home-nav`'s `top` and every `.home-slide`'s own top
+  padding to make room for it; both are now plain static values again) — and removes the
+  `#homeTicker1, #homeTicker2 { display: none; }` rule entirely, so the two in-flow tickers are
+  visible again exactly where they already sat structurally: precisely at each section boundary.
+  Since `#homeTicker1`/`#homeTicker2` were *already* positioned between `.hero`/`.slide-showcase`
+  and `.slide-showcase`/`.slide-pricing` from an earlier round (only ever hidden, never moved), no
+  new placement logic was needed — un-hiding them was the entire fix, and their own existing glass
+  fill (`background: rgba(255,255,255,0.04)` + blur) already visually bridges what would otherwise
+  be a hard background-color cut between those sections. Verified via Playwright: `#homeTopTicker`
+  no longer exists in the DOM at all; scrolling through 11 sampled depths at 1440px/1024px/375px
+  shows zero ticker visible at the very top of Home and exactly one ticker (`#homeTicker1` then
+  `#homeTicker2`) visible only while scrolling through its own section boundary, never both/neither
+  unexpectedly; and a direct screenshot at each divider position confirms the ticker band sits
+  exactly across the seam between sections as intended.
+- **Home scroll re-verified working, not re-broken by this round's markup changes.** Since removing
+  `#homeTopTicker` touched `.home-nav`'s positioning and every `.home-slide`'s top padding, this was
+  re-tested end to end after the change: `overflow-x` still reads `hidden` and `overflow-y` still
+  reads `auto` on both `html` and `body`, and a real multi-tick wheel scroll still progresses
+  smoothly from `scrollY 0` to the true max and back down to `0` — the `scroll-snap-type: y
+  proximity` fix from the immediately preceding round required no further changes here.
+- Verified via Playwright across the whole round: all 10 App-view tabs load with zero page errors;
+  the Workouts PDF export still fires a real `download` event and Complete Workout still logs
+  correctly; zero horizontal overflow at both 1440px and 375px on every tab (the only "offenders"
+  found are the same pre-existing, already-documented off-canvas nav-drawer false positive on
+  mobile and a sub-2px grid-rounding artifact on the Workouts tab's own result-panel column at
+  desktop width, confirmed harmless since `document.documentElement.scrollWidth` matches
+  `clientWidth` exactly — not a regression introduced by anything touched this round).
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
