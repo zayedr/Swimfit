@@ -1549,42 +1549,18 @@ body.view-home { margin-left: 0 !important; }
    background per swimmer, matching a "clean crisp text link" reading rather
    than template-style nav chips), and one CTA button. */
 .home-nav {
-  position: fixed; inset-inline: 0; top: var(--home-ticker-h, 0px); z-index: 200;
+  position: fixed; inset-inline: 0; top: 0; z-index: 200;
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-5);
   padding: var(--space-5) var(--space-6);
   transition: top var(--dur) var(--ease);
 }
-/* A slim scrolling marquee pinned above the transparent nav — reuses the
-   exact same .home-ticker track/animation/markup pattern already used
-   between the Home slides below, just repositioned fixed-to-viewport and
-   shrunk to a header-height strip so it reads as part of the header rather
-   than a full section divider. --home-ticker-h drives .home-nav's own top
-   offset and every .home-slide's own top padding (below) so the nav and
-   slide content never sit underneath it.
-   A real bug lived here: .home-top-ticker's position:fixed was declared as
-   a plain class rule, but .home-ticker's OWN base rule (further down this
-   stylesheet, setting position:relative) has equal specificity and wins on
-   source order alone — so the ticker was silently never actually fixed,
-   just sitting once in normal flow at the very top of the document. On the
-   Hero this was invisible (page loads at scrollY 0, so a relatively-
-   positioned element at the top of the flow looks identical to a fixed one
-   there), but it meant the ticker scrolled away entirely on Slides 2/3, and
-   worse, .home-nav (which IS correctly fixed) stayed pinned over the top of
-   whatever content scrolled up underneath it — with nothing compensating,
-   the Pricing slide's own "Membership" eyebrow/heading rendered partially
-   BEHIND the nav, reading exactly as "the section is cut off." Pinning the
-   positioning properties to the #id here — rather than the shared .class —
-   makes this immune to any future reordering of .home-ticker's own rule. */
-:root { --home-ticker-h: 36px; }
-#homeTopTicker {
-  position: fixed; inset-inline: 0; top: 0; z-index: 201;
-  height: var(--home-ticker-h);
-  display: flex; align-items: center;
-  padding-block: 0;
-}
-#homeTopTicker .home-ticker-item {
-  font-size: 0.68rem; padding-inline: var(--space-4);
-}
+/* The always-fixed top marquee (#homeTopTicker) was removed entirely per
+   explicit request — the marquee's job on Home is now exclusively to sit
+   BETWEEN sections as a seamless divider (see #homeTicker1/#homeTicker2
+   further down), not to camp permanently over the header. Removing it also
+   retired the --home-ticker-h custom property that used to offset .home-nav
+   and every .home-slide's own top padding to make room for it — both are
+   now plain, static values again. */
 .home-nav-brand {
   font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;
   font-size: 0.95rem; color: var(--fg); text-transform: uppercase;
@@ -1885,7 +1861,7 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
 .home-slide {
   min-height: 100svh; scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: 0;
   display: flex; align-items: center;
-  padding-block: calc(100px + var(--home-ticker-h, 0px)) var(--space-6);
+  padding-block: 100px var(--space-6);
 }
 .slide-showcase, .slide-pricing { position: relative; overflow: hidden; background: #0A0E16; }
 .slide-pricing { background: #0C1220; }
@@ -3541,6 +3517,51 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 @media (max-width: 1100px) { .admin-stats-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+/* ============================= ADMIN: REAL CHARTS =============================
+   Donut (Plan Distribution), bar (Account Status), and line/area (New
+   Signups trend) — all hand-rolled inline SVG, all computed from the exact
+   same adminListUsers() array the stat tiles and table already read. Per
+   the dataviz skill's own rules: categorical hues assigned in a fixed order
+   (never cycled), a legend always present for 2+ series, values/labels kept
+   in text tokens (never the series color), and a <title> per mark for
+   zero-JS hover tooltips — matching this file's own established precedent
+   from the Distance Tracker's charts. */
+.admin-charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: var(--space-5); margin-bottom: var(--space-7); }
+.admin-chart-card {
+  padding: var(--space-5);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  box-shadow: 0 14px 34px -26px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.admin-chart-title { font-size: 0.92rem; font-weight: 700; color: var(--fg); display: flex; align-items: baseline; gap: 8px; }
+.admin-chart-subtitle { font-size: 0.68rem; font-weight: 600; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-donut-wrap { position: relative; width: 148px; height: 148px; margin-inline: auto; }
+.admin-donut { width: 100%; height: 100%; transform: rotate(-90deg); }
+.admin-donut circle { transition: stroke-dashoffset 700ms var(--ease); }
+.admin-donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.admin-donut-center-value { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 700; color: var(--fg); line-height: 1; }
+.admin-donut-center-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.admin-chart-legend { display: flex; flex-direction: column; gap: 6px; }
+.admin-chart-legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+.admin-chart-legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.admin-chart-legend-value { margin-inline-start: auto; font-family: var(--font-mono); color: var(--fg); font-weight: 600; }
+.admin-bar-chart { display: flex; flex-direction: column; gap: var(--space-3); justify-content: center; flex: 1; }
+.admin-bar-row { display: flex; align-items: center; gap: var(--space-3); }
+.admin-bar-row-label { width: 72px; flex-shrink: 0; font-size: 0.76rem; color: var(--muted); text-align: right; }
+.admin-bar-track { flex: 1; height: 14px; border-radius: 999px; background: var(--bg-alt); border: 1px solid var(--border); overflow: hidden; }
+.admin-bar-fill { height: 100%; border-radius: 999px; transition: width 700ms var(--ease); }
+.admin-bar-row-value { width: 28px; flex-shrink: 0; font-family: var(--font-mono); font-size: 0.8rem; color: var(--fg); font-weight: 700; text-align: right; }
+.admin-trend-chart { width: 100%; height: 160px; }
+.admin-trend-chart .trend-grid-line { stroke: var(--border); stroke-width: 1; }
+.admin-trend-chart .trend-area { fill: url(#adminTrendGradient); opacity: 0.5; }
+.admin-trend-chart .trend-line { fill: none; stroke: var(--aqua); stroke-width: 2; }
+.admin-trend-chart .trend-dot { fill: var(--aqua); stroke: var(--surface); stroke-width: 1.5; }
+.admin-trend-chart .trend-axis-label { fill: var(--muted-2); font-size: 8px; font-family: var(--font-mono); }
+@media (max-width: 1200px) { .admin-charts-grid { grid-template-columns: 1fr 1fr; } .admin-chart-card-wide { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .admin-charts-grid { grid-template-columns: 1fr; } }
+
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
 .admin-users-col, .admin-chat-col { display: flex; flex-direction: column; overflow: hidden; }
 .admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -3699,25 +3720,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   body.view-app .toast-stack { top: calc(var(--dash-ticker-h) + var(--announce-h, 0px) + 16px); }
 }
 
-/* ============================= SINGLE MARQUEE ONLY, EVERY WIDTH =============================
-   On Home, the always-fixed #homeTopTicker sits pinned at the very top of the
-   viewport at all times, while the two in-flow tickers (#homeTicker1, between
-   the Hero and Slide 2; #homeTicker2, between Slide 2 and Pricing) also
-   scroll into view at their own positions in the Home scroll-snap flow — so a
-   swimmer scrolling past either slide boundary sees TWO scrolling marquees on
-   screen simultaneously. A previous round scoped this hide rule to mobile
-   only, on the assumption desktop's extra vertical room kept the two from
-   ever overlapping — a direct Playwright scroll-depth sweep at 1440px and
-   1024px proved that assumption wrong: `#homeTicker1`/`#homeTicker2` render
-   fully visible alongside `#homeTopTicker` at exactly the same scroll
-   positions on desktop too, since a full-viewport-height slide easily has
-   room for both a fixed header strip and an in-flow ticker to be on screen
-   together regardless of width. Unconditional now, every viewport. IDs are
-   used (not the shared .home-ticker class) so this can never be silently
-   undone by a later, higher-specificity class rule elsewhere in the file —
-   the exact "later rule wins" bug class this file has been bitten by twice
-   already (see the #homeTopTicker/.home-slide notes above). */
-#homeTicker1, #homeTicker2 { display: none; }
+/* ============================= MARQUEE ROLE REVERSAL =============================
+   Two prior rounds fought a "duplicate marquee" bug by hiding #homeTicker1/
+   #homeTicker2 (the in-flow tickers sitting between Hero/Slide 2 and Slide 2/
+   Pricing) so only the always-fixed #homeTopTicker remained visible. Per an
+   explicit later request, the roles are now reversed: #homeTopTicker is
+   removed entirely (see its own former CSS block, now deleted, near .home-nav
+   above), and #homeTicker1/#homeTicker2 are the ticker's ONLY job on Home —
+   a seamless scrolling divider marquee sitting exactly at each section
+   boundary, replacing what would otherwise be a hard background-color cut
+   between .hero/.slide-showcase/.slide-pricing. There is deliberately no
+   `display:none` rule here anymore — both are visible at every width by
+   default (their own base .home-ticker rule already handles that), and each
+   still carries its own `scroll-snap-align: start` so it remains a real,
+   reachable stop under the page's scroll-snap type rather than something
+   scrolled straight past. */
 
 /* ============================= MOBILE: BREATHING ROOM PASS =============================
    Per direct "feels too tight and cramped" feedback: a real, moderate
@@ -3934,20 +3951,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 </script>
 
 <div id="homeView">
-  <div class="home-ticker home-top-ticker" id="homeTopTicker" aria-hidden="true">
-    <div class="home-ticker-track">
-      <div class="home-ticker-set">
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-      </div>
-      <div class="home-ticker-set">
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-      </div>
-    </div>
-  </div>
   <nav class="home-nav" id="homeNav" aria-label="Home">
     <span class="home-nav-brand">Swimfit</span>
     <div class="home-nav-links" id="homeNavLinks">
@@ -3996,14 +3999,18 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
     </header>
 
-    <!-- Global scrolling ticker — a genuine infinite marquee (two identical
+    <!-- Section-divider ticker — a genuine infinite marquee (two identical
          duplicated sets, translated by exactly -50% so the loop is seamless
-         regardless of rendered width). Now sits BETWEEN EVERY section — this
-         one between Hero and Section 2, a second identical instance
-         (#homeTicker2 below) between Section 2 and Pricing — each with its
-         own scroll-snap-align:start so it's a real, reachable stop under the
-         page's mandatory snap type rather than something scrolled straight
-         past (a real bug found and fixed in an earlier round). -->
+         regardless of rendered width) sitting BETWEEN sections: this one
+         between Hero and Section 2, a second identical instance (#homeTicker2
+         below) between Section 2 and Pricing. Deliberately the sole marquee
+         on Home now (the always-fixed top ticker was removed per explicit
+         request) — its job is to visually replace the hard background-color
+         seam between .hero/.slide-showcase/.slide-pricing with a seamless
+         scrolling band, not to duplicate a persistent header element. Each
+         still carries its own scroll-snap-align:start so it stays a real,
+         reachable stop under the page's scroll-snap type rather than
+         something scrolled straight past. -->
     <div class="home-ticker" id="homeTicker1" aria-hidden="true">
       <div class="home-ticker-track">
         <div class="home-ticker-set">
@@ -4947,6 +4954,38 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="admin-stat-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
           <span class="admin-stat-value" id="adminStatSuspended">—</span>
           <span class="admin-stat-label">Suspended</span>
+        </div>
+      </div>
+
+      <!-- Real chart section — a genuine donut, bar, and trend-line chart,
+           not another stat tile. Every number is computed client-side from
+           the exact same adminListUsers() response the table below already
+           reads (plan/status/accessDisabled/trialStartedAt/createdAt) — no
+           new endpoint, Firestore field, or Cloud Function. Hand-rolled
+           inline SVG per this codebase's own long-established "no chart
+           library, no CDN dependency" precedent (the Distance Tracker's own
+           charts) rather than adding Chart.js — this sandbox's network
+           policy has repeatedly been documented (see CLAUDE.md) to block
+           the CDN hosts a chart library would need. -->
+      <div class="admin-charts-grid" id="adminChartsGrid">
+        <div class="admin-chart-card">
+          <h3 class="admin-chart-title">Plan Distribution</h3>
+          <div class="admin-donut-wrap">
+            <svg class="admin-donut" viewBox="0 0 120 120" id="adminPlanDonut" role="img" aria-label="Plan distribution donut chart"></svg>
+            <div class="admin-donut-center">
+              <span class="admin-donut-center-value" id="adminDonutCenterValue">0</span>
+              <span class="admin-donut-center-label">Total</span>
+            </div>
+          </div>
+          <div class="admin-chart-legend" id="adminPlanLegend"></div>
+        </div>
+        <div class="admin-chart-card">
+          <h3 class="admin-chart-title">Account Status</h3>
+          <div class="admin-bar-chart" id="adminStatusBarChart" role="img" aria-label="Account status bar chart"></div>
+        </div>
+        <div class="admin-chart-card admin-chart-card-wide">
+          <h3 class="admin-chart-title">New Signups <span class="admin-chart-subtitle">Last 14 Days</span></h3>
+          <svg class="admin-trend-chart" id="adminSignupsTrend" viewBox="0 0 560 160" preserveAspectRatio="none" role="img" aria-label="New signups over the last 14 days"></svg>
         </div>
       </div>
 
@@ -11403,10 +11442,197 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       setAdminRing('Suspended', suspended, total);
     }
 
+    var ADMIN_DONUT_CIRCUMFERENCE = 2 * Math.PI * 50; // matches r="50" in buildAdminDonut()
+
+    function svgEl(tag, attrs) {
+      var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (var k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+
+    // Plan Distribution — a real donut chart, categorical hues in a fixed
+    // order (Pro=aqua, Elite=green, Ultra=maroon, No Plan=muted gray),
+    // never cycled or reassigned as the underlying counts change.
+    function renderPlanDonut(users) {
+      var svg = document.getElementById('adminPlanDonut');
+      var legend = document.getElementById('adminPlanLegend');
+      var centerValue = document.getElementById('adminDonutCenterValue');
+      if (!svg || !legend) return;
+      var total = users.length;
+      var counts = {
+        pro: users.filter(function (u) { return u.plan === 'pro'; }).length,
+        elite: users.filter(function (u) { return u.plan === 'elite'; }).length,
+        ultra: users.filter(function (u) { return u.plan === 'ultra'; }).length
+      };
+      counts.none = total - counts.pro - counts.elite - counts.ultra;
+      var segments = [
+        { key: 'pro', label: 'Pro', color: 'var(--aqua)', count: counts.pro },
+        { key: 'elite', label: 'Elite', color: 'var(--green-bright)', count: counts.elite },
+        { key: 'ultra', label: 'Ultra', color: 'var(--maroon-bright)', count: counts.ultra },
+        { key: 'none', label: 'No Plan', color: 'var(--muted-2)', count: counts.none }
+      ];
+      svg.innerHTML = '';
+      // Track ring (drawn first, sits underneath every colored segment).
+      svg.appendChild(svgEl('circle', { cx: 60, cy: 60, r: 50, fill: 'none', stroke: 'var(--border)', 'stroke-width': 16 }));
+      var offset = 0;
+      segments.forEach(function (seg) {
+        if (seg.count <= 0) return;
+        var pct = total > 0 ? seg.count / total : 0;
+        var len = ADMIN_DONUT_CIRCUMFERENCE * pct;
+        var circle = svgEl('circle', {
+          cx: 60, cy: 60, r: 50, fill: 'none', stroke: seg.color, 'stroke-width': 16,
+          'stroke-dasharray': len.toFixed(2) + ' ' + ADMIN_DONUT_CIRCUMFERENCE.toFixed(2),
+          'stroke-dashoffset': (-offset).toFixed(2)
+        });
+        var title = svgEl('title', {});
+        title.textContent = seg.label + ': ' + seg.count + ' (' + Math.round(pct * 100) + '%)';
+        circle.appendChild(title);
+        svg.appendChild(circle);
+        offset += len;
+      });
+      if (centerValue) centerValue.textContent = total;
+      legend.innerHTML = '';
+      segments.forEach(function (seg) {
+        var row = document.createElement('div');
+        row.className = 'admin-chart-legend-row';
+        var swatch = document.createElement('span');
+        swatch.className = 'admin-chart-legend-swatch';
+        swatch.style.background = seg.color;
+        var label = document.createElement('span');
+        label.textContent = seg.label;
+        var value = document.createElement('span');
+        value.className = 'admin-chart-legend-value';
+        value.textContent = seg.count;
+        row.appendChild(swatch);
+        row.appendChild(label);
+        row.appendChild(value);
+        legend.appendChild(row);
+      });
+    }
+
+    // Account Status — a horizontal bar chart using status semantics (good/
+    // neutral/warning/critical), not an arbitrary categorical rotation:
+    // Active=green (good), Trial=aqua (neutral/in-progress), Expired=gold
+    // (warning), Suspended=maroon (critical) — reserved status colors,
+    // never reused for a plain "series 4."
+    function renderStatusBarChart(users) {
+      var wrap = document.getElementById('adminStatusBarChart');
+      if (!wrap) return;
+      var active = users.filter(function (u) { return u.plan && (u.status === 'active' || u.status === 'trialing') && !u.accessDisabled; }).length;
+      var onTrial = users.filter(function (u) {
+        return !u.plan && !u.accessDisabled && u.trialStartedAt && Date.now() < u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      }).length;
+      var expired = users.filter(function (u) {
+        return !u.plan && !u.accessDisabled && u.trialStartedAt && Date.now() >= u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      }).length;
+      var suspended = users.filter(function (u) { return u.accessDisabled; }).length;
+      var rows = [
+        { label: 'Active', color: 'var(--green-bright)', count: active },
+        { label: 'Trial', color: 'var(--aqua)', count: onTrial },
+        { label: 'Expired', color: 'var(--gold)', count: expired },
+        { label: 'Suspended', color: 'var(--maroon-bright)', count: suspended }
+      ];
+      var max = Math.max(1, active, onTrial, expired, suspended);
+      wrap.innerHTML = '';
+      rows.forEach(function (row) {
+        var rowEl = document.createElement('div');
+        rowEl.className = 'admin-bar-row';
+        var labelEl = document.createElement('span');
+        labelEl.className = 'admin-bar-row-label';
+        labelEl.textContent = row.label;
+        var track = document.createElement('span');
+        track.className = 'admin-bar-track';
+        var fill = document.createElement('span');
+        fill.className = 'admin-bar-fill';
+        fill.style.background = row.color;
+        fill.style.width = Math.round((row.count / max) * 100) + '%';
+        fill.title = row.label + ': ' + row.count;
+        track.appendChild(fill);
+        var valueEl = document.createElement('span');
+        valueEl.className = 'admin-bar-row-value';
+        valueEl.textContent = row.count;
+        rowEl.appendChild(labelEl);
+        rowEl.appendChild(track);
+        rowEl.appendChild(valueEl);
+        wrap.appendChild(rowEl);
+      });
+    }
+
+    // New Signups trend — a real line/area chart bucketing each swimmer's
+    // actual account-creation timestamp (u.createdAt, the same field the
+    // table's own "Joined" column already reads) into the last 14 calendar
+    // days. This is a genuine substitute for "visitor trend" data this app
+    // has no way to track (see the Total Site Visitors tile's own honest
+    // N/A disclosure) — real registrations, not a fabricated number.
+    function renderSignupsTrend(users) {
+      var svg = document.getElementById('adminSignupsTrend');
+      if (!svg) return;
+      var DAYS = 14;
+      var dayMs = 24 * 60 * 60 * 1000;
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var buckets = [];
+      for (var i = DAYS - 1; i >= 0; i--) {
+        var dayStart = today.getTime() - i * dayMs;
+        buckets.push({ start: dayStart, end: dayStart + dayMs, count: 0, date: new Date(dayStart) });
+      }
+      users.forEach(function (u) {
+        if (!u.createdAt) return;
+        for (var i = 0; i < buckets.length; i++) {
+          if (u.createdAt >= buckets[i].start && u.createdAt < buckets[i].end) { buckets[i].count++; break; }
+        }
+      });
+      var maxCount = Math.max(1, Math.max.apply(null, buckets.map(function (b) { return b.count; })));
+      var W = 560, H = 160, padL = 24, padR = 12, padT = 12, padB = 24;
+      var plotW = W - padL - padR, plotH = H - padT - padB;
+      var stepX = plotW / (buckets.length - 1);
+      function xFor(i) { return padL + i * stepX; }
+      function yFor(count) { return padT + plotH - (count / maxCount) * plotH; }
+
+      svg.innerHTML = '';
+      var defs = svgEl('defs', {});
+      var grad = svgEl('linearGradient', { id: 'adminTrendGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
+      var stop1 = svgEl('stop', { offset: '0%', 'stop-color': 'var(--aqua)', 'stop-opacity': 0.55 });
+      var stop2 = svgEl('stop', { offset: '100%', 'stop-color': 'var(--aqua)', 'stop-opacity': 0 });
+      grad.appendChild(stop1); grad.appendChild(stop2); defs.appendChild(grad); svg.appendChild(defs);
+
+      // Recessive horizontal gridlines (0%, 50%, 100% of max) behind the plot.
+      [0, 0.5, 1].forEach(function (frac) {
+        var y = padT + plotH * (1 - frac);
+        svg.appendChild(svgEl('line', { class: 'trend-grid-line', x1: padL, x2: W - padR, y1: y.toFixed(1), y2: y.toFixed(1) }));
+      });
+
+      var linePoints = buckets.map(function (b, i) { return xFor(i).toFixed(1) + ',' + yFor(b.count).toFixed(1); }).join(' ');
+      var areaPoints = linePoints + ' ' + xFor(buckets.length - 1).toFixed(1) + ',' + (padT + plotH) + ' ' + xFor(0).toFixed(1) + ',' + (padT + plotH);
+      svg.appendChild(svgEl('polygon', { class: 'trend-area', points: areaPoints }));
+      svg.appendChild(svgEl('polyline', { class: 'trend-line', points: linePoints }));
+
+      buckets.forEach(function (b, i) {
+        var dot = svgEl('circle', { class: 'trend-dot', cx: xFor(i).toFixed(1), cy: yFor(b.count).toFixed(1), r: 2.5 });
+        var title = svgEl('title', {});
+        title.textContent = b.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ': ' + b.count + (b.count === 1 ? ' signup' : ' signups');
+        dot.appendChild(title);
+        svg.appendChild(dot);
+        // Label every ~3rd day on the x-axis so labels don't collide.
+        if (i % 3 === 0 || i === buckets.length - 1) {
+          var lbl = svgEl('text', { class: 'trend-axis-label', x: xFor(i).toFixed(1), y: H - 6, 'text-anchor': 'middle' });
+          lbl.textContent = b.date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+          svg.appendChild(lbl);
+        }
+      });
+    }
+
+    function renderAdminCharts() {
+      renderPlanDonut(users);
+      renderStatusBarChart(users);
+      renderSignupsTrend(users);
+    }
+
     function renderUsers() {
       tbody.innerHTML = '';
       countEl.textContent = users.length + (users.length === 1 ? ' swimmer' : ' swimmers');
       renderAdminStats();
+      renderAdminCharts();
       users.forEach(function (u) {
         var meta = inboxByUid[u.uid];
         var unread = meta ? !!meta.unreadForAdmin : !!u.unreadForAdmin;
