@@ -1858,8 +1858,20 @@ body.view-home { margin-left: 0 !important; }
    CLAUDE.md history), so this stays simple and robust. :has() scopes
    snapping to Home only, so it never affects the App view's own tab
    scrolling. */
-html:has(body.view-home) { scroll-snap-type: y mandatory; }
-@media (prefers-reduced-motion: reduce) { html:has(body.view-home) { scroll-snap-type: y proximity; } }
+/* A real, previously-live bug: scroll-snap-type: y mandatory (combined with
+   scroll-snap-stop: always on .home-slide below) genuinely TRAPPED scroll
+   entirely, not just "snapped" it — confirmed empirically via Playwright:
+   even a direct `scrollingElement.scrollTop = 500` (never mind a real wheel
+   gesture) snapped straight back to 0, so a visitor could never scroll past
+   the Hero at all. This is a known class of real-world `mandatory` snap
+   trap, not a hypothetical edge case — `mandatory` forces the browser to
+   reject any resting position that isn't an exact snap point, and something
+   about this page's snap-child sizing/stacking made every non-zero position
+   invalid. Switched to `proximity` (only snaps when a scroll naturally ends
+   near a snap point; never rejects/reverts a scroll outright) — verified via
+   Playwright that a wheel scroll now reaches the target position immediately
+   and repeatably, while slides still settle into place on a normal scroll. */
+html:has(body.view-home) { scroll-snap-type: y proximity; }
 /* A real bug lived here too, downstream of the #homeTopTicker fix above: this
    rule's own padding-block (and the near-duplicate .hero-only override that
    used to sit below it) never accounted for the fixed nav+ticker header
@@ -3482,32 +3494,51 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
    client-side from the exact same adminListUsers() response — no new
    Firestore field, Cloud Function, or rules change was needed for the five
    pre-existing metrics. */
-.admin-stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
+.admin-stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-5); margin-bottom: var(--space-7); }
 .admin-stat-tile {
-  padding: var(--space-4); display: flex; flex-direction: column; gap: 6px; text-align: left;
+  position: relative;
+  padding: var(--space-5); display: flex; flex-direction: column; gap: 8px; text-align: left;
   background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
   border-top: 3px solid var(--aqua);
   box-shadow: 0 14px 34px -26px rgba(0,0,0,0.6);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  --ring-color: var(--aqua);
 }
-.admin-stat-tile:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -22px rgba(0,0,0,0.65); }
-.admin-stat-tile:nth-child(3n+2) { border-top-color: var(--green-bright); }
-.admin-stat-tile:nth-child(3n) { border-top-color: var(--maroon-bright); }
+.admin-stat-tile:hover { transform: translateY(-4px); box-shadow: 0 20px 46px -22px rgba(0,0,0,0.7); }
+.admin-stat-tile:nth-child(3n+2) { border-top-color: var(--green-bright); --ring-color: var(--green-bright); }
+.admin-stat-tile:nth-child(3n) { border-top-color: var(--maroon-bright); --ring-color: var(--maroon-bright); }
 .admin-stat-icon {
-  width: 34px; height: 34px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
-  background: rgba(34,211,238,0.12); color: var(--aqua); margin-bottom: 2px;
+  width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
+  background: rgba(34,211,238,0.12); color: var(--aqua); margin-bottom: 4px;
 }
 .admin-stat-tile:nth-child(3n+2) .admin-stat-icon { background: rgba(22,214,115,0.14); color: var(--green-bright); }
 .admin-stat-tile:nth-child(3n) .admin-stat-icon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
-.admin-stat-icon .icon { width: 17px; height: 17px; }
-.admin-stat-value { font-family: var(--font-mono); font-size: 1.9rem; font-weight: 700; color: var(--fg); line-height: 1.1; }
-.admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.admin-stat-caption { font-size: 0.72rem; color: var(--muted-2); line-height: 1.4; }
+.admin-stat-icon .icon { width: 18px; height: 18px; }
+.admin-stat-value { font-family: var(--font-mono); font-size: 2.1rem; font-weight: 700; color: var(--fg); line-height: 1.1; letter-spacing: -0.01em; }
+.admin-stat-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.admin-stat-caption { font-size: 0.74rem; color: var(--muted-2); line-height: 1.45; }
 .admin-stat-caption a { color: var(--aqua); text-decoration: underline; }
 .admin-time-remaining { font-size: 0.8rem; white-space: nowrap; }
 .admin-time-remaining.is-trial { color: var(--aqua); }
 .admin-time-remaining.is-active { color: var(--green-bright); }
 .admin-time-remaining.is-expired { color: var(--muted-2); }
+/* Mini radial-progress rings — a real, computed visualization (percentage of
+   Total Registered Users), not a decorative flourish. Per the dataviz skill's
+   own "magnitude of a whole" guidance: one hue per ring (light track → the
+   tile's own already-established accent, never a rainbow), the percentage
+   rendered as plain text (never color-coded alone), and the underlying
+   number is still the primary content — the ring is a secondary at-a-glance
+   cue in the tile's own top-right corner. Computed entirely client-side from
+   the same adminListUsers() response the big number already reads — no new
+   endpoint or data needed. */
+.admin-stat-ring-wrap { position: absolute; top: var(--space-4); right: var(--space-4); width: 44px; height: 44px; }
+.admin-stat-ring { width: 44px; height: 44px; transform: rotate(-90deg); }
+.admin-stat-ring .ring-track { fill: none; stroke: var(--border); stroke-width: 3; }
+.admin-stat-ring .ring-fill { fill: none; stroke: var(--ring-color); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 700ms var(--ease); }
+.admin-stat-ring-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; color: var(--fg);
+}
 @media (max-width: 1100px) { .admin-stats-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
@@ -3668,23 +3699,25 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   body.view-app .toast-stack { top: calc(var(--dash-ticker-h) + var(--announce-h, 0px) + 16px); }
 }
 
-/* ============================= MOBILE: SINGLE MARQUEE ONLY =============================
+/* ============================= SINGLE MARQUEE ONLY, EVERY WIDTH =============================
    On Home, the always-fixed #homeTopTicker sits pinned at the very top of the
    viewport at all times, while the two in-flow tickers (#homeTicker1, between
    the Hero and Slide 2; #homeTicker2, between Slide 2 and Pricing) also
    scroll into view at their own positions in the Home scroll-snap flow — so a
-   swimmer scrolling past either slide boundary on a narrow viewport sees TWO
-   scrolling marquees on screen simultaneously. Desktop was never reported as
-   having this problem (more vertical room means the in-flow tickers and the
-   fixed one rarely overlap the same viewport), so this is scoped to mobile
-   only, matching every other mobile-specific rule in this stylesheet. IDs are
+   swimmer scrolling past either slide boundary sees TWO scrolling marquees on
+   screen simultaneously. A previous round scoped this hide rule to mobile
+   only, on the assumption desktop's extra vertical room kept the two from
+   ever overlapping — a direct Playwright scroll-depth sweep at 1440px and
+   1024px proved that assumption wrong: `#homeTicker1`/`#homeTicker2` render
+   fully visible alongside `#homeTopTicker` at exactly the same scroll
+   positions on desktop too, since a full-viewport-height slide easily has
+   room for both a fixed header strip and an in-flow ticker to be on screen
+   together regardless of width. Unconditional now, every viewport. IDs are
    used (not the shared .home-ticker class) so this can never be silently
    undone by a later, higher-specificity class rule elsewhere in the file —
    the exact "later rule wins" bug class this file has been bitten by twice
    already (see the #homeTopTicker/.home-slide notes above). */
-@media (max-width: 980px) {
-  #homeTicker1, #homeTicker2 { display: none; }
-}
+#homeTicker1, #homeTicker2 { display: none; }
 
 /* ============================= MOBILE: BREATHING ROOM PASS =============================
    Per direct "feels too tight and cramped" feedback: a real, moderate
@@ -4865,21 +4898,52 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <span class="admin-stat-label">Total Registered Users</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-ring-wrap">
+            <svg class="admin-stat-ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="ring-track" cx="22" cy="22" r="17.5"/>
+              <circle class="ring-fill" id="adminRingSubscribers" cx="22" cy="22" r="17.5" stroke-dasharray="110 110" stroke-dashoffset="110"/>
+            </svg>
+            <span class="admin-stat-ring-pct" id="adminRingSubscribersPct">0%</span>
+          </div>
           <div class="admin-stat-icon"><svg class="icon"><use href="#i-check"/></svg></div>
           <span class="admin-stat-value" id="adminStatSubscribers">—</span>
           <span class="admin-stat-label">Total Subscribers</span>
+          <span class="admin-stat-caption">% of Total Registered</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-ring-wrap">
+            <svg class="admin-stat-ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="ring-track" cx="22" cy="22" r="17.5"/>
+              <circle class="ring-fill" id="adminRingActive" cx="22" cy="22" r="17.5" stroke-dasharray="110 110" stroke-dashoffset="110"/>
+            </svg>
+            <span class="admin-stat-ring-pct" id="adminRingActivePct">0%</span>
+          </div>
           <div class="admin-stat-icon"><svg class="icon"><use href="#i-bolt"/></svg></div>
           <span class="admin-stat-value" id="adminStatActive">—</span>
           <span class="admin-stat-label">Active Memberships</span>
+          <span class="admin-stat-caption">% of Total Registered</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-ring-wrap">
+            <svg class="admin-stat-ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="ring-track" cx="22" cy="22" r="17.5"/>
+              <circle class="ring-fill" id="adminRingTrial" cx="22" cy="22" r="17.5" stroke-dasharray="110 110" stroke-dashoffset="110"/>
+            </svg>
+            <span class="admin-stat-ring-pct" id="adminRingTrialPct">0%</span>
+          </div>
           <div class="admin-stat-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
           <span class="admin-stat-value" id="adminStatTrial">—</span>
           <span class="admin-stat-label">On Free Trial</span>
+          <span class="admin-stat-caption">% of Total Registered</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-ring-wrap">
+            <svg class="admin-stat-ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="ring-track" cx="22" cy="22" r="17.5"/>
+              <circle class="ring-fill" id="adminRingSuspended" cx="22" cy="22" r="17.5" stroke-dasharray="110 110" stroke-dashoffset="110"/>
+            </svg>
+            <span class="admin-stat-ring-pct" id="adminRingSuspendedPct">0%</span>
+          </div>
           <div class="admin-stat-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
           <span class="admin-stat-value" id="adminStatSuspended">—</span>
           <span class="admin-stat-label">Suspended</span>
@@ -11301,6 +11365,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       return { text: (d > 0 ? d + 'd ' + h + 'h left' : h + 'h left'), cls: 'is-trial' };
     }
 
+    var ADMIN_RING_CIRCUMFERENCE = 2 * Math.PI * 17.5; // matches each ring's r="17.5" in the markup
+
+    function setAdminRing(key, count, total) {
+      var pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      var circle = document.getElementById('adminRing' + key);
+      var label = document.getElementById('adminRing' + key + 'Pct');
+      if (circle) circle.style.strokeDashoffset = (ADMIN_RING_CIRCUMFERENCE * (1 - pct / 100)).toFixed(2);
+      if (label) label.textContent = pct + '%';
+    }
+
     function renderAdminStats() {
       var subscribers = users.filter(function (u) { return !!u.plan; }).length;
       var active = users.filter(function (u) { return u.plan && (u.status === 'active' || u.status === 'trialing') && !u.accessDisabled; }).length;
@@ -11308,16 +11382,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         return !u.plan && !u.accessDisabled && u.trialStartedAt && Date.now() < u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
       }).length;
       var suspended = users.filter(function (u) { return u.accessDisabled; }).length;
+      var total = users.length;
       var totalEl = document.getElementById('adminStatTotal');
       var subsEl = document.getElementById('adminStatSubscribers');
       var activeEl = document.getElementById('adminStatActive');
       var trialEl = document.getElementById('adminStatTrial');
       var suspendedEl = document.getElementById('adminStatSuspended');
-      if (totalEl) totalEl.textContent = users.length;
+      if (totalEl) totalEl.textContent = total;
       if (subsEl) subsEl.textContent = subscribers;
       if (activeEl) activeEl.textContent = active;
       if (trialEl) trialEl.textContent = onTrial;
       if (suspendedEl) suspendedEl.textContent = suspended;
+      // Radial-progress rings — each tile's own % share of Total Registered
+      // Users, computed from the exact same numbers the big figures above
+      // already show. No new data source; purely a second, visual reading
+      // of numbers already on screen.
+      setAdminRing('Subscribers', subscribers, total);
+      setAdminRing('Active', active, total);
+      setAdminRing('Trial', onTrial, total);
+      setAdminRing('Suspended', suspended, total);
     }
 
     function renderUsers() {

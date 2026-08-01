@@ -4902,6 +4902,81 @@ touched anywhere in this round.**
   Support Help Center's FAQ, heading, and chat shell all render and function correctly on both
   desktop and mobile.
 
+**A round fixing a genuine, severe Home scroll lock (a real root cause, not the literal
+`overflow:hidden` the bug report guessed at), extending the marquee-dedup fix to desktop, adding
+real radial-progress rings to the Admin dashboard, and re-confirming the Workout Generator's
+daily/discipline dynamism — again under an explicit "do not alter the database" constraint, so
+every change here is HTML/CSS/JS only.**
+
+- **The real cause of "homepage vertical scroll is completely locked": `scroll-snap-type: y
+  mandatory` on `html:has(body.view-home)` was genuinely trapping scroll, not just snapping it.**
+  The bug report's own diagnosis (an `overflow:hidden` somewhere) didn't hold up — a direct
+  Playwright check found `overflow-y` computed to `auto` on both `html` and `body`, with plenty of
+  real scrollable height (`scrollHeight` 3352 vs `clientHeight` 900). The actual mechanism was
+  `mandatory` scroll-snap: per spec it forces the browser to reject any resting scroll position
+  that isn't an exact registered snap point — and something about this page's snap-child sizing/
+  stacking made every position except `0` invalid, confirmed by literally setting
+  `scrollingElement.scrollTop = 500` directly (bypassing any input-event path entirely) and
+  watching it snap straight back to `0`; a real `page.mouse.wheel()` gesture showed the identical
+  zero-progress result. This is a known, real-world class of `mandatory`-snap trap, not a
+  hypothetical — fixed by switching to `scroll-snap-type: y proximity` (which only snaps when a
+  scroll naturally *ends* near a snap point, and never rejects or reverts a scroll outright).
+  Verified via Playwright: six consecutive wheel ticks now progress smoothly and monotonically from
+  `scrollY 0` all the way to the true max (`2452`, matching `scrollHeight - clientHeight` exactly),
+  and scrolling back up reaches `0` cleanly — with zero regression to the slides still settling into
+  place on an ordinary scroll. The `@media (prefers-reduced-motion: reduce)` override that used to
+  separately force `proximity` for reduced-motion visitors was removed as now-redundant (the base
+  rule already reads `proximity` for everyone), not left as a dangling, do-nothing block.
+- **Marquee duplication: the previous round's fix was real but incomplete — it only covered
+  mobile.** `#homeTicker1`/`#homeTicker2` (the two in-flow tickers between Hero/Slide 2 and Slide
+  2/Pricing) were hidden only inside a `@media (max-width: 980px)` block, on the assumption
+  desktop's extra vertical room would keep them from ever overlapping the always-fixed
+  `#homeTopTicker` on screen at once. A dedicated Playwright sweep — scrolling through 11 evenly-
+  spaced depths at 1440px and 1024px and checking which `.home-ticker` elements were actually
+  within the viewport bounds at each — proved that assumption wrong: both in-flow tickers render
+  fully visible alongside the fixed one at plenty of desktop scroll positions, since a full-
+  viewport-height slide easily has room for a fixed header strip and an in-flow ticker
+  simultaneously regardless of width. Fixed by dropping the media-query scoping entirely —
+  `#homeTicker1, #homeTicker2 { display: none; }` now applies unconditionally, at every width.
+  Re-verified via the same scroll-depth sweep: only `#homeTopTicker` is ever visible, at any of the
+  11 sampled depths, at 1440px, 1024px, and 375px alike.
+- **Admin dashboard: real radial-progress rings added to four of the six stat tiles** (Total
+  Subscribers / Active Memberships / On Free Trial / Suspended), each showing that metric's % share
+  of Total Registered Users — computed entirely client-side from the exact same `adminListUsers()`
+  response the big numbers already read, so no new endpoint or Firestore field was needed. Per the
+  `dataviz` skill's own "magnitude of a whole" guidance: one hue per ring (a muted track + the
+  tile's own already-established accent color — aqua/green/maroon, matching each tile's top border
+  via a new `--ring-color` custom property set per `nth-child` position), the percentage rendered
+  as plain text rather than color-coded alone, and the underlying count is still the primary
+  content — the ring is a secondary, at-a-glance cue in the tile's own corner, not a replacement for
+  the number. Built as plain inline SVG circles (`stroke-dasharray`/`stroke-dashoffset`, no chart
+  library), matching this file's own long-established "hand-rolled SVG, no dependency" precedent
+  from the Distance Tracker's charts. Total Registered Users and Total Site Visitors don't get a
+  ring (there's no "share of a whole" to show for either — one of them *is* the whole, the other has
+  no real number at all). Alongside the rings, tile padding/gaps were widened (`--space-4` →
+  `--space-5` padding, `--space-6` → `--space-7` grid margin) and the value/label typography bumped
+  for more visual weight, directly addressing the "looks cramped and basic" feedback. Verified via
+  Playwright: all four rings compute the correct percentage and `stroke-dashoffset` from a mocked
+  3-user roster (1 subscriber / 1 active / 1 on trial / 1 suspended → each ring correctly shows
+  33%), each ring's computed `stroke` color matches its own tile's accent exactly, and the panel
+  still renders with zero overflow on both desktop and mobile.
+- **Workout Generator's daily-dynamism and discipline-adaptation claims were re-verified, not
+  re-coded — both already hold.** Simulated 8 consecutive calendar days: the Warm-Up's opening line
+  was Freestyle on every single day (unchanged from the long-standing hardcoded rule), and 7 of the
+  8 days' full Warm-Up text differed from one another (the drill/kick pool rotating exactly as
+  designed). Separately, deselecting every discipline except Breaststroke and generating confirmed
+  the resulting workout mentions Breaststroke, contains zero Butterfly mentions anywhere, and zero
+  Freestyle mentions outside the mandatory Freestyle warm-up line — i.e. the Main Set genuinely
+  locks to the swimmer's own selected specialization rather than defaulting to Freestyle content.
+  No code change was needed for this item; it was already correct, matching the prior round's own
+  independent audit of the same claim.
+- Verified via Playwright across the whole round: all 10 App-view tabs load and activate with zero
+  page errors; the Workouts PDF export still fires a real `download` event and Complete Workout
+  still logs correctly; zero horizontal overflow at both 1440px and 375px on every tab (the only
+  mobile "offender" is the same pre-existing, already-mitigated off-canvas nav-drawer false
+  positive); the Home scroll-lock fix, the desktop marquee fix, and the Admin rings all verified
+  independently as described above.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
