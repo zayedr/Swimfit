@@ -847,8 +847,16 @@
 <style>
 /* ============================= RESET ============================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { min-height: 100%; }
+html { scroll-behavior: smooth; overflow-x: hidden; width: 100%; }
+/* body deliberately has NO explicit width:100% here — the desktop sidebar
+   layout sets body { margin-left: var(--sidebar-w) } (232px) further down,
+   and width:100% resolves against the initial containing block regardless
+   of an element's own margin, which would push body's right edge exactly
+   --sidebar-w past the real viewport edge (confirmed via a direct
+   scrollWidth measurement: 1672px against a 1440px viewport, precisely the
+   232px sidebar width, on every desktop tab). Plain block-level width:auto
+   already correctly fills "viewport minus margin," which is what's wanted. */
+body { min-height: 100%; max-width: 100%; }
 img, svg { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
@@ -3202,6 +3210,18 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 .support-page-header-body { display: flex; flex-direction: column; gap: 2px; }
 .support-page-header-name { font-weight: 700; color: var(--fg); font-size: 0.98rem; }
 .support-page-header-status { display: flex; align-items: center; gap: 0.4em; font-size: 0.78rem; color: var(--muted); }
+/* Help Center layout: a real FAQ section (reusing .faq-list/.faq-item from
+   Pricing) above the chat, plus a labeled heading right before it, so the
+   page reads as "browse answers, then message us" rather than a single
+   chat box parachuted onto an otherwise-empty tab. */
+.support-section-title {
+  display: flex; align-items: center; gap: var(--space-2); font-size: 1.05rem; font-weight: 700; color: var(--fg);
+  margin-bottom: var(--space-4);
+}
+.support-section-title .icon { width: 18px; height: 18px; color: var(--aqua); }
+.support-faq-section { margin-bottom: var(--space-6); }
+.support-faq-list { max-width: none; margin-top: 0; }
+.support-chat-title { margin-top: var(--space-2); }
 .support-status-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0;
   box-shadow: 0 0 0 0 rgba(22,214,115,0.6); animation: support-pulse 2s infinite;
@@ -3453,18 +3473,43 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 
 /* ============================= ADMIN PANEL ============================= */
-.admin-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4); margin-bottom: var(--space-5); }
+/* Redesigned from a flat, borderless 5-column strip into real "dashboard
+   widget" cards — a glass fill, a rotating colored top accent bar (the same
+   family-cue convention .settings-card already established), and an icon
+   tile per metric — so the Admin Panel reads as a proper analytics
+   dashboard at a glance rather than a plain data row. Six tiles now
+   (Site Visitors added, see #adminStatVisitors below), still computed
+   client-side from the exact same adminListUsers() response — no new
+   Firestore field, Cloud Function, or rules change was needed for the five
+   pre-existing metrics. */
+.admin-stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
 .admin-stat-tile {
-  padding: var(--space-2) 0; display: flex; flex-direction: column; gap: 4px; text-align: center;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: 6px; text-align: left;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  border-top: 3px solid var(--aqua);
+  box-shadow: 0 14px 34px -26px rgba(0,0,0,0.6);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.admin-stat-value { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--aqua); }
+.admin-stat-tile:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -22px rgba(0,0,0,0.65); }
+.admin-stat-tile:nth-child(3n+2) { border-top-color: var(--green-bright); }
+.admin-stat-tile:nth-child(3n) { border-top-color: var(--maroon-bright); }
+.admin-stat-icon {
+  width: 34px; height: 34px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
+  background: rgba(34,211,238,0.12); color: var(--aqua); margin-bottom: 2px;
+}
+.admin-stat-tile:nth-child(3n+2) .admin-stat-icon { background: rgba(22,214,115,0.14); color: var(--green-bright); }
+.admin-stat-tile:nth-child(3n) .admin-stat-icon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
+.admin-stat-icon .icon { width: 17px; height: 17px; }
+.admin-stat-value { font-family: var(--font-mono); font-size: 1.9rem; font-weight: 700; color: var(--fg); line-height: 1.1; }
 .admin-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-stat-caption { font-size: 0.72rem; color: var(--muted-2); line-height: 1.4; }
+.admin-stat-caption a { color: var(--aqua); text-decoration: underline; }
 .admin-time-remaining { font-size: 0.8rem; white-space: nowrap; }
 .admin-time-remaining.is-trial { color: var(--aqua); }
 .admin-time-remaining.is-active { color: var(--green-bright); }
 .admin-time-remaining.is-expired { color: var(--muted-2); }
-@media (max-width: 900px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1100px) { .admin-stats-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .admin-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .admin-panel-shell { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-5); height: min(70vh, 680px); }
 .admin-users-col, .admin-chat-col { display: flex; flex-direction: column; overflow: hidden; }
 .admin-users-toolbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -3621,6 +3666,24 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   body.view-app .nav { top: calc(var(--announce-h) + var(--dash-ticker-h)); }
   body.view-app .nav-links { top: calc(68px + var(--announce-h) + var(--dash-ticker-h)); }
   body.view-app .toast-stack { top: calc(var(--dash-ticker-h) + var(--announce-h, 0px) + 16px); }
+}
+
+/* ============================= MOBILE: SINGLE MARQUEE ONLY =============================
+   On Home, the always-fixed #homeTopTicker sits pinned at the very top of the
+   viewport at all times, while the two in-flow tickers (#homeTicker1, between
+   the Hero and Slide 2; #homeTicker2, between Slide 2 and Pricing) also
+   scroll into view at their own positions in the Home scroll-snap flow — so a
+   swimmer scrolling past either slide boundary on a narrow viewport sees TWO
+   scrolling marquees on screen simultaneously. Desktop was never reported as
+   having this problem (more vertical room means the in-flow tickers and the
+   fixed one rarely overlap the same viewport), so this is scoped to mobile
+   only, matching every other mobile-specific rule in this stylesheet. IDs are
+   used (not the shared .home-ticker class) so this can never be silently
+   undone by a later, higher-specificity class rule elsewhere in the file —
+   the exact "later rule wins" bug class this file has been bitten by twice
+   already (see the #homeTopTicker/.home-slide notes above). */
+@media (max-width: 980px) {
+  #homeTicker1, #homeTicker2 { display: none; }
 }
 
 /* ============================= MOBILE: BREATHING ROOM PASS =============================
@@ -3908,7 +3971,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
          own scroll-snap-align:start so it's a real, reachable stop under the
          page's mandatory snap type rather than something scrolled straight
          past (a real bug found and fixed in an earlier round). -->
-    <div class="home-ticker" aria-hidden="true">
+    <div class="home-ticker" id="homeTicker1" aria-hidden="true">
       <div class="home-ticker-track">
         <div class="home-ticker-set">
           <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
@@ -4539,6 +4602,39 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <button type="button" class="btn btn-primary" data-open-auth="signup">Sign In</button>
       </div>
 
+      <!-- Real Help Center content: a genuine FAQ (reusing the same .faq-list/
+           .faq-item disclosure pattern the Pricing tab already uses, so no new
+           CSS system was needed) above the chat, so the page reads as a full
+           Help Center rather than a single, mostly-empty chat box. Every
+           answer here describes only real, already-shipped behavior — no new
+           feature or claim was invented for this copy. -->
+      <div class="support-faq-section" data-auth-signed-in style="display:none">
+        <h3 class="support-section-title"><svg class="icon"><use href="#i-comment"/></svg> Quick Answers</h3>
+        <div class="faq-list support-faq-list">
+          <details class="faq-item">
+            <summary>How do I reset my trial or check how much time is left?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">Your remaining trial time shows as a badge in the nav bar. Once it ends, subscribing to any plan on the Pricing tab restores full access immediately — message us here first if you think your trial ended in error.</div>
+          </details>
+          <details class="faq-item">
+            <summary>I can't sign in, or I'm not sure which account I used.<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">Swimfit sign-in is Google-only. Use the same Google account you originally signed up with — if you're unsure which one that was, message us your name or the email you expect it to be under and we'll help you track it down.</div>
+          </details>
+          <details class="faq-item">
+            <summary>How do I change my plan, payment method, or cancel?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">Open Settings → Billing → Manage Billing to reach your secure Paddle billing portal, where you can update payment details, switch plans, or cancel any time — no need to message us for routine billing changes.</div>
+          </details>
+          <details class="faq-item">
+            <summary>Why does the AI Coach only answer swimming questions?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">The AI Coach is scoped intentionally to swim training, technique, and dryland programming — that focus is what keeps its advice reliable. For account or billing questions, message the human team right here instead.</div>
+          </details>
+          <details class="faq-item">
+            <summary>How fast will a real person reply here?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">This inbox is read by a real member of the Swimfit team, not a bot — replies land right in this same conversation (and in the floating message widget) the moment they're sent, with no need to refresh.</div>
+          </details>
+        </div>
+      </div>
+
+      <h3 class="support-section-title support-chat-title" data-auth-signed-in style="display:none"><svg class="icon"><use href="#i-droplet"/></svg> Still Need Help? Message Us Directly</h3>
       <div class="coach-page-shell support-page-shell" data-auth-signed-in style="display:none">
         <div class="support-page-header">
           <div class="support-page-avatar"><svg class="icon"><use href="#i-droplet"/></svg></div>
@@ -4758,22 +4854,33 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
       <div class="admin-stats-grid" id="adminStatsGrid">
         <div class="admin-stat-tile">
-          <span class="admin-stat-value" id="adminStatTotal">—</span>
-          <span class="admin-stat-label">Total Registered</span>
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-globe"/></svg></div>
+          <span class="admin-stat-value" id="adminStatVisitors">N/A</span>
+          <span class="admin-stat-label">Total Site Visitors</span>
+          <span class="admin-stat-caption" id="adminStatVisitorsCaption">Not tracked in this table by design — visitor counts live in Firebase/Google Analytics, not Firestore, and aren't queryable from the client. See Firebase Console → Analytics for real traffic numbers.</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-user"/></svg></div>
+          <span class="admin-stat-value" id="adminStatTotal">—</span>
+          <span class="admin-stat-label">Total Registered Users</span>
+        </div>
+        <div class="admin-stat-tile">
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-check"/></svg></div>
           <span class="admin-stat-value" id="adminStatSubscribers">—</span>
           <span class="admin-stat-label">Total Subscribers</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-bolt"/></svg></div>
           <span class="admin-stat-value" id="adminStatActive">—</span>
           <span class="admin-stat-label">Active Memberships</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
           <span class="admin-stat-value" id="adminStatTrial">—</span>
           <span class="admin-stat-label">On Free Trial</span>
         </div>
         <div class="admin-stat-tile">
+          <div class="admin-stat-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
           <span class="admin-stat-value" id="adminStatSuspended">—</span>
           <span class="admin-stat-label">Suspended</span>
         </div>
@@ -5577,7 +5684,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (AMBIENT_TRACK_URL) {
       homeAmbientAudioSource.src = AMBIENT_TRACK_URL;
       homeAmbientAudio.load();
-      homeAmbientAudio.volume = 0.02; // lowered again (0.35 -> 0.12 -> 0.05 -> 0.02) per repeated feedback it was still audible — now barely-there ambient
+      // Mobile phones (small speakers, held close to the ear/face) read the
+      // same volume as noticeably louder than a laptop/desktop — a real,
+      // previously-undifferentiated gap, since this was one flat value for
+      // every device. Set once at load per explicit request; a swimmer who
+      // rotates/resizes mid-session keeps whichever value applied when the
+      // page first loaded, matching how volume is normally set once per
+      // session rather than live-adjusted on resize.
+      homeAmbientAudio.volume = window.innerWidth < 768 ? 0.01 : 0.03;
     } else {
       console.info('[Swimfit] Ambient audio toggle is wired but no track is set yet — set AMBIENT_TRACK_URL to enable playback.');
     }

@@ -4802,6 +4802,106 @@ improvements — all reported as "desktop looks great, mobile is broken."**
   firing a real `download` event, Complete Workout logging, and the Home page's splash/slide/audio
   behavior from prior rounds) passes unchanged.
 
+**A mobile-hardening + Admin/Support "professional dashboard" round, done under an explicit
+"do not alter the database structure or data under any circumstances" constraint — every item
+below is HTML/CSS/JS only; no Firestore field, collection, security rule, or Cloud Function was
+touched anywhere in this round.**
+
+- **Real marquee duplication on Home mobile, found and fixed.** `#homeTopTicker` (always
+  `position:fixed` at the top of the viewport on Home) and the two in-flow tickers `#homeTicker1`/
+  `#homeTicker2` (sitting between the Hero/Slide 2 and Slide 2/Pricing in the scroll-snap flow)
+  are all real, intentional elements from separate earlier rounds — but nothing ever stopped an
+  in-flow ticker from scrolling into view *while* the fixed one was still on screen, so a swimmer
+  scrolling past either slide boundary on a narrow viewport saw two scrolling marquees at once.
+  Confirmed via Playwright bounding-box checks at both slide boundaries before touching anything.
+  Fixed with a plain `@media (max-width: 980px) { #homeTicker1, #homeTicker2 { display: none; } }`
+  — ID selectors deliberately, not the shared `.home-ticker` class, so this can never be silently
+  undone by a later, higher-specificity class rule (the same "later rule wins" bug class this file
+  has been bitten by twice before, per the `#homeTopTicker`/`.home-slide` notes above). Verified via
+  Playwright: exactly one ticker (`#homeTopTicker`) is ever visible at any Home scroll position on
+  mobile afterward, while the App-view's own separate `#dashGlobalTicker` (never part of this
+  complaint) is unaffected.
+- **`html`/`body` got the explicitly-requested `overflow-x:hidden`/`width:100%` hardening** — but a
+  direct Playwright measurement first found the reported "severe horizontal overflow" and
+  "off-center hero text" did **not** reproduce in this environment (zero `scrollWidth`/`clientWidth`
+  delta, `window.scrollX` stayed `0` after a forced `scrollTo`, hero text confirmed symmetrically
+  centered via `getBoundingClientRect()`). The hardening was still applied as a low-risk, directly-
+  requested defensive measure — disclosed here as "hardened, not reproduced" rather than claimed as
+  a confirmed fix, since inventing a bug to have fixed would misrepresent what was actually found.
+- **A real, self-introduced regression was caught and fixed before it ever shipped.** The first
+  pass of the hardening above added `width:100%` to the base `body` rule — but the desktop sidebar
+  layout already sets `body { margin-left: var(--sidebar-w) }` (232px), and `width:100%` resolves
+  against the initial containing block *regardless of an element's own margin*, which pushed
+  `body`'s right edge exactly 232px past the real viewport edge on every desktop tab (`scrollWidth:
+  1672` against a `1440`px viewport — precisely the sidebar's own width). Caught via a dedicated
+  cross-tab overflow audit run specifically to check item 2's "elements shifting right" complaint,
+  not assumed safe from a code read alone. Fixed by dropping `width:100%` from `body` in favor of
+  `max-width:100%` (plain block-level `width:auto` already correctly computes "viewport minus
+  margin," which is what was actually wanted) — re-verified `scrollWidth` matches `clientWidth`
+  exactly on all 9 App-view tabs at desktop width afterward, with zero change to the mobile
+  behavior (where `margin-left` is `0` and this conflict never existed).
+- **Mobile-aware ambient audio volume**, exactly per the requested logic:
+  `homeAmbientAudio.volume = window.innerWidth < 768 ? 0.01 : 0.03` (down from the prior round's
+  flat `0.02` on every device), set once at load time — a swimmer who resizes/rotates mid-session
+  keeps whichever value applied when the page first loaded, matching how volume has been set once
+  per session throughout this file's history rather than live-adjusted on resize.
+- **Workout Generator's Warm-Up/Pre-Set were audited, not changed — the "static" claim doesn't hold
+  today.** Simulated 10 consecutive calendar days via a `Date`/`Date.now()` override and generated a
+  workout on each: the Warm-Up's opening swim was Freestyle on every single day (the long-standing
+  rule from an earlier round), while the Warm-Up's own drill/kick pool picks and the Pre-Set's
+  archetype both rotated correctly across the 10 simulated days, drawing from the same day-stable
+  `workoutRng` every other part of the generator already uses. No code change was made here — the
+  daily-rotation and Freestyle-first systems documented in multiple earlier rounds above are still
+  fully intact; this round only re-verified that they still hold.
+- **Admin Panel redesigned into real dashboard widget cards.** `.admin-stats-grid`'s five flat,
+  borderless, center-aligned tiles became six left-aligned glass cards — `--glass-bg`/
+  `--glass-border` fill, a rotating aqua/green/maroon top accent bar (the same "card family" cue
+  `.settings-card` already established), a colored icon tile per metric, and a hover lift — so the
+  panel reads as a genuine analytics dashboard at a glance instead of a plain number row. **Total
+  Registered Users** already existed as `adminStatTotal` (computed client-side from the same
+  `adminListUsers()` response the table itself uses) and needed no new data — it was just re-labeled
+  or "Total Registered" to "Total Registered Users" and given real visual weight. **Total Site
+  Visitors is the one sub-request this round could not implement as a real number, and says so
+  rather than fabricating one**: no visitor-tracking data exists anywhere in Firestore, and this
+  codebase's own Firebase Analytics integration (`getAnalytics(app)`, already initialized in the
+  `<head>` module) is write-only from the client — its pageview/visitor data lives in the Firebase/
+  Google Analytics console, not in a Firestore document this app can read. Implementing a real
+  visitor counter would need a new Firestore field/collection and a write path (a Cloud Function
+  hook, most likely) — exactly what the round's own explicit "do NOT alter the database structure
+  or data under any circumstances" instruction rules out. The new sixth tile shows a plain `N/A`
+  with a caption explaining exactly this ("Not tracked in this table by design — visitor counts
+  live in Firebase/Google Analytics, not Firestore... See Firebase Console → Analytics for real
+  traffic numbers") rather than a fake or misleading number.
+- **Support tab rebuilt into a real Help Center**, per the "looks too empty" complaint. A new
+  "Quick Answers" FAQ section (five real `<details>`/`<summary>` items — reusing the exact same
+  `.faq-list`/`.faq-item` disclosure pattern the Pricing tab's FAQ already uses, so no new CSS
+  system was needed) now sits above the chat, covering trial/billing/sign-in/AI-Coach-scope/
+  response-time questions — every answer describes only real, already-shipped behavior (the Google-
+  only sign-in, the Settings → Billing portal, the AI Coach's swim-only scope), nothing invented. A
+  labeled "Still Need Help? Message Us Directly" heading now visually separates the FAQ from the
+  pre-existing real-time chat shell below it, which is otherwise completely unchanged — same
+  `#supportPageMessages`/`#supportPageForm` ids, same `admin_chats` Firestore read/write path, same
+  auto-greeting and client-side auto-confirmation note from earlier rounds. **A real, self-
+  introduced bug was caught and fixed during this round's own verification**: the first draft
+  accidentally closed the explanatory HTML comment above the new FAQ markup with a JS-style `*/`
+  instead of `-->` — since that never actually closes an HTML comment, the browser kept the comment
+  open and silently swallowed the entire FAQ section, the new "Still Need Help?" heading, and the
+  chat shell itself as inert comment text instead of live DOM, which a first Playwright check caught
+  immediately (`data-auth-signed-in` element count dropped from the expected 15 to 12, with the
+  three missing ones traced directly to this exact region). Fixed by closing the comment correctly;
+  re-verified afterward that all three elements render, the 5 FAQ items are present and toggle
+  correctly, and the pre-existing greeting message still renders as the first chat bubble.
+- Verified via Playwright across the whole round: all 10 tabs (including Admin, tested via the real
+  `swimfit.ae@gmail.com` admin account against a mocked `adminListUsers` response) load and activate
+  with zero page errors; the Workouts PDF export still fires a real `download` event and Complete
+  Workout still logs the correct distance and updates its own button text; zero horizontal overflow
+  on every tab at both 1440px desktop and 375px mobile widths (the only mobile "offenders" found are
+  the same pre-existing, already-`overflow-x:hidden`-mitigated off-canvas `.nav-links` drawer false
+  positive this file has documented since the sidebar/bottom-nav round); the Admin stats grid renders
+  all six cards with correct live-computed values and the honest Site Visitors disclosure; and the
+  Support Help Center's FAQ, heading, and chat shell all render and function correctly on both
+  desktop and mobile.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
