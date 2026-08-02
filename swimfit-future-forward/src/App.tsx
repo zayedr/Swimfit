@@ -21,6 +21,7 @@ function App() {
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
+            filter: "grayscale(100%)",
           }}
           aria-hidden="true"
         />
