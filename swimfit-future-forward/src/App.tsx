@@ -13,13 +13,15 @@ function App() {
     <div className="min-h-screen bg-white text-black font-jakarta flex flex-col relative overflow-x-hidden">
       {/* First viewport: hero section carries its own background layers. */}
       <div className="relative flex flex-col min-h-[90vh]">
-        {/* Mobile/tablet static image (no interactive reveal below lg), full color. */}
+        {/* Mobile/tablet static image (no interactive reveal below lg), full
+            color. Top-anchored so a narrow/tall viewport never crops the
+            swimmer's face. */}
         <div
           className="lg:hidden absolute inset-0 z-0"
           style={{
             backgroundImage: `url(${BG_IMAGE_1})`,
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition: "center top",
             backgroundRepeat: "no-repeat",
           }}
           aria-hidden="true"
