@@ -1379,9 +1379,9 @@ section { position: relative; scroll-margin-top: 96px; }
   position: absolute; border-radius: 50%; mix-blend-mode: screen;
   animation: meshDrift 22s ease-in-out infinite alternate;
 }
-.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(20,104,68,0.8), transparent 70%); animation-duration: 26s; }
+.hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(140,74,10,0.75), transparent 70%); animation-duration: 26s; }
 .hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(232,137,12,0.62), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
-.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(57,255,158,0.46), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
+.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(231,182,91,0.4), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
 .hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(255,165,61,0.4), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
 @keyframes meshDrift {
   0%   { transform: translate(0, 0) scale(1); }
@@ -1444,7 +1444,7 @@ section { position: relative; scroll-margin-top: 96px; }
    The hero copy's accent-gradient shimmer on "Race." is a subtle typographic
    effect, not decorative clip art, and was kept. */
 .home-scene-text h1 .accent, .home-scene-text h2 .accent {
-  background: linear-gradient(100deg, var(--green-bright) 30%, var(--aqua) 45%, var(--green-bright) 60%);
+  background: linear-gradient(100deg, var(--gold) 30%, var(--aqua-bright) 45%, var(--gold) 60%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: shimmerText 6s ease-in-out infinite;
 }
@@ -1504,8 +1504,8 @@ section { position: relative; scroll-margin-top: 96px; }
 @keyframes splashFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .splash-bar span {
   display: block; height: 100%; width: 0%;
-  background: linear-gradient(90deg, var(--aqua-bright), var(--green-bright));
-  box-shadow: 0 0 12px rgba(57,255,158,0.7);
+  background: linear-gradient(90deg, var(--aqua), var(--aqua-bright));
+  box-shadow: 0 0 12px rgba(232,137,12,0.7);
   animation: splashBarFill 2.1s ease-in-out forwards;
 }
 @keyframes splashBarFill { from { width: 0%; } to { width: 100%; } }
@@ -1978,7 +1978,7 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
 .slide-pricing::before {
   content: ''; position: absolute; inset: -20%; z-index: 0; pointer-events: none; filter: blur(30px);
   background: radial-gradient(600px circle at 20% 25%, rgba(232,137,12,0.16), transparent 60%),
-              radial-gradient(600px circle at 80% 75%, rgba(57,255,158,0.16), transparent 60%);
+              radial-gradient(600px circle at 80% 75%, rgba(231,182,91,0.16), transparent 60%);
   animation: pricingBgDrift 18s ease-in-out infinite alternate;
 }
 @keyframes pricingBgDrift { from { transform: translate(0, 0) scale(1); } to { transform: translate(4%, -4%) scale(1.08); } }
@@ -1989,11 +1989,11 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
   opacity: 0; animation: pricingParticleFloat 16s linear infinite;
 }
 .pricing-particles span:nth-child(1) { left: 8%;  top: 85%; animation-duration: 16s; animation-delay: 0s; }
-.pricing-particles span:nth-child(2) { left: 22%; top: 92%; animation-duration: 20s; animation-delay: -4s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+.pricing-particles span:nth-child(2) { left: 22%; top: 92%; animation-duration: 20s; animation-delay: -4s; }
 .pricing-particles span:nth-child(3) { left: 40%; top: 88%; animation-duration: 13s; animation-delay: -8s; }
-.pricing-particles span:nth-child(4) { left: 60%; top: 95%; animation-duration: 18s; animation-delay: -2s;  background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+.pricing-particles span:nth-child(4) { left: 60%; top: 95%; animation-duration: 18s; animation-delay: -2s; }
 .pricing-particles span:nth-child(5) { left: 78%; top: 90%; animation-duration: 15s; animation-delay: -6s; }
-.pricing-particles span:nth-child(6) { left: 90%; top: 93%; animation-duration: 19s; animation-delay: -10s; background: var(--green-bright); box-shadow: 0 0 12px 2px rgba(57,255,158,0.8); }
+.pricing-particles span:nth-child(6) { left: 90%; top: 93%; animation-duration: 19s; animation-delay: -10s; }
 @keyframes pricingParticleFloat {
   0% { transform: translateY(0) scale(1); opacity: 0; }
   10% { opacity: 0.7; }
@@ -2016,11 +2016,38 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
   z-index: 2;
 }
 .slide-pricing .price-card.featured:hover { box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7), var(--glow-green); }
+
+/* ============================= HOME: PRICING 3D GEOMETRIC SHAPES =============================
+   A scroll-linked 3D backdrop behind the price cards, per explicit request that
+   scrolling should "continue on to other geometric shapes" rather than a static
+   image. Pure CSS 3D transforms (perspective + rotateY/translateZ) driven by a
+   small scroll listener — deliberately NOT Three.js/WebGL: this codebase has
+   already built and reverted two separate real-3D-library attempts (an orbit
+   carousel, a Three.js/GSAP scene) because this sandbox cannot render or verify
+   WebGL output at all, and both read as "cheap"/template-like once live. A CSS
+   transform is guaranteed to render (no CDN, no library) and was confirmed by
+   the user as the preferred approach over repeating that risk. Four shapes
+   (hexagon/diamond/triangle/ring) sit in a ring in 3D space; #pricing3dRing's
+   own rotateY tracks window.scrollY, so scrolling anywhere on the Home page
+   keeps advancing which shape reads as "front and center" once the swimmer
+   reaches this slide (browser-native 3D depth sorting via transform-style:
+   preserve-3d handles draw order, no z-index math needed). Deliberately
+   monochrome (single amber stroke, depth conveyed via opacity/scale only) —
+   part of this round's separate color-reduction pass, not a second unrelated
+   color story layered onto the page. */
+.pricing-3d-stage { position: absolute; inset: 0; z-index: 0; pointer-events: none; perspective: 1400px; opacity: 0.65; }
+.pricing-3d-ring { position: absolute; top: 50%; left: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+.pricing-3d-shape {
+  position: absolute; top: 50%; left: 50%; width: 170px; height: 170px; margin: -85px 0 0 -85px;
+  transform-style: preserve-3d; transition: opacity 0.2s linear;
+}
+.pricing-3d-shape svg { width: 100%; height: 100%; fill: none; stroke: var(--aqua-bright); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
 @media (prefers-reduced-motion: reduce) {
   .slide-pricing::before { animation: none; }
   .pricing-particles span { animation: none; opacity: 0; }
   .slide-pricing .price-card { animation: none; }
   .slide-pricing .price-card:hover { transform: none; }
+  .pricing-3d-stage { display: none; }
 }
 
 /* Slide navigation dots — right edge, Home-only (hidden while view-app via
@@ -2436,8 +2463,9 @@ body.view-app .slide-dots { display: none; }
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .settings-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -24px rgba(0,0,0,0.7); }
-.settings-card:nth-of-type(3n+2) { border-top-color: var(--green-bright); }
-.settings-card:nth-of-type(3n+3) { border-top-color: var(--maroon-bright); }
+/* Previously rotated aqua/green/maroon every 3rd card purely for decoration
+   (no card here represents a real status/category) — per an explicit "too
+   many colors" request, every card now shares the one dominant amber accent. */
 .settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 1.05rem; font-weight: 700; margin-bottom: var(--space-3); }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
@@ -3492,14 +3520,22 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
   --ring-color: var(--aqua);
 }
 .admin-stat-tile:hover { transform: translateY(-4px); box-shadow: 0 20px 46px -22px rgba(0,0,0,0.7); }
-.admin-stat-tile:nth-child(3n+2) { border-top-color: var(--green-bright); --ring-color: var(--green-bright); }
-.admin-stat-tile:nth-child(3n) { border-top-color: var(--maroon-bright); --ring-color: var(--maroon-bright); }
+/* Previously rotated aqua/green/maroon every 3rd tile regardless of what the
+   tile actually meant (arbitrary — e.g. "Active Memberships" landed on
+   maroon, which reads as a warning for a genuinely good number). Per an
+   explicit "too many colors" request, color is now reserved for real status
+   only: green for the one tile that's genuinely a positive/active count,
+   maroon for the one tile that's genuinely a critical count — every other
+   tile (Visitors, Registered, Subscribers, Trial) shares the single
+   dominant amber accent. */
+.admin-stat-tile:nth-child(4) { border-top-color: var(--green-bright); --ring-color: var(--green-bright); }
+.admin-stat-tile:nth-child(6) { border-top-color: var(--maroon-bright); --ring-color: var(--maroon-bright); }
 .admin-stat-icon {
   width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
   background: rgba(232,137,12,0.12); color: var(--aqua); margin-bottom: 4px;
 }
-.admin-stat-tile:nth-child(3n+2) .admin-stat-icon { background: rgba(22,214,115,0.14); color: var(--green-bright); }
-.admin-stat-tile:nth-child(3n) .admin-stat-icon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
+.admin-stat-tile:nth-child(4) .admin-stat-icon { background: rgba(22,214,115,0.14); color: var(--green-bright); }
+.admin-stat-tile:nth-child(6) .admin-stat-icon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
 .admin-stat-icon .icon { width: 18px; height: 18px; }
 .admin-stat-value { font-family: var(--font-mono); font-size: 2.1rem; font-weight: 700; color: var(--fg); line-height: 1.1; letter-spacing: -0.01em; }
 .admin-stat-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
@@ -4097,6 +4133,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
          with zero changes to goToPaddleCheckout() or any auth/Paddle JS. -->
     <section class="home-slide slide-pricing" data-slide="2" aria-label="Pricing">
       <div class="pricing-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="pricing-3d-stage" id="pricing3dStage" aria-hidden="true">
+        <div class="pricing-3d-ring" id="pricing3dRing">
+          <div class="pricing-3d-shape" data-shape="hex"><svg viewBox="0 0 200 200"><polygon points="100,10 180,55 180,145 100,190 20,145 20,55"/></svg></div>
+          <div class="pricing-3d-shape" data-shape="diamond"><svg viewBox="0 0 200 200"><polygon points="100,10 190,100 100,190 10,100"/></svg></div>
+          <div class="pricing-3d-shape" data-shape="triangle"><svg viewBox="0 0 200 200"><polygon points="100,15 185,175 15,175"/></svg></div>
+          <div class="pricing-3d-shape" data-shape="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="85"/></svg></div>
+        </div>
+      </div>
       <div class="wrap">
         <div class="home-section-head center" data-reveal>
           <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="#i-trophy"/></svg> Membership</p>
@@ -4192,14 +4236,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div data-auth-signed-in style="display:none">
       <div class="workouts-columns">
        <div class="workouts-col-left">
-        <div class="bento-card wb-schedule" data-reveal="left" style="--bento-accent:var(--green-bright)">
+        <div class="bento-card wb-schedule" data-reveal="left">
           <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span class="config-label-hint">(tap any day to preview or override its focus &amp; recommended volume — tap again to return to today's auto schedule)</span></div>
           <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule — tap a day to override"></div>
           <p class="wb-schedule-override-note" id="scheduleOverrideNote" style="display:none;"></p>
           <div class="wb-recommended-badge" id="recommendedVolumeBadge"></div>
         </div>
 
-        <div class="bento-card wb-discipline" data-reveal="left" style="--bento-accent:var(--green-bright)">
+        <div class="bento-card wb-discipline" data-reveal="left">
           <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span class="config-label-hint">(pick one, or several for a medley/transition set)</span></div>
           <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
         </div>
@@ -5853,6 +5897,42 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     } else {
       dots[0].classList.add('is-active');
     }
+  })();
+
+  /* ============================= PRICING 3D SHAPES: SCROLL-LINKED ROTATION =============================
+     Rotates #pricing3dRing (and each shape's own depth-based opacity/scale)
+     off window.scrollY so continuing to scroll keeps advancing which of the
+     4 shapes reads as front-and-center — see the CSS block above for why this
+     is plain CSS 3D rather than a WebGL library. Gated behind reduceMotion
+     and behind body.view-home so it does zero work once a swimmer is inside
+     the App view (same "don't animate what's off-screen" discipline this
+     file already applies to advanceGymAnims). */
+  (function () {
+    var ring = document.getElementById('pricing3dRing');
+    var stage = document.getElementById('pricing3dStage');
+    if (!ring || !stage || reduceMotion) return;
+    var shapes = stage.querySelectorAll('.pricing-3d-shape');
+    var offsets = [0, 90, 180, 270];
+    var ticking = false;
+    function render() {
+      ticking = false;
+      if (!document.body.classList.contains('view-home')) return;
+      var angle = window.scrollY * 0.18;
+      ring.style.transform = 'translate(-50%, -50%) rotateX(10deg) rotateY(' + angle + 'deg)';
+      shapes.forEach(function (el, i) {
+        var effective = (angle + offsets[i]) * Math.PI / 180;
+        var depth = Math.cos(effective);
+        var opacity = 0.14 + (depth + 1) / 2 * 0.72;
+        var scale = 0.72 + (depth + 1) / 2 * 0.46;
+        el.style.opacity = opacity.toFixed(2);
+        el.style.transform = 'rotateY(' + offsets[i] + 'deg) translateZ(340px) scale(' + scale.toFixed(2) + ')';
+      });
+    }
+    function onScroll() {
+      if (!ticking) { ticking = true; requestAnimationFrame(render); }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    render();
   })();
 
   /* ============================= HOME / APP VIEW SWITCH =============================

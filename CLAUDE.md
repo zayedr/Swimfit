@@ -5113,6 +5113,79 @@ changes anywhere.
   unchanged; and zero horizontal overflow was found on any of 9 App-view tabs at both 1440px desktop
   and 375px mobile widths, nor on the Home page at 375px.
 
+**A follow-up round reduced decorative color noise left over from the redesign above, and added a
+scroll-linked 3D geometric backdrop to the Home Pricing slide — both per direct user feedback given
+in Arabic ("شوف كمية الألوان على فاضي" / "الموقع فيه ألوان كثير", i.e. "look how much color sits on
+empty space" then, clarified, "the site has too many colors").**
+
+- **Decorative aqua/green/maroon rotation was collapsed to one dominant accent, reserving green/
+  maroon for genuine status only.** `.settings-card`'s `:nth-of-type(3n+2)`/`(3n+3)` rules used to
+  cycle every Settings card's top accent bar through green then maroon purely for visual variety —
+  none of those cards represent a real status or category, so this was deleted outright and every
+  card now shares the single default amber top bar. The Admin Panel's six stat tiles had the
+  identical problem, but worse: `:nth-child(3n+2)`/`(3n)` landed color arbitrarily by grid position,
+  not by meaning — "Active Memberships" (a good number) happened to land on maroon, which reads as a
+  warning. Replaced with tile-specific rules keyed to what each tile actually means: `:nth-child(4)`
+  (Active Memberships) is green, `:nth-child(6)` (Suspended) is maroon, and the other four (Site
+  Visitors, Registered Users, Subscribers, On Free Trial) all share the default amber — color now
+  tracks real status, never grid position. Two Workouts bento-cards (`wb-schedule`, `wb-discipline`)
+  had a hardcoded `--bento-accent:var(--green-bright)` inline override with no real reason to differ
+  from every other config card on the panel — removed so they fall back to the shared default amber.
+- **The Hero's most prominent decorative elements were the worst offenders and are now monochrome.**
+  `.hero-mesh`'s four ambient blobs mixed 2 green tones with 2 amber tones; the two green ones
+  (`rgba(20,104,68,...)`/`rgba(57,255,158,...)`) were recolored to deep-amber/gold tones so the
+  entire mesh reads as one warm color family instead of two competing ones. The headline's own
+  accent-gradient shimmer on "Race." — arguably the single most-seen element on the page — was
+  amber-to-green-to-amber; changed to a pure gold/amber-bright shimmer. The splash/pre-loader's
+  progress bar (aqua-to-green gradient) was likewise changed to aqua-to-aqua-bright. The Pricing
+  slide's floating-dot particles alternated amber/green every other dot and its ambient background
+  wash paired one amber radial gradient with one green one — both simplified to amber-only so the
+  Pricing slide (which is about to gain its own 3D backdrop, see below) doesn't carry two unrelated
+  color stories at once. **Deliberately left untouched**: `.btn-primary`'s green fill (the site's
+  long-established universal "primary action" button color, used in 18+ places including Generate/
+  Complete Workout/the Elite pricing tier), every chip/pill-tab/equipment-toggle "selected" state
+  (a single, consistent green = "on" mapping, not arbitrary), the 4-color Workout stage-coding
+  (Warm-Up/Pre-Set/Main/Cool-Down — genuine categorical identity, not decoration), Gym's muscle-tag
+  colors (same reasoning), the Admin donut/bar/trend charts' own fixed categorical hue order (a
+  real data-viz legend, per the `dataviz` skill's own "assign categorical hues in fixed order" rule),
+  and the Pro/Elite/Ultra pricing-tier button styling (aqua-ghost/green-primary/maroon-outline is a
+  legitimate 3-way tier distinction, not noise) — none of these are "too many colors" in the sense
+  the feedback meant, they're single, consistent, meaningful mappings, and touching them further
+  would have been change for its own sake.
+- **The Home Pricing slide gained a scroll-linked 3D geometric backdrop**, per an explicit follow-up
+  request that scrolling should "continue on to other geometric shapes." The user was asked to
+  choose between a real Three.js/WebGL scene and a pure-CSS 3D approach, given this codebase's own
+  extensively-documented history of building and reverting two separate Three.js attempts (an orbit
+  carousel, then a full GSAP-driven 3D device) specifically because this sandbox cannot render or
+  verify WebGL output at all and both read as "cheap"/template-like once live — the user chose CSS.
+  A new `#pricing3dStage`/`#pricing3dRing` sits behind the price-card grid (`z-index:0`, `.wrap`
+  stays at `z-index:1` per the slide's own pre-existing stacking) holding four shapes (hexagon,
+  diamond, triangle, ring — plain inline SVG polygons/circle, `stroke:var(--aqua-bright)` only, no
+  fill) arranged 90° apart around a `perspective:1400px` 3D ring via `rotateY(offset)
+  translateZ(340px)`. A small rAF-throttled scroll listener (added right after the pre-existing
+  slide-dot `IntersectionObserver` IIFE, reusing the same `reduceMotion` var already in scope)
+  computes `angle = window.scrollY * 0.18` and rotates `#pricing3dRing` by it — since browser-native
+  `transform-style: preserve-3d` handles real 3D depth sorting on its own, no JS z-index math was
+  needed, only per-shape opacity/scale computed from `cos(angle + offset)` so the shape currently
+  facing the viewer reads brighter/larger and the others recede — giving the literal "scrolling
+  keeps advancing which shape is in focus" effect that was asked for. Deliberately monochrome
+  (single amber stroke, depth conveyed only via opacity/scale) so this new effect doesn't reintroduce
+  a second, unrelated color story right after the reduction above. Gated behind `prefers-reduced-
+  motion` (stage set to `display:none`) and behind `body.classList.contains('view-home')` inside the
+  render loop so it does zero work once a swimmer is inside the App view — the same "don't animate
+  what's off-screen" discipline `advanceGymAnims` already established for Gym's own card animation
+  ticker. Verified via Playwright: `#pricing3dStage`/`#pricing3dRing` and all 4 `.pricing-3d-shape`
+  elements exist, sampled at 3 scroll depths near the end of the page each shape's own opacity/scale
+  genuinely differs and the ring's `rotateY` angle advances monotonically with `scrollY`, and a
+  screenshot scrolled to the Pricing slide's own top confirms the hexagon/ring shapes render clearly
+  and tastefully behind the headline and price cards — not cluttered, not overpowering.
+- Verified via Playwright: the full pre-existing regression suite (all 9 App-view tabs load with
+  zero page errors, zero horizontal overflow at 1440px desktop and 375px mobile on every tab and on
+  Home, the Workouts PDF export firing a real `download` event, and Complete Workout correctly
+  logging to the Tracker) passes unchanged; and fresh screenshots of the Hero, Settings, and Admin
+  Panel confirm the color-reduction changes render as intended (amber-dominant throughout, green/
+  maroon now appearing only on their one meaningful tile/state each).
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
