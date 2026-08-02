@@ -154,7 +154,9 @@ export default function ImageRevealBackground() {
       className="hidden lg:block absolute inset-0 pointer-events-none z-0 overflow-hidden"
       aria-hidden="true"
     >
-      {/* Base layer — always visible. */}
+      {/* Base layer — always visible. grayscale(100%) is a pure post-render
+          CSS filter on this div's own rasterized output, so it never touches
+          the canvas layer's internal drawImage/composite operations below. */}
       <div
         className="absolute inset-0"
         style={{
@@ -162,6 +164,7 @@ export default function ImageRevealBackground() {
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
+          filter: "grayscale(100%)",
         }}
       />
       {/* Parallax blueprint grid, drifting gently with the eased pointer. */}
@@ -174,8 +177,12 @@ export default function ImageRevealBackground() {
           backgroundSize: "48px 48px",
         }}
       />
-      {/* Canvas-driven spotlight reveal of BG_IMAGE_2. */}
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      {/* Canvas-driven spotlight reveal of BG_IMAGE_2. grayscale(100%) here
+          is applied to the canvas ELEMENT's own rasterized output, after all
+          internal drawImage/destination-in compositing has already happened
+          — it desaturates the visible pixels without touching the alpha
+          mask, so the spotlight reveal itself is completely unaffected. */}
+      <canvas ref={canvasRef} className="absolute inset-0" style={{ filter: "grayscale(100%)" }} />
     </div>
   );
 }
