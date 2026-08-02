@@ -1,5 +1,7 @@
-import { ShoppingBag } from "lucide-react";
+import { useState } from "react";
+import { ShoppingBag, Menu } from "lucide-react";
 import type { DrawerKind } from "../lib/constants";
+import MobileMenu from "./MobileMenu";
 
 interface HeaderProps {
   onOpenDrawer: (kind: DrawerKind) => void;
@@ -12,55 +14,52 @@ const NAV_LINKS: { label: string; kind: DrawerKind }[] = [
 ];
 
 export default function Header({ onOpenDrawer }: HeaderProps) {
-  return (
-    <header
-      className="relative z-20 flex items-center justify-between"
-      style={{
-        paddingInline: "var(--pad-x)",
-        paddingTop: "var(--header-pt)",
-        paddingBottom: "var(--section-gap)",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="font-orbitron font-black tracking-[0.15em] hover:opacity-80 transition-opacity"
-        style={{ fontSize: "var(--logo)" }}
-      >
-        SWIMFIT
-        <span
-          className="-mt-0.5 ml-0.5 align-top inline-block"
-          style={{ fontSize: "var(--logo-deg)" }}
-        >
-          ˚
-        </span>
-      </button>
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-      <nav
-        className="font-jakarta font-medium uppercase flex items-center"
-        style={{ fontSize: "var(--nav)", gap: "var(--gap-nav)", letterSpacing: "0.2em" }}
-      >
-        {NAV_LINKS.map((link) => (
-          <button
-            key={link.label}
-            type="button"
-            onClick={() => onOpenDrawer(link.kind)}
-            className="hover:opacity-60 transition-opacity"
-          >
-            {link.label}
-          </button>
-        ))}
-        <span className="text-gray-300" aria-hidden="true">
-          |
+  return (
+    <>
+      <header className="relative z-20 flex items-center justify-between px-6 py-5 md:px-10 md:py-6">
+        <span className="font-oswald font-bold tracking-widest text-xl uppercase">
+          SWIMFIT
         </span>
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-8 text-sm tracking-wide uppercase">
+          {NAV_LINKS.map((link) => (
+            <button
+              key={link.label}
+              type="button"
+              onClick={() => onOpenDrawer(link.kind)}
+              className="hover:opacity-70 transition-opacity"
+            >
+              {link.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="Shopping bag"
+            className="hover:opacity-70 transition-opacity"
+          >
+            <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+        </nav>
+
+        {/* Mobile hamburger */}
         <button
           type="button"
-          aria-label="Shopping bag"
-          className="hover:opacity-60 transition-opacity"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          className="md:hidden hover:opacity-70 transition-opacity"
         >
-          <ShoppingBag strokeWidth={1.5} style={{ width: "var(--icon)", height: "var(--icon)" }} />
+          <Menu className="w-6 h-6" strokeWidth={1.5} />
         </button>
-      </nav>
-    </header>
+      </header>
+
+      <MobileMenu
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        onSelect={onOpenDrawer}
+      />
+    </>
   );
 }
