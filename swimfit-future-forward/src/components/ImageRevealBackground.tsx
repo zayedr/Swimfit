@@ -162,9 +162,13 @@ export default function ImageRevealBackground() {
       className="hidden lg:block absolute inset-0 pointer-events-none z-0 overflow-hidden"
       aria-hidden="true"
     >
-      {/* Base layer — always visible, full color. background-position is
-          top-anchored so a taller/narrower viewport never crops the
-          swimmer's face, only the space below it. */}
+      {/* Base layer — always visible. grayscale(100%) is a pure post-render
+          CSS filter guaranteeing strictly black-and-white output regardless
+          of any subtle color cast in the source photo; it's a post-render
+          filter on this div's own rasterized output, so it never touches the
+          canvas layer's internal drawImage/composite operations below.
+          background-position is top-anchored so a taller/narrower viewport
+          never crops the swimmer's face, only the space below it. */}
       <div
         className="absolute inset-0"
         style={{
@@ -172,6 +176,7 @@ export default function ImageRevealBackground() {
           backgroundSize: "cover",
           backgroundPosition: "center top",
           backgroundRepeat: "no-repeat",
+          filter: "grayscale(100%)",
         }}
       />
       {/* Parallax blueprint grid, drifting gently with the eased pointer. */}
@@ -184,8 +189,12 @@ export default function ImageRevealBackground() {
           backgroundSize: "48px 48px",
         }}
       />
-      {/* Canvas-driven spotlight reveal of BG_IMAGE_2, full color. */}
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      {/* Canvas-driven spotlight reveal of BG_IMAGE_2. grayscale(100%) here
+          is applied to the canvas ELEMENT's own rasterized output, after all
+          internal drawImage/destination-in compositing has already happened
+          — it desaturates the visible pixels without touching the alpha
+          mask, so the spotlight reveal itself is completely unaffected. */}
+      <canvas ref={canvasRef} className="absolute inset-0" style={{ filter: "grayscale(100%)" }} />
     </div>
   );
 }
