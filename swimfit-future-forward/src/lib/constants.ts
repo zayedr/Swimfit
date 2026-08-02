@@ -1,22 +1,24 @@
 // Always-visible background layer (desktop background + mobile static image).
-// Swimmer wearing cap + goggles (worn correctly down over the eyes, not
-// pushed up), fair skin/blue eyes/snow-white hair, pulled-back medium shot
-// showing shoulders/upper chest (not a tight close-up), serious/non-smiling
+// Swimmer wearing cap + goggles worn correctly down directly over the eyes
+// (not pushed up on the forehead), fair skin/blue eyes/long snow-white hair,
+// a wide pulled-back shot with generous empty margin around his head/
+// shoulders so the face and hair are never cropped, serious/non-smiling
 // expression, full color, clean white studio backdrop, idealized/stylized
 // features (not a real specific person) — the "before" state the mouse
 // spotlight reveals out of. Generated via Higgsfield (text2image_soul_v2),
 // hosted on the project's CloudFront bucket.
 export const BG_IMAGE_1 =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_154900_d04a2d22-ad8b-4fe7-9cba-4bd4eba9b128.png";
+  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_155457_88f63344-2f61-4b5e-bf57-0a8dd96eee5f.png";
 
 // Revealed only inside the mouse spotlight mask (desktop interactive layer).
-// Same swimmer with BOTH cap and goggles removed, revealing snow-white hair
-// and blue eyes, now smiling — the "after" state under the spotlight.
-// Generated via Higgsfield (nano_banana_2), edited from BG_IMAGE_1 as the
-// reference image so it's the same person/lighting/background with the
-// cap+goggles removed and expression changed to a smile.
+// Same swimmer with BOTH cap and goggles removed, revealing long snow-white
+// hair and blue eyes, expression kept serious/non-smiling (matching
+// BG_IMAGE_1) — the "after" state under the spotlight. Generated via
+// Higgsfield (nano_banana_2), edited from BG_IMAGE_1 as the reference image
+// so it's the same person/lighting/background with only the cap+goggles
+// removed.
 export const BG_IMAGE_2 =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_154924_a3efb974-b2e9-4c40-a096-28abad6a09c5.png";
+  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_155525_192705f7-6cb4-41eb-ae0e-7dd29193b991.png";
 
 export type DrawerKind = "workouts" | "dryland" | "tracker" | null;
 
