@@ -13,7 +13,7 @@ function App() {
     <div className="min-h-screen bg-white text-black font-jakarta flex flex-col relative overflow-x-hidden">
       {/* First viewport: hero section carries its own background layers. */}
       <div className="relative flex flex-col min-h-[90vh]">
-        {/* Mobile/tablet static image (no interactive reveal below lg). */}
+        {/* Mobile/tablet static image (no interactive reveal below lg), full color. */}
         <div
           className="lg:hidden absolute inset-0 z-0"
           style={{
@@ -21,7 +21,6 @@ function App() {
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
-            filter: "grayscale(100%)",
           }}
           aria-hidden="true"
         />
