@@ -1,12 +1,15 @@
 // Always-visible background layer (desktop background + mobile static image).
 // Swimmer WITH goggles — the "before" state the mouse spotlight reveals out of.
+// Generated via Higgsfield (text2image_soul_v2), hosted on the project's CloudFront bucket.
 export const BG_IMAGE_1 =
-  "https://images.unsplash.com/photo-1530549387789-4c1017266635?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
+  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_152651_4c342e62-bcf4-4763-b08b-f5a47a69a7cd.png";
 
 // Revealed only inside the mouse spotlight mask (desktop interactive layer).
 // Swimmer WITHOUT goggles / eyes visible — the "after" state under the spotlight.
+// Generated via Higgsfield (nano_banana_2), edited from BG_IMAGE_1 as the reference
+// image so it's the same person/lighting/cap with only the goggles removed.
 export const BG_IMAGE_2 =
-  "https://images.unsplash.com/photo-1519315901367-f34f871752b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
+  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_152723_550ee9f0-e65c-4f11-94ac-68b5521aacb1.png";
 
 export type DrawerKind = "workouts" | "dryland" | "tracker" | null;
 
