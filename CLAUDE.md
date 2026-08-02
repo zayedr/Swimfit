@@ -5186,6 +5186,92 @@ empty space" then, clarified, "the site has too many colors").**
   Panel confirm the color-reduction changes render as intended (amber-dominant throughout, green/
   maroon now appearing only on their one meaningful tile/state each).
 
+**Home was rebuilt a final time into a single, locked, full-viewport (`100vh`, `overflow:hidden`,
+zero scroll) composition, replacing the 3-slide scroll-snap presentation (Hero + Motivation +
+Pricing) from every earlier Home round above.** The request arrived as a request to clone a
+specific real designer's full-viewport portfolio site pixel-for-pixel — including their actual
+name, personal brand ("Grilled Pixels"), brand story, real claimed awards (FWA/Awwwards/
+CSSDesignAwards counts), and their own logo mark. That literal ask was declined: recreating a real,
+identifiable person's professional name/brand/credentials exactly functions as impersonating their
+identity, not just borrowing a layout style, regardless of who was asking or their stated purpose.
+The user confirmed, when asked, that they only wanted the **layout/structural concept** applied to
+Swimfit's own real content — not Adam Roberts' actual brand — and separately confirmed the scope
+should be a full Home replacement (not just a restyled first slide), accepting that the Motivation
+slide and the Pricing-embedded-on-Home slide (with its real Paddle checkout buttons and the CSS 3D
+geometric shapes from the round directly above) would be removed from Home. **Pricing itself was
+not deleted** — it's unaffected as its own real tab, reachable from both nav menus below.
+
+- **Structure**: `#homeView` is now `height:100vh; overflow:hidden; display:flex; flex-direction:
+  column`, with a real-height `.pnav` (logo, 6 nav links, ambient-audio toggle, hamburger) as its
+  first flex child and `.phero` (the video/content hero) as a `flex:1; min-height:0` second child —
+  **a real, previously-shipped-then-caught bug**: the first version made `.phero` a fixed
+  `height:100vh` while `.pnav` sat as a *preceding sibling* also consuming real height, so together
+  they overflowed the true viewport by exactly `.pnav`'s own height; a swimmer would have never
+  seen the footer strip at all. Caught via direct `getBoundingClientRect()` measurement of every
+  section (not just eyeballing a screenshot) before shipping, fixed by making `.pnav` and `.phero`
+  siblings inside one flex column so they can never together exceed `100vh`.
+- **Content — real Swimfit branding throughout, nothing borrowed from the reference site's own
+  identity**: the real base64 Swimfit logo (the same asset already embedded once and reused by the
+  PDF export's own header) replaces the reference's "GP / Grilled Pixels" mark in both the desktop
+  nav and the mobile menu header; the real, already-existing hero video
+  (`d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/...`, this project's own Higgsfield
+  account) replaces the reference's own asset URL (a different Higgsfield user's video — using it
+  would have been using someone else's private generated asset, not just their layout). The
+  4-column meta-grid, hero headline, and stat chips are freshly written to describe Swimfit
+  specifically (a "SWIM / FIT" + "TRAIN & / PERFORM" brand pairing, a "What You Get" blurb, a real
+  6-item feature list — Daily Workout Generator, Dryland & Gym Programming, AI Swim Coach &
+  Analyzer, Distance & PB Tracker, Technique Academy, Gear Guide — and a headline reading "We Build
+  The Discipline For Every Swimmer's Breakthrough"). The reference's fabricated awards row (FWA x1,
+  Awwwards "W." x7, CSSDesignAwards x22) was replaced with three **real, verifiable** stat chips (5
+  Disciplines, 6 Gym Focuses, 3-Day Free Trial) plus the pre-existing live `activeSubscribersStat`/
+  `activeSubscribersCount` Firestore-backed counter (same ids, same `onSnapshot` wiring, just
+  reskinned into a matching chip) — continuing this file's own long-standing "no fabricated stats
+  or testimonials" policy rather than inventing credentials for a training app the same way the
+  reference site claimed for itself.
+- **Typography**: the reference's own basis33 bitmap/pixel font is a genuinely public, freely
+  embeddable web font (served via onlinewebfonts.com, not tied to any one designer's brand) and was
+  kept for the handful of accent words/labels it was used on (`.pixel` class) — a legitimate
+  typographic choice that transfers independently of the content it happened to be styling in the
+  reference. Inter/Barlow (already this file's own body/display faces) needed no change.
+- **Mobile menu**: `.pmenu` is a fixed, full-screen `rgba(0,0,0,0.95)` + `backdrop-filter:blur`
+  overlay with a staggered fade+slide-up entrance per link (`transition-delay` 100/160/220/280/340/
+  400ms inline per button, matching the reference's own stagger timing), wired by a small
+  self-contained IIFE that toggles `.pmenu.is-open` and — critically — closes the menu the instant
+  any link inside is clicked, letting the site's existing global `[data-tab]` click-delegation
+  (already wired once, at load, against every element carrying that attribute regardless of which
+  menu it lives in) handle the actual navigation exactly as it already does everywhere else on this
+  site; no new navigation logic was needed for that part.
+- **Dead code**: the old `.home-slides`/`.slide-motivation`/`.slide-pricing`/`.home-ticker`/
+  `.slide-dots`/`.pricing-3d-stage` CSS was left in place as harmless orphans (this file's own
+  long-established "don't hunt down every dead rule" precedent), but the two JS IIFEs that only
+  ever operated on those now-removed elements (the slide-dot `IntersectionObserver` nav, the
+  Pricing-slide 3D scroll listener) were removed outright rather than left as silent no-ops, since
+  both were trivial, self-contained, and clearly identifiable as fully dead once their target
+  markup was gone.
+- **A second real bug, caught via edge-viewport measurement, not assumed fixed**: an iPhone-SE-
+  class `320×568` viewport clipped the hero headline, CTA button, and footer entirely below the
+  invisible fold — since `overflow:hidden` on a locked composition means content that doesn't fit
+  is clipped, not scrollable, a real visitor on a small/older phone would have seen the meta-grid
+  cut off mid-sentence with no headline, no CTA, nothing to click. Fixed with two additional
+  `max-height` breakpoints (declared after every `min-width` rule so they win by source order with
+  no `!important` needed): `≤700px` trims the brand blurb and shrinks the headline/meta text;
+  `≤600px` drops the entire meta-grid and footer strip, leaving only the nav, headline, CTA, and
+  stat chips — the actual conversion path — visible down to the smallest real device height tested.
+  Re-verified at `320×568` afterward: headline, CTA, and chips all render correctly with nothing
+  clipped.
+- Verified via Playwright: zero page errors on both desktop and mobile; `overflowY: hidden` on both
+  `html`/`body` while `body.view-home`, confirmed non-scrollable via a real mouse-wheel attempt
+  (`scrollY` stays `0`); the old `.home-slides` markup is confirmed fully gone; all 6 nav links
+  present in both the desktop bar and the mobile menu; the mobile menu opens, shows all links at
+  full opacity once its stagger settles, and closes itself while correctly routing to the clicked
+  tab; the signed-in "Launch App" CTA correctly enters the App view, and the sidebar's own
+  brand-link still correctly returns to a fully-rendered Home afterward; layouts were measured
+  (not just screenshotted) at 320×568, 375×812, 390×844, 768×1024, 1440×900, and 1920×1080 with
+  zero horizontal overflow and, after the two fixes above, zero vertical clipping of essential
+  content at any of them; and the full pre-existing functional regression suite (all 9 App-view
+  tabs load, the Workouts PDF export firing a real `download` event, and Complete Workout correctly
+  logging to the Tracker) passes unchanged.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
