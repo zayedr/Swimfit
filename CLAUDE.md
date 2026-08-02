@@ -5272,6 +5272,77 @@ not deleted** — it's unaffected as its own real tab, reachable from both nav m
   tabs load, the Workouts PDF export firing a real `download` event, and Complete Workout correctly
   logging to the Tracker) passes unchanged.
 
+**A "Total Front-End Overhaul" round began with Global Layout only — the fixed left sidebar was
+retired in favor of one consistent floating "capsule" nav bar at every breakpoint, and the footer
+was redesigned to match, per an explicit "redesign the entire site from A to Z, but do it
+step-by-step and show me Step 1 first" request.** No backend/Firebase/Firestore/Cloud Function
+logic was touched — this round is scoped entirely to `.nav`, `.nav-links`, `.mobile-bottom-nav`,
+`footer`, and `.dash-ambient-bg`. `--sidebar-w` is now a permanently inert `0px` orphan token (was
+`232px`) — `.nav` is `position:fixed` at every width (not just mobile) as a glass capsule
+(`border-radius:var(--radius-lg)`, a blurred `::before` fill, a `.scrolled` state for a stronger
+shadow/border once the page has scrolled), `.nav-links` became horizontally-scrollable pills
+(`overflow-x:auto`, hidden scrollbar) instead of a vertical sidebar list, and `body` no longer
+carries a `margin-left` offset — `.panel-wide`'s sidebar-width correction formula and the Admin
+FAB's sidebar-aware `left` offset were both reverted to their plain, non-sidebar forms accordingly.
+`footer` picked up the identical floating-capsule treatment (glass fill, rounded corners, a
+top accent-bar gradient) instead of its previous full-bleed dark band. The shared
+`.dash-ambient-bg` (behind every App-view tab) had its hex-grid texture and floating
+`.dash-particles` dots removed, left with just two calm static corner glows — matching the
+"calmer wrapper background" part of the same ask. **Two real bugs were caught and fixed during
+this round**: the active-tab pill's icon color rule had a stale combined selector
+(`:hover, [aria-current="true"] { color: var(--aqua) }`) that silently rendered an active tab's
+icon in illegible amber-on-amber — split apart so only the hover case keeps that rule, with the
+active state correctly using `--on-aqua`. And a real, *measured* (not just eyeballed) overflow: at
+1440px desktop, the trial badge + nav-pill row + Log Out button together overflowed `.nav`'s own
+right edge by 267px — fixed by making `.nav-links` itself the scrollable region
+(`flex-shrink:0` on the CTA cluster) so the auth-critical controls can never be squeezed
+off-screen regardless of how many nav pills are showing. This round intentionally stopped at
+Global Layout only — Step 2 (individual card/page-layout redesigns) is a separate, not-yet-started
+phase pending user review of this step.
+
+**"Separation of Concerns" — Step 1 of a plan to eventually rebuild the entire front-end from a
+blank canvas: the site's business/backend-adjacent logic was extracted out of the single
+`index.html` into five dedicated files under a new `js/` directory, with zero change to any
+Firebase config, Firestore schema, security rule, or Cloud Function.** `js/firebase-service.js`
+(Firebase config/init/auth-state/every `window.__xxx` Firestore bridge) was already a fully
+self-contained ES module — moved verbatim, loaded via `<script type="module"
+src="js/firebase-service.js">` in place of the old inline block, since ES modules already support
+an external `src` identically to inline. `js/paddle-client.js` holds the Pricing tab's Paddle
+checkout trigger and the access-lock/paywall-overlay logic — genuinely just the client-side
+checkout call (`Paddle.Checkout.open(...)`); the real webhook signature verification and
+`PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET` secrets remain exactly where they've always lived, entirely
+server-side in `functions/index.js`, untouched by this round. `js/workout-generator.js` holds the
+Workout Generator, Gym Focus Selector, Gym Technique Demos, and PDF export logic as one file (kept
+as a single cohesive extraction rather than attempting a risky internal "pure calculation vs. DOM
+rendering" split of this codebase's single most heavily-tuned, many-times-audited feature — a
+disclosed, deliberate scope narrowing in favor of preserving exact existing behavior). `js/
+tracker-service.js` and `js/admin-service.js` hold the Distance Tracker and Admin Panel
+respectively (the swimmer-facing floating admin-chat inbox widget was deliberately left inline —
+it's a signed-in swimmer's own UI, not admin business logic, so it didn't belong in either bucket).
+**The one real technical obstacle, found and resolved**: the remaining ~6700-line business-logic
+script was a single `(function () { "use strict"; ... })();` IIFE — hundreds of shared helpers
+(`icon()`, `switchTab()`, `state`, etc.) lived in that one closure, so physically cutting the script
+at any internal boundary would have broken every reference to an earlier-defined helper from
+whatever code ended up in a later file. Fixed at the root by removing the wrapping IIFE entirely —
+confirmed via a full-file grep that this codebase's script never uses top-level `let`/`const`
+(only `var`/`function`, both of which attach to `window` at a script's top level regardless of
+strict mode), so every one of those ~600 formerly closure-private declarations became a real
+global with zero behavior change. Every extracted file is loaded via a plain `<script
+src="...">` at its *exact* original document position, so execution order — and therefore every
+cross-reference between files — is unchanged from before. A handful of call sites
+(`openAuthModal`, `generateWorkout`) also picked up an explicit `window.` prefix at their one call
+site inside the extracted Paddle file for clarity, even though they were already technically global
+post-IIFE-removal. Verified via Playwright end-to-end, both desktop and mobile: all 9 tabs
+activate correctly; workout generation renders its stage blocks and both the Workouts and Gym PDF
+exports fire real `download` events; Complete Workout logs the correct distance and updates its own
+button state; the Admin Panel (signed in as the house admin account, against a mocked
+`adminListUsers` response) renders its live user table and stats grid; the Distance Tracker's log
+form renders; the Pricing tab's Subscribe button still correctly hands off to the auth modal for a
+signed-out visitor; and there are zero page errors throughout. This round is Step 1 of a
+multi-step plan the user is directing personally — Step 2 (wiping the current HTML/CSS and
+rebuilding a new UI from scratch on top of these now-isolated service files) has **not** been
+started, pending the user's explicit confirmation to proceed.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
