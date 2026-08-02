@@ -1,0 +1,63 @@
+name: Deploy Future Forward
+
+# Builds the swimfit-future-forward/ React app and commits the fresh output
+# into future-forward/ at the repo root, on main only. GitHub Pages for this
+# repo is configured to serve main's root as static files directly (no Pages
+# Actions deployment) — the main site's own deploy mechanism is untouched by
+# this workflow, so re-committing the build output here is what makes
+# swimfit.online/future-forward/ pick up new commits automatically.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "swimfit-future-forward/**"
+      - ".github/workflows/deploy-future-forward.yml"
+  workflow_dispatch: {}
+
+# The auto-commit step below only ever touches future-forward/, never
+# swimfit-future-forward/**, so this can never retrigger itself.
+concurrency:
+  group: deploy-future-forward
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: swimfit-future-forward/package-lock.json
+
+      - name: Install dependencies
+        working-directory: swimfit-future-forward
+        run: npm ci
+
+      - name: Build
+        working-directory: swimfit-future-forward
+        run: npm run build
+
+      - name: Sync build output into future-forward/
+        run: |
+          mkdir -p future-forward
+          rsync -a --delete swimfit-future-forward/dist/ future-forward/
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add future-forward
+          if git diff --cached --quiet; then
+            echo "No changes to future-forward/ — nothing to deploy."
+          else
+            git commit -m "Deploy future-forward/: rebuild from swimfit-future-forward source [skip ci]"
+            git push
+          fi
