@@ -5040,6 +5040,79 @@ no-database-changes constraint, so every change here is HTML/CSS/JS only.**
   desktop width, confirmed harmless since `document.documentElement.scrollWidth` matches
   `clientWidth` exactly — not a regression introduced by anything touched this round).
 
+**A full color/visual-identity redesign — a genuinely new palette, not another neon-aqua/green
+iteration — per the user's own explicit, twice-confirmed "أبغاه فعلاً تغيير شامل للتصميم/الألوان من
+الألف لليا" (I really want a comprehensive change to the design/colors from A to Z).** The user's
+original ask was broader ("something that attracts the customer, entertains them, gets them to
+subscribe") and was narrowed down via clarifying questions to "change the website itself," then
+to a full top-to-bottom design/color overhaul specifically — a smaller-scoped alternative (an
+interactive live-product-trial widget) was proposed first, citing this file's own extensive
+history of prior full redesign rounds, but was explicitly rejected in favor of the comprehensive
+change. Guided by the `ui-ux-pro-max` skill's design-system search for a performance-sports
+training platform. Pure CSS token/value changes — no JS logic, Firestore, or Cloud Function
+changes anywhere.
+
+- **A genuinely new palette: warm amber/gold + deep indigo-charcoal, replacing the neon-cyan-on-
+  slate identity every prior redesign round (bento, precision-instrument, glassmorphism, luxury-
+  glow) had iterated on without ever changing the underlying hue family.** Following this file's
+  own long-established, many-times-proven pattern — a full re-skin via **token VALUE swaps bound
+  to the existing variable NAMES**, never a rename — `--aqua`/`--aqua-bright` (previously cyan,
+  `#22D3EE`/`#4EE9FF`) now hold a warm amber/orange (`#E8890C`/`#FFA53D`); a new `--gold` (`#E7B65B`)
+  was added alongside them. `--maroon`/`--maroon-bright`/`--maroon-deep` and `--green`/
+  `--green-bright`/`--green-deep` keep their existing warm-red and emerald identities (already
+  distinct from the old cyan, so left as-is) — this round's real change is retiring the neon-cyan
+  half of the palette specifically. `--bg`/`--bg-alt`/`--surface`/`--surface-2` moved from a
+  near-black slate (`#0D1117`-family) to a genuinely different deep **indigo-charcoal** family
+  (`#0A0812`/`#100D1B`/`#1A1526`/`#241D33`) — a colored-black rather than a neutral-black, which is
+  what actually reads as a new identity rather than a hue-only accent swap on the same old
+  background. `--fg`/`--muted`/`--muted-2` were retuned to warm off-white/mauve-gray
+  (`#F5F1EC`/`#A79EB0`/`#7C7290`) to sit correctly against the new indigo surfaces, and `--glass-bg`/
+  `--glass-bg-2`/`--glass-border` were retuned to match. New `--on-green`/`--on-aqua`/`--on-maroon`
+  tokens (dark-on-bright / dark-on-amber / light-on-maroon) were added for text sitting directly on
+  a solid accent fill (e.g. button labels), matching this file's own existing "text reads through a
+  token, never a raw hex" discipline.
+- **Every hardcoded color literal that bypassed the variable system was swept, not just the
+  `:root` block.** A grep for the old cyan literals (`rgba(34,211,238,...)`, `rgba(78,233,255,...)`,
+  `#22D3EE`, `#4EE9FF`) found 52 occurrences across the file that had drifted outside the token
+  system over many prior rounds — the `<meta name="theme-color">` tag, the EmailJS welcome-email
+  HTML template's inline styles, the `.eyebrow::before` pulse and `ctaGlowAqua` keyframes, the
+  Hero's mesh-gradient blobs and photo-overlay gradients, `.dash-ambient-bg`/`.dash-particles`,
+  `.card:hover`/`.chip:hover`/`.equip-check:hover`, the Tracker's stat/PB values, the Admin stat
+  icons/selected-row highlight, and the Pricing slide's inline SVG geometric background, among
+  others — all swept to the new amber values via `sed`, verified via a follow-up grep that zero
+  occurrences of the old literals remain anywhere in the file.
+- **Two real color-identity clashes introduced by the mechanical sweep were caught and fixed by
+  hand, not left as an automated side effect.** The Workout Generator's 4-stage color-coding
+  (`.workout-block[data-stage="warmup"]`, previously a distinct blue) had auto-swept to the same
+  amber-bright as the Pre-Set stage's own gold — undercutting the whole point of that stage-color
+  system, which exists specifically so a swimmer can tell Warm-Up/Pre-Set/Main/Cool-Down apart at a
+  glance. Recolored Warm-Up to a distinct cool blue (`#4FC3E8`) instead of leaving it amber. The same
+  problem hit Gym's muscle-tag system: `.muscle-tag[data-m="back"]` auto-swept to the same
+  amber-bright as `data-m="chest"`, so a swimmer could no longer distinguish a Back-targeting
+  exercise from a Chest-targeting one by tag color alone — recolored Back to a distinct mid-blue
+  (`#4FA8E8`), matching the same "cool blue" identity introduced for the Warm-Up fix so the two new
+  colors read as one deliberate choice rather than two unrelated patches.
+- **Home's own section backgrounds were upgraded from duplicate hardcoded hex to real token
+  references** (`.home-showcase`/`.home-steps`/`.slide-showcase, .slide-pricing`'s base rule and its
+  own override, plus a badge/pill rule): `background: #0A0E16` / `#0C1220` became
+  `var(--bg-alt)` / `var(--surface)` — a genuine maintainability improvement, not just a recolor,
+  since Home's backgrounds now stay in lockstep with the rest of the site's token system instead of
+  needing their own manual update on every future palette round.
+- **The EmailJS welcome-email template's background colors were fixed by hand** — its outer page
+  background and card background (`#0A0F18`/`#131B2A`) are independent hardcoded literals outside
+  the aqua/cyan sweep's own pattern match, so they were updated separately to the new
+  `#0A0812`/`#1A1526` indigo values; the template's amber CTA links/badges had already picked up the
+  new palette automatically since they used the same `rgba(34,211,238,...)`/`#4EE9FF` literals the
+  earlier sweep already caught.
+- Verified via Playwright: a full visual pass across Home and all 10 App-view tabs (Workouts, Gym,
+  Gear, Academy, Coach, Tracker, Settings, Support, Pricing, Admin — including the Admin donut/bar/
+  trend-line charts, all of which correctly render in the new palette's accent colors) confirmed a
+  cohesive amber + indigo + maroon/green identity throughout, with zero page errors; a full
+  functional regression (workout generation rendering all 4 stage blocks, the Workouts PDF export
+  firing a real `download` event, Complete Workout correctly logging to the Tracker) passed
+  unchanged; and zero horizontal overflow was found on any of 9 App-view tabs at both 1440px desktop
+  and 375px mobile widths, nor on the Home page at 375px.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
