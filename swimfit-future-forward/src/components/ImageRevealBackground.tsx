@@ -72,7 +72,11 @@ export default function ImageRevealBackground() {
       target.y = height / 2;
     }
 
-    // Cover-fit math for drawing BG_IMAGE_2, mirroring CSS background-size:cover.
+    // Cover-fit math for drawing BG_IMAGE_2, mirroring CSS
+    // background-size:cover; background-position:center top — vertical
+    // cropping (when the box is taller/narrower than the image) is anchored
+    // to the top so the subject's face/head is never cut off, only the area
+    // below it.
     function drawCoverImage() {
       if (!ctx || !img.naturalWidth || !img.naturalHeight) return;
       const imgRatio = img.naturalWidth / img.naturalHeight;
@@ -87,7 +91,11 @@ export default function ImageRevealBackground() {
         drawH = width / imgRatio;
       }
       const dx = (width - drawW) / 2;
-      const dy = (height - drawH) / 2;
+      // Only the imgRatio <= boxRatio branch ever produces vertical overflow
+      // (drawH > height); anchor that overflow to the top instead of
+      // centering it. The other branch already has drawH === height, so dy
+      // is 0 either way.
+      const dy = imgRatio <= boxRatio ? 0 : (height - drawH) / 2;
       ctx.drawImage(img, dx, dy, drawW, drawH);
     }
 
@@ -154,13 +162,15 @@ export default function ImageRevealBackground() {
       className="hidden lg:block absolute inset-0 pointer-events-none z-0 overflow-hidden"
       aria-hidden="true"
     >
-      {/* Base layer — always visible, full color. */}
+      {/* Base layer — always visible, full color. background-position is
+          top-anchored so a taller/narrower viewport never crops the
+          swimmer's face, only the space below it. */}
       <div
         className="absolute inset-0"
         style={{
           backgroundImage: `url(${BG_IMAGE_1})`,
           backgroundSize: "cover",
-          backgroundPosition: "center",
+          backgroundPosition: "center top",
           backgroundRepeat: "no-repeat",
         }}
       />
