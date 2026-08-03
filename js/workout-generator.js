@@ -2794,38 +2794,70 @@
     // A 9:16 portrait "card" layout on a deep-slate background with neon stage
     // accents — photo-ready for an Instagram/TikTok story, not a plain A4 sheet.
     var PDF_PAGE = [720, 1280]; // 9:16 portrait
-    // Crisp white "elite brand" export — swapped from the earlier dark
-    // story-card look at explicit request: white card backgrounds, dark
-    // readable ink, and print-safe (deeper, more saturated) accent hues
-    // reused directly from the app's own Light theme tokens so the PDF and
-    // the site's light mode read as the same brand rather than two
-    // different palettes.
+    // Strict monochrome "future-forward" export — matches the live site's
+    // pure black/white/gray redesign exactly (no hue anywhere): a white
+    // page, near-black ink, and every "accent" reduced to a distinct
+    // lightness of gray rather than a color, so the 4 workout stages / gym
+    // phases still read as visually distinct without breaking the
+    // monochrome rule.
     var PDF = {
-      bg: [255, 255, 255], card: [255, 255, 255], border: [223, 227, 234],
-      ink: [15, 23, 42], muted: [71, 85, 105], dim: [100, 116, 139],
-      aqua: [8, 145, 168], green: [16, 145, 85], gold: [168, 121, 31],
-      peri: [67, 56, 202], maroon: [156, 42, 68]
+      bg: [255, 255, 255], card: [255, 255, 255], border: [222, 222, 222],
+      ink: [10, 10, 10], muted: [90, 90, 90], dim: [140, 140, 140],
+      accent1: [10, 10, 10], accent2: [90, 90, 90], accent3: [40, 40, 40],
+      accent4: [130, 130, 130], black: [0, 0, 0]
     };
-    var STAGE_RGB = { warmup: PDF.aqua, preset: PDF.gold, main: PDF.green, cooldown: PDF.peri };
+    var STAGE_RGB = { warmup: PDF.accent2, preset: PDF.accent4, main: PDF.accent1, cooldown: PDF.accent3 };
+
+    // Registers the real site fonts (Orbitron for the display wordmark,
+    // Plus Jakarta Sans for everything else) into this jsPDF document —
+    // base64 TTF data lives in js/pdf-fonts.js (loaded before this file),
+    // fetched once from Google Fonts and committed directly here per this
+    // repo's own "bundle it, no CDN dependency" precedent (see jsPDF
+    // itself, bundled inline in index.html). Falls back to jsPDF's built-in
+    // Helvetica if that file somehow isn't loaded, so a PDF can never fail
+    // to generate over a missing font.
+    var PDF_FONTS_READY = false;
+    function registerPdfFonts(doc) {
+      var F = window.__PDF_FONTS;
+      if (!F) return false;
+      try {
+        doc.addFileToVFS('Orbitron-Bold.ttf', F.orbitronBold);
+        doc.addFont('Orbitron-Bold.ttf', 'Orbitron', 'bold');
+        doc.addFileToVFS('PlusJakartaSans-Regular.ttf', F.jakartaRegular);
+        doc.addFont('PlusJakartaSans-Regular.ttf', 'PlusJakartaSans', 'normal');
+        doc.addFileToVFS('PlusJakartaSans-Bold.ttf', F.jakartaBold);
+        doc.addFont('PlusJakartaSans-Bold.ttf', 'PlusJakartaSans', 'bold');
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    function pdfSetFont(doc, weight) {
+      if (PDF_FONTS_READY) doc.setFont('PlusJakartaSans', weight === 'bold' ? 'bold' : 'normal');
+      else doc.setFont('helvetica', weight === 'bold' ? 'bold' : 'normal');
+    }
+    function pdfSetDisplayFont(doc) {
+      if (PDF_FONTS_READY) doc.setFont('Orbitron', 'bold');
+      else doc.setFont('helvetica', 'bold');
+    }
 
     function pdfFillPage(doc) {
       var w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
       doc.setFillColor(PDF.bg[0], PDF.bg[1], PDF.bg[2]); doc.rect(0, 0, w, h, 'F');
-      // Two-tone top accent band (maroon -> green) — the brand's own colors,
-      // still reads clean against a white page.
-      doc.setFillColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.rect(0, 0, w, 9, 'F');
-      doc.setFillColor(PDF.maroon[0], PDF.maroon[1], PDF.maroon[2]); doc.rect(0, 0, w * 0.52, 9, 'F');
+      // Single black top accent band — monochrome, matching the live site's
+      // strict black/white/gray redesign (no hue anywhere in this export).
+      doc.setFillColor(PDF.black[0], PDF.black[1], PDF.black[2]); doc.rect(0, 0, w, 9, 'F');
     }
     function pdfWordmarkHeader(doc, subtitle) {
       pdfFillPage(doc);
       var w = doc.internal.pageSize.getWidth();
       var hx = 46, hy = 78;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(34);
-      doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]); doc.text('SWIM', hx, hy);
+      pdfSetDisplayFont(doc); doc.setFontSize(34);
+      doc.setTextColor(PDF.black[0], PDF.black[1], PDF.black[2]); doc.text('SWIM', hx, hy);
       var ww = doc.getTextWidth('SWIM');
-      doc.setTextColor(PDF.green[0], PDF.green[1], PDF.green[2]); doc.text('FIT', hx + ww + 2, hy);
+      doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]); doc.text('FIT', hx + ww + 2, hy);
       if (subtitle) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5);
+        pdfSetFont(doc, 'normal'); doc.setFontSize(12.5);
         doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
         doc.text(subtitle, hx, hy + 24);
       }
@@ -2838,7 +2870,7 @@
       var n = doc.internal.getNumberOfPages();
       for (var p = 1; p <= n; p++) {
         doc.setPage(p);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        pdfSetFont(doc, 'bold'); doc.setFontSize(11);
         doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
         doc.text('swimfit.online', w / 2, h - 30, { align: 'center' });
       }
@@ -2856,11 +2888,11 @@
       doc.setFillColor(accent[0], accent[1], accent[2]);
       doc.roundedRect(cardX, opts.y + 10, 6, opts.height - 20, 3, 3, 'F');
       var tx = cardX + 26, ty = opts.y + 36;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+      pdfSetFont(doc, 'bold'); doc.setFontSize(18);
       doc.setTextColor(accent[0], accent[1], accent[2]);
       doc.text(String(opts.title).toUpperCase(), tx, ty);
       if (opts.badge) {
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        pdfSetFont(doc, 'bold'); doc.setFontSize(11);
         doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
         doc.text(opts.badge, cardX + cardW - 22, ty, { align: 'right' });
       }
@@ -2869,6 +2901,7 @@
 
     function buildWorkoutPdf(jsPDFCtor, data) {
       var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
+      PDF_FONTS_READY = registerPdfFonts(doc);
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
       var marginX = 46;
@@ -2886,14 +2919,14 @@
       var headH = 66, roundH = 24, padB = 20, lineLead = 16, rowGap = 9;
 
       data.blocks.forEach(function (block) {
-        var accent = STAGE_RGB[block.stage] || PDF.aqua;
+        var accent = STAGE_RGB[block.stage] || PDF.accent1;
         var cardX = marginX, cardW = pageW - marginX * 2;
         // The interval sits on the FIRST line of each set; reserve room for it.
         var labelW = cardW - 26 - 92;
 
         // Pre-measure so the card background can be drawn at the correct height
         // BEFORE the (multi-line, full-length) text is rendered on top of it.
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+        pdfSetFont(doc, 'bold'); doc.setFontSize(12);
         var lastR = null, height = headH, measured = [];
         block.rows.forEach(function (r) {
           var roundBefore = (r.round && r.round !== lastR) ? r.round : null;
@@ -2909,17 +2942,17 @@
           var ry = startY;
           measured.forEach(function (m) {
             if (m.roundBefore) {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+              pdfSetFont(doc, 'bold'); doc.setFontSize(9.5);
               doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
               doc.text(String(m.roundBefore).toUpperCase(), tx, ry);
               ry += roundH;
             }
             if (m.r.interval) {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+              pdfSetFont(doc, 'bold'); doc.setFontSize(12);
               doc.setTextColor(accent[0], accent[1], accent[2]);
               doc.text('@ ' + m.r.interval, contentRight, ry, { align: 'right' });
             }
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+            pdfSetFont(doc, 'bold'); doc.setFontSize(12);
             doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
             m.lines.forEach(function (ln, i) { doc.text(ln, tx, ry + i * lineLead); });
             ry += m.lines.length * lineLead + rowGap;
@@ -2938,23 +2971,23 @@
           // pagination and no single background card, so full text is never
           // clipped even if it spans more than one page.
           ensureSpace(headH);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+          pdfSetFont(doc, 'bold'); doc.setFontSize(18);
           doc.setTextColor(accent[0], accent[1], accent[2]);
           doc.text(String(block.title).toUpperCase(), marginX + 26, y + 36);
           y += headH;
           measured.forEach(function (m) {
             ensureSpace((m.roundBefore ? roundH : 0) + m.rowH);
             if (m.roundBefore) {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+              pdfSetFont(doc, 'bold'); doc.setFontSize(9.5);
               doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
               doc.text(String(m.roundBefore).toUpperCase(), marginX + 26, y); y += roundH;
             }
             if (m.r.interval) {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+              pdfSetFont(doc, 'bold'); doc.setFontSize(12);
               doc.setTextColor(accent[0], accent[1], accent[2]);
               doc.text('@ ' + m.r.interval, pageW - marginX - 22, y, { align: 'right' });
             }
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+            pdfSetFont(doc, 'bold'); doc.setFontSize(12);
             doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
             m.lines.forEach(function (ln, i) { doc.text(ln, marginX + 26, y + i * lineLead); });
             y += m.lines.length * lineLead + rowGap;
@@ -2969,12 +3002,13 @@
 
     function buildGymPdf(jsPDFCtor, data, focusLabel) {
       var doc = new jsPDFCtor({ unit: 'pt', format: PDF_PAGE, orientation: 'portrait' });
+      PDF_FONTS_READY = registerPdfFonts(doc);
       var pageW = doc.internal.pageSize.getWidth();
       var pageH = doc.internal.pageSize.getHeight();
       var marginX = 46;
       var subtitle = focusLabel + '   ·   ' + new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
       var y = pdfWordmarkHeader(doc, subtitle);
-      var phaseAccents = [PDF.aqua, PDF.gold, PDF.green, PDF.peri];
+      var phaseAccents = [PDF.accent1, PDF.accent4, PDF.accent2, PDF.accent3];
       var headH = 66, padB = 20, nameLead = 16, cueLead = 14, exGap = 12;
 
       function ensureSpace(need) {
@@ -2987,7 +3021,7 @@
         var textW = cardW - 26 - 90;
 
         // Pre-measure: name (1 line) + FULL wrapped cue lines + load line.
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+        pdfSetFont(doc, 'normal'); doc.setFontSize(10.5);
         var height = headH, measured = [];
         phase.exercises.forEach(function (ex) {
           var cueLines = ex.cue ? doc.splitTextToSize(ex.cue, textW + 60) : [];
@@ -3003,21 +3037,21 @@
         var ry = c.ry;
         measured.forEach(function (m) {
           // Exercise name (left) + prescription (right, accent).
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+          pdfSetFont(doc, 'bold'); doc.setFontSize(12.5);
           doc.setTextColor(PDF.ink[0], PDF.ink[1], PDF.ink[2]);
           var nameLines = doc.splitTextToSize(m.ex.name, textW);
           doc.text(nameLines[0], c.tx, ry);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+          pdfSetFont(doc, 'bold'); doc.setFontSize(12);
           doc.setTextColor(accent[0], accent[1], accent[2]);
           doc.text(m.ex.prescription, c.cardX + c.cardW - 22, ry, { align: 'right' });
           ry += nameLead;
           if (m.ex.load) {
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-            doc.setTextColor(PDF.green[0], PDF.green[1], PDF.green[2]);
+            pdfSetFont(doc, 'bold'); doc.setFontSize(9.5);
+            doc.setTextColor(PDF.dim[0], PDF.dim[1], PDF.dim[2]);
             doc.text(m.ex.load, c.tx, ry); ry += cueLead;
           }
           if (m.cueLines.length) {
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+            pdfSetFont(doc, 'normal'); doc.setFontSize(10.5);
             doc.setTextColor(PDF.muted[0], PDF.muted[1], PDF.muted[2]);
             m.cueLines.forEach(function (ln, i) { doc.text(ln, c.tx, ry + i * cueLead); });
             ry += m.cueLines.length * cueLead;
