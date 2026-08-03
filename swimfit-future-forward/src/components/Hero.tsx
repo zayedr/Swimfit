@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import CornerBracket from "./CornerBracket";
 import Checkerboard from "./Checkerboard";
 import WireframeGlobe from "./WireframeGlobe";
@@ -35,8 +36,8 @@ export default function Hero() {
         <CornerBracket corner="bl" className="text-black" />
 
         <div>
-          <button
-            type="button"
+          <Link
+            to="/workouts"
             className="group inline-flex items-center border border-gray-400 rounded-md uppercase font-jakarta transition-colors hover:bg-black hover:text-white hover:border-black"
             style={{
               fontSize: "var(--body)",
@@ -52,7 +53,7 @@ export default function Hero() {
               className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
               style={{ width: "var(--icon)", height: "var(--icon)" }}
             />
-          </button>
+          </Link>
         </div>
       </div>
 

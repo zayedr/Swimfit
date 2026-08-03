@@ -1,18 +1,17 @@
 import { ShoppingBag } from "lucide-react";
-import type { DrawerKind } from "../lib/constants";
+import { Link, useLocation } from "react-router-dom";
 
-interface HeaderProps {
-  onOpenDrawer: (kind: DrawerKind) => void;
-}
-
-const NAV_LINKS: { label: string; kind: DrawerKind }[] = [
-  { label: "WORKOUTS", kind: "workouts" },
-  { label: "GYM", kind: "gym" },
-  { label: "TRACKER", kind: "tracker" },
-  { label: "PRICING", kind: "pricing" },
+const NAV_LINKS: { label: string; to: string }[] = [
+  { label: "WORKOUTS", to: "/workouts" },
+  { label: "GYM", to: "/gym" },
+  { label: "COACH", to: "/coach" },
+  { label: "TRACKER", to: "/tracker" },
+  { label: "PRICING", to: "/pricing" },
 ];
 
-export default function Header({ onOpenDrawer }: HeaderProps) {
+export default function Header() {
+  const { pathname } = useLocation();
+
   return (
     <header
       className="relative z-20 flex items-center justify-between"
@@ -22,9 +21,8 @@ export default function Header({ onOpenDrawer }: HeaderProps) {
         paddingBottom: "var(--section-gap)",
       }}
     >
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      <Link
+        to="/"
         className="font-orbitron font-black tracking-[0.15em] hover:opacity-80 transition-opacity"
         style={{ fontSize: "var(--logo)" }}
       >
@@ -35,22 +33,31 @@ export default function Header({ onOpenDrawer }: HeaderProps) {
         >
           ˚
         </span>
-      </button>
+      </Link>
 
       <nav
         className="font-jakarta font-medium uppercase flex items-center"
         style={{ fontSize: "var(--nav)", gap: "var(--gap-nav)", letterSpacing: "0.2em" }}
       >
-        {NAV_LINKS.map((link) => (
-          <button
-            key={link.label}
-            type="button"
-            onClick={() => onOpenDrawer(link.kind)}
-            className="hover:opacity-60 transition-opacity"
-          >
-            {link.label}
-          </button>
-        ))}
+        {NAV_LINKS.map((link) => {
+          const active = pathname === link.to;
+          return (
+            <Link
+              key={link.label}
+              to={link.to}
+              aria-current={active ? "page" : undefined}
+              className="relative pb-0.5 transition-opacity hover:opacity-60"
+            >
+              {link.label}
+              <span
+                className={`absolute left-0 -bottom-0.5 h-px bg-black transition-all ${
+                  active ? "w-full" : "w-0"
+                }`}
+                aria-hidden="true"
+              />
+            </Link>
+          );
+        })}
         <span className="text-gray-300" aria-hidden="true">
           |
         </span>
