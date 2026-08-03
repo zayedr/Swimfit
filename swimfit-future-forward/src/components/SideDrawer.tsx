@@ -9,23 +9,35 @@ interface SideDrawerProps {
 
 function WorkoutsPanel() {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col" style={{ gap: "var(--section-gap)" }}>
       {WORKOUTS_CONTENT.items.map((item) => (
         <div
           key={item.title}
           className="flex items-center justify-between border-b border-gray-200 pb-4"
         >
           <div className="flex flex-col gap-1">
-            <span className="text-[0.65rem] text-gray-500 uppercase tracking-widest">
+            <span
+              className="font-jakarta text-gray-500 uppercase tracking-[0.2em]"
+              style={{ fontSize: "var(--micro)" }}
+            >
               {item.tag}
             </span>
-            <span className="text-sm font-semibold">{item.title}</span>
+            <span className="font-jakarta font-semibold" style={{ fontSize: "var(--body)" }}>
+              {item.title}
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">{item.price}</span>
+            <span className="font-jakarta font-medium" style={{ fontSize: "var(--body)" }}>
+              {item.price}
+            </span>
             <button
               type="button"
-              className="flex items-center gap-1 border border-gray-400 rounded-md uppercase text-[0.65rem] tracking-wide px-3 py-1.5 hover:bg-black hover:text-white hover:border-black transition-colors"
+              className="flex items-center gap-1 border border-gray-400 rounded-md uppercase font-jakarta hover:bg-black hover:text-white hover:border-black transition-colors"
+              style={{
+                fontSize: "var(--micro)",
+                letterSpacing: "0.14em",
+                padding: "0.4rem 0.75rem",
+              }}
             >
               START
               <ChevronRight strokeWidth={1.5} className="w-3 h-3" />
@@ -39,14 +51,21 @@ function WorkoutsPanel() {
 
 function DrylandPanel() {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col" style={{ gap: "var(--section-gap)" }}>
       {DRYLAND_CONTENT.items.map((item) => (
         <div key={item.series} className="border-b border-gray-200 pb-4">
-          <span className="text-[0.65rem] text-gray-500 uppercase tracking-widest">
+          <span
+            className="font-jakarta text-gray-500 uppercase tracking-[0.2em]"
+            style={{ fontSize: "var(--micro)" }}
+          >
             {item.series}
           </span>
-          <p className="text-sm font-semibold mt-1">{item.title}</p>
-          <p className="text-[0.65rem] text-gray-600 mt-1">{item.description}</p>
+          <p className="font-jakarta font-semibold mt-1" style={{ fontSize: "var(--body)" }}>
+            {item.title}
+          </p>
+          <p className="font-jakarta text-gray-600 mt-1" style={{ fontSize: "var(--micro)" }}>
+            {item.description}
+          </p>
         </div>
       ))}
     </div>
@@ -55,19 +74,27 @@ function DrylandPanel() {
 
 function TrackerPanel() {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col" style={{ gap: "var(--section-gap)" }}>
       {TRACKER_CONTENT.items.map((item) => (
         <div
           key={item.date + item.title}
-          className="flex items-start justify-between gap-3 border-b border-gray-200 pb-4"
+          className="flex items-start justify-between border-b border-gray-200 pb-4 gap-3"
         >
           <div className="flex flex-col gap-1">
-            <span className="text-[0.65rem] text-gray-500 uppercase tracking-widest">
+            <span
+              className="font-jakarta text-gray-500 uppercase tracking-[0.2em]"
+              style={{ fontSize: "var(--micro)" }}
+            >
               {item.date}
             </span>
-            <span className="text-sm font-semibold">{item.title}</span>
+            <span className="font-jakarta font-semibold" style={{ fontSize: "var(--body)" }}>
+              {item.title}
+            </span>
           </div>
-          <span className="flex items-center gap-1 text-[0.65rem] font-medium uppercase whitespace-nowrap">
+          <span
+            className="flex items-center gap-1 font-jakarta font-medium uppercase whitespace-nowrap"
+            style={{ fontSize: "var(--micro)" }}
+          >
             <Check strokeWidth={1.5} className="w-3 h-3" />
             {item.status}
           </span>
@@ -99,14 +126,26 @@ export default function SideDrawer({ kind, onClose }: SideDrawerProps) {
 
       {/* Drawer panel */}
       <aside
-        className={`absolute right-0 top-0 h-full w-full max-w-md bg-white flex flex-col p-8 transition-transform duration-300 ease-out ${
+        className={`absolute right-0 top-0 h-full bg-white w-full flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
+        style={{
+          maxWidth: "var(--drawer-max)",
+          padding: "var(--drawer-pad)",
+        }}
       >
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="font-oswald font-bold uppercase text-xl">{meta?.title}</h2>
-            <p className="text-[0.65rem] text-gray-500 uppercase tracking-wide mt-1">
+            <h2
+              className="font-orbitron font-bold uppercase"
+              style={{ fontSize: "var(--logo)" }}
+            >
+              {meta?.title}
+            </h2>
+            <p
+              className="font-jakarta text-gray-500 uppercase tracking-[0.15em] mt-1"
+              style={{ fontSize: "var(--micro)" }}
+            >
               {meta?.subtitle}
             </p>
           </div>
@@ -116,7 +155,7 @@ export default function SideDrawer({ kind, onClose }: SideDrawerProps) {
             aria-label="Close"
             className="hover:opacity-60 transition-opacity"
           >
-            <X strokeWidth={1.5} className="w-5 h-5" />
+            <X strokeWidth={1.5} style={{ width: "var(--icon)", height: "var(--icon)" }} />
           </button>
         </div>
 

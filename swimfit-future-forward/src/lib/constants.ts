@@ -1,20 +1,10 @@
-// Base layer (always visible). Handsome European male swimmer, icy-white
-// hair tucked perfectly inside a professional swim cap, dark racing goggles
-// worn directly over his eyes, full color photography on a pure white
-// background. This is the "before" state the mouse-spotlight mask reveals
-// out of. Generated via Higgsfield (text2image_soul_v2), hosted on the
-// project's CloudFront bucket.
+// Always-visible background layer (desktop background + mobile static image).
 export const BG_IMAGE_1 =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_160823_5a9d4bf5-e7b7-4ac0-8872-1926e9e0862d.png";
+  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260802_074534_f0d9d476-3f86-4c67-9b12-dfc63d99da41.png&w=1920&q=85";
 
-// Reveal layer, shown only inside the mouse-spotlight mask. The exact same
-// swimmer, same lighting/background — but with the goggles off (vibrant
-// blue eyes visible) and his icy-white hair flowing slightly out from under
-// the cap. Generated via Higgsfield (nano_banana_2), edited from BG_IMAGE_1
-// as the reference image so it's the same person/lighting/background/cap
-// with only the goggles removed and the hair let loose.
+// Revealed only inside the mouse spotlight mask (desktop interactive layer).
 export const BG_IMAGE_2 =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260802_160904_1b5c5657-11b2-4602-897e-a7ad179923f0.png";
+  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260802_075145_1b557479-775b-43af-8270-f45d79d97d5a.png&w=1920&q=85";
 
 export type DrawerKind = "workouts" | "dryland" | "tracker" | null;
 
