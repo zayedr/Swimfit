@@ -6,8 +6,6 @@ export const BG_IMAGE_1 =
 export const BG_IMAGE_2 =
   "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260802_075145_1b557479-775b-43af-8270-f45d79d97d5a.png&w=1920&q=85";
 
-export type DrawerKind = "workouts" | "gym" | "tracker" | "pricing" | null;
-
 export interface WorkoutItem {
   tag: string;
   title: string;
@@ -74,6 +72,36 @@ export const GYM_CONTENT = {
         "Barbell strength work rotating through squat, hinge, press and pull patterns.",
     },
   ] as GymItem[],
+};
+
+// Real content: the actual exercise line-up per Gym Focus, matching the main
+// site's real-commercial-equipment rewrite (js/workout-generator.js's
+// GYM_FOCUS data) — used by the full Gym page's exercise board.
+export const GYM_FOCUS_EXERCISES: Record<string, { name: string; prescription: string }[]> = {
+  "UPPER BODY": [
+    { name: "Lat Pulldown", prescription: "4 x 10" },
+    { name: "Incline Bench Press", prescription: "4 x 8" },
+    { name: "Cable Face Pull", prescription: "3 x 15" },
+    { name: "Seated Cable Row", prescription: "4 x 10" },
+    { name: "Weighted Pull-Up", prescription: "3 x 6" },
+    { name: "Cable Tricep Pushdown", prescription: "3 x 12" },
+  ],
+  "LOWER BODY": [
+    { name: "Barbell Squat", prescription: "4 x 8" },
+    { name: "Romanian Deadlift", prescription: "4 x 8" },
+    { name: "Leg Press", prescription: "3 x 12" },
+    { name: "Hamstring Curl Machine", prescription: "3 x 12" },
+    { name: "Bulgarian Split Squat", prescription: "3 x 10 / leg" },
+    { name: "Standing Calf Raise", prescription: "3 x 15" },
+  ],
+  "FULL BODY": [
+    { name: "Barbell Squat", prescription: "4 x 6" },
+    { name: "Barbell Bench Press", prescription: "4 x 6" },
+    { name: "Deadlift", prescription: "3 x 5" },
+    { name: "Pull-Up", prescription: "3 x AMRAP" },
+    { name: "Overhead Press", prescription: "3 x 8" },
+    { name: "Cable Woodchopper", prescription: "3 x 12 / side" },
+  ],
 };
 
 // Real content: the Distance Tracker's own actual analytics features, not a
