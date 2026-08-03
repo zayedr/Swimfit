@@ -1,6 +1,6 @@
 import { X, ChevronRight, Check } from "lucide-react";
 import type { DrawerKind } from "../lib/constants";
-import { WORKOUTS_CONTENT, DRYLAND_CONTENT, TRACKER_CONTENT } from "../lib/constants";
+import { WORKOUTS_CONTENT, GYM_CONTENT, TRACKER_CONTENT, PRICING_CONTENT } from "../lib/constants";
 
 interface SideDrawerProps {
   kind: DrawerKind;
@@ -49,11 +49,11 @@ function WorkoutsPanel() {
   );
 }
 
-function DrylandPanel() {
+function GymPanel() {
   return (
     <div className="flex flex-col" style={{ gap: "var(--section-gap)" }}>
-      {DRYLAND_CONTENT.items.map((item) => (
-        <div key={item.series} className="border-b border-gray-200 pb-4">
+      {GYM_CONTENT.items.map((item) => (
+        <div key={item.title} className="border-b border-gray-200 pb-4">
           <span
             className="font-jakarta text-gray-500 uppercase tracking-[0.2em]"
             style={{ fontSize: "var(--micro)" }}
@@ -104,10 +104,60 @@ function TrackerPanel() {
   );
 }
 
+function PricingPanel() {
+  return (
+    <div className="flex flex-col" style={{ gap: "var(--section-gap)" }}>
+      {PRICING_CONTENT.items.map((item) => (
+        <div key={item.tier} className="border-b border-gray-200 pb-4">
+          <div className="flex items-center justify-between">
+            <span
+              className={`font-jakarta uppercase tracking-[0.2em] ${
+                item.featured ? "text-black font-semibold" : "text-gray-500"
+              }`}
+              style={{ fontSize: "var(--micro)" }}
+            >
+              {item.tier}
+              {item.featured ? " · MOST POPULAR" : ""}
+            </span>
+            <span className="font-jakarta font-semibold" style={{ fontSize: "var(--body)" }}>
+              {item.price}
+              <span className="font-normal text-gray-500"> /{item.period.replace("per ", "")}</span>
+            </span>
+          </div>
+          <ul className="mt-2 flex flex-col gap-1">
+            {item.features.map((f) => (
+              <li
+                key={f}
+                className="font-jakarta text-gray-600"
+                style={{ fontSize: "var(--micro)" }}
+              >
+                {f}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-3 flex items-center gap-1 border border-gray-400 rounded-md uppercase font-jakarta hover:bg-black hover:text-white hover:border-black transition-colors"
+            style={{
+              fontSize: "var(--micro)",
+              letterSpacing: "0.14em",
+              padding: "0.4rem 0.75rem",
+            }}
+          >
+            GET STARTED
+            <ChevronRight strokeWidth={1.5} className="w-3 h-3" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const DRAWER_META: Record<Exclude<DrawerKind, null>, { title: string; subtitle: string }> = {
   workouts: { title: WORKOUTS_CONTENT.title, subtitle: WORKOUTS_CONTENT.subtitle },
-  dryland: { title: DRYLAND_CONTENT.title, subtitle: DRYLAND_CONTENT.subtitle },
+  gym: { title: GYM_CONTENT.title, subtitle: GYM_CONTENT.subtitle },
   tracker: { title: TRACKER_CONTENT.title, subtitle: TRACKER_CONTENT.subtitle },
+  pricing: { title: PRICING_CONTENT.title, subtitle: PRICING_CONTENT.subtitle },
 };
 
 export default function SideDrawer({ kind, onClose }: SideDrawerProps) {
@@ -161,8 +211,9 @@ export default function SideDrawer({ kind, onClose }: SideDrawerProps) {
 
         <div className="overflow-y-auto mt-6 flex-1">
           {kind === "workouts" && <WorkoutsPanel />}
-          {kind === "dryland" && <DrylandPanel />}
+          {kind === "gym" && <GymPanel />}
           {kind === "tracker" && <TrackerPanel />}
+          {kind === "pricing" && <PricingPanel />}
         </div>
       </aside>
     </div>

@@ -7,8 +7,9 @@ interface HeaderProps {
 
 const NAV_LINKS: { label: string; kind: DrawerKind }[] = [
   { label: "WORKOUTS", kind: "workouts" },
-  { label: "DRYLAND", kind: "dryland" },
+  { label: "GYM", kind: "gym" },
   { label: "TRACKER", kind: "tracker" },
+  { label: "PRICING", kind: "pricing" },
 ];
 
 export default function Header({ onOpenDrawer }: HeaderProps) {
