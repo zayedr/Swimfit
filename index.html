@@ -99,32 +99,37 @@ input, textarea, select { font: inherit; color: inherit; }
 
 /* ============================= DESIGN TOKENS ============================= */
 :root {
-  --maroon-deep:   #360306;
-  --maroon:        #9C2A44;
-  --maroon-bright: #C43B5C;
-  --green-deep:    #146833;
-  --green:         #16D673;
-  --green-bright:  #39FF9E;
-  /* Future-Forward reskin: --aqua/--aqua-bright deliberately keep their
-     original NAMES (every rule in this file already reads the primary
-     interactive accent through these two variables, hundreds of times
-     over) but now hold pure white — the primary "brand color" is retired
-     in favor of the future-forward React rebuild's own monochrome
-     language, where the accent IS the ink color (white on this file's dark
-     surface), distinguished by weight/border/underline rather than hue.
-     Renaming the variables themselves across a file this size would
-     multiply the risk of a missed reference with zero benefit; recoloring
-     in place is the same value-only-swap every earlier retune round in
-     this file's history has used. Every hardcoded rgba(255,255,255,*)/
-     rgba(255,255,255,*)/#FFFFFF/#FFFFFF literal that bypassed these
-     variables was swept to white in the same pass (see the sed sweep this
-     round also ran), so nothing was left half-migrated. --gold is left
-     untouched — it's genuine categorical data-encoding color (the
-     Workout Generator's Pre-Set stage, trial-urgency copy), not brand
-     decoration, so it stays reserved rather than being flattened too. */
+  /* Follow-up Future-Forward fix, round 2: the user explicitly asked for a
+     STRICT monochrome UI (pure black/white/grays only, no exceptions) --
+     superseding this round's earlier decision to keep --green/--maroon/
+     --gold as "reserved status/categorical color" (Admin panel pills,
+     pricing tiers, Workout Generator stage coding). Every one of these
+     tokens now resolves to a grayscale value instead of a hue, so every
+     rule that already reads through them (99+ call sites) goes monochrome
+     with no markup changes -- the same "retune the token, not each call
+     site" approach this file has used for every previous full-palette
+     pass. Distinct statuses (e.g. Active vs Suspended in the Admin panel)
+     still differ by LIGHTNESS, not hue, so there's at least some visual
+     separation left without reintroducing color. */
+  --maroon-deep:   #141414;
+  --maroon:        #6E6E6E;
+  --maroon-bright: #9E9E9E;
+  --green-deep:    #171717;
+  --green:         #B8B8B8;
+  --green-bright:  #FFFFFF;
+  /* --aqua/--aqua-bright deliberately keep their original NAMES (every rule
+     in this file already reads the primary interactive accent through
+     these two variables, hundreds of times over) but now hold pure white
+     — the primary "brand color" is retired in favor of the future-forward
+     React rebuild's own monochrome language, where the accent IS the ink
+     color (white on this file's dark surface), distinguished by weight/
+     border/underline rather than hue. Renaming the variables themselves
+     across a file this size would multiply the risk of a missed reference
+     with zero benefit; recoloring in place is the same value-only-swap
+     every earlier retune round in this file's history has used. */
   --aqua:          #FFFFFF;
   --aqua-bright:   #FFFFFF;
-  --gold:          #E7B65B;
+  --gold:          #D4D4D4;
 
   /* A near-black surface family (not literal #000, which crushes the
      existing photo/video backgrounds and shadow depth) paired with a pure
@@ -159,9 +164,9 @@ input, textarea, select { font: inherit; color: inherit; }
   --glass-border: var(--border);
   --glass-blur:   none;
 
-  --on-green:  #04120A;
+  --on-green:  #000000;
   --on-aqua:   #000000;
-  --on-maroon: #FBEDEF;
+  --on-maroon: #FFFFFF;
 
   /* Glow shadows are retired to plain "none" — the future-forward rebuild
      has zero glow/bloom effects anywhere (flat borders + typography carry
@@ -349,12 +354,12 @@ section { position: relative; scroll-margin-top: 96px; }
    trial-urgency copy), never "the primary action color" too. */
 .btn-primary { background: var(--fg); color: var(--bg); }
 .btn-primary:hover { background: var(--muted); transform: translateY(-3px) scale(1.03); box-shadow: none; }
-@keyframes btnPulse { 0% { box-shadow: 0 0 0 0 rgba(57,255,158,0.55); } 100% { box-shadow: 0 0 0 18px rgba(57,255,158,0); } }
+@keyframes btnPulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.55); } 100% { box-shadow: 0 0 0 18px rgba(255,255,255,0); } }
 .btn-pulse { animation: btnPulse 550ms ease-out; }
 .btn-ghost { background: transparent; color: var(--fg); border: 1px solid var(--border-strong); }
 .btn-ghost:hover { border-color: var(--aqua); color: var(--aqua); transform: translateY(-3px) scale(1.03); box-shadow: var(--glow-aqua); }
 .btn-outline-maroon { background: transparent; color: var(--maroon-bright); border: 1px solid var(--maroon); }
-.btn-outline-maroon:hover { background: var(--maroon); color: var(--on-maroon); transform: translateY(-3px) scale(1.03); box-shadow: 0 0 40px rgba(196,59,92,0.55), 0 0 10px rgba(196,59,92,0.7); }
+.btn-outline-maroon:hover { background: var(--maroon); color: var(--on-maroon); transform: translateY(-3px) scale(1.03); box-shadow: 0 0 40px rgba(158,158,158,0.55), 0 0 10px rgba(158,158,158,0.7); }
 .btn-outline-aqua { background: transparent; color: var(--aqua); border: 1px solid var(--aqua); }
 .btn-outline-aqua:hover { background: var(--aqua); color: var(--bg); transform: translateY(-3px) scale(1.03); box-shadow: var(--glow-aqua); }
 .btn-block { width: 100%; }
@@ -363,13 +368,13 @@ section { position: relative; scroll-margin-top: 96px; }
    .btn-pulse above) that draws the eye to the plan buttons without being
    obnoxious. Color matches each button's own existing accent so it reads as
    a natural extension of the button, not a mismatched effect. */
-@keyframes ctaGlowGreen { 0%, 100% { box-shadow: 0 4px 20px rgba(57,255,158,0.35); } 50% { box-shadow: 0 6px 48px rgba(57,255,158,0.85); } }
+@keyframes ctaGlowGreen { 0%, 100% { box-shadow: 0 4px 20px rgba(255,255,255,0.35); } 50% { box-shadow: 0 6px 48px rgba(255,255,255,0.85); } }
 @keyframes ctaGlowAqua { 0%, 100% { box-shadow: 0 4px 20px rgba(255,255,255,0.28); } 50% { box-shadow: 0 6px 48px rgba(255,255,255,0.75); } }
-@keyframes ctaGlowMaroon { 0%, 100% { box-shadow: 0 4px 20px rgba(196,59,92,0.28); } 50% { box-shadow: 0 6px 48px rgba(196,59,92,0.75); } }
+@keyframes ctaGlowMaroon { 0%, 100% { box-shadow: 0 4px 20px rgba(158,158,158,0.28); } 50% { box-shadow: 0 6px 48px rgba(158,158,158,0.75); } }
 .btn-cta-glow { animation: ctaGlowGreen 2.6s ease-in-out infinite; }
 .btn-ghost.btn-cta-glow { animation-name: ctaGlowAqua; }
 .btn-outline-maroon.btn-cta-glow { animation-name: ctaGlowMaroon; }
-@media (prefers-reduced-motion: reduce) { .btn-cta-glow { animation: none; box-shadow: 0 4px 20px rgba(57,255,158,0.35); } }
+@media (prefers-reduced-motion: reduce) { .btn-cta-glow { animation: none; box-shadow: 0 4px 20px rgba(255,255,255,0.35); } }
 /* Future-Forward reskin: the breathing CTA glow is retired unconditionally
    (not just under reduced-motion) — the future-forward React rebuild has
    no idle/ambient animation on any button, only a hover sweep, so these
@@ -406,7 +411,13 @@ section { position: relative; scroll-margin-top: 96px; }
 .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); max-width: 1560px; padding-inline: var(--space-4); }
 .brand { flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: var(--space-2); }
-.brand img { height: 30px; width: auto; }
+/* Future-Forward reskin fix: the logo is a raster PNG with its own baked-in
+   colors (a two-tone "SWIM"/"FIT" treatment) that no CSS color/font token
+   can touch directly. brightness(0) crushes every opaque pixel to pure
+   black regardless of its original hue, then invert(1) flips that to pure
+   white -- alpha is preserved throughout, so the mark reads as a clean,
+   single-color white logo instead of its original two-tone art. */
+.brand img { height: 30px; width: auto; filter: brightness(0) invert(1); }
 
 .nav-status-badge {
   display: flex; align-items: center; gap: 6px;
@@ -417,24 +428,26 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .nav-status-badge[hidden] { display: none; }
 .nav-status-badge .icon { width: 13px; height: 13px; }
-/* Trial-countdown urgency: amber under 24h, pulsing red under 2h — a clear,
-   live visual cue that the free-access window is closing before the lock. */
+/* Trial-countdown urgency: still a clear, live visual cue that the free-
+   access window is closing before the lock -- but strictly monochrome now
+   (a lighter gray badge under 24h, pulsing brighter white under 2h),
+   distinguished by lightness/pulse rather than an amber-to-red hue shift. */
 .nav-status-badge.is-urgent {
-  background: linear-gradient(135deg, #E7B65B, #F5C542);
-  color: #1A1206;
-  box-shadow: 0 0 0 1px rgba(245,197,66,0.4), 0 0 14px -2px rgba(245,197,66,0.55);
+  background: linear-gradient(135deg, #D4D4D4, #E8E8E8);
+  color: #000000;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.4), 0 0 14px -2px rgba(255,255,255,0.55);
 }
 .nav-status-badge.is-critical {
-  background: linear-gradient(135deg, #E0455B, #FF6A82);
-  color: #200308;
+  background: linear-gradient(135deg, #8A8A8A, #FFFFFF);
+  color: #000000;
   animation: trialPulse 1.6s ease-in-out infinite;
 }
 @keyframes trialPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(224,69,91,0.55); }
-  50% { box-shadow: 0 0 0 6px rgba(224,69,91,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(255,255,255,0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nav-status-badge.is-critical { animation: none; box-shadow: 0 0 0 1px rgba(224,69,91,0.5), 0 0 14px -2px rgba(224,69,91,0.6); }
+  .nav-status-badge.is-critical { animation: none; box-shadow: 0 0 0 1px rgba(255,255,255,0.5), 0 0 14px -2px rgba(255,255,255,0.6); }
 }
 
 /* A real, measured overflow bug: 9-10 nav pills + the trial-badge/logout
@@ -448,16 +461,40 @@ section { position: relative; scroll-margin-top: 96px; }
    .nav-cta gets flex-shrink:0 so the auth-critical trial-badge/Log Out
    controls can never be what gets squeezed off-screen, regardless of
    viewport width or how many tabs this app grows to. */
+/* Future-Forward reskin fix: the scrollbar used to be hidden entirely
+   (scrollbar-width: none / ::-webkit-scrollbar { display: none }) -- fine
+   when every item comfortably fit the row, but the wider Orbitron-adjacent
+   nav caused genuine overflow (see the font-family fix above), and a
+   hidden scrollbar with no visible affordance meant swimmers had no way
+   to discover or reach the links past the fold. A slim, visible scrollbar
+   plus edge fade-masks (only rendered when there's real overflow to hint
+   at) make any remaining overflow on a narrow desktop width self-evident
+   and reachable, instead of silently invisible. */
 .nav-links {
-  display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none;
+  display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 }
-.nav-links::-webkit-scrollbar { display: none; }
+.nav-links::-webkit-scrollbar { height: 4px; }
+.nav-links::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+.nav-links::-webkit-scrollbar-track { background: transparent; }
 .nav-cta { flex-shrink: 0; }
+/* Future-Forward reskin fix: nav labels read --font-body (Plus Jakarta
+   Sans), not --font-display (Orbitron) -- matching the future-forward
+   React rebuild's own Header, whose nav links are font-jakarta while
+   Orbitron is reserved for headlines/the brand wordmark. Orbitron's much
+   wider, blockier letterforms at this scale, across 9+ nav items, pushed
+   the row's real content width well past its available space (measured:
+   ~1046px of content in a ~715px box) -- with the scrollbar hidden for
+   aesthetics, that overflow was completely invisible and unreachable,
+   which is exactly the "nav is cut off, links are gone" bug. Padding/gap
+   are also trimmed slightly for extra headroom on narrower desktop widths. */
 .nav-links button {
-  font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-  font-size: 0.82rem; color: var(--muted); position: relative; padding: 8px 14px; border-radius: 999px;
+  font-family: var(--font-body); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  font-size: 0.75rem; color: var(--muted); position: relative; padding: 6px 10px; border-radius: 999px;
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease); cursor: pointer;
-  display: flex; align-items: center; gap: 7px; white-space: nowrap; flex-shrink: 0;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
 }
 .nav-links button:hover { color: var(--fg); background: var(--surface-2); }
 .nav-links button[aria-current="true"] { color: var(--on-aqua); background: var(--aqua); }
@@ -465,6 +502,15 @@ section { position: relative; scroll-margin-top: 96px; }
 
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted-2); transition: color var(--dur) var(--ease); }
 .nav-links button:hover .nav-icon { color: var(--fg); }
+/* Future-Forward reskin fix, continued: the desktop top nav is the ONLY
+   nav from 981px up (the mobile bottom-nav/drawer takes over below that),
+   so it has to fit every tab label at the narrow end of that range too --
+   measured tighter there than the 1440px width this fix was first tested
+   at. Dropping the per-tab icon inside .nav-links reclaims ~22px per item
+   (10 items = ~220px), which is what actually closes the remaining gap;
+   the same icons still appear in the mobile drawer/bottom-nav, so nothing
+   is lost there, just in this one already-icon-plus-text-labeled row. */
+.nav-links .nav-icon { display: none; }
 /* PERF FIX: these 8 icons previously ran `animation: ... infinite`
    unconditionally — 8+ CSS animations looping simultaneously, forever, on
    every single page load, inside the ONE part of the page that's always on
@@ -562,7 +608,7 @@ section { position: relative; scroll-margin-top: 96px; }
   }
   .mobile-bottom-nav button .icon { width: 20px; height: 20px; transition: filter var(--dur) var(--ease); }
   .mobile-bottom-nav button[aria-current="true"] { color: var(--green-bright); }
-  .mobile-bottom-nav button[aria-current="true"] .icon { filter: drop-shadow(0 0 6px rgba(57,255,158,0.65)); }
+  .mobile-bottom-nav button[aria-current="true"] .icon { filter: drop-shadow(0 0 6px rgba(255,255,255,0.65)); }
   .mobile-bottom-nav button:active { transform: scale(0.94); }
 }
 
@@ -632,7 +678,7 @@ section { position: relative; scroll-margin-top: 96px; }
 }
 .hero-mesh span:nth-child(1) { top: -10%; left: -6%; width: 46vw; height: 46vw; background: radial-gradient(circle, rgba(140,74,10,0.75), transparent 70%); animation-duration: 26s; }
 .hero-mesh span:nth-child(2) { top: 10%; right: -10%; width: 40vw; height: 40vw; background: radial-gradient(circle, rgba(255,255,255,0.62), transparent 70%); animation-duration: 30s; animation-delay: -6s; }
-.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(231,182,91,0.4), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
+.hero-mesh span:nth-child(3) { bottom: -18%; left: 22%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(212,212,212,0.4), transparent 70%); animation-duration: 34s; animation-delay: -14s; }
 .hero-mesh span:nth-child(4) { bottom: 6%; right: 12%; width: 30vw; height: 30vw; background: radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%); animation-duration: 24s; animation-delay: -10s; }
 @keyframes meshDrift {
   0%   { transform: translate(0, 0) scale(1); }
@@ -645,16 +691,16 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-photo {
   position: absolute; inset: 0; z-index: -2;
   background-image:
-    linear-gradient(120deg, rgba(10,15,24,0.94) 0%, rgba(10,15,24,0.55) 45%, rgba(13,20,32,0.4) 100%),
+    linear-gradient(120deg, rgba(10,10,10,0.94) 0%, rgba(10,10,10,0.55) 45%, rgba(13,13,13,0.4) 100%),
     var(--hero-photo),
     repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 140px),
-    linear-gradient(200deg, #0c211d 0%, #081312 55%, #050807 100%);
+    linear-gradient(200deg, #101010 0%, #0A0A0A 55%, #050505 100%);
   background-size: cover; background-position: center;
   background-blend-mode: normal, luminosity, screen, normal;
 }
 .hero-photo::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.9) 100%);
+  background: radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(10,10,10,0.9) 100%);
 }
 .hero-video {
   position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover;
@@ -664,15 +710,15 @@ section { position: relative; scroll-margin-top: 96px; }
 .hero-video-overlay {
   position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background:
-    linear-gradient(120deg, rgba(10,15,24,0.9) 0%, rgba(10,15,24,0.5) 45%, rgba(13,20,32,0.35) 100%),
-    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(6,9,14,0.92) 100%);
+    linear-gradient(120deg, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0.5) 45%, rgba(13,13,13,0.35) 100%),
+    radial-gradient(120% 90% at 50% 100%, transparent 40%, rgba(10,10,10,0.92) 100%);
 }
 @media (prefers-reduced-motion: reduce) { .hero-video { display: none; } }
 .hero-caustics {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(38% 30% at 20% 30%, rgba(255,255,255,0.16), transparent 70%),
-    radial-gradient(30% 26% at 70% 60%, rgba(57,255,158,0.14), transparent 70%),
+    radial-gradient(30% 26% at 70% 60%, rgba(255,255,255,0.14), transparent 70%),
     radial-gradient(24% 22% at 45% 80%, rgba(255,255,255,0.10), transparent 70%);
   background-size: 160% 160%;
   animation: causticDrift 16s ease-in-out infinite alternate;
@@ -718,7 +764,7 @@ section { position: relative; scroll-margin-top: 96px; }
 #splashScreen.is-hidden { opacity: 0; pointer-events: none; }
 .splash-glow {
   position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 45%, rgba(57,255,158,0.18), transparent 60%);
+  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.18), transparent 60%);
 }
 .splash-content {
   position: relative; z-index: 1; text-align: center;
@@ -739,8 +785,8 @@ section { position: relative; scroll-margin-top: 96px; }
 .splash-logo .accent { color: var(--green-bright); }
 @keyframes splashLetterIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes splashLogoGlowPulse {
-  0%, 100% { filter: drop-shadow(0 0 20px rgba(57,255,158,0.55)) drop-shadow(0 0 46px rgba(255,255,255,0.28)); }
-  50% { filter: drop-shadow(0 0 34px rgba(57,255,158,0.9)) drop-shadow(0 0 70px rgba(255,255,255,0.5)); }
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(255,255,255,0.55)) drop-shadow(0 0 46px rgba(255,255,255,0.28)); }
+  50% { filter: drop-shadow(0 0 34px rgba(255,255,255,0.9)) drop-shadow(0 0 70px rgba(255,255,255,0.5)); }
 }
 .splash-tagline {
   margin-top: var(--space-4); font-family: var(--font-display); text-transform: uppercase;
@@ -1003,7 +1049,7 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
      the accent span's own shimmer gradient below, this is what makes the
      Hero read as "glowing" rather than just a bright color, without going
      back to the sci-fi HUD/reticle look this file has twice already removed. */
-  text-shadow: 0 0 18px rgba(255,255,255,0.22), 0 0 60px rgba(57,255,158,0.4), 0 0 130px rgba(255,255,255,0.3);
+  text-shadow: 0 0 18px rgba(255,255,255,0.22), 0 0 60px rgba(255,255,255,0.4), 0 0 130px rgba(255,255,255,0.3);
 }
 .home-scene-text p { color: rgba(240,243,246,0.8); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 46ch; }
 /* justify-content/flex-wrap keep the leading dash glued to the label as one
@@ -1096,7 +1142,7 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
    first bento round. */
 .home-showcase-card::before {
   content: ''; position: absolute; inset: 0; z-index: 0; opacity: 0;
-  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,158,0.16), transparent 70%);
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.16), transparent 70%);
   transition: opacity 320ms var(--ease); pointer-events: none;
 }
 .home-showcase-card:hover, .home-showcase-card:focus-within {
@@ -1169,11 +1215,11 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
   clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-weight: 700; font-size: 1.15rem;
-  background: var(--surface); color: var(--green-bright); border: 1px solid rgba(57,255,158,0.35);
+  background: var(--surface); color: var(--green-bright); border: 1px solid rgba(255,255,255,0.35);
   box-shadow: var(--glow-green);
   transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
 }
-.home-step:hover .home-step-num { transform: scale(1.12); box-shadow: 0 0 56px rgba(57,255,158,0.7), 0 0 14px rgba(57,255,158,0.85); }
+.home-step:hover .home-step-num { transform: scale(1.12); box-shadow: 0 0 56px rgba(255,255,255,0.7), 0 0 14px rgba(255,255,255,0.85); }
 .home-step:hover h3 { color: var(--green-bright); }
 .home-step h3 { transition: color 220ms var(--ease); }
 @media (prefers-reduced-motion: reduce) { .home-step-num { transition: none; } .home-step:hover .home-step-num { transform: none; } }
@@ -1184,7 +1230,7 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
 @media (min-width: 761px) {
   .home-step:not(:last-child)::after {
     content: ''; position: absolute; top: 74px; left: 50%; width: 100%; height: 1px;
-    background: linear-gradient(90deg, rgba(57,255,158,0.35), rgba(57,255,158,0.05));
+    background: linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0.05));
     z-index: 0;
   }
 }
@@ -1199,7 +1245,7 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
 }
 .home-cta-band::before {
   content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(50% 60% at 50% 100%, rgba(57,255,158,0.14), transparent 70%);
+  background: radial-gradient(50% 60% at 50% 100%, rgba(255,255,255,0.14), transparent 70%);
 }
 .home-cta-band > * { position: relative; z-index: 1; }
 .home-cta-band h2 { font-size: clamp(2rem, 4.2vw, 2.8rem); font-weight: 800; letter-spacing: -0.01em; color: #fff; margin-bottom: var(--space-4); }
@@ -1322,7 +1368,7 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
   color: #fff; text-shadow: 0 0 40px rgba(255,255,255,0.18);
   margin-bottom: var(--space-4);
 }
-.motivation-quote.is-accent { color: var(--green-bright); text-shadow: 0 0 50px rgba(57,255,158,0.55); }
+.motivation-quote.is-accent { color: var(--green-bright); text-shadow: 0 0 50px rgba(255,255,255,0.55); }
 .motivation-actions { display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-6); }
 
 /* Slide 3's pricing panels — reuses the existing .price-card (glass fill +
@@ -1348,7 +1394,7 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
 .slide-pricing::before {
   content: ''; position: absolute; inset: -20%; z-index: 0; pointer-events: none; filter: blur(30px);
   background: radial-gradient(600px circle at 20% 25%, rgba(255,255,255,0.16), transparent 60%),
-              radial-gradient(600px circle at 80% 75%, rgba(231,182,91,0.16), transparent 60%);
+              radial-gradient(600px circle at 80% 75%, rgba(212,212,212,0.16), transparent 60%);
   animation: pricingBgDrift 18s ease-in-out infinite alternate;
 }
 @keyframes pricingBgDrift { from { transform: translate(0, 0) scale(1); } to { transform: translate(4%, -4%) scale(1.08); } }
@@ -1433,7 +1479,7 @@ body.view-app .slide-dots { display: none; }
   width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.35);
   background: transparent; padding: 0; transition: background 220ms var(--ease), border-color 220ms var(--ease), transform 220ms var(--ease);
 }
-.slide-dot.is-active { background: var(--green-bright); border-color: var(--green-bright); transform: scale(1.3); box-shadow: 0 0 10px rgba(57,255,158,0.7); }
+.slide-dot.is-active { background: var(--green-bright); border-color: var(--green-bright); transform: scale(1.3); box-shadow: 0 0 10px rgba(255,255,255,0.7); }
 @media (max-width: 760px) { .slide-dots { display: none; } }
 
 /* ============================= APP DASHBOARD SHELL ============================= */
@@ -1468,7 +1514,7 @@ body.view-app .slide-dots { display: none; }
   content: ''; position: absolute; inset: 0;
   background:
     radial-gradient(ellipse 60% 50% at 15% 0%, rgba(255,255,255,0.08), transparent 60%),
-    radial-gradient(ellipse 55% 45% at 100% 100%, rgba(22,214,115,0.07), transparent 60%);
+    radial-gradient(ellipse 55% 45% at 100% 100%, rgba(184,184,184,0.07), transparent 60%);
 }
 
 /* The Workouts panel breaks out of the standard 1240px dashboard wrap to feel
@@ -1574,19 +1620,19 @@ body.view-app .slide-dots { display: none; }
 .bento-card:hover .bento-card-link .icon { transform: translateX(2px); }
 
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3em 0.8em; border-radius: 999px; }
-.tag-green { background: rgba(22,214,115,0.16); color: var(--green-bright); }
-.tag-maroon { background: rgba(156,42,68,0.2); color: var(--maroon-bright); }
+.tag-green { background: rgba(184,184,184,0.16); color: var(--green-bright); }
+.tag-maroon { background: rgba(110,110,110,0.2); color: var(--maroon-bright); }
 .tag-aqua { background: rgba(255,255,255,0.14); color: var(--aqua); }
 
 .icon-tile { width: 52px; height: 52px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: var(--space-4); }
-.icon-tile.green { background: rgba(22,214,115,0.14); color: var(--green-bright); }
-.icon-tile.maroon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
+.icon-tile.green { background: rgba(184,184,184,0.14); color: var(--green-bright); }
+.icon-tile.maroon { background: rgba(110,110,110,0.18); color: var(--maroon-bright); }
 .icon-tile.aqua { background: rgba(255,255,255,0.12); color: var(--aqua); }
 
 /* Reusable photo banner for tab headers */
 .tab-banner {
   height: 190px; border-radius: var(--radius-lg); margin-bottom: var(--space-6);
-  background-image: linear-gradient(100deg, rgba(10,15,24,0.88) 10%, rgba(10,15,24,0.35) 60%, rgba(13,20,32,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-image: linear-gradient(100deg, rgba(10,10,10,0.88) 10%, rgba(10,10,10,0.35) 60%, rgba(13,13,13,0.25) 100%), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
   background-size: cover; background-position: center;
   border: 1px solid var(--border);
 }
@@ -1741,7 +1787,7 @@ body.view-app .slide-dots { display: none; }
 .chip .icon { width: 15px; height: 15px; }
 .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--on-green); }
 .chip:hover:not([aria-pressed="true"]) { border-color: var(--aqua); color: var(--fg); transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 16px rgba(255,255,255,0.12); }
-.chip[aria-pressed="true"]:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 20px rgba(57,255,158,0.3); }
+.chip[aria-pressed="true"]:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 20px rgba(255,255,255,0.3); }
 
 .slider-row { display: flex; align-items: center; gap: var(--space-4); }
 .slider-row input[type="range"] {
@@ -1752,12 +1798,12 @@ body.view-app .slide-dots { display: none; }
 }
 .slider-row input[type="range"]::-webkit-slider-thumb {
   appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--green-bright); cursor: pointer;
-  border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(57,255,158,0.65);
+  border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(255,255,255,0.65);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.slider-row input[type="range"]:hover::-webkit-slider-thumb, .slider-row input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 2px var(--green), 0 0 20px rgba(57,255,158,0.85); }
+.slider-row input[type="range"]:hover::-webkit-slider-thumb, .slider-row input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 2px var(--green), 0 0 20px rgba(255,255,255,0.85); }
 .slider-row input[type="range"]::-moz-range-thumb {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--green-bright); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(57,255,158,0.65);
+  width: 24px; height: 24px; border-radius: 50%; background: var(--green-bright); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--green), 0 0 14px rgba(255,255,255,0.65);
 }
 .slider-value { font-family: var(--font-display); font-size: 1.4rem; min-width: 84px; text-align: right; color: var(--green-bright); display: inline-block; }
 @keyframes valuePulse { 0% { transform: scale(1.35); color: var(--aqua); } 100% { transform: scale(1); color: var(--green-bright); } }
@@ -1809,9 +1855,9 @@ body.view-app .slide-dots { display: none; }
 .settings-card h3 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 1.05rem; font-weight: 700; margin-bottom: var(--space-3); }
 .settings-card h3 .icon { width: 18px; height: 18px; color: var(--aqua); }
 .settings-save-status { font-size: 0.85rem; color: var(--green-bright); margin-top: 8px; min-height: 1.2em; }
-.settings-save-status.is-error { color: #e5484d; }
+.settings-save-status.is-error { color: #FFFFFF; }
 .settings-username-hint { font-size: 0.78rem; margin-top: 4px; min-height: 1.1em; color: var(--muted-2); }
-.settings-username-hint.is-taken { color: #e5484d; }
+.settings-username-hint.is-taken { color: #FFFFFF; }
 .settings-username-hint.is-available { color: var(--green-bright); }
 .settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .settings-toggle-row label:first-child { font-size: 0.92rem; color: var(--fg); }
@@ -1882,7 +1928,7 @@ body.view-app .slide-dots { display: none; }
 }
 .equip-check input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
 .equip-check:hover:not(:has(input:checked)) { border-color: var(--aqua); color: var(--fg); transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 16px rgba(255,255,255,0.12); }
-.equip-check:has(input:checked) { border-color: var(--green); background: var(--green); color: var(--on-green); box-shadow: 0 6px 18px rgba(22,214,115,0.30); }
+.equip-check:has(input:checked) { border-color: var(--green); background: var(--green); color: var(--on-green); box-shadow: 0 6px 18px rgba(184,184,184,0.30); }
 .equip-check:has(input:checked):hover { transform: translateY(-2px) scale(1.03); }
 .equip-check .icon { width: 16px; height: 16px; color: var(--aqua); transition: color var(--dur) var(--ease); }
 .equip-check:has(input:checked) .icon { color: var(--on-green); }
@@ -1942,10 +1988,13 @@ body.view-app .slide-dots { display: none; }
   transform: translateX(2px);
   border-color: color-mix(in srgb, var(--stage-color) 70%, transparent);
 }
-.workout-block[data-stage="warmup"]   { --stage-color: #4FC3E8; }
-.workout-block[data-stage="preset"]   { --stage-color: #E7B65B; }
-.workout-block[data-stage="main"]     { --stage-color: #39FF9E; }
-.workout-block[data-stage="cooldown"] { --stage-color: #A5B4FC; }
+/* Strict monochrome pass, round 2: the 4-stage color-coding (previously a
+   real categorical hue per stage) now differs by LIGHTNESS only -- still
+   4 distinct, orderable grays, just no hue anywhere in the UI. */
+.workout-block[data-stage="warmup"]   { --stage-color: #EDEDED; }
+.workout-block[data-stage="preset"]   { --stage-color: #C2C2C2; }
+.workout-block[data-stage="main"]     { --stage-color: #FFFFFF; }
+.workout-block[data-stage="cooldown"] { --stage-color: #8A8A8A; }
 .workout-block:nth-of-type(1) { animation-delay: 0ms; }
 .workout-block:nth-of-type(2) { animation-delay: 90ms; }
 .workout-block:nth-of-type(3) { animation-delay: 180ms; }
@@ -2006,7 +2055,7 @@ body.view-app .slide-dots { display: none; }
    accent color — replaces the old int/rest/tot three-column stat cluster. */
 .set-sendoff { font-family: var(--font-mono); font-size: 0.92rem; font-weight: 700; color: var(--stage-color, var(--aqua)); letter-spacing: 0; }
 
-.coach-tips { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: linear-gradient(160deg, rgba(156,42,68,0.14), rgba(255,255,255,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
+.coach-tips { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: linear-gradient(160deg, rgba(110,110,110,0.14), rgba(255,255,255,0.05)); border: 1px solid var(--border); animation: blockIn 460ms var(--ease) both; animation-delay: 420ms; }
 .coach-tips li { transition: transform var(--dur) var(--ease); }
 .coach-tips li:hover { transform: translateX(4px); }
 .coach-tips-head { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78rem; color: var(--maroon-bright); margin-bottom: var(--space-2); }
@@ -2084,16 +2133,19 @@ body.view-app .slide-dots { display: none; }
   background: color-mix(in srgb, var(--m-color, var(--aqua)) 13%, transparent);
   border: 1px solid color-mix(in srgb, var(--m-color, var(--aqua)) 34%, transparent);
 }
-.muscle-tag[data-m="back"]       { --m-color: #4FA8E8; }
-.muscle-tag[data-m="chest"]      { --m-color: #FF9E64; }
-.muscle-tag[data-m="shoulders"]  { --m-color: #FFD166; }
-.muscle-tag[data-m="arms"]       { --m-color: #C792EA; }
-.muscle-tag[data-m="posterior"]  { --m-color: #E06A82; }
-.muscle-tag[data-m="legs"]       { --m-color: #39FF9E; }
-.muscle-tag[data-m="core"]       { --m-color: #F5C542; }
-.muscle-tag[data-m="mobility"]   { --m-color: #A5B4FC; }
-.muscle-tag[data-m="cardio"]     { --m-color: #5EEAD4; }
-.muscle-tag[data-m="full"]       { --m-color: #9FB0C3; }
+/* Strict monochrome pass, round 2: same "lightness instead of hue" ramp
+   as the workout-stage colors above, spread across the 10 muscle groups
+   so each still reads as a distinct category. */
+.muscle-tag[data-m="back"]       { --m-color: #F2F2F2; }
+.muscle-tag[data-m="chest"]      { --m-color: #E0E0E0; }
+.muscle-tag[data-m="shoulders"]  { --m-color: #CCCCCC; }
+.muscle-tag[data-m="arms"]       { --m-color: #B8B8B8; }
+.muscle-tag[data-m="posterior"]  { --m-color: #A3A3A3; }
+.muscle-tag[data-m="legs"]       { --m-color: #8F8F8F; }
+.muscle-tag[data-m="core"]       { --m-color: #7A7A7A; }
+.muscle-tag[data-m="mobility"]   { --m-color: #666666; }
+.muscle-tag[data-m="cardio"]     { --m-color: #525252; }
+.muscle-tag[data-m="full"]       { --m-color: #ABABAB; }
 
 /* Gym's exercise board is a clean, compact 2-column card grid within each
    phase (collapsing to 1 column once a card would drop below ~230px) — a
@@ -2110,7 +2162,7 @@ body.view-app .slide-dots { display: none; }
 .gym-phase-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .gym-phase-banner {
   width: 64px; height: 64px; border-radius: var(--radius-sm); flex-shrink: 0;
-  background-image: linear-gradient(160deg, rgba(10,15,24,0.2), rgba(10,15,24,0.6)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
+  background-image: linear-gradient(160deg, rgba(10,10,10,0.2), rgba(10,10,10,0.6)), var(--photo, none), linear-gradient(135deg, var(--green-deep), var(--maroon-deep));
   background-size: cover; background-position: center;
 }
 .gym-phase-title { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -2120,7 +2172,7 @@ body.view-app .slide-dots { display: none; }
 .gear-card { text-align: center; padding: 0; overflow: hidden; }
 .gear-photo { height: 120px; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: transform 550ms var(--ease); }
 .gear-card:hover .gear-photo { transform: scale(1.06); }
-.gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,15,24,0.05), rgba(19,27,42,0.96)); }
+.gear-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.05), rgba(20,20,20,0.96)); }
 .gear-photo .icon-tile { position: relative; z-index: 1; transform: translateY(45%); margin: 0; width: 64px; height: 64px; }
 .gear-photo .icon-tile .icon { width: 32px; height: 32px; }
 .gear-body { padding: var(--space-6) var(--space-4) var(--space-5); }
@@ -2145,7 +2197,7 @@ body.view-app .slide-dots { display: none; }
 .video-card-featured .video-thumb { aspect-ratio: 21/7; }
 .video-card-featured .video-info h3 { font-size: 1.2rem; }
 .video-featured-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
-.video-free-badge { position: absolute; top: var(--space-3); right: var(--space-3); box-shadow: 0 2px 10px rgba(22,214,115,0.35); }
+.video-free-badge { position: absolute; top: var(--space-3); right: var(--space-3); box-shadow: 0 2px 10px rgba(184,184,184,0.35); }
 .video-card-featured .video-free-badge { left: var(--space-3); right: auto; top: var(--space-3); }
 .video-card-featured .video-featured-badge { left: calc(var(--space-3) + 62px); }
 @media (max-width: 640px) { .video-card-featured .video-thumb { aspect-ratio: 16/10; } }
@@ -2155,7 +2207,7 @@ body.view-app .slide-dots { display: none; }
    categories. */
 .academy-free-banner {
   display: flex; align-items: center; gap: var(--space-3);
-  background: linear-gradient(120deg, rgba(22,214,115,0.14), rgba(255,255,255,0.10));
+  background: linear-gradient(120deg, rgba(184,184,184,0.14), rgba(255,255,255,0.10));
   border: 1px solid var(--glass-border); border-radius: var(--radius);
   padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
@@ -2173,7 +2225,7 @@ body.view-app .slide-dots { display: none; }
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 44px -24px rgba(0,0,0,0.6);
 }
-.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(22,214,115,0.14), var(--glass-bg) 45%); box-shadow: 0 0 0 1px rgba(22,214,115,0.25), 0 24px 60px -22px rgba(22,214,115,0.28); }
+.price-card.featured { border-color: var(--green); background: linear-gradient(180deg, rgba(184,184,184,0.14), var(--glass-bg) 45%); box-shadow: 0 0 0 1px rgba(184,184,184,0.25), 0 24px 60px -22px rgba(184,184,184,0.28); }
 .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--green); color: var(--on-green); font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
 .price-badge-maroon { background: var(--maroon); color: var(--on-maroon); }
 .price-tier { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.1rem; color: var(--muted); }
@@ -2215,7 +2267,7 @@ footer::before {
   background: linear-gradient(90deg, var(--aqua), var(--green-bright), var(--maroon-bright));
 }
 .footer-top { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: var(--space-6); margin-bottom: var(--space-6); }
-.footer-brand img { height: 32px; margin-bottom: var(--space-3); }
+.footer-brand img { height: 32px; margin-bottom: var(--space-3); filter: brightness(0) invert(1); }
 .footer-brand p { color: var(--muted); max-width: 320px; font-size: 0.95rem; }
 .footer-col h4 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.9rem; margin-bottom: var(--space-3); color: var(--muted-2); }
 .footer-col ul { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -2442,7 +2494,7 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 @keyframes coachBubbleIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .coach-bubble { animation: none; } }
-.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(22,214,115,0.22); }
+.coach-msg-user .coach-bubble { background: linear-gradient(135deg, var(--green-bright), var(--green)); color: var(--on-green); border-bottom-right-radius: 4px; box-shadow: 0 2px 12px rgba(184,184,184,0.22); }
 .coach-msg-assistant .coach-bubble { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 /* A small, visually-distinct auto-reply note — NOT a chat bubble, so it never
    reads as if a human already answered. Shown under the swimmer's own latest
@@ -2601,12 +2653,12 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 .support-chat-title { margin-top: var(--space-2); }
 .support-status-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--green-bright); flex-shrink: 0;
-  box-shadow: 0 0 0 0 rgba(22,214,115,0.6); animation: support-pulse 2s infinite;
+  box-shadow: 0 0 0 0 rgba(184,184,184,0.6); animation: support-pulse 2s infinite;
 }
 @keyframes support-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(22,214,115,0.55); }
-  70% { box-shadow: 0 0 0 6px rgba(22,214,115,0); }
-  100% { box-shadow: 0 0 0 0 rgba(22,214,115,0); }
+  0% { box-shadow: 0 0 0 0 rgba(184,184,184,0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(184,184,184,0); }
+  100% { box-shadow: 0 0 0 0 rgba(184,184,184,0); }
 }
 @media (prefers-reduced-motion: reduce) { .support-status-dot { animation: none; } }
 
@@ -2659,7 +2711,7 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 .coach-page-avatar {
   width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--aqua), var(--maroon-bright, var(--aqua))); color: var(--on-green, #04231c);
+  background: linear-gradient(135deg, var(--aqua), var(--maroon-bright, var(--aqua))); color: var(--on-green, #000000);
   box-shadow: 0 2px 12px rgba(255,255,255,0.3);
 }
 .coach-page-avatar .icon { width: 22px; height: 22px; }
@@ -2704,7 +2756,7 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 .coach-page-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .coach-page-thumb-remove {
   position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%;
-  background: rgba(10,15,24,0.75); color: var(--fg); display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
+  background: rgba(10,10,10,0.75); color: var(--fg); display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
 }
 .coach-page-thumb-remove .icon { width: 12px; height: 12px; }
 .coach-page-thumb-remove:hover { background: var(--maroon); }
@@ -2772,7 +2824,7 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 .tracker-analytics-tile:hover { transform: translateY(-2px); border-color: var(--aqua); }
 .tracker-analytics-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
-.tracker-analytics-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: var(--green-bright); text-shadow: 0 0 10px rgba(57,255,158,0.25); }
+.tracker-analytics-value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: var(--green-bright); text-shadow: 0 0 10px rgba(255,255,255,0.25); }
 .tracker-analytics-value-text { font-size: 1.1rem; text-transform: capitalize; text-shadow: none; }
 #trackerTopDiscipline { font-family: var(--font-display); }
 @media (max-width: 900px) {
@@ -2842,7 +2894,7 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 .tracker-entry-km { font-weight: 700; color: var(--fg); }
 .tracker-entry-discipline { font-size: 0.78rem; color: var(--aqua); text-transform: uppercase; letter-spacing: 0.04em; }
 .tracker-entry-delete { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--muted-2); }
-.tracker-entry-delete:hover { background: rgba(196,59,92,0.14); color: var(--maroon-bright); }
+.tracker-entry-delete:hover { background: rgba(158,158,158,0.14); color: var(--maroon-bright); }
 .tracker-entry-delete .icon { width: 13px; height: 13px; }
 
 @media (max-width: 780px) {
@@ -2884,8 +2936,8 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
   width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.12); color: var(--aqua); margin-bottom: 4px;
 }
-.admin-stat-tile:nth-child(4) .admin-stat-icon { background: rgba(22,214,115,0.14); color: var(--green-bright); }
-.admin-stat-tile:nth-child(6) .admin-stat-icon { background: rgba(156,42,68,0.18); color: var(--maroon-bright); }
+.admin-stat-tile:nth-child(4) .admin-stat-icon { background: rgba(184,184,184,0.14); color: var(--green-bright); }
+.admin-stat-tile:nth-child(6) .admin-stat-icon { background: rgba(110,110,110,0.18); color: var(--maroon-bright); }
 .admin-stat-icon .icon { width: 18px; height: 18px; }
 .admin-stat-value { font-family: var(--font-mono); font-size: 2.1rem; font-weight: 700; color: var(--fg); line-height: 1.1; letter-spacing: -0.01em; }
 .admin-stat-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
@@ -3060,7 +3112,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 .announce-cta-short { display: none; }
 .announce-code {
   font-family: var(--font-display); font-weight: 700; letter-spacing: 0.08em; font-size: 0.78rem;
-  background: rgba(255,255,255,0.14); border: 1px dashed rgba(231,182,91,0.6); color: var(--gold);
+  background: rgba(255,255,255,0.14); border: 1px dashed rgba(212,212,212,0.6); color: var(--gold);
   padding: 2px 10px; border-radius: 999px; flex-shrink: 0;
 }
 .announce-cta {
@@ -5348,7 +5400,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   document.getElementById('videoGrid').innerHTML = VIDEOS.map(function (v, i) {
     return '<article class="card video-card" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.15), rgba(10,15,24,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,10,10,0.15), rgba(10,10,10,0.65)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span><span class="tag tag-green video-free-badge">Free</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-aqua">' + v.level + '</span></div></article>';
   }).join('') + (function () {
@@ -5356,7 +5408,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var i = VIDEOS.length;
     VIDEOS.push(v);
     return '<article class="card video-card video-card-featured" data-reveal data-video-index="' + i + '">' +
-      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,15,24,0.1), rgba(10,15,24,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
+      '<div class="video-thumb" style="--thumb-photo:linear-gradient(180deg, rgba(10,10,10,0.1), rgba(10,10,10,0.7)), url(\'' + v.photo + '\')"><button class="play-btn" aria-label="Play ' + v.title + '">' + icon('i-play') + '</button>' +
       '<span class="video-duration">YouTube</span><span class="tag tag-green video-free-badge">Free</span><span class="tag tag-maroon video-featured-badge">Featured</span></div>' +
       '<div class="video-info"><h3>' + v.title + '</h3><span class="tag tag-maroon">' + v.level + '</span></div></article>';
   })();
@@ -7000,7 +7052,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         // reads as the chat silently swallowing the message. Now it's a
         // visible, honest failure instead.
         var errNote = document.createElement('p');
-        errNote.style.cssText = 'text-align:center;color:#e5484d;padding:6px 0;font-size:0.78rem;';
+        errNote.style.cssText = 'text-align:center;color:#FFFFFF;padding:6px 0;font-size:0.78rem;';
         errNote.textContent = 'Could not send — please check your connection and try again.';
         messagesEl.appendChild(errNote);
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -7191,7 +7243,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         // reads as the chat silently swallowing the message. Now it's a
         // visible, honest failure instead.
         var errNote = document.createElement('p');
-        errNote.style.cssText = 'text-align:center;color:#e5484d;padding:6px 0;font-size:0.78rem;';
+        errNote.style.cssText = 'text-align:center;color:#FFFFFF;padding:6px 0;font-size:0.78rem;';
         errNote.textContent = 'Could not send — please check your connection and try again.';
         messagesEl.appendChild(errNote);
         messagesEl.scrollTop = messagesEl.scrollHeight;
