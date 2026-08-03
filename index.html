@@ -900,18 +900,16 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
    file). This is now the hero's one universal background layer at every
    breakpoint — .ffhero-bg-mobile's separate static mobile image and
    .ffhero-base's separate desktop still-photo (both just duplicating what
-   the restored video/photo pair already covers) were removed as redundant. */
-.ffhero-reveal { display: none; position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-@media (min-width: 1024px) { .ffhero-reveal { display: block; } }
-@media (prefers-reduced-motion: reduce) { .ffhero-reveal { display: none; } }
-.ffhero-grid {
-  position: absolute; inset: -5%;
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-#ffHeroCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+   the restored video/photo pair already covers) were removed as redundant.
+
+   The future-forward dual-image mouse-spotlight canvas (.ffhero-reveal /
+   #ffHeroCanvas / #ffHeroGrid, plus its driving JS) has since been removed
+   outright — it was drawing a SECOND swimmer photo (BG_IMAGE_2) inside a
+   circular mask centered on the pointer, which defaults to the hero's own
+   center on page load before any real mouse movement, so it read as a
+   static "spotlight on a face" sitting on top of the video rather than the
+   video itself being the primary visual. The restored .hero-video is now
+   the sole, unobstructed background layer at every breakpoint. */
 
 .ffhero-inner {
   position: relative; z-index: 10; flex: 1; min-height: 0;
@@ -3595,11 +3593,17 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <!-- Restored background: the original site's real hero video (an
          image-to-video swimmer/pool action clip) + its static-photo
          fallback, reused verbatim from git history (commit fb22419) — the
-         literal "animation of a person swimming" this round's ask referred
-         to — now the hero's one universal background at every breakpoint,
-         darkened to near-total black per the pure-black-hero requirement.
-         The interactive dual-image mouse-spotlight canvas (.ffhero-reveal,
-         desktop-only) still sits layered on top of it unchanged. -->
+         literal "animation of a person swimming" ask — now the hero's ONE,
+         UNOBSTRUCTED primary visual at every breakpoint, darkened to
+         near-total black per the pure-black-hero requirement. The
+         future-forward dual-image mouse-spotlight canvas that used to sit
+         on top of it (.ffhero-reveal/#ffHeroCanvas/#ffHeroGrid, plus its
+         driving JS further down this file) has been removed outright — it
+         was drawing a second swimmer photo inside a circular mask centered
+         on the pointer, which defaults to the hero's own center before any
+         real mouse movement, so it read as a static "spotlight on a face"
+         competing with the video rather than the video being the primary
+         visual, exactly the complaint this round's ask was about. -->
     <div class="hero-photo" aria-hidden="true"></div>
     <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
       <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
@@ -3620,11 +3624,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <polygon points="252,88 320,101 299,113 246,102"/>
       </g>
     </svg>
-
-    <div class="ffhero-reveal" id="ffHeroReveal" aria-hidden="true">
-      <div class="ffhero-grid" id="ffHeroGrid"></div>
-      <canvas id="ffHeroCanvas"></canvas>
-    </div>
 
     <div class="ffhero-inner">
       <div class="ffhero-topbar">
@@ -5224,125 +5223,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   window.__formatDistanceM = formatDistanceM;
 
-  /* ============================= FUTURE-FORWARD HERO: INTERACTIVE IMAGE REVEAL =============================
-     Ports ImageRevealBackground.tsx from swimfit-future-forward: BG_IMAGE_1
-     (the always-visible base layer) is already painted via a plain CSS
-     background-image on .ffhero-base in the stylesheet above — this script
-     only drives the SECOND image, drawn on #ffHeroCanvas and clipped
-     ("destination-in") to a soft circular mask that follows the mouse,
-     eased toward the pointer every frame, so it only ever shows through a
-     gentle spotlight. Desktop-only (.ffhero-reveal is display:none below
-     1024px and under prefers-reduced-motion via its own CSS rule), and the
-     render loop itself skips all work whenever Home isn't the visible view
-     (body.view-home) so it costs nothing once a swimmer enters the App. */
-  (function () {
-    var container = document.getElementById('ffHeroReveal');
-    var canvas = document.getElementById('ffHeroCanvas');
-    var grid = document.getElementById('ffHeroGrid');
-    if (!container || !canvas || reduceMotion) return;
-    var ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    var REVEAL_IMAGE_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260802_075145_1b557479-775b-43af-8270-f45d79d97d5a.png';
-    var EASE = 0.1;
-    var PARALLAX_AMPLITUDE = 16;
-    var PARALLAX_FACTOR = 0.06;
-    var SPOTLIGHT_RADIUS = 260;
-
-    var img = new Image();
-    img.src = REVEAL_IMAGE_URL;
-
-    var width = 0, height = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var target = { x: 0, y: 0 };
-    var eased = { x: 0, y: 0 };
-    var hasPointer = false;
-    var rafId = 0;
-
-    function resize() {
-      var rect = container.getBoundingClientRect();
-      width = rect.width;
-      height = rect.height;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      if (!hasPointer) {
-        target.x = width / 2;
-        target.y = height / 2;
-        eased.x = target.x;
-        eased.y = target.y;
-      }
-    }
-
-    function handlePointerMove(e) {
-      var rect = container.getBoundingClientRect();
-      target.x = e.clientX - rect.left;
-      target.y = e.clientY - rect.top;
-      hasPointer = true;
-    }
-
-    function handlePointerLeave() {
-      target.x = width / 2;
-      target.y = height / 2;
-    }
-
-    function drawCoverImage() {
-      if (!img.naturalWidth || !img.naturalHeight) return;
-      var imgRatio = img.naturalWidth / img.naturalHeight;
-      var boxRatio = width / height;
-      var drawW, drawH;
-      if (imgRatio > boxRatio) {
-        drawH = height;
-        drawW = height * imgRatio;
-      } else {
-        drawW = width;
-        drawH = width / imgRatio;
-      }
-      var dx = (width - drawW) / 2;
-      var dy = (height - drawH) / 2;
-      ctx.drawImage(img, dx, dy, drawW, drawH);
-    }
-
-    function tick() {
-      if (document.body.classList.contains('view-home') && width > 0 && height > 0) {
-        eased.x += (target.x - eased.x) * EASE;
-        eased.y += (target.y - eased.y) * EASE;
-
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, width, height);
-        ctx.globalCompositeOperation = 'source-over';
-        if (img.complete && img.naturalWidth) drawCoverImage();
-        ctx.globalCompositeOperation = 'destination-in';
-        var gradient = ctx.createRadialGradient(eased.x, eased.y, 0, eased.x, eased.y, SPOTLIGHT_RADIUS);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(0.7, 'rgba(255,255,255,0.6)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-        ctx.globalCompositeOperation = 'source-over';
-
-        if (grid) {
-          var cx = (eased.x - width / 2) / (width / 2);
-          var cy = (eased.y - height / 2) / (height / 2);
-          var offsetX = cx * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
-          var offsetY = cy * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
-          grid.style.transform = 'translate3d(' + offsetX + 'px, ' + offsetY + 'px, 0)';
-        }
-      }
-      rafId = requestAnimationFrame(tick);
-    }
-
-    resize();
-    if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(resize).observe(container);
-    } else {
-      window.addEventListener('resize', resize);
-    }
-    window.addEventListener('pointermove', handlePointerMove);
-    container.addEventListener('pointerleave', handlePointerLeave);
-    rafId = requestAnimationFrame(tick);
-  })();
+  /* The future-forward dual-image mouse-spotlight canvas reveal that used to
+     live here (.ffhero-reveal/#ffHeroCanvas/#ffHeroGrid) has been removed
+     entirely, along with the markup/CSS it drove — it drew a second
+     swimmer photo inside a circular mask centered on the pointer, which
+     defaulted to the hero's own center before any real mouse movement, so
+     it read as a static "spotlight on a face" rather than the restored
+     .hero-video being the section's primary visual. See the HTML comment
+     on <header class="ffhero" id="top"> for the full explanation. */
 
   /* ============================= UI SOUND (synthesized, no audio file needed) ============================= */
   var audioCtx = null;
