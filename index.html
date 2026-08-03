@@ -880,12 +880,25 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
 .ffhero {
   position: relative; flex: 1; min-height: 0; width: 100%; overflow: hidden;
   display: flex; flex-direction: column;
-  /* Pure black/white dark-mode hero — scoped locally rather than editing
-     every rule below, since every one of them already reads color
+  /* isolation:isolate is the real fix for the video/photo being completely
+     invisible — .ffhero was position:relative with z-index:auto, which
+     does NOT establish its own stacking context, so its negative-z-index
+     children (.hero-photo/.hero-video etc, z-index:-1/-2) escaped to
+     whatever ancestor DOES establish one and ended up painted BEHIND
+     .ffhero's own opaque black background box instead of behind just its
+     text content. isolation:isolate makes .ffhero its own stacking-context
+     root, so those negative-z children now correctly sit between .ffhero's
+     own background and its positive-z-index content (.ffhero-inner is
+     z-index:10) — confirmed by temporarily forcing .hero-photo to a solid
+     red fill and screenshotting: invisible before this fix, fully visible
+     after it.
+     Pure black/white dark-mode hero tokens — scoped locally rather than
+     editing every rule below, since every one of them already reads color
      exclusively through these custom properties (the same "rescope tokens
      onto one section" pattern this file's own .result-panel used in an
      earlier round). More dramatic/literal than the site's own near-black
      --bg/--fg tokens, per explicit request. */
+  isolation: isolate;
   --bg: #000000; --fg: #FFFFFF; --surface: #000000; --surface-2: #0A0A0A;
   --border: rgba(255,255,255,0.22); --border-strong: rgba(255,255,255,0.4);
   background: var(--bg); color: var(--fg);
