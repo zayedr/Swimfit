@@ -1,18 +1,23 @@
 import { useEffect, useRef } from "react";
 import { BG_IMAGE_1, BG_IMAGE_2 } from "../lib/constants";
 
-// Full-viewport background: BG_IMAGE_1 sits underneath always (goggles on);
-// BG_IMAGE_2 (goggles off, hair loose) is drawn on a canvas and clipped
-// ("destination-in" composite) to a soft circular radial-gradient mask that
-// follows the mouse, smoothly eased (lerp factor 0.16) toward the pointer
-// every animation frame — so the second layer only ever shows through a
-// spotlight strictly under the cursor.
-const EASE = 0.16;
-const SPOTLIGHT_RADIUS = 220;
+// Desktop-only interactive background: BG_IMAGE_1 sits underneath always;
+// BG_IMAGE_2 is drawn on a canvas and clipped ("destination-in" composite)
+// to a soft circular radial-gradient mask that follows the mouse, smoothly
+// eased (lerp factor 0.1) toward the pointer every animation frame — so the
+// second image only ever shows through a gentle spotlight. A faint slate
+// line-grid layer drifts in parallax with the same eased pointer position,
+// offset by (easedX * 16 * 0.06, easedY * 16 * 0.06) so it reads as subtle
+// depth rather than a distracting motion.
+const EASE = 0.1;
+const PARALLAX_AMPLITUDE = 16;
+const PARALLAX_FACTOR = 0.06;
+const SPOTLIGHT_RADIUS = 260;
 
 export default function ImageRevealBackground() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -63,13 +68,11 @@ export default function ImageRevealBackground() {
     }
 
     function handlePointerLeave() {
-      hasPointer = false;
       target.x = width / 2;
       target.y = height / 2;
     }
 
-    // Cover-fit math for drawing BG_IMAGE_2, mirroring CSS
-    // background-size:cover; background-position:center.
+    // Cover-fit math for drawing BG_IMAGE_2, mirroring CSS background-size:cover.
     function drawCoverImage() {
       if (!ctx || !img.naturalWidth || !img.naturalHeight) return;
       const imgRatio = img.naturalWidth / img.naturalHeight;
@@ -112,11 +115,19 @@ export default function ImageRevealBackground() {
           SPOTLIGHT_RADIUS,
         );
         gradient.addColorStop(0, "rgba(255,255,255,1)");
-        gradient.addColorStop(0.7, "rgba(255,255,255,0.55)");
+        gradient.addColorStop(0.7, "rgba(255,255,255,0.6)");
         gradient.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
         ctx.globalCompositeOperation = "source-over";
+      }
+
+      if (gridRef.current && width > 0 && height > 0) {
+        const cx = (eased.x - width / 2) / (width / 2);
+        const cy = (eased.y - height / 2) / (height / 2);
+        const offsetX = cx * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
+        const offsetY = cy * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
+        gridRef.current.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
       }
 
       rafId = requestAnimationFrame(tick);
@@ -140,10 +151,10 @@ export default function ImageRevealBackground() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+      className="hidden lg:block absolute inset-0 pointer-events-none z-0 overflow-hidden"
       aria-hidden="true"
     >
-      {/* Base layer — goggles on, always visible. */}
+      {/* Base layer — always visible. */}
       <div
         className="absolute inset-0"
         style={{
@@ -153,7 +164,17 @@ export default function ImageRevealBackground() {
           backgroundRepeat: "no-repeat",
         }}
       />
-      {/* Canvas-driven spotlight reveal of BG_IMAGE_2 (goggles off). */}
+      {/* Parallax blueprint grid, drifting gently with the eased pointer. */}
+      <div
+        ref={gridRef}
+        className="absolute inset-[-5%]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(100,116,139,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(100,116,139,0.12) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
+      {/* Canvas-driven spotlight reveal of BG_IMAGE_2. */}
       <canvas ref={canvasRef} className="absolute inset-0" />
     </div>
   );
