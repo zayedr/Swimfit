@@ -866,6 +866,94 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
 #homeView { height: 100vh; width: 100%; overflow: hidden; display: flex; flex-direction: column; }
 .pixel { font-family: 'basis33', monospace; }
 
+/* ============================= REAL FUTURE-FORWARD HERO =============================
+   A vanilla port of swimfit-future-forward's Hero.tsx + ImageRevealBackground.tsx +
+   Header.tsx component tree. `.ffhero-*`/`.ffcorner*`/`.ffblock`/`.ffchecker`/`.ffglobe`
+   are new, dedicated classes (not a reuse/rename of the old `.phero*` rules below,
+   which are left in place as harmless orphans per this file's own established
+   "don't hunt down every dead rule" precedent — nothing here reads them anymore). */
+.ffhero { position: relative; flex: 1; min-height: 0; width: 100%; overflow: hidden; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; }
+
+.ffhero-bg-mobile {
+  position: absolute; inset: 0; z-index: 0;
+  background-image: url('https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260802_074534_f0d9d476-3f86-4c67-9b12-dfc63d99da41.png');
+  background-size: cover; background-position: center;
+}
+@media (min-width: 1024px) { .ffhero-bg-mobile { display: none; } }
+
+.ffhero-reveal { display: none; position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+@media (min-width: 1024px) { .ffhero-reveal { display: block; } }
+@media (prefers-reduced-motion: reduce) { .ffhero-reveal { display: none; } }
+.ffhero-base {
+  position: absolute; inset: 0;
+  background-image: url('https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260802_074534_f0d9d476-3f86-4c67-9b12-dfc63d99da41.png');
+  background-size: cover; background-position: center;
+}
+.ffhero-grid {
+  position: absolute; inset: -5%;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+#ffHeroCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.ffhero-inner {
+  position: relative; z-index: 10; flex: 1; min-height: 0;
+  display: flex; flex-direction: column; justify-content: space-between;
+  gap: var(--space-5);
+  padding: clamp(1.25rem, 4vh, 4rem) var(--pad-x, clamp(1.25rem, 4.5vw, 5rem));
+}
+@media (min-width: 1024px) { .ffhero-inner { flex-direction: row; justify-content: space-between; } }
+
+.ffhero-left { display: flex; flex-direction: column; justify-content: center; gap: var(--space-4); }
+@media (min-width: 1024px) { .ffhero-left { max-width: 55%; } }
+
+.ffcorner { position: relative; display: inline-block; width: clamp(0.7rem, 0.4vw + 0.45rem, 1rem); height: clamp(0.7rem, 0.4vw + 0.45rem, 1rem); border-top: 1.5px solid currentColor; border-left: 1.5px solid currentColor; }
+.ffcorner-tr { transform: rotate(90deg); }
+.ffcorner-br { transform: rotate(180deg); }
+.ffcorner-bl { transform: rotate(270deg); }
+.ffcorner-abs { position: absolute; margin: -1px; }
+.ffcorner-abs-tl { top: 0; left: 0; }
+.ffcorner-abs-tr { top: 0; right: 0; }
+.ffcorner-abs-bl { bottom: 0; left: 0; }
+.ffcorner-abs-br { bottom: 0; right: 0; }
+
+.ffhero-headline {
+  font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
+  font-size: clamp(2.1rem, 4.2vw + 0.7rem, 5rem); letter-spacing: 0.02em; line-height: 1.05; margin: 0;
+}
+.ffblock { display: block; }
+.ffhero-underline { text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 4px; }
+.ffchecker { display: inline-block; vertical-align: middle; width: clamp(2.5rem, 4vw, 5.5rem); height: clamp(1.25rem, 2vw, 2.75rem); color: var(--fg); margin-left: 4px; }
+
+.ffhero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.ffhero-cta {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: transparent; color: var(--fg);
+  font-family: var(--font-body); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.85rem; padding: 0.85em 1.6em; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.ffhero-cta:hover { background: var(--fg); color: var(--bg); transform: translateY(-2px) scale(1.02); }
+.ffhero-cta .icon { width: 1.1em; height: 1.1em; transition: transform var(--dur) var(--ease); }
+.ffhero-cta:hover .icon { transform: translate(2px, -2px); }
+
+.ffhero-right { display: flex; align-items: flex-end; }
+.ffhero-feature {
+  position: relative; border: 1px solid var(--border); border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4);
+  padding: clamp(1rem, 1.5vw, 1.75rem); min-width: clamp(13rem, 18vw, 20rem);
+  background: var(--surface); max-width: 26rem;
+}
+.ffglobe { width: clamp(2.25rem, 2.5vw + 1rem, 3.25rem); height: clamp(2.25rem, 2.5vw + 1rem, 3.25rem); color: var(--fg); }
+.ffhero-feature-text {
+  font-family: var(--font-body); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 0.85rem; line-height: 1.5; color: var(--fg); margin: 0;
+}
+.ffhero-stat { align-self: flex-start; }
+
 .phero { position: relative; flex: 1; min-height: 0; width: 100%; overflow: hidden; background: #000; color: #fff; display: flex; flex-direction: column; }
 .phero-inner { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100%; padding: var(--space-4) var(--space-4) var(--space-3); }
 @media (min-width: 640px) { .phero-inner { padding-inline: var(--space-5); } }
@@ -874,7 +962,8 @@ body.view-home { height: 100vh; padding-top: 0 !important; }
 
 .pnav { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-3); }
 .pnav-logo { display: flex; align-items: center; }
-.pnav-logo img { display: block; height: 22px; width: auto; }
+.pnav-logo img { display: block; height: 22px; width: auto; filter: brightness(0) invert(1); }
+.pmenu-logo img { display: block; height: 22px; width: auto; filter: brightness(0) invert(1); }
 .pnav-links { display: none; align-items: center; gap: var(--space-5); margin-inline-end: auto; margin-inline-start: var(--space-6); }
 @media (min-width: 768px) { .pnav-links { display: flex; } }
 .pnav-links button { background: none; border: none; color: #fff; font-size: 0.8rem; letter-spacing: 0.07em; font-weight: 500; cursor: pointer; padding: 0; opacity: 0.9; transition: opacity var(--dur) var(--ease); }
@@ -3260,6 +3349,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-core" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3z"/></symbol>
 <symbol id="i-shoulder" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 8-8M20 12a8 8 0 0 1-8 8"/><path d="M12 4l-2 3 2-1 2 1-2-3M12 20l2-3-2 1-2-1 2 3"/></symbol>
 <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17L17 7M7 7h10v10"/></symbol>
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 12h4l1.5-4L11 17l2-9 1.5 4H22"/></symbol>
 <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></symbol>
 <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></symbol>
@@ -3454,68 +3544,82 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     </nav>
   </div>
 
-  <header class="phero" id="top">
-    <div class="hero-bg"></div>
-    <div class="hero-mesh" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-    <div class="hero-photo"></div>
-    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline aria-hidden="true">
-      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_3FJRlsOkiGfEhuOCKyFRAVy6XeE/hf_20260718_190658_5b8f4cbd-b34d-4680-b2bd-3b7f46491362.mp4" type="video/mp4">
-    </video>
-    <div class="hero-video-overlay" aria-hidden="true"></div>
-    <div class="hero-caustics" aria-hidden="true"></div>
+  <!-- ============================= REAL FUTURE-FORWARD HERO =============================
+       This replaces the previous portfolio-clone .phero content (video bg,
+       4-column .pmeta-grid, "WE BUILD THE DISCIPLINE..." headline) with a
+       vanilla HTML/CSS/JS port of the ACTUAL swimfit-future-forward React
+       build's own Hero.tsx/ImageRevealBackground.tsx/Header.tsx component
+       tree — same dual-image mouse-spotlight canvas reveal, same corner-
+       bracket/checkerboard/wireframe-globe motifs, same "OUTSWIM YOUR
+       LIMITS. OWN THE RACE" headline and feature-panel copy, at 1:1 fidelity
+       with the real React source (not just its color tokens, which the
+       previous round already carried over). Every real functional hook —
+       #top, #activeSubscribersStat/Count (the live Firestore subscriber
+       counter wired in js/firebase-service.js), data-auth-signed-out/-in,
+       data-open-auth, data-welcome-trigger, data-tab — is preserved
+       byte-identical so no backend/JS wiring needed to change. .pnav/.pmenu
+       (the transparent nav + mobile menu) are untouched above this block. -->
+  <header class="ffhero" id="top">
+    <div class="ffhero-bg-mobile" aria-hidden="true"></div>
+    <div class="ffhero-reveal" id="ffHeroReveal" aria-hidden="true">
+      <div class="ffhero-base"></div>
+      <div class="ffhero-grid" id="ffHeroGrid"></div>
+      <canvas id="ffHeroCanvas"></canvas>
+    </div>
 
-    <div class="phero-inner">
-      <div class="pmeta-grid">
-        <div class="pmeta-col">
-          <h2 class="pmeta-brand">SWIM<span class="pixel">FIT</span></h2>
-          <p class="pmeta-asterisk">*</p>
-          <p class="pmeta-blurb pixel">Swimfit began as a way<br>to bring real coaching<br>structure to swimmers<br>training on their own.</p>
-        </div>
-        <div class="pmeta-col pmeta-col-right">
-          <h2 class="pmeta-brand">TRAIN &amp;<span class="pixel">PERFORM</span></h2>
-        </div>
-        <div class="pmeta-col">
-          <p class="pmeta-label pixel">What You Get</p>
-          <p class="pmeta-body">A daily-rotating swim set, tailored gym programming, and an AI coach that actually knows your training.</p>
-        </div>
-        <div class="pmeta-col pmeta-col-right">
-          <p class="pmeta-label pixel">Services</p>
-          <ul class="pmeta-list">
-            <li>Daily Workout Generator</li>
-            <li>Dryland &amp; Gym Programming</li>
-            <li>AI Swim Coach &amp; Analyzer</li>
-            <li>Distance &amp; PB Tracker</li>
-            <li>Technique Academy</li>
-            <li>Gear Guide</li>
-          </ul>
+    <div class="ffhero-inner">
+      <div class="ffhero-left">
+        <span class="ffcorner ffcorner-tl" aria-hidden="true"></span>
+
+        <h1 class="ffhero-headline">
+          <span class="ffblock">OUTSWIM</span>
+          <span class="ffblock">YOUR LIMITS.</span>
+          <span class="ffblock">OWN THE <span class="ffhero-underline">RACE</span>
+            <svg class="ffchecker" viewBox="0 0 40 20" aria-hidden="true">
+              <rect x="0" y="0" width="10" height="10" fill="currentColor"/><rect x="10" y="0" width="10" height="10" fill="none" stroke="currentColor"/><rect x="20" y="0" width="10" height="10" fill="currentColor"/><rect x="30" y="0" width="10" height="10" fill="none" stroke="currentColor"/>
+              <rect x="0" y="10" width="10" height="10" fill="none" stroke="currentColor"/><rect x="10" y="10" width="10" height="10" fill="currentColor"/><rect x="20" y="10" width="10" height="10" fill="none" stroke="currentColor"/><rect x="30" y="10" width="10" height="10" fill="currentColor"/>
+            </svg>
+          </span>
+        </h1>
+
+        <span class="ffcorner ffcorner-bl" aria-hidden="true"></span>
+
+        <div class="ffhero-actions">
+          <button type="button" class="ffhero-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>
+            <span>Start 3-Day Free Trial</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+          </button>
+          <button type="button" class="ffhero-cta" data-tab="workouts" data-auth-signed-in style="display:none">
+            <span>Build My Workout</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+          </button>
         </div>
       </div>
 
-      <div class="phero-spacer"></div>
+      <div class="ffhero-right">
+        <div class="ffhero-feature">
+          <span class="ffcorner ffcorner-tl ffcorner-abs ffcorner-abs-tl" aria-hidden="true"></span>
+          <span class="ffcorner ffcorner-tr ffcorner-abs ffcorner-abs-tr" aria-hidden="true"></span>
+          <span class="ffcorner ffcorner-bl ffcorner-abs ffcorner-abs-bl" aria-hidden="true"></span>
+          <span class="ffcorner ffcorner-br ffcorner-abs ffcorner-abs-br" aria-hidden="true"></span>
 
-      <div class="phero-bottom">
-        <div class="phero-row">
-          <h1 class="phero-headline">WE BUILD THE<br><span class="pixel">DISCIPLINE</span> FOR<br>EVERY SWIMMER&rsquo;S<br><span class="pixel">BREAKTHROUGH</span></h1>
-          <div class="phero-actions">
-            <button type="button" class="phero-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>
-              <svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg>
-              <span>START 3-DAY FREE TRIAL</span>
-            </button>
-            <button type="button" class="phero-cta" data-tab="workouts" data-auth-signed-in style="display:none">
-              <svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg>
-              <span>LAUNCH APP</span>
-            </button>
-            <div class="phero-chips">
-              <span class="phero-chip"><strong>5</strong><em>Disciplines</em></span>
-              <span class="phero-chip"><strong>6</strong><em>Gym Focuses</em></span>
-              <span class="phero-chip"><strong>3-Day</strong><em>Free Trial</em></span>
-              <span class="phero-chip" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><em>Active Subscribers</em></span>
-            </div>
-          </div>
-        </div>
-        <div class="phero-footer">
-          <p>Built for swimmers who want a real plan. <a href="mailto:swimfit.ae@gmail.com">Contact us</a></p>
-          <p>5 disciplines &bull; 6 gym focuses &bull; 3-day free trial</p>
+          <svg class="ffglobe" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="1"/>
+            <ellipse cx="24" cy="24" rx="20" ry="7" stroke="currentColor" stroke-width="0.75"/>
+            <ellipse cx="24" cy="24" rx="20" ry="14" stroke="currentColor" stroke-width="0.75"/>
+            <line x1="4" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="0.75"/>
+            <ellipse cx="24" cy="24" rx="7" ry="20" stroke="currentColor" stroke-width="0.75"/>
+            <ellipse cx="24" cy="24" rx="14" ry="20" stroke="currentColor" stroke-width="0.75"/>
+            <line x1="24" y1="4" x2="24" y2="44" stroke="currentColor" stroke-width="0.75"/>
+          </svg>
+
+          <p class="ffhero-feature-text">
+            Unleash your potential with high-performance swim sets,
+            <br>
+            tailored dryland training &amp; instant progress tracking.
+          </p>
+
+          <span class="ffhero-stat phero-chip" id="activeSubscribersStat" style="display:none"><strong id="activeSubscribersCount">0</strong><em>Active Subscribers</em></span>
         </div>
       </div>
     </div>
@@ -5035,6 +5139,126 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   window.__formatDistanceM = formatDistanceM;
 
+  /* ============================= FUTURE-FORWARD HERO: INTERACTIVE IMAGE REVEAL =============================
+     Ports ImageRevealBackground.tsx from swimfit-future-forward: BG_IMAGE_1
+     (the always-visible base layer) is already painted via a plain CSS
+     background-image on .ffhero-base in the stylesheet above — this script
+     only drives the SECOND image, drawn on #ffHeroCanvas and clipped
+     ("destination-in") to a soft circular mask that follows the mouse,
+     eased toward the pointer every frame, so it only ever shows through a
+     gentle spotlight. Desktop-only (.ffhero-reveal is display:none below
+     1024px and under prefers-reduced-motion via its own CSS rule), and the
+     render loop itself skips all work whenever Home isn't the visible view
+     (body.view-home) so it costs nothing once a swimmer enters the App. */
+  (function () {
+    var container = document.getElementById('ffHeroReveal');
+    var canvas = document.getElementById('ffHeroCanvas');
+    var grid = document.getElementById('ffHeroGrid');
+    if (!container || !canvas || reduceMotion) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    var REVEAL_IMAGE_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260802_075145_1b557479-775b-43af-8270-f45d79d97d5a.png';
+    var EASE = 0.1;
+    var PARALLAX_AMPLITUDE = 16;
+    var PARALLAX_FACTOR = 0.06;
+    var SPOTLIGHT_RADIUS = 260;
+
+    var img = new Image();
+    img.src = REVEAL_IMAGE_URL;
+
+    var width = 0, height = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var target = { x: 0, y: 0 };
+    var eased = { x: 0, y: 0 };
+    var hasPointer = false;
+    var rafId = 0;
+
+    function resize() {
+      var rect = container.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      if (!hasPointer) {
+        target.x = width / 2;
+        target.y = height / 2;
+        eased.x = target.x;
+        eased.y = target.y;
+      }
+    }
+
+    function handlePointerMove(e) {
+      var rect = container.getBoundingClientRect();
+      target.x = e.clientX - rect.left;
+      target.y = e.clientY - rect.top;
+      hasPointer = true;
+    }
+
+    function handlePointerLeave() {
+      target.x = width / 2;
+      target.y = height / 2;
+    }
+
+    function drawCoverImage() {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      var imgRatio = img.naturalWidth / img.naturalHeight;
+      var boxRatio = width / height;
+      var drawW, drawH;
+      if (imgRatio > boxRatio) {
+        drawH = height;
+        drawW = height * imgRatio;
+      } else {
+        drawW = width;
+        drawH = width / imgRatio;
+      }
+      var dx = (width - drawW) / 2;
+      var dy = (height - drawH) / 2;
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+    }
+
+    function tick() {
+      if (document.body.classList.contains('view-home') && width > 0 && height > 0) {
+        eased.x += (target.x - eased.x) * EASE;
+        eased.y += (target.y - eased.y) * EASE;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.globalCompositeOperation = 'source-over';
+        if (img.complete && img.naturalWidth) drawCoverImage();
+        ctx.globalCompositeOperation = 'destination-in';
+        var gradient = ctx.createRadialGradient(eased.x, eased.y, 0, eased.x, eased.y, SPOTLIGHT_RADIUS);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.7, 'rgba(255,255,255,0.6)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        ctx.globalCompositeOperation = 'source-over';
+
+        if (grid) {
+          var cx = (eased.x - width / 2) / (width / 2);
+          var cy = (eased.y - height / 2) / (height / 2);
+          var offsetX = cx * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
+          var offsetY = cy * PARALLAX_AMPLITUDE * PARALLAX_FACTOR;
+          grid.style.transform = 'translate3d(' + offsetX + 'px, ' + offsetY + 'px, 0)';
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    resize();
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(resize).observe(container);
+    } else {
+      window.addEventListener('resize', resize);
+    }
+    window.addEventListener('pointermove', handlePointerMove);
+    container.addEventListener('pointerleave', handlePointerLeave);
+    rafId = requestAnimationFrame(tick);
+  })();
+
   /* ============================= UI SOUND (synthesized, no audio file needed) ============================= */
   var audioCtx = null;
   function playPop() {
@@ -5531,6 +5755,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
 </script>
 <script src="js/paddle-client.js"></script>
+<script src="js/pdf-fonts.js"></script>
 <script src="js/workout-generator.js"></script>
 <script>
   /* ============================= SETTINGS: PROFILE + SPECIALTIES ============================= */
