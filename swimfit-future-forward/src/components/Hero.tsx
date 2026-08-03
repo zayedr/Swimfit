@@ -25,9 +25,10 @@ export default function Hero() {
           }}
         >
           <span className="block">OUTSWIM</span>
-          <span className="block">YOUR</span>
+          <span className="block">YOUR LIMITS.</span>
           <span className="block">
-            LIMITS <Checkerboard className="text-black" />
+            OWN THE <span className="underline decoration-4 underline-offset-4">RACE</span>{" "}
+            <Checkerboard className="text-black" />
           </span>
         </h1>
 
@@ -45,7 +46,7 @@ export default function Hero() {
               gap: "var(--btn-gap)",
             }}
           >
-            START TRAINING
+            BUILD MY WORKOUT
             <ArrowUpRight
               strokeWidth={1.5}
               className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
@@ -75,9 +76,9 @@ export default function Hero() {
             className="font-jakarta font-semibold uppercase"
             style={{ fontSize: "var(--body)", letterSpacing: "0.18em" }}
           >
-            BEYOND TRENDS.
+            UNLEASH YOUR POTENTIAL WITH HIGH-PERFORMANCE SWIM SETS,
             <br />
-            BUILT FOR THE WATER.
+            TAILORED DRYLAND TRAINING &amp; INSTANT PROGRESS TRACKING.
           </p>
         </div>
       </div>
