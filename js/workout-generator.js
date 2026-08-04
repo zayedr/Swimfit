@@ -752,6 +752,24 @@
     return discipline === 'Individual Medley' ? 'IM (Fly–Back–Breast–Free order)' : discipline;
   }
 
+  // Real coach-shorthand stroke tags (FR/BK/FLY/BR/IM), matching how every
+  // reference elite program actually labels a set — used only for the set
+  // labels a swimmer reads on the generated card. The other 4 strokeLabelSingle
+  // call sites (the disciplines summary line, both PB/pace notes, and the
+  // swim_logs Firestore write the Distance Tracker reads) intentionally keep
+  // full stroke names, since those feed cross-feature text/data that expects
+  // "Freestyle", not "FR".
+  var STROKE_ABBREV = {
+    'Freestyle': 'FR',
+    'Backstroke': 'BK',
+    'Butterfly': 'FLY',
+    'Breaststroke': 'BR',
+    'Individual Medley': 'IM'
+  };
+  function strokeAbbrev(discipline) {
+    return STROKE_ABBREV[discipline] || discipline;
+  }
+
   // Cycles through every selected discipline in turn, so a multi-discipline
   // pick (e.g. Freestyle + Butterfly) alternates naturally set-to-set instead
   // of collapsing into one blended label. With a single discipline selected
@@ -759,7 +777,7 @@
   function makeStrokeRotator(disciplines) {
     var i = 0;
     return function () {
-      var s = strokeLabelSingle(disciplines[i % disciplines.length]);
+      var s = strokeAbbrev(disciplines[i % disciplines.length]);
       i++;
       return s;
     };
@@ -808,7 +826,7 @@
   // grand total past the swimmer's chosen distance.
   var EZ_RECOVERY_M = 100;
   function ezRecoverySet(pace100) {
-    return { label: 'Active Recovery — Flush', sets: [buildSet(2, 50, 'easy pace — shake it out, exhale fully, let the heart rate drop before the next hard effort', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
+    return { label: 'REC — Flush', sets: [buildSet(2, 50, 'EZ — shake it out, exhale fully, let the heart rate drop before the next hard effort', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
   }
 
   // Real meters a flat array of built sets (Warm-Up/Cool-Down's own shape) or
@@ -993,11 +1011,11 @@
   // workoutRng, same day-stable seed as the rest of generateWorkout())
   // instead of being the same fixed "odd 25 drill, even 25 build" every day.
   var WARMUP_DRILL_POOL = [
-    'Drill/Build — odd 25 drill, even 25 build',
-    'Kick/Swim — odd 25 kick only, even 25 full stroke',
+    'Drill/Build — odd 25 Drill, even 25 Build',
+    'Kick/Swim — odd 25 Kick, even 25 MS',
     'Catch-Up Drill — exaggerate the front-end extension every length',
     'Fingertip Drag — brush your fingertips along the surface on recovery',
-    'Build Ladder — each 25 a little faster than the last',
+    'desc 1-4 — each 25 a little faster than the last',
     '3-3-3 Breathing — 3 lengths breathing every 3, 5, then every 2 strokes'
   ];
   // The Warm-Up's kick set used to be hardcoded to underwater-dolphin focus
@@ -1008,11 +1026,11 @@
   // seed as everything else here) spreads starts/turns/underwater work across
   // days instead of cramming all of it into every single one.
   var WARMUP_KICK_POOL = [
-    'Kick — 6–8 underwater dolphin kicks off every wall, then strong flutter, tight streamline',
-    'Kick — steady flutter kick, relaxed tempo, focus on ankle flexibility not speed',
+    'Kick — 6-8 UWK off every wall, then strong flutter, tight streamline',
+    'Kick — steady flutter, relaxed tempo, focus on ankle flexibility not speed',
     'Kick — on your side, one arm extended, rotate every 4 kicks',
-    'Kick — breaststroke whip-kick isolation, narrow and snappy, no glide skipped',
-    'Kick — vertical kick treading position for 10s, then 40m easy flutter'
+    'Kick — BR whip-kick isolation, narrow and snappy, no glide skipped',
+    'Kick — vertical kick treading position for 10s, then 40m EZ flutter'
   ];
 
   var SPEED_ARCHETYPES = [
@@ -1056,7 +1074,7 @@
     {
       name: 'Active Recovery',
       build: function (shareM, pace100, scaler) {
-        return [{ label: null, sets: [buildSet(Math.max(1, Math.round(shareM / 100)), 100, 'easy pace recovery swim', [], pace100 + 20, 15, scaler, 'Recovery Pace')] }];
+        return [{ label: null, sets: [buildSet(Math.max(1, Math.round(shareM / 100)), 100, 'EZ pace REC swim', [], pace100 + 20, 15, scaler, 'Recovery Pace')] }];
       },
       intents: [
         'Easy swimming between hard efforts actively flushes lactate from the working muscles — moving blood through them clears fatigue products faster than standing still ever would.'
@@ -1157,7 +1175,7 @@
         var templates = [
           function (m) { return { label: 'Round 1 — Even Pace Pull', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — even, controlled pace throughout', g, pace100 + 8, 20, scaler, '200 Pace')] }; },
           function (m) { return { label: 'Round 2 — Negative Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — back half faster than front half', g, pace100 + 5, 20, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — descend 1 through the set', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — desc 1 through the set', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1171,8 +1189,8 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Descend 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', descend — each rep faster than the last', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Descend, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', descend again — less rest than Round 1', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
+          function (m) { return { label: 'Round 1 — desc 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc 1-4 — each rep faster than the last', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — desc, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc again — less REC than Round 1', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
           function (m) { return { label: 'Round 3 — Best Average Challenge', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', hold your fastest Round 2 pace for every single rep', [], pace100, 10, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
@@ -1203,7 +1221,7 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — easy / moderate / strong across the swim', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — EZ / moderate / strong across the swim', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
           function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 2 — Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ', same build pattern — each third starts faster than last round', [], pace100 + 2, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
           function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 3 — Race-Effort Final Third', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — final third at race effort', [], pace100, 15, scaler, '200 Pace')] }; }
         ];
@@ -1249,7 +1267,7 @@
   var TECHNIQUE_MICRO_CUES = [
     'a strong early-vertical-forearm catch — feel the water "grab" before the pull even starts',
     'a subtle hip-driven body rotation feeding power into every stroke, not just the arms',
-    '2 quiet dolphin kicks off every wall before breaking into full stroke',
+    '2 quiet UWK off every wall before breaking into MS',
     'a high, quiet catch that holds the water instead of slipping through it',
     'finishing the pull fully past the hip for a clean, complete exit before recovery'
   ];
@@ -1261,8 +1279,8 @@
         var shares = splitShareEqual(shareM, n);
         var templates = [
           function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', technique drill — catch & body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', odd 25 drill, even 25 full stroke — hold the drill feel', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — Full Stroke, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', odd 25 Drill, even 25 MS — hold the drill feel', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 3 — MS, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1299,9 +1317,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Baseline Count', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', minimum strokes per length', [], pace100 + 15, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Hold Count, Add Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', same stroke count as Round 1, faster pace', [], pace100 + 10, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', race pace — see how much your count rises under speed', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Baseline SC', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', minimum SC per length', [], pace100 + 15, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 2 — Hold SC, Add Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', same SC as Round 1, faster pace', [], pace100 + 10, 15, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', race pace — see how much your SC rises under speed', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1316,8 +1334,8 @@
         var shares = splitShareEqual(shareM, n);
         var templates = [
           function (m) { return { label: 'Round 1 — Catch-Up, Slow & Exaggerated', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', catch-up drill — full extension before the next arm pulls', [], pace100 + 16, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', first 25 catch-up, second 25 full stroke holding the extension', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — Full Stroke, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', full stroke — hold the same front-end extension at speed', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', first 25 Catch-Up, second 25 MS holding the extension', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 3 — MS, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS — hold the same front-end extension at speed', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1392,8 +1410,8 @@
         var ladder = paceLadder(pace100);
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ', build each 25 from easy to fast — accelerate into the wall, fastest 5m of every rep is the last 5m', [], ladder.p50 + 4, 25, scaler, '50 Pace')];
-        return [{ label: 'Speed Build — 25s', sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ' desc 1-4, EZ to fast — accelerate into the wall, fastest 5m of every rep is the last 5m', [], ladder.p50 + 4, 25, scaler, '50 Pace')];
+        return [{ label: 'CNS Activation — 25s Build', sets: sets }];
       },
       intents: [
         'Short build reps wake up the fast-twitch fibers and rehearse acceleration without redlining — the point of activation is to switch the sprint system on, not to fatigue it before the Main Set.'
@@ -1404,8 +1422,8 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(3, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ', descend to Zone 4 by the final rep — lift the heart rate step by step so the first Main Set rep isn\'t a cold-start shock', [], pace100 + 2, 20, scaler, '100 Pace')];
-        return [{ label: 'HR Lift — Descending 50s', sets: sets }];
+        var sets = [buildSet(reps, 50, stroke + ' desc 1-3 to Z4 — lift the heart rate step by step so the first Main Set rep isn\'t a cold-start shock', [], pace100 + 2, 20, scaler, '100 Pace')];
+        return [{ label: 'HR Lift — desc 50s', sets: sets }];
       },
       intents: [
         'Stepping the heart rate up before the Main Set means your aerobic system is already open when the real work starts — a cold first rep wastes the hardest set of the day warming you up.'
@@ -1416,8 +1434,8 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ', 6–8 strong underwater dolphin kicks off the wall, then break out and swim the length — count your kicks, hold a tight streamline', [], pace100 + 6, 20, scaler, 'Drill Pace')];
-        return [{ label: 'Underwater Dolphin — Off Every Wall', sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ' — 6-8 UWK off the wall, then break out and swim the length — count your kicks, hold a tight streamline', [], pace100 + 6, 20, scaler, 'Drill Pace')];
+        return [{ label: 'UWK — Off Every Wall', sets: sets }];
       },
       intents: [
         'The underwater dolphin off each wall is the fastest part of any race — activating it in the Pre-Set means the fifth stroke of hidden speed is switched on and streamlined before the Main Set, not something you rediscover halfway through.'
@@ -1428,7 +1446,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ', fast approach into the wall, explosive turn, tight streamline, then a strong breakout — the middle 25 is about the wall, not the swim', [], pace100 + 4, 25, scaler, '100 Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' — fast approach into the wall, explosive turn, tight streamline, then a strong breakout — the middle 25 is about the wall, not the swim', [], pace100 + 4, 25, scaler, '100 Pace')];
         return [{ label: 'Turns — Fast In, Fast Out', sets: sets }];
       },
       intents: [
@@ -1441,8 +1459,8 @@
         var ladder = paceLadder(pace100);
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ', push-start explosive — max first 10–15m off the wall, then hold form to the flags; full recovery between reps', [], ladder.p50, 35, scaler, '50 Pace')];
-        return [{ label: 'Start Power — Explosive 15s', sets: sets }];
+        var sets = [buildSet(reps, 25, stroke + ' OTB explosive — max first 10-15m off the wall, then hold form to the flags; full REC between reps', [], ladder.p50, 35, scaler, '50 Pace')];
+        return [{ label: 'OTB Power — Explosive 15s', sets: sets }];
       },
       intents: [
         'Start and reaction power is trained fresh, with real rest between reps, or not at all — activating the explosive push-off and first strokes here primes maximal power without the fatigue that would blunt it.'
@@ -1453,8 +1471,8 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ', first 25 relaxed and long, second 25 turn the arms over fast at the same stroke count — feel the tempo shift the Main Set will need', [], pace100 + 2, 20, scaler, '100 Pace')];
-        return [{ label: 'Tempo Switch — 25 easy / 25 fast', sets: sets }];
+        var sets = [buildSet(reps, 50, stroke + ' — 25 EZ/long, 25 fast turnover at the same SC — feel the tempo shift the Main Set will need', [], pace100 + 2, 20, scaler, '100 Pace')];
+        return [{ label: 'Tempo Switch — 25 EZ / 25 Fast', sets: sets }];
       },
       intents: [
         'Flipping between a long relaxed tempo and a fast turnover on the same rep rehearses the exact gear-change the Main Set demands — activation is teaching the body where the higher gear lives before you need it under fatigue.'
@@ -1474,7 +1492,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(2, Math.round(shareM / 100));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 100, stroke + ', steady and controlled — settle into a rhythm, no build, just open the aerobic engine', [], pace100 + 8, 15, scaler, 'Cruise Pace')];
+        var sets = [buildSet(reps, 100, stroke + ' steady, controlled — settle into a rhythm, no build, just open the aerobic engine', [], pace100 + 8, 15, scaler, 'Cruise Pace')];
         return [{ label: 'Aerobic Lead-In — Steady 100s', sets: sets }];
       },
       intents: [
@@ -1486,7 +1504,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ', slow and deliberate — one technical focus per length, minimum splash, feel the water on every stroke', [], pace100 + 12, 20, scaler, 'Drill Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' Cho Drill, slow — one technical focus per length, minimum splash, feel the water on every stroke', [], pace100 + 12, 20, scaler, 'Drill Pace')];
         return [{ label: 'Feel Primer — Slow & Deliberate', sets: sets }];
       },
       intents: [
@@ -1666,12 +1684,12 @@
     var hasKickboard = state.equipment.indexOf('Kickboard') > -1;
     var warmup = buildToShare(function () {
       var sets = [
-        buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'Freestyle, easy — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
+        buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'FR EZ — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
         buildSet(warmupDrillReps, 50, pickOneNoRepeat(WARMUP_DRILL_POOL, priorDayRng), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
         buildSet(warmupKickReps, 50, pickOneNoRepeat(WARMUP_KICK_POOL, priorDayRng), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
       ];
       if (state.level !== 'beginner') {
-        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ', quick build — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
+        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ' OTB desc 1-4 — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
       }
       return [{ label: null, sets: sets }];
     }, warmupM)[0].sets;
@@ -1895,9 +1913,9 @@
       var breakoutReps = Math.max(2, Math.round(eliteShares[2] / 50));
       var elitePowerRounds = buildToShare(function () {
         return [
-          { label: 'Underwater Dolphin Speed', sets: [buildSet(uwReps, 25, 'Max 15m underwater dolphin kick off the wall — count kicks, hold a rocket streamline, break out clean and finish easy', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, workScaler, '50 Pace')] },
-          { label: 'Race-Start Reaction Power', sets: [buildSet(startReps, 25, 'Explosive push-start — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, workScaler, '50 Pace')] },
-          { label: 'Power Breakouts', sets: [buildSet(breakoutReps, 50, 'Fast approach into the wall, explosive turn, powerful underwater breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, workScaler, '100 Pace')] }
+          { label: 'UWK Speed', sets: [buildSet(uwReps, 25, 'Max 15m UWK off the wall — count kicks, hold a rocket streamline, break out clean and finish EZ', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, workScaler, '50 Pace')] },
+          { label: 'OTB Reaction Power', sets: [buildSet(startReps, 25, 'Explosive push-start OTB — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, workScaler, '50 Pace')] },
+          { label: 'Power Breakouts', sets: [buildSet(breakoutReps, 50, 'Fast approach into the wall, explosive turn, powerful UWK breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, workScaler, '100 Pace')] }
         ];
       }, eliteContentM);
       // Same integrated active-recovery principle as the Main Set's own
@@ -1920,9 +1938,9 @@
     var cdParts = splitProportional(cooldownBudgetM, [0.5, 0.3, 0.2]);
     var cdStroke1 = nextStroke();
     var cooldown = [
-      buildSet(1, cdParts[0], cdStroke1 + ', easy — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[1], 'Backstroke, easy — loosen the shoulders, steady 3-stroke breathing rhythm', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[2], 'easiest pace of the day — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
+      buildSet(1, cdParts[0], cdStroke1 + ' EZ — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
+      buildSet(1, cdParts[1], 'BK EZ — loosen the shoulders, steady 3-stroke breathing rhythm', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
+      buildSet(1, cdParts[2], 'EZ Kick — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
     ];
     // Final reconciliation nudge: splitProportional's own 50m-snapping across
     // 3 parts can leave a small residual even against an exact budget —
@@ -1933,7 +1951,7 @@
     var totalResidualM = totalM - grandTotalM;
     if (Math.abs(totalResidualM) > 50) {
       var adjustedCd0 = Math.max(50, Math.round((cdParts[0] + totalResidualM) / 50) * 50);
-      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ', easy — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace');
+      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ' EZ — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace');
       grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     }
 
