@@ -83,6 +83,25 @@
   // generateWorkout() caps its volume hard regardless of the swimmer's
   // chosen Target Distance, since the whole point of a rest day is that it
   // ISN'T a full session.
+  // EVERY NON-REST DAY NOW COMBINES TWO GOAL POOLS, NOT ONE — a real, direct
+  // fix for two reported problems at once: (1) a single-goalKey day drew from
+  // a ~6-archetype pool, so the day-to-day/no-repeat-vs-yesterday variety a
+  // swimmer actually sees was capped by that pool's own small size, and a
+  // handful of real consecutive days could plausibly land on visually
+  // similar sets even with the rotation working correctly; (2) a pure
+  // 'speed'-only day meant a genuine all-out-effort session with nothing
+  // easing it — physiologically unrealistic, since even a real Sprint/Power
+  // day needs some aerobic thread underneath it, and no swimmer should be
+  // handed a 100%-max-effort day regardless of level. Sprint/Power and Race
+  // Pace now also draw from ENDURANCE_ARCHETYPES, Aerobic/Distance and
+  // Technique/Drills now also draw from each other's pools, and Threshold
+  // also draws from SPEED_ARCHETYPES — every pairing chosen so the day's own
+  // label stays the *dominant* theme (still reinforced via the swimmerType
+  // bias and the Race-Pace Band/Elite-block guarantees below, which still
+  // key off 'speed'/'endurance' being present) while the *pool* a swimmer
+  // draws from roughly doubles in size. Saturday's Rest day deliberately
+  // stays single-pool — blending in a second, harder pool would work against
+  // the entire point of a scheduled rest day.
   var WEEKLY_FOCUS = [
     { key: 'im', label: 'IM / Transitional', goalKeys: ['technique', 'endurance'],
       blurbs: {
@@ -90,31 +109,31 @@
         sprinter: 'Short, sharp transition work — keep the explosive feel alive without a full hard day.',
         distance: 'An easy mixed-stroke day to keep the aerobic engine ticking over.'
       } },
-    { key: 'sprint', label: 'Sprint / Power', goalKeys: ['speed'],
+    { key: 'sprint', label: 'Sprint / Power', goalKeys: ['speed', 'endurance'],
       blurbs: {
         both: 'Explosive speed and power — today is about raw pace.',
         sprinter: 'Your signature day — max-effort starts, explosive power, and pure reaction speed.',
         distance: 'A shorter, sharper day to keep top-end speed from going stale.'
       } },
-    { key: 'aerobic', label: 'Aerobic / Distance', goalKeys: ['endurance'],
+    { key: 'aerobic', label: 'Aerobic / Distance', goalKeys: ['endurance', 'technique'],
       blurbs: {
         both: 'Building the aerobic engine with sustained, honest-pace volume.',
         sprinter: 'A shorter aerobic top-up — just enough volume to support the speed work, not replace it.',
         distance: 'Your bread-and-butter day — real volume, honest pace, the engine that wins races.'
       } },
-    { key: 'technique', label: 'Technique / Drills', goalKeys: ['technique'],
+    { key: 'technique', label: 'Technique / Drills', goalKeys: ['technique', 'endurance'],
       blurbs: {
         both: 'Slowing down to fix the stroke — drills and feel-first work.',
         sprinter: 'Technical work aimed at the start, turn and breakout — the moments speed is actually won.',
         distance: 'Efficiency-focused drills — every wasted stroke over a long race adds up.'
       } },
-    { key: 'threshold', label: 'Threshold', goalKeys: ['endurance'],
+    { key: 'threshold', label: 'Threshold', goalKeys: ['endurance', 'speed'],
       blurbs: {
         both: 'Sustained effort right at your aerobic ceiling.',
         sprinter: 'A controlled aerobic day to support recovery between your real speed sessions.',
         distance: 'Race-pace-adjacent volume at your threshold — this is where distance races are won.'
       } },
-    { key: 'race', label: 'Race Pace', goalKeys: ['speed'],
+    { key: 'race', label: 'Race Pace', goalKeys: ['speed', 'endurance'],
       blurbs: {
         both: 'Locking in the exact pace you need to hit on race day.',
         sprinter: 'Explosive race-modeled speed — starts, turns, and the pace you’ll actually race at.',
