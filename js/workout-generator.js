@@ -1035,7 +1035,7 @@
 
   var SPEED_ARCHETYPES = [
     {
-      name: 'Sprint Reps',
+      name: 'Lactate — Sprint Ladder',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var hasFins = equipment.indexOf('Fins') > -1;
         var ladder = paceLadder(pace100);
@@ -1054,7 +1054,7 @@
       ]
     },
     {
-      name: 'Explosive Turns & Starts',
+      name: 'Resist-Power — Turns & Starts',
       build: function (shareM, pace100, scaler, nextStroke) {
         var ladder = paceLadder(pace100);
         var n = roundCountFor(scaler);
@@ -1081,7 +1081,7 @@
       ]
     },
     {
-      name: 'Broken Race-Pace 100s',
+      name: 'Broken — Race-Pace 100s',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var hasFins = equipment.indexOf('Fins') > -1;
         var ladder = paceLadder(pace100);
@@ -1099,7 +1099,7 @@
       ]
     },
     {
-      name: 'Descending Power Ladder',
+      name: 'VO2 Max — Power Ladder',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var hasPaddles = equipment.indexOf('Hand Paddles') > -1;
         var ladder = paceLadder(pace100);
@@ -1127,7 +1127,7 @@
       ]
     },
     {
-      name: 'Race-Pace Band Ladder',
+      name: 'Speed Endurance — Race-Pace Band',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var hasFins = equipment.indexOf('Fins') > -1;
         var n = roundCountFor(scaler);
@@ -1148,7 +1148,7 @@
 
   var ENDURANCE_ARCHETYPES = [
     {
-      name: 'Aerobic Base',
+      name: 'Low Aero — Base',
       build: function (shareM, pace100, scaler, nextStroke, equipment, totalM) {
         var longRep = totalM >= 3000 ? 400 : 200;
         var longTag = longRep >= 400 ? '400 Pace' : '200 Pace';
@@ -1166,7 +1166,7 @@
       ]
     },
     {
-      name: 'Negative-Split Pull',
+      name: 'FR Aero — Negative-Split Pull',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var gear = equipment.filter(function (g) { return g === 'Pull Buoy' || g === 'Hand Paddles'; });
         var g = gear.length ? gear : ['Pull Buoy'];
@@ -1184,7 +1184,7 @@
       ]
     },
     {
-      name: 'Descend Ladder',
+      name: 'Low Aero — Descend Ladder',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1200,7 +1200,7 @@
       ]
     },
     {
-      name: 'Broken Threshold Swim',
+      name: 'Threshold — Broken Swim',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1216,7 +1216,7 @@
       ]
     },
     {
-      name: 'Build-By-Thirds',
+      name: 'Threshold — Build-By-Thirds',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1232,7 +1232,7 @@
       ]
     },
     {
-      name: 'Distance Ladder',
+      name: 'Low Aero — Distance Ladder',
       build: function (shareM, pace100, scaler, nextStroke) {
         // A genuine descending-distance ladder (e.g. 400-300-200-100) rather
         // than the same rep distance repeated more times as volume grows —
@@ -1273,7 +1273,7 @@
   ];
   var TECHNIQUE_ARCHETYPES = [
     {
-      name: 'Drill Focus',
+      name: 'Skill — Drill Focus',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1289,7 +1289,7 @@
       ]
     },
     {
-      name: 'Equipment Strength',
+      name: 'Skill — Equipment Strength',
       build: function (shareM, pace100, scaler, nextStroke, equipment) {
         var gearOptions = equipment.length ? equipment : ['Pull Buoy'];
         // Realistic gear use is one piece at a time, never everything
@@ -1312,7 +1312,7 @@
       ]
     },
     {
-      name: 'Stroke-Count Focus',
+      name: 'Skill — SC Focus',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1328,7 +1328,7 @@
       ]
     },
     {
-      name: 'Catch-Up Drill Progression',
+      name: 'Skill — Catch-Up Progression',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1344,7 +1344,7 @@
       ]
     },
     {
-      name: 'Tempo Awareness Set',
+      name: 'Skill — Tempo Awareness',
       build: function (shareM, pace100, scaler, nextStroke) {
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
@@ -1370,7 +1370,7 @@
   // gradually within its own rounds (e.g. Sprint Reps ramps 200-pace ->
   // 100-pace -> 50-pace) and stays available. The Technique pool is entirely
   // drill-based already and is never filtered.
-  var BEGINNER_EXCLUDED_ARCHETYPES = ['Explosive Turns & Starts', 'Descending Power Ladder', 'Broken Threshold Swim', 'Distance Ladder'];
+  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder'];
 
   // SPRINTER PHYSIOLOGY: a swimmer who set their Swimmer Type (Race Goal
   // card) to Sprinter shouldn't be handed the Endurance pool's long-
@@ -1389,7 +1389,7 @@
   // which is the actual "high-repetition 50s/100s, short rest" adaptation a
   // sprinter's own endurance work should look like, not a rewrite of the
   // pool's own pacing logic.
-  var SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES = ['Aerobic Base', 'Build-By-Thirds', 'Distance Ladder'];
+  var SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES = ['Low Aero — Base', 'Threshold — Build-By-Thirds', 'Low Aero — Distance Ladder'];
 
   // Pre-Set archetypes: the second of four stages in every generated workout
   // (Warm-Up → Pre-Set → Main Set → Cool-Down), always exactly one per
@@ -1813,7 +1813,7 @@
     // available in `pool`, never bypassing the beginner/sprinter filters
     // applied to it above.
     if (raceGoalActive && state.goals.indexOf('speed') > -1 && chosenArchetypes.length) {
-      var raceBandArchetype = pool.filter(function (a) { return a.name === 'Race-Pace Band Ladder'; })[0];
+      var raceBandArchetype = pool.filter(function (a) { return a.name === 'Speed Endurance — Race-Pace Band'; })[0];
       if (raceBandArchetype && chosenArchetypes.indexOf(raceBandArchetype) === -1) {
         chosenArchetypes[chosenArchetypes.length - 1] = raceBandArchetype;
       }
