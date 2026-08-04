@@ -595,6 +595,18 @@
     };
   }
 
+  // RACE-PACE BAND SYSTEM: real elite club programming keys a Main Set's
+  // target pace off a named "band" (P+2/P+1/P/P-1/P-2) relative to the
+  // swimmer's own goal-race pace, tightening the interval AND the target
+  // band together as a set progresses, rather than one flat pace for the
+  // whole block. A fixed ~3s/100m step between bands mirrors the same scale
+  // paceLadder() already uses between its own p50/p100/p200 steps, so this
+  // reads as one consistent pace system rather than a second, unrelated one.
+  function paceBand(pace100, band) {
+    var steps = { p2: 6, p1: 3, p0: 0, m1: -3, m2: -6 };
+    return pace100 + (steps[band] != null ? steps[band] : 0);
+  }
+
   // Open, forgiving time parser for the optional PB fields — accepts "1:05",
   // "65", "1m5s", "1m 5s", or "1 min 5 sec" so the field never feels "strictly
   // restricted" to one exact format.
@@ -1094,6 +1106,24 @@
       },
       intents: [
         'Shortening the distance while moving down the pace ladder — 200 pace, then 100 pace, then 50 pace — teaches your body the exact gear shift a real race demands. Each round keeps those same three honest paces but tightens the rest, so the ladder gets harder without ever asking for an unrealistic single top gear.'
+      ]
+    },
+    {
+      name: 'Race-Pace Band Ladder',
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        var hasFins = equipment.indexOf('Fins') > -1;
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Round 1 — Open the Ladder (Build → P+2)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', build the first half, hold P+2 for the back half — settle in before the ladder tightens', [], paceBand(pace100, 'p2'), 30, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'Round 2 — Hold the Ladder (P+1 → P)' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', tighter send-off now — P+1 opening, your true goal pace (P) closing', hasFins ? ['Fins'] : [], paceBand(pace100, 'p1'), 25, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'Round 3 — Race the Ladder (P → P-1)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', tightest send-off of the set — hold your goal pace, then dip under it (P-1) on the closing reps', [], paceBand(pace100, 'p0'), 20, scaler, 'Race-Pace Band')] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
+      },
+      intents: [
+        'Real race-pace training is keyed to a named pace band, not one flat interval — starting at P+2 and tightening toward P (and past it) round by round is exactly how a personalized target gets handed to you, rather than a generic send-off everyone swims the same.',
+        'The interval gets tighter at the same moment the target pace gets faster — that double squeeze is what actually simulates the closing stages of a race, where the clock and your own effort are both compressing together.'
       ]
     }
   ];
@@ -1754,6 +1784,21 @@
       var biasPool = state.swimmerType === 'sprinter' ? SPEED_ARCHETYPES : ENDURANCE_ARCHETYPES;
       var alreadyBiased = chosenArchetypes.some(function (a) { return biasPool.indexOf(a) > -1; });
       if (!alreadyBiased) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(biasPool);
+    }
+    // RACE-PACE BAND GUARANTEE: a real Target Time (Race Goal) should
+    // visibly change WHAT gets generated, not just quietly tighten the pace/
+    // rest numbers inside whichever archetype the daily rotation happened to
+    // pick. Same "guarantee it's present" principle already used for
+    // swimmerType bias and the Elite Power block above — only fires when
+    // Speed is actually one of the selected goals (so the archetype's own
+    // pool is genuinely in play) and only ever swaps in a candidate already
+    // available in `pool`, never bypassing the beginner/sprinter filters
+    // applied to it above.
+    if (raceGoalActive && state.goals.indexOf('speed') > -1 && chosenArchetypes.length) {
+      var raceBandArchetype = pool.filter(function (a) { return a.name === 'Race-Pace Band Ladder'; })[0];
+      if (raceBandArchetype && chosenArchetypes.indexOf(raceBandArchetype) === -1) {
+        chosenArchetypes[chosenArchetypes.length - 1] = raceBandArchetype;
+      }
     }
     // ELITE ONLY, AND ONLY ON A SPRINT-ORIENTED SESSION: the Elite Power block
     // used to fire for every elite-level swimmer every single day regardless
