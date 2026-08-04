@@ -845,7 +845,7 @@
   // grand total past the swimmer's chosen distance.
   var EZ_RECOVERY_M = 100;
   function ezRecoverySet(pace100) {
-    return { label: 'REC — Flush', sets: [buildSet(2, 50, 'EZ — shake it out, exhale fully, let the heart rate drop before the next hard effort', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
+    return { label: 'REC — Flush', sets: [buildSet(2, 50, 'EZ, shake out', [], pace100 + 22, 10, { intervalMult: 1, restAdd: 0 }, 'Recovery Pace')] };
   }
 
   // Real meters a flat array of built sets (Warm-Up/Cool-Down's own shape) or
@@ -1061,9 +1061,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Controlled Build', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ', controlled — build toward pace, not a sprint yet', [], ladder.p200, 30, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Hold Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ', hold your actual race-modeled pace — no faster', hasFins ? ['Fins'] : [], ladder.p100, 30, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Sharpen to Sprint', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', shorter interval, true sprint effort', [], ladder.p50, 20, scaler, '50 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Controlled Build', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' desc, build to pace', [], ladder.p200, 30, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — Hold Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 30, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Sharpen to Sprint', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' sprint, tight REC', [], ladder.p50, 20, scaler, '50 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1079,9 +1079,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Streamline & Push-Off', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ', controlled — hold a tight streamline off every wall', [], ladder.p200, 35, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Race-Speed Transitions', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ', explosive turn, held at your actual race pace', [], ladder.p100, 30, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Fly-and-Die Sprint', sets: [buildSet(Math.max(2, Math.round(m / 25)), 25, nextStroke() + ', sprint off the wall — no room to coast', [], ladder.p50, 20, scaler, '50 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Streamline & Push-Off', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' OTB streamline', [], ladder.p200, 35, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — Race-Speed Transitions', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' explosive turn @ race pace', [], ladder.p100, 30, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Fly-and-Die Sprint', sets: [buildSet(Math.max(2, Math.round(m / 25)), 25, nextStroke() + ' OTB sprint', [], ladder.p50, 20, scaler, '50 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1107,9 +1107,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Broken 100s, Building', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ', broken into 4x25 @ 8s rest — building toward race pace', [], ladder.p200, 25, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Broken 100s, Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ', broken into 4x25 @ 5s rest — hold your actual race pace', hasFins ? ['Fins'] : [], ladder.p100, 25, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Straight Race-Pace 100', sets: [buildSet(Math.max(1, Math.round(m / 100)), 100, nextStroke() + ', swum straight through at race pace — prove you can hold it unbroken', [], ladder.p100, 40, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Broken 100s, Building', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:8, build', [], ladder.p200, 25, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — Broken 100s, Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:5 @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 25, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Straight Race-Pace 100', sets: [buildSet(Math.max(1, Math.round(m / 100)), 100, nextStroke() + ' straight thru @ race pace', [], ladder.p100, 40, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1128,9 +1128,9 @@
           var reps = Math.max(1, Math.round(m / 150));
           var sets = [];
           for (var i = 0; i < reps; i++) {
-            sets.push(buildSet(1, 75, nextStroke() + ', strong — held at your 200 pace', gear, ladder.p200, Math.round(25 * restMult), scaler, '200 Pace'));
-            sets.push(buildSet(1, 50, nextStroke() + ', faster — held at your 100 pace', gear, ladder.p100, Math.round(25 * restMult), scaler, '100 Pace'));
-            sets.push(buildSet(1, 25, 'all-out — your 50 pace, fastest of the set', [], ladder.p50, Math.round(20 * restMult), scaler, '50 Pace'));
+            sets.push(buildSet(1, 75, nextStroke() + ' @ 200 pace', gear, ladder.p200, Math.round(25 * restMult), scaler, '200 Pace'));
+            sets.push(buildSet(1, 50, nextStroke() + ' @ 100 pace', gear, ladder.p100, Math.round(25 * restMult), scaler, '100 Pace'));
+            sets.push(buildSet(1, 25, 'all-out @ 50 pace', [], ladder.p50, Math.round(20 * restMult), scaler, '50 Pace'));
           }
           return sets;
         }
@@ -1152,9 +1152,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Open the Ladder (Build → P+2)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', build the first half, hold P+2 for the back half — settle in before the ladder tightens', [], paceBand(pace100, 'p2'), 30, scaler, 'Race-Pace Band')] }; },
-          function (m) { return { label: 'Round 2 — Hold the Ladder (P+1 → P)' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', tighter send-off now — P+1 opening, your true goal pace (P) closing', hasFins ? ['Fins'] : [], paceBand(pace100, 'p1'), 25, scaler, 'Race-Pace Band')] }; },
-          function (m) { return { label: 'Round 3 — Race the Ladder (P → P-1)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ', tightest send-off of the set — hold your goal pace, then dip under it (P-1) on the closing reps', [], paceBand(pace100, 'p0'), 20, scaler, 'Race-Pace Band')] }; }
+          function (m) { return { label: 'Round 1 — Open the Ladder (Build → P+2)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' desc, hold P+2', [], paceBand(pace100, 'p2'), 30, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'Round 2 — Hold the Ladder (P+1 → P)' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P+1 → P', hasFins ? ['Fins'] : [], paceBand(pace100, 'p1'), 25, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'Round 3 — Race the Ladder (P → P-1)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P → P-1', [], paceBand(pace100, 'p0'), 20, scaler, 'Race-Pace Band')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1174,9 +1174,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Steady Aerobic Base', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', steady sustainable pace', [], pace100, 20, scaler, longTag)] }; },
-          function (m) { return { label: 'Round 2 — Controlled Tempo', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', same pace, tighter interval than Round 1', [], pace100 - 2, 12, scaler, longTag)] }; },
-          function (m) { return { label: 'Round 3 — Buoy-Assisted Cruise', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ', pull, focus on rhythm not effort', ['Pull Buoy'], pace100 + 2, 20, scaler, 'Cruise Pace')] }; }
+          function (m) { return { label: 'Round 1 — Steady Aerobic Base', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' steady', [], pace100, 20, scaler, longTag)] }; },
+          function (m) { return { label: 'Round 2 — Controlled Tempo', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' same pace, tighter REC', [], pace100 - 2, 12, scaler, longTag)] }; },
+          function (m) { return { label: 'Round 3 — Buoy-Assisted Cruise', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' Pull, rhythm', ['Pull Buoy'], pace100 + 2, 20, scaler, 'Cruise Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1192,9 +1192,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Even Pace Pull', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — even, controlled pace throughout', g, pace100 + 8, 20, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Negative Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — back half faster than front half', g, pace100 + 5, 20, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull — desc 1 through the set', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Even Pace Pull', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, even pace', g, pace100 + 8, 20, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — Negative Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, neg split', g, pace100 + 5, 20, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, desc 1', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1208,9 +1208,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — desc 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc 1-4 — each rep faster than the last', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — desc, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc again — less REC than Round 1', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Best Average Challenge', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', hold your fastest Round 2 pace for every single rep', [], pace100, 10, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 1 — desc 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc 1-4', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 2 — desc, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc, tighter REC', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Best Average Challenge', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' hold best avg', [], pace100, 10, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1224,9 +1224,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Threshold Entry', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', held at threshold effort — controlled but honest', [], pace100 + 5, 15, scaler, 'Threshold Pace')] }; },
-          function (m) { return { label: 'Round 2 — Threshold, Shorter Rest', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', held at threshold effort — half the rest of Round 1', [], pace100 + 3, 8, scaler, 'Threshold Pace')] }; },
-          function (m) { return { label: 'Round 3 — Broken 200 Push', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ', broken into 2x100 @ 10s — push the pace', [], pace100, 20, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Threshold Entry', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold', [], pace100 + 5, 15, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Round 2 — Threshold, Shorter Rest', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold, tighter REC', [], pace100 + 3, 8, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Round 3 — Broken 200 Push', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' Broken 2x100 REC:10', [], pace100, 20, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1240,9 +1240,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — EZ / moderate / strong across the swim', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 2 — Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ', same build pattern — each third starts faster than last round', [], pace100 + 2, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 3 — Race-Effort Final Third', sets: [buildSet(1, dist, nextStroke() + ', build by thirds — final third at race effort', [], pace100, 15, scaler, '200 Pace')] }; }
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ' build x3 (EZ/mod/strong)', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 2 — Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ' build x3, faster baseline', [], pace100 + 2, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 3 — Race-Effort Final Third', sets: [buildSet(1, dist, nextStroke() + ' build x3, final @ race', [], pace100, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1263,8 +1263,8 @@
         var stroke = nextStroke();
         var offsets = [8, 5, 2, -2];
         var sets = rungs.map(function (dist, idx) {
-          var tail = idx === rungs.length - 1 ? 'fastest, shortest rung — empty the tank' : 'hold strong, honest pace';
-          return buildSet(1, dist, stroke + ', ladder rung ' + (idx + 1) + ' of ' + rungs.length + ' — ' + tail, [], pace100 + offsets[idx], 15, scaler, idx === rungs.length - 1 ? '100 Pace' : null);
+          var tail = idx === rungs.length - 1 ? 'fastest rung' : 'hold pace';
+          return buildSet(1, dist, stroke + ' rung ' + (idx + 1) + '/' + rungs.length + ', ' + tail, [], pace100 + offsets[idx], 15, scaler, idx === rungs.length - 1 ? '100 Pace' : null);
         });
         return [{ label: 'Distance Ladder ' + rungs.join('-') + 'm', sets: sets }];
       },
@@ -1297,8 +1297,8 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', technique drill — catch & body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', odd 25 Drill, even 25 MS — hold the drill feel', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Drill, catch/body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' odd 25 Drill, even 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
           function (m) { return { label: 'Round 3 — MS, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
@@ -1321,8 +1321,8 @@
         var shares = splitShareEqual(shareM, n);
         var templates = [
           function (m) { return { label: 'Round 1 — ' + gearRound1 + ' Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound1 + '-assisted pace work', [gearRound1], pace100 + 10, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — ' + gearRound2 + ' Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound2 + '-assisted pace work — faster target', [gearRound2], pace100 + 6, 18, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Gear Off, Transfer Check', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear — transfer the feel built in Rounds 1-2', [], pace100 + 4, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 2 — ' + gearRound2 + ' Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound2 + ' pace work, faster target', [gearRound2], pace100 + 6, 18, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Round 3 — Gear Off, Transfer Check', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear, transfer feel', [], pace100 + 4, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1338,7 +1338,7 @@
         var templates = [
           function (m) { return { label: 'Round 1 — Baseline SC', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', minimum SC per length', [], pace100 + 15, 20, scaler, 'Drill Pace')] }; },
           function (m) { return { label: 'Round 2 — Hold SC, Add Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', same SC as Round 1, faster pace', [], pace100 + 10, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', race pace — see how much your SC rises under speed', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ' @ race pace, track SC', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1352,9 +1352,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Catch-Up, Slow & Exaggerated', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', catch-up drill — full extension before the next arm pulls', [], pace100 + 16, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', first 25 Catch-Up, second 25 MS holding the extension', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — MS, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS — hold the same front-end extension at speed', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Catch-Up, Slow & Exaggerated', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Catch-Up Drill', [], pace100 + 16, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' first 25 Catch-Up, second 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 3 — MS, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, hold extension', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1368,9 +1368,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Slow Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', deliberately slow stroke rate, same effort', [], pace100 + 12, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Fast Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', deliberately fast stroke rate, same effort', [], pace100 + 8, 15, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — Choose Your Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ', pick whichever tempo felt fastest for the same effort', [], pace100 + 4, 12, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Round 1 — Slow Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' slow tempo, same effort', [], pace100 + 12, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 2 — Fast Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' fast tempo, same effort', [], pace100 + 8, 15, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Round 3 — Choose Your Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Cho tempo', [], pace100 + 4, 12, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1429,7 +1429,7 @@
         var ladder = paceLadder(pace100);
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ' desc 1-4, EZ to fast — accelerate into the wall, fastest 5m of every rep is the last 5m', [], ladder.p50 + 4, 25, scaler, '50 Pace')];
+        var sets = [buildSet(reps, 25, stroke + ' desc 1-4, EZ to fast', [], ladder.p50 + 4, 25, scaler, '50 Pace')];
         return [{ label: 'CNS Activation — 25s Build', sets: sets }];
       },
       intents: [
@@ -1441,7 +1441,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(3, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ' desc 1-3 to Z4 — lift the heart rate step by step so the first Main Set rep isn\'t a cold-start shock', [], pace100 + 2, 20, scaler, '100 Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' desc 1-3 to Z4', [], pace100 + 2, 20, scaler, '100 Pace')];
         return [{ label: 'HR Lift — desc 50s', sets: sets }];
       },
       intents: [
@@ -1453,7 +1453,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ' — 6-8 UWK off the wall, then break out and swim the length — count your kicks, hold a tight streamline', [], pace100 + 6, 20, scaler, 'Drill Pace')];
+        var sets = [buildSet(reps, 25, stroke + ' 6-8 UWK off wall', [], pace100 + 6, 20, scaler, 'Drill Pace')];
         return [{ label: 'UWK — Off Every Wall', sets: sets }];
       },
       intents: [
@@ -1465,7 +1465,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ' — fast approach into the wall, explosive turn, tight streamline, then a strong breakout — the middle 25 is about the wall, not the swim', [], pace100 + 4, 25, scaler, '100 Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' fast turn, strong breakout', [], pace100 + 4, 25, scaler, '100 Pace')];
         return [{ label: 'Turns — Fast In, Fast Out', sets: sets }];
       },
       intents: [
@@ -1478,7 +1478,7 @@
         var ladder = paceLadder(pace100);
         var reps = Math.max(4, Math.round(shareM / 25));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 25, stroke + ' OTB explosive — max first 10-15m off the wall, then hold form to the flags; full REC between reps', [], ladder.p50, 35, scaler, '50 Pace')];
+        var sets = [buildSet(reps, 25, stroke + ' OTB explosive, full REC', [], ladder.p50, 35, scaler, '50 Pace')];
         return [{ label: 'OTB Power — Explosive 15s', sets: sets }];
       },
       intents: [
@@ -1490,7 +1490,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ' — 25 EZ/long, 25 fast turnover at the same SC — feel the tempo shift the Main Set will need', [], pace100 + 2, 20, scaler, '100 Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' 25 EZ/long, 25 fast turnover', [], pace100 + 2, 20, scaler, '100 Pace')];
         return [{ label: 'Tempo Switch — 25 EZ / 25 Fast', sets: sets }];
       },
       intents: [
@@ -1511,7 +1511,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(2, Math.round(shareM / 100));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 100, stroke + ' steady, controlled — settle into a rhythm, no build, just open the aerobic engine', [], pace100 + 8, 15, scaler, 'Cruise Pace')];
+        var sets = [buildSet(reps, 100, stroke + ' steady, no build', [], pace100 + 8, 15, scaler, 'Cruise Pace')];
         return [{ label: 'Aerobic Lead-In — Steady 100s', sets: sets }];
       },
       intents: [
@@ -1523,7 +1523,7 @@
       build: function (shareM, pace100, scaler, nextStroke) {
         var reps = Math.max(4, Math.round(shareM / 50));
         var stroke = nextStroke();
-        var sets = [buildSet(reps, 50, stroke + ' Cho Drill, slow — one technical focus per length, minimum splash, feel the water on every stroke', [], pace100 + 12, 20, scaler, 'Drill Pace')];
+        var sets = [buildSet(reps, 50, stroke + ' Cho Drill, slow', [], pace100 + 12, 20, scaler, 'Drill Pace')];
         return [{ label: 'Feel Primer — Slow & Deliberate', sets: sets }];
       },
       intents: [
@@ -1708,7 +1708,7 @@
         buildSet(warmupKickReps, 50, pickOneNoRepeat(WARMUP_KICK_POOL, priorDayRng), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
       ];
       if (state.level !== 'beginner') {
-        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ' OTB desc 1-4 — explosive push-off, fast breakout, rising effort each 25', [], pace100 - 2, 15, noScale, '200 Pace'));
+        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ' OTB desc 1-4', [], pace100 - 2, 15, noScale, '200 Pace'));
       }
       return [{ label: null, sets: sets }];
     }, warmupM)[0].sets;
@@ -1900,7 +1900,7 @@
       if (addSprintBridgeHere) {
         var bridgeLadder = paceLadder(pace100);
         var bridgeReps = Math.max(2, Math.round(TECH_SPRINT_BRIDGE_M / 25));
-        rounds = rounds.concat([{ label: 'Technique-to-Speed Bridge', sets: [buildSet(bridgeReps, 25, blockStroke + ', one quick high-tempo burst — same clean technique, just faster turnover; hold the catch and rotation you just built', [], bridgeLadder.p50, 20, workScaler, '50 Pace')] }]);
+        rounds = rounds.concat([{ label: 'Technique-to-Speed Bridge', sets: [buildSet(bridgeReps, 25, blockStroke + ' high-tempo burst, same technique', [], bridgeLadder.p50, 20, workScaler, '50 Pace')] }]);
         addedTechniqueSprintBridge = true;
       }
       return {
@@ -1932,9 +1932,9 @@
       var breakoutReps = Math.max(2, Math.round(eliteShares[2] / 50));
       var elitePowerRounds = buildToShare(function () {
         return [
-          { label: 'UWK Speed', sets: [buildSet(uwReps, 25, 'Max 15m UWK off the wall — count kicks, hold a rocket streamline, break out clean and finish EZ', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, workScaler, '50 Pace')] },
-          { label: 'OTB Reaction Power', sets: [buildSet(startReps, 25, 'Explosive push-start OTB — react and drive the first 3 strokes at absolute max, full speed to the flags, then shut it down', [], eliteLadder.p50, 25, workScaler, '50 Pace')] },
-          { label: 'Power Breakouts', sets: [buildSet(breakoutReps, 50, 'Fast approach into the wall, explosive turn, powerful UWK breakout, hold that speed all the way to the far wall', [], eliteLadder.p100, 20, workScaler, '100 Pace')] }
+          { label: 'UWK Speed', sets: [buildSet(uwReps, 25, 'Max 15m UWK off wall, rocket streamline', eliteFins ? ['Fins'] : [], eliteLadder.p50, 15, workScaler, '50 Pace')] },
+          { label: 'OTB Reaction Power', sets: [buildSet(startReps, 25, 'OTB explosive, max first 3 strokes', [], eliteLadder.p50, 25, workScaler, '50 Pace')] },
+          { label: 'Power Breakouts', sets: [buildSet(breakoutReps, 50, 'Fast turn, powerful UWK breakout', [], eliteLadder.p100, 20, workScaler, '100 Pace')] }
         ];
       }, eliteContentM);
       // Same integrated active-recovery principle as the Main Set's own
@@ -1957,9 +1957,9 @@
     var cdParts = splitProportional(cooldownBudgetM, [0.5, 0.3, 0.2]);
     var cdStroke1 = nextStroke();
     var cooldown = [
-      buildSet(1, cdParts[0], cdStroke1 + ' EZ — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[1], 'BK EZ — loosen the shoulders, steady 3-stroke breathing rhythm', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[2], 'EZ Kick — relaxed kick only, let your heart rate fully settle before you exit', [], pace100 + 28, 10, noScale, 'Recovery Pace')
+      buildSet(1, cdParts[0], cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
+      buildSet(1, cdParts[1], 'BK EZ, loosen shoulders', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
+      buildSet(1, cdParts[2], 'EZ Kick, settle HR', [], pace100 + 28, 10, noScale, 'Recovery Pace')
     ];
     // Final reconciliation nudge: splitProportional's own 50m-snapping across
     // 3 parts can leave a small residual even against an exact budget —
@@ -1970,7 +1970,7 @@
     var totalResidualM = totalM - grandTotalM;
     if (Math.abs(totalResidualM) > 50) {
       var adjustedCd0 = Math.max(50, Math.round((cdParts[0] + totalResidualM) / 50) * 50);
-      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ' EZ — long-axis rotation, full exhale underwater on every stroke', [], pace100 + 20, 10, noScale, 'Recovery Pace');
+      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace');
       grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     }
 
@@ -2220,43 +2220,52 @@
         sprint: {
           beginner: [
             { name: 'Squat Jumps', prescription: '3 x 6', cue: 'Full reset between reps — grooves the vertical pop behind a block start before adding any bounce-tempo.' },
-            { name: 'Broad Jumps', prescription: '3 x 5', cue: 'Stick every landing — the same horizontal drive as an explosive dive off the blocks.' }
+            { name: 'Broad Jumps', prescription: '3 x 5', cue: 'Stick every landing — the same horizontal drive as an explosive dive off the blocks.' },
+            { name: 'Pogo Jumps (Low Amplitude)', prescription: '3 x 15s', cue: 'Quick, stiff-ankled bounces, minimal knee bend — teaches fast ground contact before adding real jump height.' }
           ],
           competitive: [
             { name: 'Box Step-Off Depth Jumps', prescription: '4 x 5', cue: 'Step off a low box, land, and rebound immediately — teaches the ground-contact speed a real start demands.' },
-            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Chain jumps with a short reset — raw horizontal power for the start.' }
+            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Chain jumps with a short reset — raw horizontal power for the start.' },
+            { name: 'Countermovement Jumps', prescription: '4 x 5', cue: 'Full arm swing and a quick dip before driving up — the classic power-jump, a stepping stone toward true depth jumps.' }
           ],
           elite: [
             { name: 'Depth Jumps (45cm Box)', prescription: '5 x 5', cue: 'Minimal ground contact time on landing — the highest-CNS drill for start and turn explosiveness; always full recovery between reps.' },
-            { name: 'Single-Leg Bounds', prescription: '4 x 6 / side', cue: 'Single-leg landing and re-drive — builds the asymmetric push-off power used on a one-footed turn wall contact.' }
+            { name: 'Single-Leg Bounds', prescription: '4 x 6 / side', cue: 'Single-leg landing and re-drive — builds the asymmetric push-off power used on a one-footed turn wall contact.' },
+            { name: 'Alternate-Leg Bounding', prescription: '4 x 20m', cue: 'Maximal single-leg drive, alternating — full sprint-mechanics bounding at true race intensity.' }
           ]
         },
         distance: {
           beginner: [
             { name: 'Squat Jumps', prescription: '3 x 10', cue: 'Higher rep, moderate intensity — builds repeatable explosive endurance for the 15th turn, not just the 1st.' },
-            { name: 'Step-Up Drives', prescription: '3 x 10 / side', cue: 'Drive off the top leg hard — sustained power output that doesn’t fade late in a race.' }
+            { name: 'Step-Up Drives', prescription: '3 x 10 / side', cue: 'Drive off the top leg hard — sustained power output that doesn’t fade late in a race.' },
+            { name: 'Jump Rope — Endurance Bounce', prescription: '3 x 30s', cue: 'Light, continuous bounce — builds repeatable ground-contact rhythm without the impact of a true jump.' }
           ],
           competitive: [
             { name: 'Continuous Broad Jumps', prescription: '4 x 8', cue: 'Jump-to-jump with no reset — trains explosive power that holds up across many consecutive turns.' },
-            { name: 'Lateral Bounds', prescription: '4 x 8 / side', cue: 'Side-to-side stick-and-go — builds the repeatable push-off control a long race demands turn after turn.' }
+            { name: 'Lateral Bounds', prescription: '4 x 8 / side', cue: 'Side-to-side stick-and-go — builds the repeatable push-off control a long race demands turn after turn.' },
+            { name: 'Continuous Lateral Bounds', prescription: '4 x 10 / side', cue: 'Side-to-side with no reset between reps — trains the repeatable push-off control a long race demands turn after turn.' }
           ],
           elite: [
             { name: 'Continuous Depth Jumps', prescription: '4 x 10', cue: 'Minimal pause between landings — the highest-volume reactive-strength drill, for turn power that never fades late in a race.' },
-            { name: 'Single-Leg Box Jumps', prescription: '4 x 8 / side', cue: 'Repeated single-leg power output — the asymmetric-turn equivalent of distance-swim pacing.' }
+            { name: 'Single-Leg Box Jumps', prescription: '4 x 8 / side', cue: 'Repeated single-leg power output — the asymmetric-turn equivalent of distance-swim pacing.' },
+            { name: 'Bounding for Distance', prescription: '4 x 30m', cue: 'Continuous exaggerated running bounds — the highest-volume reactive-strength drill for turn power that never fades late in a race.' }
           ]
         },
         balanced: {
           beginner: [
             { name: 'Squat Jumps', prescription: '3 x 6', cue: 'General explosive leg power — the foundation under every start and turn.' },
-            { name: 'Lateral Bounds', prescription: '3 x 6 / side', cue: 'Side-to-side power and control for a stable, strong wall push-off.' }
+            { name: 'Lateral Bounds', prescription: '3 x 6 / side', cue: 'Side-to-side power and control for a stable, strong wall push-off.' },
+            { name: 'Jump Rope — Basic Bounce', prescription: '3 x 30s', cue: 'General rhythm and ground-contact work — the foundation every jump-based drill builds on.' }
           ],
           competitive: [
             { name: 'Box Jumps', prescription: '4 x 6', cue: 'Full-extension vertical power — carries directly into a stronger dive and turn push-off.' },
-            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Horizontal drive — general-purpose start and turn power.' }
+            { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Horizontal drive — general-purpose start and turn power.' },
+            { name: 'Tuck Jumps', prescription: '4 x 6', cue: 'Knees to chest at the top of each jump — general-purpose explosive leg power with an added core/hip-flexor demand.' }
           ],
           elite: [
             { name: 'Depth Jumps', prescription: '4 x 6', cue: 'Reactive strength that transfers directly to both the start and every wall turn.' },
-            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive rotational power — the same torque that snaps a flip-turn around fast.' }
+            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive rotational power — the same torque that snaps a flip-turn around fast.' },
+            { name: '180° Jump Turns', prescription: '4 x 6', cue: 'Full rotation mid-air, stick the landing — reactive strength plus the rotational control a fast flip-turn needs.' }
           ]
         }
       },
@@ -2630,7 +2639,19 @@
     'Single-Leg Bounds': 'lunge',
     'Step-Up Drives': 'lunge',
     'Continuous Broad Jumps': 'broadjump',
-    'Standing Calf Stretch': 'calfstretch'
+    'Standing Calf Stretch': 'calfstretch',
+    // Second round of Plyometrics additions (one extra exercise per
+    // orientation/level leaf) — same disclosed generic-fallback trade-off as
+    // above for anything with no clean match (e.g. the two Jump Rope
+    // variants and Pogo Jumps reuse 'jumprope'/generic rather than new SVGs).
+    'Countermovement Jumps': 'boxjump',
+    'Tuck Jumps': 'boxjump',
+    '180° Jump Turns': 'boxjump',
+    'Alternate-Leg Bounding': 'lunge',
+    'Continuous Lateral Bounds': 'lunge',
+    'Bounding for Distance': 'lunge',
+    'Jump Rope — Endurance Bounce': 'jumprope',
+    'Jump Rope — Basic Bounce': 'jumprope'
   };
 
   function renderGymAnim(exerciseName) {
