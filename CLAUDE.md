@@ -5440,3 +5440,38 @@ every blueprint in isolation, the rendered DOM and PDF-export text extraction bo
 multi-round Warm-Up shapes correctly (the PDF reader already walked `.round-label`/`.set-row` via
 a combined query from an earlier round, so it needed no changes), and the full regression suite
 (all 9 tabs, a real PDF `download` event, zero page errors) passes unchanged.
+
+**Warm-Up/Pre-Set rotation was changed from per-click to a real 12-hour UAE-time window, and 15
+real Abu Dhabi Aquatics Club training sessions were transcribed into a new local reference file.**
+The Warm-Up blueprint and Pre-Set archetype (see the two entries directly above) previously
+reshuffled on every single Generate click via real `Math.random()` — per direct request, both now
+stay FIXED across every click for a genuine 12-hour window on UAE clock time (boundaries at UAE
+00:00 and 12:00 noon, the same instant for every swimmer worldwide), then rotate together
+automatically at the next boundary. A new `halfDaySeed()`/`halfDayRng` (seeded from
+`halfDaySeed()`, reseeded at the top of every `generateWorkout()` call — a second, independent
+cycle alongside the existing 24-hour `dailySeed()`/`workoutRng` used for Main Set/Cool-Down)
+replaces the old per-click `pickOneFresh()` at both call sites, and at the Classic Build
+blueprint's own drill/kick label picks too, so the *entire* Warm-Up — structure and label text
+alike — now changes on this same schedule rather than partially. `pickOneFresh()` itself is now
+fully unused and was deleted outright. Verified via Playwright: 5 consecutive Generate clicks at a
+fixed real time produce an identical Warm-Up blueprint and Pre-Set archetype every time; stepping
+across a real UAE 12:00-noon boundary changes both together, and stepping back within the same
+window (or crossing to the next day's matching window) correctly holds/reverts.
+
+Separately, the user uploaded 16 real scanned training documents (15 unique sessions plus one
+duplicate) from **Abu Dhabi Aquatics Club, Mesocycle 1: Aerobic Development, Weeks 3-5, authored
+by Coach Sherif Zakaria** — real elite club programming, not from any external source. These were
+transcribed faithfully (by direct visual reading, not network fetch) into a new
+`js/abu-dhabi-aquatics-database.js`: `window.ADAC_SESSIONS` (15 sessions, each with its
+Week/Day/focus/total-meters and every real W-UP/SET/MAIN SET/WD block's literal distances, reps,
+send-offs, and the coach's own shorthand kept verbatim) plus `window.ADAC_GLOSSARY` decoding that
+shorthand (Cho, MS, BE3/5/7/9, P200/P400, RIM/RIMO, OTB, UWK, SL, SC, SWOLF, G1/G2, etc.). This
+file is loaded (`index.html`, right after `js/swiml-database.js`) but is **not yet wired into
+`generateWorkout()`** — per the explicit ask, it exists purely as a saved local reference library
+("so you can go back and take the ideas or patterns"), the same real-provenance-first precedent
+the swiML integration already established, just not yet feeding any live archetype. Wiring
+specific real blocks from these sessions into the generator (mirroring how
+`SWIML_MAIN_SET_ARCHETYPES`/`SWIML_WARMUP_BLUEPRINTS` were built from the swiML sessions) is a
+natural next step if requested, not attempted here. Verified via Playwright: `ADAC_SESSIONS`/
+`ADAC_GLOSSARY` load correctly (15 sessions, first id `W5D5`), and the full existing regression
+suite (all 9 tabs, a real PDF `download` event, zero page errors) passes unchanged.

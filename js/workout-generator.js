@@ -19,6 +19,19 @@
   function dailySeed() { return dailySeedForDate(new Date()); }
   function weekIndex() { return Math.floor(dayIndex() / 7); }
 
+  // HALF-DAY (12-HOUR) ROTATION — a second, separate boundary from the daily
+  // one above, specifically for the Warm-Up blueprint and Pre-Set archetype:
+  // both used to reshuffle on every single Generate click (real Math.random());
+  // per direct request, they now stay FIXED for a real 12-hour window on UAE
+  // clock time (boundaries at UAE 00:00 and 12:00 noon, the same instant for
+  // every swimmer worldwide, not each visitor's own local clock), then rotate
+  // automatically — same "fixed for a while, then changes on its own" pattern
+  // as the daily rotation above, just on a 12-hour cycle instead of 24.
+  var HALF_DAY_MS = 12 * 60 * 60 * 1000;
+  var UAE_UTC_OFFSET_MS = 4 * 60 * 60 * 1000; // UAE = UTC+4 year-round, no DST
+  function halfDaySeedForDate(d) { return Math.floor((d.getTime() + UAE_UTC_OFFSET_MS) / HALF_DAY_MS); }
+  function halfDaySeed() { return halfDaySeedForDate(new Date()); }
+
   // Deterministic PRNG (mulberry32) so a workout generated today always comes
   // out the same for a given set of picks — refreshing automatically at
   // midnight — instead of reshuffling on every single click of Generate.
@@ -36,6 +49,11 @@
     };
   }
   var workoutRng = Math.random;
+  // Reseeded from halfDaySeed() at the top of every generateWorkout() call —
+  // drives ONLY the Warm-Up blueprint and Pre-Set archetype picks, so those
+  // two stay stable across every Generate click for a real 12-hour UAE-time
+  // window, then both rotate together at the next boundary.
+  var halfDayRng = Math.random;
 
   // Labels renamed to match the Weekly Training Schedule's own day
   // terminology directly (Sprint/Power, Aerobic/Distance, Technique/Drills
@@ -1054,13 +1072,6 @@
   // the no-repeat-vs-yesterday check in generateWorkout(), without disturbing
   // today's own real pick sequence.
   function pickOneFrom(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
-  // Genuinely fresh per click — reads the real Math.random(), never
-  // workoutRng (which is deliberately reseeded from the calendar day so the
-  // rest of the workout — Main Set, Cool-Down — stays stable across
-  // regenerates within the same day). Warm-Up and Pre-Set are the two stages
-  // explicitly meant to reshuffle on every single Generate click instead of
-  // waiting for the daily rotation.
-  function pickOneFresh(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   // Draws today's real pick, simulates what the exact same call site would
   // have drawn yesterday (via a separate throwaway RNG seeded from
   // yesterday's date), and re-rolls once if they collide — the same
@@ -1154,10 +1165,10 @@
   // already uses, returning [{label, sets}, ...] rounds that
   // generateWorkout() runs through buildToShare() exactly like every other
   // stage — so distance accuracy holds for whichever blueprint gets picked.
-  // A blueprint is chosen completely fresh (pickOneFresh — real
-  // Math.random(), no daily lock) on every single Generate click, so two
-  // clicks in a row can produce two structurally different warm-ups, not
-  // just two different drill labels on the same shape.
+  // A blueprint is chosen from halfDayRng — fixed across every Generate
+  // click for a real 12-hour UAE-time window, then rotating automatically at
+  // the next boundary — so the Warm-Up's actual STRUCTURE, not just its
+  // drill/kick label text, changes on that schedule rather than every click.
   var WARMUP_BLUEPRINTS = [
     {
       name: 'Classic Build',
@@ -1171,8 +1182,8 @@
         openerSet.stroke = 'Freestyle';
         var sets = [
           openerSet,
-          buildSet(drillReps, 50, pickOneFresh(WARMUP_DRILL_POOL), hasFins ? ['Fins'] : [], pace100 + 10, 15, scaler, 'Easy Pace'),
-          buildSet(kickReps, 50, pickOneFresh(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, scaler, 'Kick')
+          buildSet(drillReps, 50, pickOneFrom(halfDayRng, WARMUP_DRILL_POOL), hasFins ? ['Fins'] : [], pace100 + 10, 15, scaler, 'Easy Pace'),
+          buildSet(kickReps, 50, pickOneFrom(halfDayRng, WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, scaler, 'Kick')
         ];
         if (state.level !== 'beginner') {
           var buildStroke = nextStroke();
@@ -1763,6 +1774,7 @@
     // the swimmer's workout automatically rotates at midnight rather than
     // reshuffling on every click of Generate.
     workoutRng = makeSeededRandom(dailySeed());
+    halfDayRng = makeSeededRandom(halfDaySeed());
     // A separate, throwaway RNG seeded with yesterday's date, used only to
     // simulate "what would today's current settings have produced yesterday"
     // for the Pre-Set and first Main Set archetype — so a swimmer generating
@@ -1887,33 +1899,33 @@
 
     // DYNAMIC STRUCTURAL BLUEPRINTING: the Warm-Up no longer always renders
     // the same fixed opener/drill/kick/build skeleton — a genuinely
-    // different STRUCTURE (WARMUP_BLUEPRINTS, above) is picked completely
-    // fresh on every Generate click (pickOneFresh — real Math.random(), no
-    // daily lock, matching the Pre-Set's own per-click freshness), and that
+    // different STRUCTURE (WARMUP_BLUEPRINTS, above) is picked, and that
     // blueprint's own build() decides how many blocks the Warm-Up has, what
     // order they're in, and how their rep/distance/rest relate to each other
     // — a pyramid, an IM-order kick/drill rotation, a broken no-stop pair, or
     // a long-swim-plus-ladder shape all look structurally nothing alike, not
-    // just differently-labeled versions of the same three lines. Every
-    // blueprint is still run through buildToShare() against warmupM, so
-    // whichever one gets picked still respects the swimmer's chosen distance
-    // exactly like every other stage.
-    var warmupBlueprint = pickOneFresh(WARMUP_BLUEPRINTS);
+    // just differently-labeled versions of the same three lines. The pick
+    // itself comes from halfDayRng (seeded from halfDaySeed(), reseeded at
+    // the top of this function) rather than per-click Math.random() — this
+    // stays FIXED across every Generate click for a real 12-hour UAE-time
+    // window, then rotates on its own at the next boundary, per direct
+    // request. Every blueprint is still run through buildToShare() against
+    // warmupM, so whichever one gets picked still respects the swimmer's
+    // chosen distance exactly like every other stage.
+    var warmupBlueprint = pickOneFrom(halfDayRng, WARMUP_BLUEPRINTS);
     var warmupRounds = buildToShare(function () {
       return warmupBlueprint.build(warmupM, pace100, noScale, nextStroke, state.equipment);
     }, warmupM);
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
-    // second of this generator's four fixed stages. Picked fresh on every
-    // Generate click (pickOneFresh, real Math.random()) rather than the
-    // day-stable workoutRng — a swimmer regenerating twice in the same
-    // session should see genuinely different activation work, not the same
-    // pick until midnight. No "avoid yesterday's pick" check here anymore
-    // either: with no daily lock, there's no longer a stable "yesterday" to
-    // compare against — a swimmer can already just click Generate again to
-    // get something different this instant.
-    var presetArchetype = pickOneFresh(PRESET_ARCHETYPES);
+    // second of this generator's four fixed stages. Drawn from the same
+    // halfDayRng as the Warm-Up blueprint just above, so both stay fixed
+    // together across every Generate click for the same 12-hour UAE-time
+    // window and both rotate together at the next boundary — not the
+    // day-stable workoutRng (a full 24h cycle) and not per-click
+    // Math.random() (reshuffling on every single click) either.
+    var presetArchetype = pickOneFrom(halfDayRng, PRESET_ARCHETYPES);
     // Pre-Set is locked to one stroke for the whole activation block.
     var presetStroke = nextBlockStroke();
     var preset = {
