@@ -789,14 +789,42 @@
     return STROKE_ABBREV[discipline] || discipline;
   }
 
-  // Cycles through every selected discipline in turn, so a multi-discipline
-  // pick (e.g. Freestyle + Butterfly) alternates naturally set-to-set instead
-  // of collapsing into one blended label. With a single discipline selected
-  // this simply returns the same stroke every time (mod 1).
-  function makeStrokeRotator(disciplines) {
-    var i = 0;
+  // PROFILE-DRIVEN STROKE DISTRIBUTION: disciplines[0] is the swimmer's Top
+  // Stroke (first-selected in the chip group), disciplines[1+] are secondary
+  // strokes. Rather than a flat round-robin (which gives every selected
+  // stroke identical weight regardless of which one the swimmer actually
+  // leads with), the rotation cycles a weighted PATTERN that repeats the Top
+  // Stroke roughly twice as often as any single secondary stroke — e.g. two
+  // disciplines [Freestyle, Backstroke] rotate FR/BK/FR/FR/BK/FR/... (Top
+  // Stroke ~67% of picks), three disciplines spread the remaining weight
+  // evenly across the other two. A single selected discipline is unaffected
+  // (pattern of length 1). This is what actually makes "weekly distribution"
+  // profile-driven instead of an arbitrary alternation.
+  function buildStrokePattern(disciplines) {
+    if (disciplines.length <= 1) { return disciplines.slice(); }
+    var primary = disciplines[0];
+    var rest = disciplines.slice(1);
+    var pattern = [];
+    rest.forEach(function (s) { pattern.push(primary, s); });
+    pattern.push(primary);
+    return pattern;
+  }
+  // startOffset carries the weighted pattern forward across days (seeded
+  // from dayIndex() at the call site below) instead of restarting at index 0
+  // — i.e. Top Stroke — every single day. A typical day only draws 1-3 picks
+  // from a given rotator (one per Main Set block), which isn't enough calls
+  // within one day to ever reach the pattern's extra Top-Stroke slot — so
+  // resetting daily was silently defeating the weighting for exactly the
+  // common case (1-2 block days), and is what made the profile-driven skew
+  // disappear in practice despite the pattern itself being correctly biased.
+  // Treating the pattern as one continuous, never-resetting cycle sampled at
+  // a day-relative offset is what actually makes Top Stroke dominate over a
+  // real week, not just a single unusually long session.
+  function makeStrokeRotator(disciplines, startOffset) {
+    var pattern = buildStrokePattern(disciplines);
+    var i = startOffset ? (startOffset % pattern.length) : 0;
     var rotator = function () {
-      var full = disciplines[i % disciplines.length];
+      var full = pattern[i % pattern.length];
       rotator.current = full;
       var s = strokeAbbrev(full);
       i++;
@@ -1040,6 +1068,19 @@
     if (pick === priorPick) pick = pickOne(pool.filter(function (x) { return x !== priorPick; }));
     return pick;
   }
+
+  // A "check N days back, not just 1" extension of pickOneNoRepeat was
+  // attempted for the Warm-Up's drill/kick pools (three escalating designs:
+  // naive-vs-decorated comparison, a depth-bounded recursive resolver, and
+  // an anchor-fixed recursive resolver) and rejected — each was caught by a
+  // dedicated Playwright test producing real multi-day identical-pick runs,
+  // traced to the same root cause: any day whose own pick required a
+  // tie-break can't have that tie-break reliably reconstructed by a LATER
+  // day's independent re-derivation, so a from-scratch, no-persisted-history
+  // exclusion check beyond 1 day back is not reliably correct with this
+  // small a pool (5-6 items) and this codebase's existing seeded-RNG
+  // machinery. pickOneNoRepeat's existing 1-day check (below) doesn't hit
+  // this failure mode and is what both pool picks use.
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
   // circuit from — seeded per day (see workoutRng above) so the shape is
@@ -1664,7 +1705,15 @@
     var beginnerCapApplied = false;
     if (state.level === 'beginner' && totalM > 3000) { totalM = 3000; beginnerCapApplied = true; }
 
-    var nextStroke = makeStrokeRotator(state.disciplines);
+    // Both rotators below are seeded from dayIndex() (not 0) so the weighted
+    // Top-Stroke-favoring pattern keeps advancing across days instead of
+    // resetting to "Top Stroke first" every single day — a session usually
+    // only draws 1-3 picks per rotator, nowhere near enough within one day to
+    // reach the pattern's extra Top-Stroke slot, so a daily reset was quietly
+    // erasing the weighting for exactly the common case. The two rotators use
+    // different offsets so they don't move in lockstep day to day.
+    var strokeDayOffset = dayIndex();
+    var nextStroke = makeStrokeRotator(state.disciplines, strokeDayOffset);
     // CLEAN SET ISOLATION: the Pre-Set and each Main Set block are each locked
     // to ONE stroke for the whole block, rather than letting nextStroke()
     // advance rep-to-rep inside a single set — a Fly set is 100% Fly, a Back
@@ -1676,7 +1725,7 @@
     // and Cool-Down keep the free-rotating nextStroke() — easy choice work
     // across strokes is standard there and isn't the "random mixing" the
     // isolation rule targets.
-    var nextBlockStroke = makeStrokeRotator(state.disciplines);
+    var nextBlockStroke = makeStrokeRotator(state.disciplines, strokeDayOffset + 1);
     function fixedStrokeFn(strokeLabel) { return function () { return strokeLabel; }; }
     var disciplinesLabel = state.disciplines.map(strokeLabelSingle).join(' + ');
     // STRICT DISTANCE ACCURACY: Warm-Up and Pre-Set get their usual fixed
@@ -1777,6 +1826,18 @@
       focus: 'Activation',
       rounds: buildToShare(function () { return presetArchetype.build(presetM, pace100, workScaler, fixedStrokeFn(presetStroke)); }, presetM)
     };
+    // HIGH-INTENSITY STRICTLY INSIDE MAIN SET: a couple of Pre-Set archetypes
+    // (Speed-Build Activation, Start & Reaction Power) use short, fully-
+    // recovered reps fast enough to tag '50 Pace' — which zoneFromPaceTag
+    // would otherwise read as 'max', the same zone true Main Set race-effort
+    // work carries. Full recovery between a handful of 15-25m reps is not the
+    // same physiological demand as sustained max-effort Main Set work, so the
+    // schema relabels it 'activation' — a distinct zone from 'max'/'racePace'
+    // — without changing a single rep, distance, or pace number. 'max' and
+    // 'racePace' now only ever appear inside a Main Set block.
+    preset.rounds.forEach(function (r) {
+      (r.sets || []).forEach(function (s) { if (s.zone === 'max') { s.zone = 'activation'; } });
+    });
 
     // Multiple selected goals combine their archetype pools into one bigger
     // candidate set (deduplicated) rather than picking just one goal's pool —
