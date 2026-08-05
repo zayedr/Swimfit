@@ -1137,6 +1137,15 @@
     'Kick — BR whip-kick isolation, narrow and snappy, no glide skipped',
     'Kick — vertical kick treading position for 10s, then 40m EZ flutter'
   ];
+  // js/swiml-database.js (loaded before this file — see index.html) hardcodes
+  // real drill/kick phrases transcribed verbatim from actual swiML XML swim
+  // sessions (github.com/bartneck/swiML). Splicing them onto these two pools
+  // means a Warm-Up's drill/kick line is genuine real-coach vocabulary some of
+  // the time, not exclusively this file's own invented phrasing — a no-op if
+  // that file somehow isn't loaded (WARMUP_DRILL_POOL/WARMUP_KICK_POOL simply
+  // keep their original 5-6 entries).
+  if (window.SWIML_WARMUP_DRILL_PHRASES) { WARMUP_DRILL_POOL = WARMUP_DRILL_POOL.concat(window.SWIML_WARMUP_DRILL_PHRASES); }
+  if (window.SWIML_WARMUP_KICK_PHRASES) { WARMUP_KICK_POOL = WARMUP_KICK_POOL.concat(window.SWIML_WARMUP_KICK_PHRASES); }
 
   var SPEED_ARCHETYPES = [
     {
@@ -1250,6 +1259,16 @@
       ]
     }
   ];
+  // js/swiml-database.js hardcodes real Main Set shapes transcribed verbatim
+  // from real swiML swim sessions (see that file's own header for full
+  // provenance/scope notes) — spliced in here so a genuine real-coach-
+  // authored set can be picked alongside this file's own invented archetypes,
+  // scaled through the exact same buildToShare()/pace-personalization
+  // machinery every other archetype already uses. No-op if that file isn't
+  // loaded.
+  if (window.SWIML_MAIN_SET_ARCHETYPES && window.SWIML_MAIN_SET_ARCHETYPES.speed) {
+    SPEED_ARCHETYPES = SPEED_ARCHETYPES.concat(window.SWIML_MAIN_SET_ARCHETYPES.speed);
+  }
 
   var ENDURANCE_ARCHETYPES = [
     {
@@ -1359,6 +1378,11 @@
       ]
     }
   ];
+  // See the matching SPEED_ARCHETYPES splice above — same real-swiML-data
+  // integration, endurance side.
+  if (window.SWIML_MAIN_SET_ARCHETYPES && window.SWIML_MAIN_SET_ARCHETYPES.endurance) {
+    ENDURANCE_ARCHETYPES = ENDURANCE_ARCHETYPES.concat(window.SWIML_MAIN_SET_ARCHETYPES.endurance);
+  }
 
   // "Secret swimmer tricks" — subtle, coach-voice technique cues woven
   // directly into a Technique archetype's own set description (rather than a
@@ -1475,7 +1499,7 @@
   // gradually within its own rounds (e.g. Sprint Reps ramps 200-pace ->
   // 100-pace -> 50-pace) and stays available. The Technique pool is entirely
   // drill-based already and is never filtered.
-  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder'];
+  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder', 'Low Aero — swiML Vikings Ladder', 'Sprint — swiML 25s Ladder'];
 
   // SPRINTER PHYSIOLOGY: a swimmer who set their Swimmer Type (Race Goal
   // card) to Sprinter shouldn't be handed the Endurance pool's long-
