@@ -578,8 +578,40 @@ section { position: relative; scroll-margin-top: 96px; }
   .nav-cta { gap: 6px; }
   .nav-status-badge { font-size: 0.58rem; padding: 4px 7px; gap: 3px; white-space: nowrap; }
   .nav-status-badge .icon { width: 11px; height: 11px; }
-  .nav-cta #navLogoutBtn { padding: 0.45em 0.7em; font-size: 0.66rem; }
+  /* A real, screenshot-caught bug: .nav-cta's flex-shrink:0 (added to stop
+     the badge/Log Out cluster being squeezed into unreadable mush) means
+     nothing in this row can ever shrink to fit — so a signed-in swimmer
+     whose Google display name makes "Log Out (Name)" wide (this button's
+     text is built from the account's own display name at runtime, so no
+     fixed-length CSS shrink can anticipate it) genuinely overflowed past the
+     right edge of a real phone viewport, clipped invisibly by the page's own
+     overflow-x:hidden rather than wrapping or scrolling into view. Capping
+     just this button's own rendered width and truncating with an ellipsis
+     converts that into a bounded, always-visible "Log Out (Na…" instead of
+     silently bleeding off-screen, regardless of how long any given
+     swimmer's real name turns out to be. */
+  .nav-cta #navLogoutBtn {
+    padding: 0.45em 0.7em; font-size: 0.66rem;
+    max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    /* .btn's own base rule centers its flex content (justify-content:center)
+       — capping max-width on a centered flex button clips the SAME amount
+       off both ends instead of truncating just the tail, which silently ate
+       the "Log Out" prefix and left only mid-string characters visible
+       (caught via a real screenshot, not just the bounding-rect check, which
+       only confirmed the box itself fit on-screen and missed this). Anchor
+       this button's own content to the start so the ellipsis truncates only
+       the end, keeping "Log Out (…" always legible. */
+    justify-content: flex-start;
+  }
   .nav-toggle { width: 38px; height: 38px; }
+  /* The mobile off-canvas drawer stacks one nav link per row (unlike the
+     desktop horizontal .nav-links button rule above, which deliberately
+     reads --font-body specifically to avoid Orbitron's wider letterforms
+     overflowing a single row of 9+ items) — with no such row-width
+     constraint here, there's no reason for the drawer's links to read a
+     different, more generic font than the rest of the site's Orbitron
+     headings/wordmark. */
+  .nav-links button { font-family: var(--font-display); }
 }
 @media (max-width: 400px) {
   /* Below ~400px even the shrunk trio above is tight — the trial countdown
