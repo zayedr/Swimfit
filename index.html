@@ -613,6 +613,22 @@ section { position: relative; scroll-margin-top: 96px; }
      headings/wordmark. */
   .nav-links button { font-family: var(--font-display); }
 }
+@media (max-width: 480px) {
+  /* The exact same centering-overflow bug as #navLogoutBtn above, on a
+     completely different element: the entrance promo popup's own overlay
+     caps the card at min(440px,100%) minus its own padding, leaving this
+     button well under 300px of real width on a real phone — nowhere near
+     enough for "Register Now — Start Free Trial" at .btn's fixed
+     white-space:nowrap, so the text overflowed the box and .btn's shared
+     justify-content:center clipped an equal amount off BOTH ends (confirmed
+     live on swimfit.online via a real screenshot, not just measured).
+     Unlike the Log Out button (which truncates, since a swimmer's name is
+     never the point), this CTA's own words are the entire point, so instead
+     of an ellipsis this lets the text wrap onto two lines and grows the
+     button's height to fit — .btn has no fixed height, only min-height, so
+     this can't overflow anything else on the card. */
+  #promoPopupRegisterBtn { white-space: normal; line-height: 1.3; padding-block: 0.9em; }
+}
 @media (max-width: 400px) {
   /* Below ~400px even the shrunk trio above is tight — the trial countdown
      badge is the one piece a signed-in swimmer can live without seeing in
