@@ -5584,3 +5584,37 @@ seed and produces a different Warm-Up blueprint; a 10-step seed-increment sweep 
 Pre-Set archetype genuinely varies across seed values (not stuck on one pick); and the full existing
 regression suite (all 9 tabs, `generateWorkout()` firing with zero errors, all 31 ADAC sessions
 still loading correctly) passes unchanged.
+
+**A live mobile bug report — the top nav's "Log Out" button overflowing off-screen, and the
+off-canvas drawer's nav links reading a different font than the rest of the site — was found and
+fixed with real screenshots, not just bounding-rect math.** The user sent real phone screenshots
+showing both: `.nav-cta`'s own `flex-shrink: 0` (added in an earlier round specifically so the
+trial-badge/Log Out cluster never gets squeezed into unreadable mush) means nothing in that row can
+shrink to fit — so on a swimmer whose Google display name makes `"Log Out (Name)"` render wide (the
+button's text is built from the account's own display name at runtime, so no fixed-length CSS
+shrink can ever fully anticipate it), the button genuinely rendered past the right edge of a real
+phone viewport, silently clipped by the page's own `overflow-x:hidden` rather than wrapping or
+scrolling into view. Fixed by capping just `#navLogoutBtn`'s own rendered width
+(`max-width:108px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap`) at the same
+`@media (max-width:980px)` breakpoint the earlier shrink-pass already used. **A second, real bug was
+caught immediately after via an actual rendered screenshot, not just the bounding-rect check that
+made the first fix look complete**: `.btn`'s own shared base rule centers its flex content
+(`justify-content:center`, used for every button on the site), so capping `max-width` on an
+already-centered flex button clipped the SAME amount of text off *both* ends instead of truncating
+only the tail — the screenshot showed `"…T (SWIMFITADMINAC…"` with the "Log Out" prefix silently
+eaten, which a rect-only check (confirming the box itself fit on-screen) could never have caught.
+Fixed by adding `justify-content:flex-start` to this same rule, anchoring the button's text to its
+start so the ellipsis now only ever truncates the end (`"LOG OUT (SWIMF…"`). Separately, the mobile
+drawer's nav links (`.nav-links button`, opened via the hamburger) were rendering in `--font-body`
+(Plus Jakarta Sans) instead of the site's `--font-display` (Orbitron) wordmark/heading font — this
+was a real, if unintentional, side effect of an earlier desktop-specific fix: the *desktop* row
+deliberately swapped from Orbitron to Jakarta Sans because Orbitron's wider letterforms overflowed a
+single horizontal row of 9+ nav items, but the mobile drawer stacks one link per row with no such
+row-width constraint, so there was never a reason for it to inherit that same override. Fixed with a
+`.nav-links button { font-family: var(--font-display); }` rule scoped inside the same mobile media
+query, restoring the brand's own display font in the drawer without touching the desktop row's
+already-correct Jakarta Sans. Verified via Playwright screenshots (not just computed-style checks,
+per the lesson from the centering bug above) at 390px width with a long simulated display name: the
+Log Out button now reads `"LOG OUT (SWIMF…"` fully anchored and on-screen, the drawer's nav links
+render in Orbitron matching the wordmark, and the full existing regression suite (all 9 tabs, zero
+horizontal overflow, `generateWorkout()` firing with zero errors) passes unchanged.
