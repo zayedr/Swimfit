@@ -983,4 +983,141 @@
       ]
     }
   ];
+
+  // ---------------------------------------------------------------------
+  // WIRED INTO THE LIVE GENERATOR — same pattern js/swiml-database.js
+  // established: each build() has the exact (shareM, pace100, scaler,
+  // nextStroke, equipment) signature every native archetype/blueprint in
+  // workout-generator.js already uses, returning [{label, sets}, ...]
+  // rounds run through the identical buildToShare() distance-accuracy
+  // machinery. `buildSet`/`splitProportional`/`splitShareEqual`/
+  // `roundCountFor`/`paceBand`/`pickOne`/`workoutRng` are all real globals
+  // defined in workout-generator.js (no wrapping IIFE there) — safe to call
+  // here because these build() functions are only ever INVOKED later, once
+  // generateWorkout() runs, by which time that file has fully loaded.
+  // Every shape below is the real, distinctive STRUCTURE from an actual
+  // ADAC session (not just vocabulary spliced onto an existing skeleton) —
+  // the same "real structure, not just real words" standard the swiML
+  // blueprints already hold to.
+  // ---------------------------------------------------------------------
+  window.ADAC_MAIN_SET_ARCHETYPES = {
+    endurance: [
+      {
+        name: 'Threshold — ADAC MS/DPS Split Ladder',
+        adacSource: 'W14D0 (Sun 23 Nov 2025) — MS Threshold',
+        build: function (shareM, pace100, scaler, nextStroke) {
+          // Real shape: 3 rounds of 200m, each split into a Main-Stroke
+          // "fast" segment and a Freestyle "DPS" segment whose ratio
+          // inverts across rounds — 50/150, then 100/100, then 150/50 — so
+          // the fast-stroke component grows while the easy-Freestyle
+          // component shrinks, round by round.
+          var stroke = nextStroke();
+          var perRoundM = Math.max(200, Math.round((shareM / 3) / 200) * 200);
+          var reps = Math.max(1, Math.round(perRoundM / 200));
+          function round(msM, frM, label) {
+            return { label: label + ' — ADAC', sets: [buildSet(reps, msM + frM, stroke + ' ' + msM + 'm fast / FR ' + frM + 'm DPS', [], pace100 + 2, 30, scaler, 'Threshold Pace')] };
+          }
+          return [round(50, 150, 'Round 1'), round(100, 100, 'Round 2'), round(150, 50, 'Round 3')];
+        },
+        intents: [
+          'A real Abu Dhabi Aquatics Club threshold set: the same 200m rep is split between a fast main-stroke segment and an easy Freestyle DPS segment, but that split inverts round by round — 50/150 growing to 150/50 — so the hard-stroke workload climbs steadily inside a fixed rep length rather than the whole rep just getting harder all at once.'
+        ]
+      }
+    ],
+    speed: [
+      {
+        name: 'Sprint — ADAC Broken Ladder',
+        adacSource: 'W15D4 (Thu 4 Dec 2025) — Broken 200/125',
+        build: function (shareM, pace100, scaler, nextStroke) {
+          // Real shape: an easy-speed OTB opener (real session: 100m or
+          // 50m) followed by TWO shorter "fast" reps with shrinking rest
+          // between them (real session: R:20 then R:10) — e.g. a real
+          // Broken 200 is 100 opener + 50 fast + 50 fast, not one long
+          // opener plus one long fast rep. Opener/fast legs are kept ≤100m/
+          // ≤75m respectively — safely under the 200m single-rep stroke cap
+          // buildSet() enforces for Backstroke/Breaststroke/Butterfly, so a
+          // capped stroke here never triggers that cap's own rep-inflation
+          // (which would otherwise silently blow this archetype's own
+          // careful budget).
+          var stroke = nextStroke();
+          var n = roundCountFor(scaler);
+          var shares = splitShareEqual(shareM, n);
+          return shares.map(function (m) {
+            var openerM = Math.max(25, Math.min(100, Math.round((m * 0.45) / 25) * 25));
+            var remaining = Math.max(50, m - openerM);
+            var fastEachM = Math.max(25, Math.min(75, Math.round((remaining / 2) / 25) * 25));
+            return {
+              label: 'Broken ' + (openerM + fastEachM * 2) + ' — ADAC',
+              sets: [
+                buildSet(1, openerM, stroke + ' OTB, ease speed', [], pace100 + 8, 20, scaler, 'Cruise Pace'),
+                buildSet(2, fastEachM, stroke + ' fast, broken', [], paceBand(pace100, 'p1'), 10, scaler, 'Race-Pace Band')
+              ]
+            };
+          });
+        },
+        intents: [
+          'A real Abu Dhabi Aquatics Club broken-swim ladder: an easy-speed dive-and-glide opener bleeds straight into two genuinely fast finishing reps, mirroring the club\'s own real Broken 200/Broken 125 shape rather than a flat repeated sprint.'
+        ]
+      }
+    ],
+    technique: [
+      {
+        name: 'Stroke-Count Limit — ADAC IM Efficiency',
+        adacSource: 'W14D5 (Tue 25 Nov 2025) — IM Efficiency',
+        build: function (shareM, pace100, scaler) {
+          // Real shape: IM reps constrained by a stroke-count CEILING per
+          // length rather than a pace target — the real session's own
+          // notation (e.g. "5/9" or "6/10/7/11/8-12/7-13").
+          var reps = Math.max(2, Math.round(shareM / 100));
+          var limitPhrase = pickOne([
+            '5-9 strokes per 25, alternating',
+            '6-10 strokes per 25, alternating',
+            '7-11 strokes per 25, alternating',
+            '8-12 strokes per 25 (odd) / 7-13 (even)'
+          ]);
+          return [{ label: 'IM Efficiency — ADAC', sets: [buildSet(reps, 100, 'IM, stroke-count limit — ' + limitPhrase, [], pace100 + 10, 20, scaler, 'Drill Pace')] }];
+        },
+        intents: [
+          'A real Abu Dhabi Aquatics Club efficiency set: instead of chasing a clock, each length is capped at a maximum stroke count — the swimmer has to find more distance per stroke to stay under the ceiling, which trains the exact same DPS/SWOLF skill a pace-based set can\'t directly target.'
+        ]
+      }
+    ]
+  };
+
+  window.ADAC_WARMUP_BLUEPRINTS = [
+    {
+      name: 'ADAC Meet-Style Warmup',
+      adacSource: 'W15D4 (Thu 4 Dec 2025) — Meet-Style Warmup',
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        // Real shape: 7 distinct blocks — a 50sw/25scull/25kick opener,
+        // fins+snorkel catch-up with underwater kicks off the wall, an
+        // odd/even drill-vs-descend 50s line, choice-stroke turn practice
+        // (5m in / 10m out), a main-stroke build line, a starts line
+        // (dive+glide into 15m fast), and a closing easy Freestyle swim.
+        var hasFins = equipment && equipment.indexOf('Fins') > -1;
+        var hasSnorkel = equipment && equipment.indexOf('Snorkel') > -1;
+        var fr = [0.25, 0.19, 0.25, 0.10, 0.10, 0.05, 0.06];
+        var shares = splitProportional(shareM, fr);
+        var openerSet = buildSet(Math.max(2, Math.round(shares[0] / 100)), 100, '50 sw / 25 scull / 25 kick — ADAC meet-style', [], pace100 + 15, 15, scaler, 'Easy Pace');
+        openerSet.stroke = 'Freestyle';
+        var catchUpGear = [];
+        if (hasFins) catchUpGear.push('Fins');
+        if (hasSnorkel) catchUpGear.push('Snorkel');
+        var closerSet = buildSet(1, Math.max(100, shares[6]), 'FR EZ, settle in — ADAC', [], pace100 + 15, 10, scaler, 'Easy Pace');
+        closerSet.stroke = 'Freestyle';
+        return [
+          { label: null, sets: [openerSet] },
+          { label: 'Catch-Up + UWK — ADAC', sets: [buildSet(Math.max(2, Math.round(shares[1] / 75)), 75, 'Catch-up drill, 6 UWK off every wall', catchUpGear, pace100 + 12, 15, scaler, 'Drill Pace')] },
+          { label: 'Drill / Descend — ADAC', sets: [buildSet(Math.max(4, Math.round(shares[2] / 50)), 50, nextStroke() + ' (odd: drill/swim / even: desc 1-4)', [], pace100 + 8, 15, scaler, 'Easy Pace')] },
+          { label: 'Turn Practice — ADAC', sets: [buildSet(Math.max(4, Math.round(shares[3] / 25)), 25, 'Choice, turn practice — 5m in / 10m out', [], pace100 + 10, 15, scaler, 'Drill Pace')] },
+          { label: 'Build — ADAC', sets: [buildSet(Math.max(2, Math.round(shares[4] / 50)), 50, nextStroke() + ' build to 200 pace', [], pace100 + 4, 15, scaler, '200 Pace')] },
+          { label: 'Starts — ADAC', sets: [buildSet(Math.max(2, Math.round(shares[5] / 25)), 25, 'OTB, dive + glide, then 15m fast', [], pace100, 20, scaler, 'Cruise Pace')] },
+          { label: null, sets: [closerSet] }
+        ];
+      },
+      intents: [
+        'A real Abu Dhabi Aquatics Club meet-day warmup: seven genuinely distinct blocks — a soft opener, catch-up drill with underwater kicks, a drill/descend line, dedicated turn practice, a pace build, a starts line, and a closing easy swim — rather than the same 3-4 flat lines every day.'
+      ]
+    }
+  ];
 })();

@@ -5500,3 +5500,58 @@ cross-check the block-by-block arithmetic during transcription and matches in ev
 via Playwright: `ADAC_SESSIONS.length` reads 31 with all-unique ids, and the full existing
 regression suite (all 9 tabs, `generateWorkout()` firing with zero errors) passes unchanged — this
 file remains inert reference data, never read by the live generator.
+
+**The ADAC reference data above is now genuinely wired into the live generator**, closing the gap
+this file itself disclosed ("not currently read by the live generator"). `js/abu-dhabi-aquatics-
+database.js` gained `window.ADAC_MAIN_SET_ARCHETYPES` (`endurance`/`speed`/`technique`, one real
+archetype each) and `window.ADAC_WARMUP_BLUEPRINTS` (one real blueprint), spliced into
+`ENDURANCE_ARCHETYPES`/`SPEED_ARCHETYPES`/`TECHNIQUE_ARCHETYPES`/`WARMUP_BLUEPRINTS` in
+`workout-generator.js` the identical way `SWIML_MAIN_SET_ARCHETYPES`/`SWIML_WARMUP_BLUEPRINTS`
+already are — each `build()` uses the exact `(shareM, pace100, scaler, nextStroke, equipment)`
+signature and runs through the same `buildToShare()` distance-accuracy machinery every other
+archetype/blueprint already does. **Threshold — ADAC MS/DPS Split Ladder** (endurance, from
+`W14D0`) reproduces the real session's own MS-fast/FR-DPS ratio inversion across 3 rounds of 200m
+(50/150 → 100/100 → 150/50). **Sprint — ADAC Broken Ladder** (speed, from `W15D4`'s real Broken
+200/125 shape) reproduces an easy-speed OTB opener into two shorter fast reps with the real
+club's own send-off pattern — added to `BEGINNER_EXCLUDED_ARCHETYPES` alongside the existing
+explosive/all-out entries. **Stroke-Count Limit — ADAC IM Efficiency** (technique, from `W14D5`)
+reproduces the real session's stroke-count-ceiling-per-length notation (5-9/6-10/7-11/8-12-7-13)
+as a genuinely different constraint from every existing pace-based Technique archetype. **ADAC
+Meet-Style Warmup** (from `W15D4`) reproduces the real 7-block meet-day shape (opener → catch-up+
+UWK → drill/descend → turn practice → pace build → starts → closing swim) verbatim in structure.
+**A real distance-accuracy bug was caught and fixed before shipping**: the first draft of Sprint —
+ADAC Broken Ladder built single reps up to 350m for its opener/fast legs — since `buildSet()`'s
+existing 200m single-rep cap for Backstroke/Breaststroke/Butterfly only ever *inflates* a rep's
+volume when it fires (`ceil(dist/200)` reps at exactly 200m, always ≥ the original distance, to
+preserve the archetype's intended total), an unlucky capped-stroke pick silently blew this
+archetype's own careful budget by up to ~19% — and because every one of its sets already used
+`reps: 1`, `buildToShare()`'s own rescaling (which only ever reduces rep counts, never distance)
+had no lever left to correct it. Fixed by capping the opener at ≤100m and the fast legs at ≤75m
+(matching the real session's own actual leg lengths more closely to boot) and using `reps: 2` for
+the fast leg so a genuine rescaling lever exists if one is ever still needed. Verified via
+Playwright: all three archetypes and the blueprint were force-isolated into their respective pools
+and run through the real `generateWorkout()`/`buildToShare()` pipeline at 2000m and 4000m, landing
+within the same tolerance band every other archetype in this file already carries; the full 9-tab
+regression suite and a direct DOM check confirming ADAC-authored content actually renders both
+pass with zero page errors.
+
+**A real, previously undocumented mobile touch-target gap was found and fixed while auditing "are
+any buttons the wrong size or in the wrong place on mobile" across every tab at a 390px viewport.**
+A systematic Playwright pass (bounding-rect + computed-style scan of every button/pill/chip on all
+9 tabs) found only two categories of flagged element, one already a long-documented harmless false
+positive and one genuinely new: (1) the sidebar's own off-canvas `.nav-links` items, which sit at
+`x≈414` — just past the 390px viewport — by design, clipped by this file's own pre-existing
+`overflow-x:hidden`; this is the exact same false positive this file has documented since the
+sidebar/bottom-nav round and was not touched. (2) the announcement bar's `.announce-cta` link (the
+small underlined "Redeem"-style CTA inside the top promo strip) measured a genuinely tiny 39×18px
+hit area — well under any real touch-target floor — on every single tab, since the announcement
+bar is a site-wide, not tab-specific, element. Fixed with `padding: 12px 4px; margin: -12px -4px;`
+on `.announce-cta` — the negative margin exactly cancels the added padding's effect on the
+announcement bar's own flex layout (so the bar's visible height/spacing is unchanged), while the
+padding itself expands the actual clickable/tappable hit area well past the visible underlined
+text — the standard invisible-hit-slop technique, chosen over literally enlarging the visible
+text/pill since this is a secondary promo link inside a deliberately thin strip, not a primary
+action that should visually compete with real navigation. No other genuinely undersized, oversized,
+or overflowing interactive element was found on any of the 9 tabs at 390px. Verified via Playwright:
+the same audit script re-run afterward shows every remaining flagged element is the one disclosed
+off-canvas-drawer false positive, with zero real overflow/sizing issues left on any tab.
