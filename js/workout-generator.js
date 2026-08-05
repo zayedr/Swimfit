@@ -1246,6 +1246,10 @@
   // ladder shape, and a repetition-triples shape. No-op if that file isn't
   // loaded.
   if (window.SWIML_WARMUP_BLUEPRINTS) { WARMUP_BLUEPRINTS = WARMUP_BLUEPRINTS.concat(window.SWIML_WARMUP_BLUEPRINTS); }
+  // js/abu-dhabi-aquatics-database.js hardcodes a real ADAC Warm-Up structural
+  // blueprint (a real meet-day shape, not just vocabulary) — spliced in the
+  // same way the swiML blueprints are. No-op if that file isn't loaded.
+  if (window.ADAC_WARMUP_BLUEPRINTS) { WARMUP_BLUEPRINTS = WARMUP_BLUEPRINTS.concat(window.ADAC_WARMUP_BLUEPRINTS); }
 
   var SPEED_ARCHETYPES = [
     {
@@ -1369,6 +1373,12 @@
   if (window.SWIML_MAIN_SET_ARCHETYPES && window.SWIML_MAIN_SET_ARCHETYPES.speed) {
     SPEED_ARCHETYPES = SPEED_ARCHETYPES.concat(window.SWIML_MAIN_SET_ARCHETYPES.speed);
   }
+  // js/abu-dhabi-aquatics-database.js — see the matching ENDURANCE_ARCHETYPES
+  // splice below for the full provenance note; same real-club-data
+  // integration, speed side.
+  if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.speed) {
+    SPEED_ARCHETYPES = SPEED_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.speed);
+  }
 
   var ENDURANCE_ARCHETYPES = [
     {
@@ -1483,6 +1493,16 @@
   if (window.SWIML_MAIN_SET_ARCHETYPES && window.SWIML_MAIN_SET_ARCHETYPES.endurance) {
     ENDURANCE_ARCHETYPES = ENDURANCE_ARCHETYPES.concat(window.SWIML_MAIN_SET_ARCHETYPES.endurance);
   }
+  // js/abu-dhabi-aquatics-database.js hardcodes real Main Set shapes
+  // transcribed verbatim from actual Abu Dhabi Aquatics Club sessions (see
+  // that file's own header for full provenance/scope notes) — spliced in
+  // here the same way the swiML archetypes are, so a genuine real-club-
+  // authored set can be picked alongside this file's own invented ones,
+  // scaled through the identical buildToShare()/pace-personalization
+  // machinery. No-op if that file isn't loaded.
+  if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.endurance) {
+    ENDURANCE_ARCHETYPES = ENDURANCE_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.endurance);
+  }
 
   // "Secret swimmer tricks" — subtle, coach-voice technique cues woven
   // directly into a Technique archetype's own set description (rather than a
@@ -1590,6 +1610,13 @@
     }
   ];
 
+  // js/abu-dhabi-aquatics-database.js — real ADAC Main Set shapes, technique
+  // side (see the matching ENDURANCE_ARCHETYPES splice above for the full
+  // provenance note).
+  if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.technique) {
+    TECHNIQUE_ARCHETYPES = TECHNIQUE_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.technique);
+  }
+
   var ARCHETYPE_POOLS = { speed: SPEED_ARCHETYPES, endurance: ENDURANCE_ARCHETYPES, technique: TECHNIQUE_ARCHETYPES };
   // DIFFICULTY SCALING (Beginner): these four archetypes ask for a pacing/
   // execution skill a beginner hasn't built yet — genuine all-out ladders and
@@ -1599,7 +1626,7 @@
   // gradually within its own rounds (e.g. Sprint Reps ramps 200-pace ->
   // 100-pace -> 50-pace) and stays available. The Technique pool is entirely
   // drill-based already and is never filtered.
-  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder', 'Low Aero — swiML Vikings Ladder', 'Sprint — swiML 25s Ladder'];
+  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder', 'Low Aero — swiML Vikings Ladder', 'Sprint — swiML 25s Ladder', 'Sprint — ADAC Broken Ladder'];
 
   // SPRINTER PHYSIOLOGY: a swimmer who set their Swimmer Type (Race Goal
   // card) to Sprinter shouldn't be handed the Endurance pool's long-
