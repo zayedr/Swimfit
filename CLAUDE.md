@@ -5352,3 +5352,36 @@ attributes remain anywhere. A later round added a passwordless email-OTP auth sy
 itself fully removed in favor of mandatory Email/Password auth (see above) once Firebase Console's
 Email/Password provider was enabled — `requestEmailOtp`/`verifyEmailOtp` and the `email_otps`
 Firestore collection no longer exist anywhere in this codebase.
+
+**A new `js/swiml-database.js` hardcodes real, verbatim swim-coaching data fetched directly from
+the swiML open-source project (`github.com/bartneck/swiML`, MIT-licensed)** — solving a real
+limitation the previous round's "strict adherence to uploaded files" ask ran into: this sandbox
+has no access to files a user attached earlier in a since-summarized conversation, but swiML's own
+GitHub repo (unlike most external hosts, which this sandbox's network policy blocks) is genuinely
+fetchable via `github.com`/`raw.githubusercontent.com`. Seven real, dated sessions were fetched
+verbatim and transcribed into `window.SWIML_REAL_SESSIONS` — the two canonical
+`sessionExamples/Endurance100s.xml`/`EnduranceSwimSet.xml` files, three real Jasi Masters club
+sessions (Christoph Bartneck's own Sunday/Saturday squad programs, one guest-coached by Matt Nash),
+and two real University of Canterbury Swim Club sessions from `/vikings` (Callum Lockhart) — every
+distance, rep count, rest value, intensity zone, drill name, and equipment item copied exactly as
+the source coach wrote it, never invented or approximated. This is wired into the generator two
+ways, deliberately scoped rather than a wholesale replacement of the existing distance-accuracy/
+personalization engine (which would mean every swimmer, every day, could only ever receive one of
+7 canned workouts — a regression, not an upgrade): `WARMUP_DRILL_POOL`/`WARMUP_KICK_POOL` gain real
+swiML drill/kick phrases (`SWIML_WARMUP_DRILL_PHRASES`/`SWIML_WARMUP_KICK_PHRASES`) spliced onto
+this file's own invented ones, and three new Main Set archetypes — **Low Aero — swiML Vikings
+Ladder** (a real 600m-pull/threshold-ladder session, literal segment ratios preserved), **Threshold
+— swiML Broken Progressive** (a real 2×[3×100 build EZ→race pace] set from the Kaikoura session),
+and **Sprint — swiML 25s Ladder** (a real 3-round, tightening-rest 25s sprint ladder) — are spliced
+into `ENDURANCE_ARCHETYPES`/`SPEED_ARCHETYPES` and run through the exact same
+`buildToShare()`/pace-personalization/level-scaling machinery every other archetype already uses,
+so the real set *shape* is literal while pace/stroke/level personalization still comes from the
+swimmer's own profile (both Vikings-derived archetypes were also added to
+`BEGINNER_EXCLUDED_ARCHETYPES`, matching the existing precedent for demanding threshold-ladder/
+all-out-sprint work). `js/swiml-database.js` loads before `js/workout-generator.js` (see
+`index.html`); everything is a pure local file with no runtime network dependency on swiML itself.
+Verified via Playwright: both new archetypes appear naturally in the daily Main Set rotation
+alongside the existing ones, real swiML warm-up phrases render correctly, distance-accuracy holds
+within the same known tolerance as every other archetype (including the pre-existing Rest-day 1200m
+cap), and the full regression suite (all 9 tabs, PDF export firing a real `download` event) passes
+with zero page errors.
