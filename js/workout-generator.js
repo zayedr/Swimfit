@@ -795,11 +795,19 @@
   // this simply returns the same stroke every time (mod 1).
   function makeStrokeRotator(disciplines) {
     var i = 0;
-    return function () {
-      var s = strokeAbbrev(disciplines[i % disciplines.length]);
+    var rotator = function () {
+      var full = disciplines[i % disciplines.length];
+      rotator.current = full;
+      var s = strokeAbbrev(full);
       i++;
       return s;
     };
+    // .current always holds the full discipline name (e.g. 'Backstroke') the
+    // most recent call resolved to — a structured, non-text-parsed way for
+    // callers to know exactly which stroke a given nextStroke() call just
+    // returned, independent of the abbreviated display string.
+    rotator.current = disciplines[0];
+    return rotator;
   }
 
   // Hard realism cap: no single rep of Backstroke, Breaststroke, or Butterfly
@@ -813,7 +821,36 @@
   // archetype's intended total meterage is preserved rather than silently
   // shrunk.
   var STROKE_REP_CAP_M = 200;
-  var CAPPED_STROKES = ['Backstroke', 'Breaststroke', 'Butterfly'];
+  // Labels lead with the abbreviated stroke code (BK/BR/FLY), not the full
+  // name, since makeStrokeRotator() started returning strokeAbbrev() output —
+  // this list must match what labels actually start with or the cap silently
+  // never fires.
+  var CAPPED_STROKES = ['BK', 'BR', 'FLY'];
+  // zone/equipment are structured mirrors of the existing paceTag/gear fields
+  // (swiML-style intensity zone + equipment typing), added without changing
+  // any existing field or call site.
+  var ZONE_BY_PACE_TAG = {
+    'Recovery Pace': 'easy', 'Easy Pace': 'easy', 'Kick': 'easy', 'Drill Pace': 'easy',
+    'Cruise Pace': 'endurance', 'Even Pace': 'endurance',
+    'Threshold Pace': 'threshold',
+    'Race Pace': 'racePace', '@ Race Pace': 'racePace', 'Broken @ Race Pace': 'racePace', 'Straight @ Race Pace': 'racePace'
+  };
+  function zoneFromPaceTag(tag) {
+    if (!tag) { return null; }
+    if (ZONE_BY_PACE_TAG[tag]) { return ZONE_BY_PACE_TAG[tag]; }
+    // Numeric tags ("50 Pace".."400 Pace") are short, sub-max speed work —
+    // the shorter the reference distance, the closer to max effort.
+    var m = /^(\d+)/.exec(tag);
+    if (m) { return Number(m[1]) <= 100 ? 'max' : 'endurance'; }
+    return null;
+  }
+  // Main Set archetype names are "Focus — Descriptor" (e.g. "Lactate — Sprint
+  // Ladder"); the physiological-focus half is the structured category, the
+  // descriptor half stays display-only text.
+  function focusFromArchetypeName(name) {
+    var idx = name.indexOf(' — ');
+    return idx > -1 ? name.slice(0, idx) : name;
+  }
   function buildSet(reps, dist, label, gearList, pace100, restBase, scaler, paceTag) {
     var isCappedStroke = CAPPED_STROKES.some(function (s) { return label.indexOf(s) === 0; });
     if (dist > STROKE_REP_CAP_M && isCappedStroke) {
@@ -822,7 +859,8 @@
     }
     var interval = Math.round(((dist / 100) * pace100 + restBase) * scaler.intervalMult);
     var rest = Math.max(10, Math.round(restBase * scaler.intervalMult + scaler.restAdd));
-    return { title: reps + ' x ' + dist + 'm ' + label, reps: reps, dist: dist, interval: interval, rest: rest, totalSec: reps * interval, gear: gearList, pace: Math.round(pace100), paceTag: paceTag || null };
+    var tag = paceTag || null;
+    return { title: reps + ' x ' + dist + 'm ' + label, reps: reps, dist: dist, interval: interval, rest: rest, totalSec: reps * interval, gear: gearList, equipment: gearList, pace: Math.round(pace100), paceTag: tag, zone: zoneFromPaceTag(tag) };
   }
   // Converts an internal pace tag like "200 Pace" into a clean display label
   // ("200m Pace") with no specific clock time attached — descriptive tags
@@ -1702,13 +1740,21 @@
     var warmupKickReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
     var hasKickboard = state.equipment.indexOf('Kickboard') > -1;
     var warmup = buildToShare(function () {
+      var openerSet = buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'FR EZ — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace');
+      openerSet.stroke = 'Freestyle';
       var sets = [
-        buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'FR EZ — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace'),
+        openerSet,
         buildSet(warmupDrillReps, 50, pickOneNoRepeat(WARMUP_DRILL_POOL, priorDayRng), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
         buildSet(warmupKickReps, 50, pickOneNoRepeat(WARMUP_KICK_POOL, priorDayRng), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
       ];
+      // Drill/kick pool lines are stroke-agnostic patterns (their own text
+      // names whatever they need), so stroke stays null — only the opener and
+      // the optional 4th line are tied to one specific stroke.
       if (state.level !== 'beginner') {
-        sets.push(buildSet(warmupBuildReps, 25, nextStroke() + ' OTB desc 1-4', [], pace100 - 2, 15, noScale, '200 Pace'));
+        var buildStroke = nextStroke();
+        var buildSetObj = buildSet(warmupBuildReps, 25, buildStroke + ' OTB desc 1-4', [], pace100 - 2, 15, noScale, '200 Pace');
+        buildSetObj.stroke = nextStroke.current;
+        sets.push(buildSetObj);
       }
       return [{ label: null, sets: sets }];
     }, warmupM)[0].sets;
@@ -1727,6 +1773,8 @@
     var presetStroke = nextBlockStroke();
     var preset = {
       name: presetArchetype.name,
+      stroke: nextBlockStroke.current,
+      focus: 'Activation',
       rounds: buildToShare(function () { return presetArchetype.build(presetM, pace100, workScaler, fixedStrokeFn(presetStroke)); }, presetM)
     };
 
@@ -1906,6 +1954,8 @@
       return {
         name: archetype.name,
         stroke: blockStroke,
+        strokeFull: nextBlockStroke.current,
+        focus: focusFromArchetypeName(archetype.name),
         rounds: rounds
       };
     });
@@ -1941,7 +1991,7 @@
       // SPEED_ARCHETYPES blocks — this is the single highest-intensity block
       // in the whole session, so it gets the EZ flush too.
       elitePowerRounds.push(ezRecoverySet(pace100));
-      main.unshift({ name: 'Elite Power & Underwater', stroke: null, rounds: elitePowerRounds });
+      main.unshift({ name: 'Elite Power & Underwater', stroke: null, strokeFull: null, focus: 'Power', rounds: elitePowerRounds });
     }
 
     // STRICT DISTANCE ACCURACY, part 2: the Cool-Down's size is whatever's
@@ -1956,11 +2006,14 @@
     var cooldownBudgetM = Math.max(150, totalM - actualWarmupM - actualPresetM - actualMainM);
     var cdParts = splitProportional(cooldownBudgetM, [0.5, 0.3, 0.2]);
     var cdStroke1 = nextStroke();
-    var cooldown = [
-      buildSet(1, cdParts[0], cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[1], 'BK EZ, loosen shoulders', [], pace100 + 24, 10, noScale, 'Recovery Pace'),
-      buildSet(1, cdParts[2], 'EZ Kick, settle HR', [], pace100 + 28, 10, noScale, 'Recovery Pace')
-    ];
+    var cdStroke1Full = nextStroke.current;
+    var cdSet0 = buildSet(1, cdParts[0], cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace');
+    cdSet0.stroke = cdStroke1Full;
+    var cdSet1 = buildSet(1, cdParts[1], 'BK EZ, loosen shoulders', [], pace100 + 24, 10, noScale, 'Recovery Pace');
+    cdSet1.stroke = 'Backstroke';
+    var cdSet2 = buildSet(1, cdParts[2], 'EZ Kick, settle HR', [], pace100 + 28, 10, noScale, 'Recovery Pace');
+    // Generic kick line — no single stroke identity, stroke stays null.
+    var cooldown = [cdSet0, cdSet1, cdSet2];
     // Final reconciliation nudge: splitProportional's own 50m-snapping across
     // 3 parts can leave a small residual even against an exact budget —
     // absorb it into the largest, most flexible cool-down swim (a plain
@@ -1971,8 +2024,51 @@
     if (Math.abs(totalResidualM) > 50) {
       var adjustedCd0 = Math.max(50, Math.round((cdParts[0] + totalResidualM) / 50) * 50);
       cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace');
+      cooldown[0].stroke = cdStroke1Full;
       grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     }
+
+    // STRUCTURED SCHEMA (swiML-inspired): a clean, typed JSON mirror of the
+    // whole generated workout — segments (Warm-Up/Pre-Set/Main Set/Cool-Down)
+    // -> groups (rounds/blocks) -> instructions (individual sets), each set
+    // carrying real typed fields (stroke, zone, equipment, rest/interval in
+    // seconds) rather than only a single display-text title. This is purely
+    // additive — every existing field/renderer above is untouched — and lets
+    // any future consumer (an export, an API, a different UI) read the
+    // workout as data instead of re-parsing display strings.
+    function instructionFromSet(s) {
+      return {
+        reps: s.reps, distanceM: s.dist, stroke: s.stroke || null, zone: s.zone,
+        equipment: s.equipment, intervalSec: s.interval, restSec: s.rest,
+        totalSec: s.totalSec, paceTag: s.paceTag, label: s.title
+      };
+    }
+    function groupFromRound(r) {
+      return { name: r.label || null, instructions: (r.sets || []).map(instructionFromSet) };
+    }
+    function structuredWorkout() {
+      return {
+        generatedAt: new Date().toISOString(),
+        totalDistanceM: grandTotalM,
+        targetDistanceM: totalM,
+        disciplines: state.disciplines.slice(),
+        goals: state.goals.slice(),
+        level: state.level,
+        segments: [
+          { name: 'Warm-Up', focus: null, stroke: null, groups: [groupFromRound({ label: null, sets: warmup })] },
+          { name: 'Pre-Set', focus: preset.focus, stroke: preset.stroke, groups: preset.rounds.map(groupFromRound) },
+          // Main Set nests one level deeper than the other stages — each
+          // archetype block has its own name/focus/stroke and its own set of
+          // rounds (each round itself a group of instructions), since a
+          // session can combine several distinct blocks in one Main Set.
+          { name: 'Main Set', focus: null, stroke: null, groups: main.map(function (block) {
+            return { name: block.name, focus: block.focus, stroke: block.strokeFull, rounds: block.rounds.map(groupFromRound) };
+          }) },
+          { name: 'Cool-Down', focus: null, stroke: null, groups: [groupFromRound({ label: null, sets: cooldown })] }
+        ]
+      };
+    }
+    window.__lastGeneratedWorkoutStructured = structuredWorkout();
 
     var html = renderBlock('W-UP', [{ label: null, sets: warmup }], false, 'warmup') +
       renderBlock('Pre-Set — ' + preset.name, preset.rounds, false, 'preset') +
