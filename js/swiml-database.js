@@ -414,4 +414,124 @@
       }
     ]
   };
+
+  // ---------------------------------------------------------------------
+  // WARM-UP STRUCTURAL BLUEPRINTS — genuinely different SHAPES lifted
+  // straight from real swiML session structures, not just real vocabulary
+  // pasted onto the same fixed skeleton. Each build() has the exact same
+  // signature workout-generator.js's own Main Set/Pre-Set archetypes already
+  // use — (shareM, pace100, scaler, nextStroke, equipment) returning
+  // [{label, sets}, ...] rounds — so workout-generator.js's own
+  // buildToShare() scales it via the identical distance-accuracy machinery,
+  // and one of these is picked completely fresh (Math.random(), no daily
+  // lock) on every single Generate click. What's literal here is the REAL
+  // STRUCTURE: how many distinct blocks a warm-up has, in what order, at
+  // what rep/rest relationship to each other — copied straight from the
+  // cited real session, not just its drill names.
+  // ---------------------------------------------------------------------
+  window.SWIML_WARMUP_BLUEPRINTS = [
+    {
+      name: 'IM-Order Kick/Drill Rotation',
+      swimlSource: 'jasiMasters/JasiMasters2022121801.xml',
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        // Real shape (Jasi Masters, coached by Matt Nash): the warm-up opens
+        // directly on a repeating pair of 50 Kick / 50 Drill, both cycling
+        // through IM order (Fly-Back-Breast-Free) rather than opening with a
+        // single long easy swim first — a genuinely different opening move
+        // from the classic "long swim, then drill, then kick" shape.
+        var hasFins = equipment && equipment.indexOf('Fins') > -1;
+        var shares = splitProportional(shareM, [0.5, 0.5]);
+        var kickReps = Math.max(4, Math.round(shares[0] / 50));
+        var drillReps = Math.max(4, Math.round(shares[1] / 50));
+        return [{
+          label: null,
+          sets: [
+            buildSet(kickReps, 50, 'Kick, IM order (Fly-Back-Breast-Free) — swiML', hasFins ? ['Fins'] : [], pace100 + 20, 15, scaler, 'Kick'),
+            buildSet(drillReps, 50, 'Drill, IM order (Fly-Back-Breast-Free) — swiML', hasFins ? ['Fins'] : [], pace100 + 12, 15, scaler, 'Easy Pace')
+          ]
+        }];
+      },
+      intents: [
+        'A real masters-club warm-up shape: kick and drill both cycle through IM order from the very first length, rather than opening with a long easy swim — a swimmer feels all four strokes before the session even reaches its main work.'
+      ]
+    },
+    {
+      name: 'Broken Continue Pairs',
+      swimlSource: 'sessionExamples/EnduranceSwimSet.xml',
+      build: function (shareM, pace100, scaler) {
+        // Real shape: a short easy swim opener, then TWO no-stop "continue"
+        // pairs (25 drill immediately into 25 swim, no rest between them) —
+        // structurally distinct from a flat drill-then-kick line because
+        // each pair is its own tight, broken 50, repeated twice. The opener
+        // is always Freestyle (the Warm-Up's easing-in swim, same rule as
+        // every other blueprint's opener), so it never calls nextStroke().
+        var shares = splitProportional(shareM, [0.34, 0.33, 0.33]);
+        var openerSet = buildSet(1, shares[0], 'FR EZ opener — swiML', [], pace100 + 15, 15, scaler, 'Easy Pace');
+        openerSet.stroke = 'Freestyle';
+        function continuePair(m, label, drillName) {
+          var reps = Math.max(1, Math.round(m / 50));
+          return { label: label, sets: [buildSet(reps, 25, 'Drill (' + drillName + ') → straight into 25 swim, no stop — swiML', [], pace100 + 8, 0, scaler, 'Drill Pace')] };
+        }
+        return [
+          { label: null, sets: [openerSet] },
+          continuePair(shares[1], 'Continue Pair 1 — swiML', 'fist'),
+          continuePair(shares[2], 'Continue Pair 2 — swiML', 'fingerTrails')
+        ];
+      },
+      intents: [
+        'A real broken-swim warm-up: after one short easy opener, two "continue" pairs go straight from a 25 drill into a 25 swim with zero rest between them — a distinct, no-stop rhythm rather than three separate rest-between-every-rep lines.'
+      ]
+    },
+    {
+      name: 'Long Swim + Descending Ladder',
+      swimlSource: 'vikings/Vikings2024102901.xml',
+      build: function (shareM, pace100, scaler) {
+        // Real shape (Vikings Swim Club, Tuesday morning): a long easy swim,
+        // then THREE separate repetition blocks that shrink in distance
+        // while growing in rep count and tightening send-off — 3x100 drill,
+        // 6x50 kick, 16x50 on a genuinely tight :50 send-off. Four real
+        // rounds, not the classic 3-4 flat lines. The opening swim is always
+        // Freestyle (same rule as every other blueprint's opener), so it
+        // never calls nextStroke() either.
+        var shares = splitProportional(shareM, [0.28, 0.22, 0.20, 0.30]);
+        var openerSet = buildSet(1, shares[0], 'FR EZ, settle in — swiML', [], pace100 + 15, 15, scaler, 'Easy Pace');
+        openerSet.stroke = 'Freestyle';
+        return [
+          { label: null, sets: [openerSet] },
+          { label: 'Drill 100s — swiML', sets: [buildSet(Math.max(1, Math.round(shares[1] / 100)), 100, 'Drill, any', [], pace100 + 14, 15, scaler, 'Drill Pace')] },
+          { label: 'Kick 50s — swiML', sets: [buildSet(Math.max(2, Math.round(shares[2] / 50)), 50, 'Kick, easy', [], pace100 + 20, 15, scaler, 'Kick')] },
+          { label: 'Tight-Interval 50s — swiML', sets: [buildSet(Math.max(3, Math.round(shares[3] / 50)), 50, 'Swim, any — tight send-off', [], pace100 + 6, 5, scaler, 'Cruise Pace')] }
+        ];
+      },
+      intents: [
+        'A real university-club warm-up shape: a long easy swim leads into three separate, genuinely distinct blocks (drill 100s, kick 50s, then a real short-rest 50s ladder on a tight send-off) — a longer, richer four-round warm-up rather than the same three flat lines every day.'
+      ]
+    },
+    {
+      name: 'Repetition Triples',
+      swimlSource: 'jasiMasters/JasiMasters2022110501.xml',
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        // Real shape (Jasi Masters, Kaikoura Saturday): the SAME rep count
+        // (3) repeats across three different modalities at the SAME
+        // distance — 3x100 easy, 3x100 kick, 3x100 pull — a genuinely
+        // different pattern from varying rep counts with a fixed drill/kick
+        // pairing. The swim block is always Freestyle (the Warm-Up's
+        // easing-in swim), so it never calls nextStroke() either — kick/pull
+        // are already stroke-agnostic lines.
+        var pullGear = equipment && equipment.indexOf('Pull Buoy') > -1 ? ['Pull Buoy'] : [];
+        var perBlockM = Math.max(100, Math.round((shareM / 3) / 100) * 100);
+        var reps = Math.max(1, Math.round(perBlockM / 100));
+        var swimSet = buildSet(reps, 100, 'FR EZ — swiML', [], pace100 + 12, 15, scaler, 'Easy Pace');
+        swimSet.stroke = 'Freestyle';
+        return [
+          { label: 'Swim 100s — swiML', sets: [swimSet] },
+          { label: 'Kick 100s — swiML', sets: [buildSet(reps, 100, 'Kick, easy', [], pace100 + 22, 15, scaler, 'Kick')] },
+          { label: 'Pull 100s — swiML', sets: [buildSet(reps, 100, 'Pull, easy', pullGear, pace100 + 9, 15, scaler, 'Cruise Pace')] }
+        ];
+      },
+      intents: [
+        'A real masters-club warm-up shape: the same 3x100 rep pattern repeats across three different modalities — swim, kick, pull — rather than one drill line and one kick line, so every 100m block gets the identical rep count and only the modality changes.'
+      ]
+    }
+  ];
 })();

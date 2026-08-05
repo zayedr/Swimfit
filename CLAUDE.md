@@ -5385,3 +5385,58 @@ alongside the existing ones, real swiML warm-up phrases render correctly, distan
 within the same known tolerance as every other archetype (including the pre-existing Rest-day 1200m
 cap), and the full regression suite (all 9 tabs, PDF export firing a real `download` event) passes
 with zero page errors.
+
+**A follow-up round replaced the Warm-Up's single hardcoded skeleton with genuine dynamic
+structural blueprinting, per direct feedback that the swiML integration above only added real
+vocabulary onto the same fixed "opener + drill + kick + build" shape every day, rather than
+adopting any of the real sessions' actual structural diversity.** Confirmed by direct code read:
+every Warm-Up, regardless of which real drill/kick phrase happened to render, was built from one
+hardcoded sequence — a long opener swim, then a drill line, a kick line, and (non-beginner) a
+build line — the same shape every single day, just with different label text spliced in. Fixed by
+introducing `WARMUP_BLUEPRINTS`, six genuinely different structures picked completely fresh (real
+`Math.random()`, no daily lock, matching the Pre-Set's own per-click freshness) on every Generate
+click: **Classic Build** (the old skeleton, now just one of six options, never the only one),
+**Pyramid Build** (a true ascending/descending pyramid — swiML.xsd's own real `pyramid`
+instruction type, with an adaptive rung count so it degrades to a shorter pyramid on a small
+Warm-Up share instead of forcing a fixed floor), and four blueprints sourced in
+`js/swiml-database.js`'s new `SWIML_WARMUP_BLUEPRINTS` whose block *count*, *order*, and
+rep/rest relationship are lifted directly from real swiML session structures, not just their
+vocabulary: **IM-Order Kick/Drill Rotation** (opens directly on a repeating Kick/Drill pair
+cycling IM order, no long opener swim first — a real Jasi Masters shape), **Broken Continue
+Pairs** (an easy opener followed by two no-stop 25-drill-into-25-swim pairs, from
+`EnduranceSwimSet.xml`), **Long Swim + Descending Ladder** (a long easy swim into three separate,
+genuinely distinct blocks — drill 100s, kick 50s, a tight-send-off 50s ladder — from a real
+Vikings Tuesday session), and **Repetition Triples** (the identical 3x100 rep pattern repeated
+across three different modalities — swim, kick, pull — from a real Jasi Masters Saturday session).
+Every blueprint shares the exact same `build(shareM, pace100, scaler, nextStroke, equipment)` →
+`[{label, sets}, ...]` signature every Main Set/Pre-Set archetype already uses, so
+`generateWorkout()`'s existing `buildToShare()` distance-accuracy engine scales whichever one gets
+picked exactly like every other stage — `warmup` was upgraded from a flat `sets` array to a full
+`rounds` array (mirroring how Pre-Set/Main Set already work) specifically so a blueprint can
+render multiple distinct, labeled blocks instead of being forced into one synthetic round; the
+three consumption sites (`actualWarmupM`, the structured-schema segment, and the `renderBlock`
+call) were updated to match. Every blueprint's opening swim (where one exists) stays hardcoded
+Freestyle, matching the pre-existing "Warm-Up opener is always Freestyle" rule — **a real
+label/data mismatch was caught and fixed during this round's own testing**: three of the new
+blueprints called `nextStroke()` to build their opener's *label text* and then separately
+overrode the set's structured `.stroke` field to `'Freestyle'` afterward, so the on-screen text
+could read e.g. "FLY EZ, settle in" while the underlying data said Freestyle — fixed by dropping
+the now-unneeded `nextStroke()` call and hardcoding the label to `'FR'` directly, so label and
+data always agree. **A real distance-accuracy regression was also caught and fixed before
+shipping**: several blueprints' rep-count floors (`Math.max(2, ...)`, `Math.max(4, ...)`, a fixed
+`Math.max(200, ...)` per-block minimum) were tuned for a full-size Warm-Up share and blew well past
+the swimmer's chosen distance once several such floors stacked on a smaller share — caught via a
+Playwright test that isolated each blueprint individually and forced a neutral goal selection
+(ruling out an unrelated Weekly-Schedule/goal-selection confound in an earlier, broader test run
+that had made the regression look far larger than it actually was) — fixed by lowering the
+Long Swim + Descending Ladder's and Repetition Triples' floors and giving Pyramid Build an
+adaptive rung count, bringing every blueprint back within the same ±50m tolerance as the rest of
+the generator from 2000m upward (the pre-existing, already-disclosed 1000m-minimum edge case —
+present even in the untouched Classic Build blueprint — is unchanged, not a new regression).
+Verified via Playwright: 20 consecutive Generate clicks surface all six blueprints with genuinely
+different structural shapes (verified by both round-count and round-label content, not just
+different text on an identical shape), distance accuracy holds from 2000m through 6000m across
+every blueprint in isolation, the rendered DOM and PDF-export text extraction both handle the new
+multi-round Warm-Up shapes correctly (the PDF reader already walked `.round-label`/`.set-row` via
+a combined query from an earlier round, so it needed no changes), and the full regression suite
+(all 9 tabs, a real PDF `download` event, zero page errors) passes unchanged.
