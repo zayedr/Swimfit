@@ -5555,3 +5555,32 @@ action that should visually compete with real navigation. No other genuinely und
 or overflowing interactive element was found on any of the 9 tabs at 390px. Verified via Playwright:
 the same audit script re-run afterward shows every remaining flagged element is the one disclosed
 off-canvas-drawer false positive, with zero real overflow/sizing issues left on any tab.
+
+**The Warm-Up blueprint / Pre-Set archetype rotation was changed a second time, from a fixed
+12-hour UAE-clock window to a completion-triggered one, per direct follow-up feedback.** The
+12-hour window itself was verified still working correctly when this was raised (a live test
+confirmed both genuinely rotate at the real UAE boundary) — the actual complaint was that the
+*content* still felt stale between rotations, since a clock-based schedule has no relationship to
+whether a swimmer has actually made any progress. `HALF_DAY_MS`/`UAE_UTC_OFFSET_MS`/
+`halfDaySeedForDate()`/`halfDaySeed()` are gone entirely, replaced by `workoutGenSeed()`/
+`bumpWorkoutGenSeed()` — a plain incrementing counter persisted in `localStorage` under
+`swimfit_workout_gen_seed` (the same "device-local preference, no Firestore round-trip needed"
+precedent this file already uses for the Weekly Volume Goal/theme/language toggles). `halfDayRng`
+was renamed `postCompletionRng` throughout and is now reseeded from `workoutGenSeed()` (not a
+timestamp) at the top of every `generateWorkout()` call — both the Warm-Up blueprint and Pre-Set
+archetype still draw from this same shared RNG instance, so they still rotate together, just on a
+different trigger. `bumpWorkoutGenSeed()` is called from exactly one place: the "Complete Workout"
+button's own success handler, right alongside the existing `swimfit:swimlogchange` dispatch — so
+the very next Generate after a swimmer actually finishes and logs a session produces a genuinely
+different Warm-Up/Pre-Set, while repeated Generate clicks with no completion in between keep
+showing the identical pick, exactly matching the ask ("keep it the same until you mark a workout
+done, then change it, you'll find a different one"). This is now fully independent of both the
+24-hour daily rotation (Main Set/Cool-Down, `dailySeed()`/`workoutRng`, unchanged) and any wall-
+clock boundary. Verified via Playwright: 4 consecutive Generate clicks with no completion produce
+an identical Warm-Up blueprint and Pre-Set archetype every time (seed stays at 0 in localStorage);
+directly invoking `bumpWorkoutGenSeed()` (simulating what a real Complete Workout click does, since
+the click handler itself requires a signed-in Firebase user this harness doesn't mock) advances the
+seed and produces a different Warm-Up blueprint; a 10-step seed-increment sweep confirms the
+Pre-Set archetype genuinely varies across seed values (not stuck on one pick); and the full existing
+regression suite (all 9 tabs, `generateWorkout()` firing with zero errors, all 31 ADAC sessions
+still loading correctly) passes unchanged.
