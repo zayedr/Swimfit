@@ -1054,6 +1054,13 @@
   // the no-repeat-vs-yesterday check in generateWorkout(), without disturbing
   // today's own real pick sequence.
   function pickOneFrom(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+  // Genuinely fresh per click — reads the real Math.random(), never
+  // workoutRng (which is deliberately reseeded from the calendar day so the
+  // rest of the workout — Main Set, Cool-Down — stays stable across
+  // regenerates within the same day). Warm-Up and Pre-Set are the two stages
+  // explicitly meant to reshuffle on every single Generate click instead of
+  // waiting for the daily rotation.
+  function pickOneFresh(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   // Draws today's real pick, simulates what the exact same call site would
   // have drawn yesterday (via a separate throwaway RNG seeded from
   // yesterday's date), and re-rolls once if they collide — the same
@@ -1793,8 +1800,8 @@
       openerSet.stroke = 'Freestyle';
       var sets = [
         openerSet,
-        buildSet(warmupDrillReps, 50, pickOneNoRepeat(WARMUP_DRILL_POOL, priorDayRng), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
-        buildSet(warmupKickReps, 50, pickOneNoRepeat(WARMUP_KICK_POOL, priorDayRng), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
+        buildSet(warmupDrillReps, 50, pickOneFresh(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
+        buildSet(warmupKickReps, 50, pickOneFresh(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
       ];
       // Drill/kick pool lines are stroke-agnostic patterns (their own text
       // names whatever they need), so stroke stays null — only the opener and
@@ -1810,14 +1817,15 @@
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
-    // second of this generator's four fixed stages.
-    var presetArchetype = pickOne(PRESET_ARCHETYPES);
-    if (PRESET_ARCHETYPES.length > 1) {
-      var priorPresetArchetype = pickOneFrom(priorDayRng, PRESET_ARCHETYPES);
-      if (presetArchetype === priorPresetArchetype) {
-        presetArchetype = pickOne(PRESET_ARCHETYPES.filter(function (a) { return a !== priorPresetArchetype; }));
-      }
-    }
+    // second of this generator's four fixed stages. Picked fresh on every
+    // Generate click (pickOneFresh, real Math.random()) rather than the
+    // day-stable workoutRng — a swimmer regenerating twice in the same
+    // session should see genuinely different activation work, not the same
+    // pick until midnight. No "avoid yesterday's pick" check here anymore
+    // either: with no daily lock, there's no longer a stable "yesterday" to
+    // compare against — a swimmer can already just click Generate again to
+    // get something different this instant.
+    var presetArchetype = pickOneFresh(PRESET_ARCHETYPES);
     // Pre-Set is locked to one stroke for the whole activation block.
     var presetStroke = nextBlockStroke();
     var preset = {
