@@ -1871,26 +1871,18 @@
       var sprinterFiltered = pool.filter(function (a) { return SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES.indexOf(a.name) === -1; });
       if (sprinterFiltered.length) pool = sprinterFiltered;
     }
-    // Longer sessions get more distinct Main Set archetypes, not just a
-    // proportionally bigger repeat of the same one or two templates — a
-    // swimmer choosing 3-4km should see genuinely varied, scaled sets, not
-    // the same 500m-style loop stretched out. blockCountForDistance() adds
-    // one extra archetype per additional ~1500m past the base 3000m tier,
-    // capped by how many distinct archetypes actually exist in the pool.
-    function blockCountForDistance(baseBlocks, totalMeters) {
-      var extra = totalMeters >= 3500 ? 1 : 0;
-      // Small total distances can't structurally support multiple independent
-      // Main Set blocks without each one's own minimum-round/minimum-rep
-      // floor compounding into an overshoot no reconciliation step can fully
-      // absorb (two blocks each with a 2-round-minimum, 1-rep-minimum
-      // archetype floor at ~200m/rep already forces ~800m regardless of how
-      // small their allocated share is) — capping to a single block below
-      // 1500m keeps the whole Main Set inside one archetype's own structure,
-      // which has far more room to compress toward its target share.
-      if (totalMeters < 1500) return 1;
-      return Math.min(pool.length, baseBlocks + extra);
-    }
-    var mainBlockCount = blockCountForDistance(scaler.blocks, totalM);
+    // EXACTLY ONE MAIN SET: a real practice has one Main Set, not several
+    // separately-headlined "Main Set — X" sections stacked back to back. An
+    // earlier round scaled longer sessions by adding a second, distinct
+    // archetype block instead of scaling the ONE archetype's own reps/rounds
+    // to fill the volume — every archetype's build() already takes a target
+    // meterage and scales its own rep/round count to fill it (that's how a
+    // single archetype already absorbs anywhere from 1500m up to a full
+    // session today), so a second block was never structurally necessary,
+    // just extra variety that read as multiple main sets. mainBlockCount is
+    // now always 1; the Elite Power content (below) is folded into this same
+    // single block's rounds rather than rendered as its own separate entry.
+    var mainBlockCount = 1;
     var chosenArchetypes = pickN(pool, mainBlockCount);
     if (pool.length > 1) {
       var priorFirstMainArchetype = pickOneFrom(priorDayRng, pool);
@@ -1899,21 +1891,6 @@
         var replacementMain = pickOne(altMainPool);
         if (chosenArchetypes.indexOf(replacementMain) === -1) {
           chosenArchetypes[0] = replacementMain;
-        }
-      }
-      // 100% FRESH DAILY GENERATION: the same no-repeat check now also covers
-      // the second Main Set block (when a session has one), not just the
-      // headline first block — a competitive/elite multi-block day previously
-      // could still repeat its second block's archetype from yesterday even
-      // though the first was guaranteed fresh.
-      if (chosenArchetypes.length > 1) {
-        var priorSecondMainArchetype = pickOneFrom(priorDayRng, pool);
-        if (chosenArchetypes[1] === priorSecondMainArchetype) {
-          var altMainPool2 = pool.filter(function (a) { return a !== priorSecondMainArchetype && chosenArchetypes.indexOf(a) === -1; });
-          if (altMainPool2.length) {
-            var replacementMain2 = pickOne(altMainPool2);
-            chosenArchetypes[1] = replacementMain2;
-          }
         }
       }
     }
@@ -2021,19 +1998,22 @@
       };
     });
 
-    // ELITE ONLY: prepend a dedicated high-performance power block — this is
-    // what makes the elite level a genuine step up rather than just more
-    // distance. Explosive max-effort underwater dolphin, race-start reaction
-    // power, and power breakouts, all under the elite scaler's tight
-    // intervals. It leads the Main Set (rendered first, open by default) so
-    // the highest-CNS-demand work is done while freshest. Labels deliberately
-    // don't start with a capped stroke name (Back/Breast/Fly), so the 200m
-    // realism cap never touches these short power reps. Rep counts now scale
-    // with eliteBlockM (see above) instead of being hardcoded 8/6/4 —
-    // proportional to the swimmer's own chosen distance like every other
-    // stage, and its own EZ recovery set is carved from the same reserved
-    // budget rather than added on top of it.
-    if (eliteBlockWanted) {
+    // ELITE ONLY: fold a dedicated high-performance power segment into the
+    // SAME single Main Set block (prepended to its rounds), not rendered as
+    // its own separate "Main Set" section — this is what makes the elite
+    // level a genuine step up rather than just more distance, without
+    // reintroducing a second main-set-looking block. Explosive max-effort
+    // underwater dolphin, race-start reaction power, and power breakouts,
+    // all under the elite scaler's tight intervals, lead the block's own
+    // rounds (rendered first) so the highest-CNS-demand work is done while
+    // freshest, then the archetype's own rounds continue right after. Labels
+    // deliberately don't start with a capped stroke name (Back/Breast/Fly),
+    // so the 200m realism cap never touches these short power reps. Rep
+    // counts scale with eliteBlockM (see above) — proportional to the
+    // swimmer's own chosen distance like every other stage — and its own EZ
+    // recovery set is carved from the same reserved budget rather than added
+    // on top of it.
+    if (eliteBlockWanted && main.length) {
       var eliteContentM = Math.max(200, eliteBlockM - EZ_RECOVERY_M);
       var eliteLadder = paceLadder(pace100);
       var eliteFins = state.equipment.indexOf('Fins') > -1;
@@ -2049,10 +2029,11 @@
         ];
       }, eliteContentM);
       // Same integrated active-recovery principle as the Main Set's own
-      // SPEED_ARCHETYPES blocks — this is the single highest-intensity block
-      // in the whole session, so it gets the EZ flush too.
+      // SPEED_ARCHETYPES blocks — this is the highest-intensity segment in
+      // the whole session, so it gets the EZ flush too, right before the
+      // archetype's own rounds pick back up.
       elitePowerRounds.push(ezRecoverySet(pace100));
-      main.unshift({ name: 'Elite Power & Underwater', stroke: null, strokeFull: null, focus: 'Power', rounds: elitePowerRounds });
+      main[0].rounds = elitePowerRounds.concat(main[0].rounds);
     }
 
     // STRICT DISTANCE ACCURACY, part 2: the Cool-Down's size is whatever's
