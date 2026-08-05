@@ -5618,3 +5618,29 @@ per the lesson from the centering bug above) at 390px width with a long simulate
 Log Out button now reads `"LOG OUT (SWIMF…"` fully anchored and on-screen, the drawer's nav links
 render in Orbitron matching the wordmark, and the full existing regression suite (all 9 tabs, zero
 horizontal overflow, `generateWorkout()` firing with zero errors) passes unchanged.
+
+**A second, previously-unnoticed instance of the exact same centering-overflow bug was found on
+the entrance promo popup's own CTA, reported live from swimfit.online (one screenshot via a real
+mobile browser, one via the Instagram in-app browser) after the Log Out fix above had already
+shipped.** `#promoPopupRegisterBtn` ("Register Now — Start Free Trial", `.btn.btn-primary
+.btn-block`) had no mobile-specific override at all — `.promo-popup` itself is capped at
+`min(440px, 100%)` with its own `40px 32px` side padding, and the overlay adds another
+`var(--space-4)` of its own padding on top, leaving well under 300px of real width for this button
+on a real phone — nowhere near enough for that much text at `.btn`'s shared `white-space:nowrap`,
+so the label overflowed the box and `.btn`'s own `justify-content:center` clipped an equal amount
+off **both** ends (`"GISTER NOW — START FREE TRIA"` in the live screenshot), the identical failure
+mode as the Log Out button, just on a different element this round hadn't touched yet. Unlike the
+Log Out button (whose *name* isn't the point — an ellipsis there is fine), this CTA's own words are
+the entire point of the button, so instead of truncating, a `@media (max-width:480px)` rule lets
+`#promoPopupRegisterBtn` wrap (`white-space:normal`) and grow taller to fit — `.btn` has no fixed
+`height`, only a `min-height`, so a second line only makes the button taller, it can't overflow
+anything else on the card. Verified via a real Playwright screenshot (not just a bounding-rect
+check, per this same round's own earlier lesson that a box measuring on-screen doesn't prove its
+*text* isn't clipped): at 390px the button now renders the full "REGISTER NOW — START FREE TRIAL"
+wrapped cleanly across two lines with nothing cut off, and the full existing regression suite (all
+9 tabs, the ADAC-wiring workout-generation check, zero horizontal overflow) passes unchanged. Separately,
+this round confirmed via `git show origin/main:index.html` that the Log Out fix itself was already
+merged and present on `main` at the time these screenshots were taken — the live-site discrepancy
+the user saw was very likely a GitHub Pages deploy-propagation delay or a cached page (the
+Instagram in-app browser in particular is known for holding onto stale cached pages), not a failed
+or reverted fix.
