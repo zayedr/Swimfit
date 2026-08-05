@@ -930,10 +930,10 @@
   // Main Set / Cool-Down blocks read as four visually distinct, color-coded
   // stages at a glance rather than four identical grey blocks.
   var STAGE_META = {
-    warmup:   { icon: 'i-droplet',   label: 'Warm-Up' },
+    warmup:   { icon: 'i-droplet',   label: 'W-UP' },
     preset:   { icon: 'i-stopwatch', label: 'Pre-Set' },
     main:     { icon: 'i-bolt',      label: 'Main Set' },
-    cooldown: { icon: 'i-wave',      label: 'Cool-Down' }
+    cooldown: { icon: 'i-wave',      label: 'WD' }
   };
   function renderBlock(name, rounds, openByDefault, stage) {
     var totalSets = rounds.reduce(function (n, r) { return n + r.sets.length; }, 0);
@@ -1061,9 +1061,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Controlled Build', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' desc, build to pace', [], ladder.p200, 30, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Hold Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 30, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Sharpen to Sprint', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' sprint, tight REC', [], ladder.p50, 20, scaler, '50 Pace')] }; }
+          function (m) { return { label: 'Build', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' desc, build to pace', [], ladder.p200, 30, scaler, '200 Pace')] }; },
+          function (m) { return { label: '@ Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 30, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Sprint', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' sprint, tight REC', [], ladder.p50, 20, scaler, '50 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1079,9 +1079,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Streamline & Push-Off', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' OTB streamline', [], ladder.p200, 35, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Race-Speed Transitions', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' explosive turn @ race pace', [], ladder.p100, 30, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Fly-and-Die Sprint', sets: [buildSet(Math.max(2, Math.round(m / 25)), 25, nextStroke() + ' OTB sprint', [], ladder.p50, 20, scaler, '50 Pace')] }; }
+          function (m) { return { label: 'Streamline', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' OTB streamline', [], ladder.p200, 35, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Race-Speed Turns', sets: [buildSet(Math.max(3, Math.round(m / 25)), 25, nextStroke() + ' explosive turn @ race pace', [], ladder.p100, 30, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Sprint', sets: [buildSet(Math.max(2, Math.round(m / 25)), 25, nextStroke() + ' OTB sprint', [], ladder.p50, 20, scaler, '50 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1107,9 +1107,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Broken 100s, Building', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:8, build', [], ladder.p200, 25, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Broken 100s, Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:5 @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 25, scaler, '100 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Straight Race-Pace 100', sets: [buildSet(Math.max(1, Math.round(m / 100)), 100, nextStroke() + ' straight thru @ race pace', [], ladder.p100, 40, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Broken, Build', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:8, build', [], ladder.p200, 25, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Broken @ Race Pace' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' Broken 4x25 REC:5 @ race pace', hasFins ? ['Fins'] : [], ladder.p100, 25, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Straight @ Race Pace', sets: [buildSet(Math.max(1, Math.round(m / 100)), 100, nextStroke() + ' straight thru @ race pace', [], ladder.p100, 40, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1135,9 +1135,9 @@
           return sets;
         }
         var templates = [
-          function (m) { return { label: 'Round 1 — Building Ladder', sets: ladderRound(m, 1, []) }; },
-          function (m) { return { label: 'Round 2 — Power Ladder' + (hasPaddles ? ', Paddles On' : ''), sets: ladderRound(m, 0.85, hasPaddles ? ['Hand Paddles'] : []) }; },
-          function (m) { return { label: 'Round 3 — All-Out Ladder', sets: ladderRound(m, 0.7, []) }; }
+          function (m) { return { label: 'Build', sets: ladderRound(m, 1, []) }; },
+          function (m) { return { label: 'Power' + (hasPaddles ? ', Paddles On' : ''), sets: ladderRound(m, 0.85, hasPaddles ? ['Hand Paddles'] : []) }; },
+          function (m) { return { label: 'All-Out', sets: ladderRound(m, 0.7, []) }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1152,9 +1152,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Open the Ladder (Build → P+2)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' desc, hold P+2', [], paceBand(pace100, 'p2'), 30, scaler, 'Race-Pace Band')] }; },
-          function (m) { return { label: 'Round 2 — Hold the Ladder (P+1 → P)' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P+1 → P', hasFins ? ['Fins'] : [], paceBand(pace100, 'p1'), 25, scaler, 'Race-Pace Band')] }; },
-          function (m) { return { label: 'Round 3 — Race the Ladder (P → P-1)', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P → P-1', [], paceBand(pace100, 'p0'), 20, scaler, 'Race-Pace Band')] }; }
+          function (m) { return { label: 'P+2', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' desc, hold P+2', [], paceBand(pace100, 'p2'), 30, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'P+1 → P' + (hasFins ? ', Fins On' : ''), sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P+1 → P', hasFins ? ['Fins'] : [], paceBand(pace100, 'p1'), 25, scaler, 'Race-Pace Band')] }; },
+          function (m) { return { label: 'P → P-1', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' P → P-1', [], paceBand(pace100, 'p0'), 20, scaler, 'Race-Pace Band')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1174,9 +1174,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Steady Aerobic Base', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' steady', [], pace100, 20, scaler, longTag)] }; },
-          function (m) { return { label: 'Round 2 — Controlled Tempo', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' same pace, tighter REC', [], pace100 - 2, 12, scaler, longTag)] }; },
-          function (m) { return { label: 'Round 3 — Buoy-Assisted Cruise', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' Pull, rhythm', ['Pull Buoy'], pace100 + 2, 20, scaler, 'Cruise Pace')] }; }
+          function (m) { return { label: 'Steady', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' steady', [], pace100, 20, scaler, longTag)] }; },
+          function (m) { return { label: 'Tempo', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' same pace, tighter REC', [], pace100 - 2, 12, scaler, longTag)] }; },
+          function (m) { return { label: 'Pull, Cruise', sets: [buildSet(Math.max(2, Math.round(m / longRep)), longRep, nextStroke() + ' Pull, rhythm', ['Pull Buoy'], pace100 + 2, 20, scaler, 'Cruise Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1192,9 +1192,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Even Pace Pull', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, even pace', g, pace100 + 8, 20, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — Negative Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, neg split', g, pace100 + 5, 20, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Descend Every Rep', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, desc 1', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Even Pace', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, even pace', g, pace100 + 8, 20, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Neg Split', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, neg split', g, pace100 + 5, 20, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Desc', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'Pull, desc 1', g, pace100 + 2, 15, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1208,9 +1208,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — desc 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc 1-4', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 2 — desc, Tighter Interval', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc, tighter REC', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Best Average Challenge', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' hold best avg', [], pace100, 10, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'desc 1-4', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc 1-4', [], pace100 + 8, 15, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'desc, Tighter', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' desc, tighter REC', [], pace100 + 4, 10, scaler, '150 Pace')] }; },
+          function (m) { return { label: 'Best Avg', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' hold best avg', [], pace100, 10, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1224,9 +1224,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Threshold Entry', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold', [], pace100 + 5, 15, scaler, 'Threshold Pace')] }; },
-          function (m) { return { label: 'Round 2 — Threshold, Shorter Rest', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold, tighter REC', [], pace100 + 3, 8, scaler, 'Threshold Pace')] }; },
-          function (m) { return { label: 'Round 3 — Broken 200 Push', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' Broken 2x100 REC:10', [], pace100, 20, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Threshold', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold', [], pace100 + 5, 15, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Threshold, Tighter', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' @ threshold, tighter REC', [], pace100 + 3, 8, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Broken, Push', sets: [buildSet(Math.max(2, Math.round(m / 200)), 200, nextStroke() + ' Broken 2x100 REC:10', [], pace100, 20, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1240,9 +1240,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 1 — Build By Thirds', sets: [buildSet(1, dist, nextStroke() + ' build x3 (EZ/mod/strong)', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 2 — Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ' build x3, faster baseline', [], pace100 + 2, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
-          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Round 3 — Race-Effort Final Third', sets: [buildSet(1, dist, nextStroke() + ' build x3, final @ race', [], pace100, 15, scaler, '200 Pace')] }; }
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Build x3', sets: [buildSet(1, dist, nextStroke() + ' build x3 (EZ/mod/strong)', [], pace100 + 6, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Faster Baseline', sets: [buildSet(1, dist, nextStroke() + ' build x3, faster baseline', [], pace100 + 2, 15, scaler, dist >= 400 ? '400 Pace' : '200 Pace')] }; },
+          function (m) { var dist = Math.max(200, Math.round(m / 100) * 100); return { label: 'Race-Effort Final', sets: [buildSet(1, dist, nextStroke() + ' build x3, final @ race', [], pace100, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1297,9 +1297,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Isolation Drill', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Drill, catch/body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Drill/Swim Blend', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' odd 25 Drill, even 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — MS, Drill Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Isolation', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Drill, catch/body position', ['Snorkel'], pace100 + 14, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Drill/Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' odd 25 Drill, even 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'MS + Cue', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, focus on ' + pickOne(TECHNIQUE_MICRO_CUES), [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1320,9 +1320,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — ' + gearRound1 + ' Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound1 + '-assisted pace work', [gearRound1], pace100 + 10, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — ' + gearRound2 + ' Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound2 + ' pace work, faster target', [gearRound2], pace100 + 6, 18, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Gear Off, Transfer Check', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear, transfer feel', [], pace100 + 4, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: gearRound1 + ' Feel', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound1 + '-assisted pace work', [gearRound1], pace100 + 10, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: gearRound2 + ' Strength', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, gearRound2 + ' pace work, faster target', [gearRound2], pace100 + 6, 18, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Gear Off', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, 'No gear, transfer feel', [], pace100 + 4, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1336,9 +1336,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Baseline SC', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', minimum SC per length', [], pace100 + 15, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Hold SC, Add Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ', same SC as Round 1, faster pace', [], pace100 + 10, 15, scaler, '200 Pace')] }; },
-          function (m) { return { label: 'Round 3 — Race-Pace Efficiency', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ' @ race pace, track SC', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
+          function (m) { return { label: 'Baseline SC', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ' minimum SC per length', [], pace100 + 15, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Hold SC', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ' same SC, faster pace', [], pace100 + 10, 15, scaler, '200 Pace')] }; },
+          function (m) { return { label: 'Race Pace', sets: [buildSet(Math.max(4, Math.round(m / 25)), 25, nextStroke() + ' @ race pace, track SC', [], pace100 + 4, 12, scaler, '100 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1352,9 +1352,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Catch-Up, Slow & Exaggerated', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Catch-Up Drill', [], pace100 + 16, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Catch-Up Into Swim', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' first 25 Catch-Up, second 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — MS, Extension Held', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, hold extension', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Catch-Up', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Catch-Up Drill', [], pace100 + 16, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Catch-Up + MS', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' first 25 Catch-Up, second 25 MS', [], pace100 + 10, 18, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'MS', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' MS, hold extension', [], pace100 + 6, 15, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1368,9 +1368,9 @@
         var n = roundCountFor(scaler);
         var shares = splitShareEqual(shareM, n);
         var templates = [
-          function (m) { return { label: 'Round 1 — Slow Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' slow tempo, same effort', [], pace100 + 12, 20, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 2 — Fast Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' fast tempo, same effort', [], pace100 + 8, 15, scaler, 'Drill Pace')] }; },
-          function (m) { return { label: 'Round 3 — Choose Your Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Cho tempo', [], pace100 + 4, 12, scaler, '200 Pace')] }; }
+          function (m) { return { label: 'Slow Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' slow tempo, same effort', [], pace100 + 12, 20, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Fast Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' fast tempo, same effort', [], pace100 + 8, 15, scaler, 'Drill Pace')] }; },
+          function (m) { return { label: 'Cho Tempo', sets: [buildSet(Math.max(4, Math.round(m / 50)), 50, nextStroke() + ' Cho tempo', [], pace100 + 4, 12, scaler, '200 Pace')] }; }
         ];
         return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
       },
@@ -1974,10 +1974,10 @@
       grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     }
 
-    var html = renderBlock('Warm-Up', [{ label: null, sets: warmup }], false, 'warmup') +
+    var html = renderBlock('W-UP', [{ label: null, sets: warmup }], false, 'warmup') +
       renderBlock('Pre-Set — ' + preset.name, preset.rounds, false, 'preset') +
       main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, block.rounds, i === 0, 'main'); }).join('') +
-      renderBlock('Cool-Down', [{ label: null, sets: cooldown }], false, 'cooldown');
+      renderBlock('WD', [{ label: null, sets: cooldown }], false, 'cooldown');
 
     var scalerNoteHtml = '<p style="color:var(--muted); font-size:0.82rem; margin-bottom:4px;">' +
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
