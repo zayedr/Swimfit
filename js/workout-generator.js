@@ -1147,6 +1147,95 @@
   if (window.SWIML_WARMUP_DRILL_PHRASES) { WARMUP_DRILL_POOL = WARMUP_DRILL_POOL.concat(window.SWIML_WARMUP_DRILL_PHRASES); }
   if (window.SWIML_WARMUP_KICK_PHRASES) { WARMUP_KICK_POOL = WARMUP_KICK_POOL.concat(window.SWIML_WARMUP_KICK_PHRASES); }
 
+  // WARM-UP STRUCTURAL BLUEPRINTS — genuinely different SHAPES, not the same
+  // fixed opener/drill/kick/build skeleton every day with different label
+  // text spliced in. Each build() has the same (shareM, pace100, scaler,
+  // nextStroke, equipment) signature every Main Set/Pre-Set archetype
+  // already uses, returning [{label, sets}, ...] rounds that
+  // generateWorkout() runs through buildToShare() exactly like every other
+  // stage — so distance accuracy holds for whichever blueprint gets picked.
+  // A blueprint is chosen completely fresh (pickOneFresh — real
+  // Math.random(), no daily lock) on every single Generate click, so two
+  // clicks in a row can produce two structurally different warm-ups, not
+  // just two different drill labels on the same shape.
+  var WARMUP_BLUEPRINTS = [
+    {
+      name: 'Classic Build',
+      build: function (shareM, pace100, scaler, nextStroke, equipment) {
+        var hasFins = equipment && equipment.indexOf('Fins') > -1;
+        var hasKickboard = equipment && equipment.indexOf('Kickboard') > -1;
+        var drillReps = Math.max(4, Math.min(8, Math.round(shareM / 100) + 2));
+        var kickReps = Math.max(4, Math.min(8, Math.round(shareM / 120) + 2));
+        var buildReps = Math.max(4, Math.min(8, Math.round(shareM / 120) + 2));
+        var openerSet = buildSet(1, Math.max(100, Math.round(shareM * 0.6 / 100) * 100), 'FR EZ — long smooth strokes', [], pace100 + 15, 15, scaler, 'Easy Pace');
+        openerSet.stroke = 'Freestyle';
+        var sets = [
+          openerSet,
+          buildSet(drillReps, 50, pickOneFresh(WARMUP_DRILL_POOL), hasFins ? ['Fins'] : [], pace100 + 10, 15, scaler, 'Easy Pace'),
+          buildSet(kickReps, 50, pickOneFresh(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, scaler, 'Kick')
+        ];
+        if (state.level !== 'beginner') {
+          var buildStroke = nextStroke();
+          var buildSetObj = buildSet(buildReps, 25, buildStroke + ' OTB desc 1-4', [], pace100 - 2, 15, scaler, '200 Pace');
+          buildSetObj.stroke = nextStroke.current;
+          sets.push(buildSetObj);
+        }
+        return [{ label: null, sets: sets }];
+      },
+      intents: [
+        'A long easy opener settles the stroke before a drill line and a dedicated kick line each get their own focus, with a short build-up finishing the block for anyone past beginner level — the most familiar warm-up shape, still just one of several this generator can pick.'
+      ]
+    },
+    {
+      name: 'Pyramid Build',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        // A genuine pyramid — swiML.xsd's own real `pyramid` instruction
+        // type (startLength/stopLength/increment/isPointy) — ascending then
+        // descending distance across several rungs, rather than a repeated
+        // fixed-distance rep. None of the 7 literally-fetched swiML example
+        // sessions happen to use a pyramid, but the construct is real,
+        // defined schema, not invented. A pyramid can't shrink via
+        // buildToShare's usual rep-scaling (every rung is already a single
+        // rep), so on a small Warm-Up share this degrades to fewer, smaller
+        // rungs instead — a 3- or 5-rung pyramid rather than forcing the
+        // full 7-rung shape's own ~16-unit floor onto a session too small to
+        // carry it.
+        var ratioOptions = [[1, 2, 3, 4, 3, 2, 1], [1, 2, 3, 2, 1], [1, 2, 1]];
+        var chosenRatios = ratioOptions[ratioOptions.length - 1];
+        for (var oi = 0; oi < ratioOptions.length; oi++) {
+          var sum = ratioOptions[oi].reduce(function (a, b) { return a + b; }, 0);
+          var testUnit = Math.max(25, Math.round((shareM / sum) / 25) * 25);
+          if (testUnit * sum <= shareM * 1.35) { chosenRatios = ratioOptions[oi]; break; }
+        }
+        var ratioSum = chosenRatios.reduce(function (a, b) { return a + b; }, 0);
+        var unit = Math.max(25, Math.round((shareM / ratioSum) / 25) * 25);
+        var peak = Math.max.apply(null, chosenRatios);
+        // The whole pyramid stays Freestyle — like the Classic Build's own
+        // opener, it's the Warm-Up's easing-in swim, not a discipline-
+        // rotating block, so it never calls nextStroke() (avoiding a real
+        // label/data mismatch a rotating stroke plus a Freestyle-only first
+        // rung would otherwise create).
+        var sets = chosenRatios.map(function (r, i) {
+          var dist = unit * r;
+          var tag = r >= peak ? 'Cruise Pace' : 'Easy Pace';
+          var s = buildSet(1, dist, 'FR pyramid rung ' + (i + 1) + '/' + chosenRatios.length, [], pace100 + (10 - r * 2), 15, scaler, tag);
+          s.stroke = 'Freestyle';
+          return s;
+        });
+        return [{ label: null, sets: sets }];
+      },
+      intents: [
+        'A true pyramid: distance climbs rung by rung to a peak, then descends back down — a genuinely different pacing challenge than a flat repeated rep, easing the body in and back out rather than holding one distance throughout.'
+      ]
+    }
+  ];
+  // js/swiml-database.js hardcodes structural blueprints lifted straight
+  // from real swiML session STRUCTURES (not just vocabulary) — an IM-order
+  // kick/drill rotation, broken no-stop continue pairs, a long-swim-plus-
+  // ladder shape, and a repetition-triples shape. No-op if that file isn't
+  // loaded.
+  if (window.SWIML_WARMUP_BLUEPRINTS) { WARMUP_BLUEPRINTS = WARMUP_BLUEPRINTS.concat(window.SWIML_WARMUP_BLUEPRINTS); }
+
   var SPEED_ARCHETYPES = [
     {
       name: 'Lactate — Sprint Ladder',
@@ -1796,48 +1885,23 @@
       note: scaler.note
     };
 
-    // The opening swim of every Warm-Up is always Freestyle, regardless of
-    // which discipline(s) are selected for the session — standard coaching
-    // practice for easing into the water, even for a Butterfly/Backstroke-
-    // focused day. The rest of the Warm-Up (and every later stage) still
-    // rotates through the swimmer's actual selected discipline(s) via
-    // nextStroke() as before. The second line's drill itself now rotates
-    // daily too (via workoutRng, the same day-stable seed everything else
-    // in this function draws from) instead of being the same fixed
-    // "odd 25 drill, even 25 build" every single day.
-    // The drill/build blocks' rep counts scale with warmupM (itself 10% of
-    // the chosen total distance) instead of staying fixed at "4 x 50m" /
-    // "4 x 25m" regardless of session size — a 6km day's warm-up should
-    // genuinely carry more volume than a 1km day's, not just a bigger
-    // opening swim with identical supporting blocks.
-    var warmupDrillReps = Math.max(4, Math.min(8, Math.round(warmupM / 100) + 2));
-    var warmupBuildReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
-    // Every warm-up now includes a dedicated KICK SET with an underwater-dolphin
-    // focus — one of the elite fundamentals (explosive power, starts & turns,
-    // kick, underwater dolphin) this generator deliberately emphasizes. The
-    // Pre-Set activation archetypes cover starts/turns/explosive power; the
-    // kick + underwater work lives here so it appears in every single session.
-    var warmupKickReps = Math.max(4, Math.min(8, Math.round(warmupM / 120) + 2));
-    var hasKickboard = state.equipment.indexOf('Kickboard') > -1;
-    var warmup = buildToShare(function () {
-      var openerSet = buildSet(1, Math.max(100, Math.round(warmupM * 0.6 / 100) * 100), 'FR EZ — long smooth strokes', [], pace100 + 15, 15, noScale, 'Easy Pace');
-      openerSet.stroke = 'Freestyle';
-      var sets = [
-        openerSet,
-        buildSet(warmupDrillReps, 50, pickOneFresh(WARMUP_DRILL_POOL), state.equipment.indexOf('Fins') > -1 ? ['Fins'] : [], pace100 + 10, 15, noScale, 'Easy Pace'),
-        buildSet(warmupKickReps, 50, pickOneFresh(WARMUP_KICK_POOL), hasKickboard ? ['Kickboard'] : [], pace100 + 18, 20, noScale, 'Kick')
-      ];
-      // Drill/kick pool lines are stroke-agnostic patterns (their own text
-      // names whatever they need), so stroke stays null — only the opener and
-      // the optional 4th line are tied to one specific stroke.
-      if (state.level !== 'beginner') {
-        var buildStroke = nextStroke();
-        var buildSetObj = buildSet(warmupBuildReps, 25, buildStroke + ' OTB desc 1-4', [], pace100 - 2, 15, noScale, '200 Pace');
-        buildSetObj.stroke = nextStroke.current;
-        sets.push(buildSetObj);
-      }
-      return [{ label: null, sets: sets }];
-    }, warmupM)[0].sets;
+    // DYNAMIC STRUCTURAL BLUEPRINTING: the Warm-Up no longer always renders
+    // the same fixed opener/drill/kick/build skeleton — a genuinely
+    // different STRUCTURE (WARMUP_BLUEPRINTS, above) is picked completely
+    // fresh on every Generate click (pickOneFresh — real Math.random(), no
+    // daily lock, matching the Pre-Set's own per-click freshness), and that
+    // blueprint's own build() decides how many blocks the Warm-Up has, what
+    // order they're in, and how their rep/distance/rest relate to each other
+    // — a pyramid, an IM-order kick/drill rotation, a broken no-stop pair, or
+    // a long-swim-plus-ladder shape all look structurally nothing alike, not
+    // just differently-labeled versions of the same three lines. Every
+    // blueprint is still run through buildToShare() against warmupM, so
+    // whichever one gets picked still respects the swimmer's chosen distance
+    // exactly like every other stage.
+    var warmupBlueprint = pickOneFresh(WARMUP_BLUEPRINTS);
+    var warmupRounds = buildToShare(function () {
+      return warmupBlueprint.build(warmupM, pace100, noScale, nextStroke, state.equipment);
+    }, warmupM);
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
@@ -2074,7 +2138,7 @@
     // has already applied) — not a second independent percentage of totalM.
     // This is what actually GUARANTEES the ±50m tolerance rather than hoping
     // several independently-rounded blocks happen to add up.
-    var actualWarmupM = sumSetsMeters(warmup);
+    var actualWarmupM = sumRoundsMeters(warmupRounds);
     var actualPresetM = sumRoundsMeters(preset.rounds);
     var actualMainM = main.reduce(function (sum, block) { return sum + sumRoundsMeters(block.rounds); }, 0);
     var cooldownBudgetM = Math.max(150, totalM - actualWarmupM - actualPresetM - actualMainM);
@@ -2129,7 +2193,7 @@
         goals: state.goals.slice(),
         level: state.level,
         segments: [
-          { name: 'Warm-Up', focus: null, stroke: null, groups: [groupFromRound({ label: null, sets: warmup })] },
+          { name: 'Warm-Up', focus: warmupBlueprint.name, stroke: null, groups: warmupRounds.map(groupFromRound) },
           { name: 'Pre-Set', focus: preset.focus, stroke: preset.stroke, groups: preset.rounds.map(groupFromRound) },
           // Main Set nests one level deeper than the other stages — each
           // archetype block has its own name/focus/stroke and its own set of
@@ -2144,7 +2208,7 @@
     }
     window.__lastGeneratedWorkoutStructured = structuredWorkout();
 
-    var html = renderBlock('W-UP', [{ label: null, sets: warmup }], false, 'warmup') +
+    var html = renderBlock('W-UP', warmupRounds, false, 'warmup') +
       renderBlock('Pre-Set — ' + preset.name, preset.rounds, false, 'preset') +
       main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, block.rounds, i === 0, 'main'); }).join('') +
       renderBlock('WD', [{ label: null, sets: cooldown }], false, 'cooldown');
