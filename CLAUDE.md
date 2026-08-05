@@ -5475,3 +5475,28 @@ specific real blocks from these sessions into the generator (mirroring how
 natural next step if requested, not attempted here. Verified via Playwright: `ADAC_SESSIONS`/
 `ADAC_GLOSSARY` load correctly (15 sessions, first id `W5D5`), and the full existing regression
 suite (all 9 tabs, a real PDF `download` event, zero page errors) passes unchanged.
+
+A follow-up upload added **16 more real Abu Dhabi Aquatics Club sessions** (same coach, Sherif
+Zakaria, no accompanying text this round — continuing the same "transcribe and save every batch"
+pattern established above), bringing `window.ADAC_SESSIONS` to **31 total**. The new batch spans
+two distinct later phases: 11 **handwritten notebook-page** sessions from **Weeks 14-15
+("Specific Prep" and "Taper — Part 1"), Nov 19 – Dec 4, 2025** (each transcribed with a `date`
+field alongside `week`/`day`, plus a `dryland` field noting that day's land-conditioning focus —
+Mobility, Plank, Med Ball, Plyo, or a station-count/work-rest scheme — where the page showed one),
+and 5 **typed PDF-export sessions** from an undated **March 2026** mesocycle (`phase: 'March 2026
+sessions'`, `date`-only, no week/day numbering since none was given in the source). Several of
+the new sessions split their Main Set (and occasionally their Pre-Set) into **two parallel group
+tracks** — e.g. "G1: Sprinter 50/100" vs. "G2: Mid 200/400", or "200 group" vs. "100 group" — since
+the coach programs different rep/distance schemes for swimmers of different race specialties on
+the same day; both tracks are transcribed verbatim in the block's `lines`, with each track's own
+sub-total noted inline, since the schema has no separate branching field for this. `ADAC_GLOSSARY`
+gained 8 new shorthand terms this round: `DPS`, a broadened `P100/P200/P400`, `P+1/P+2/P-1/P-2`
+(race-pace bands relative to goal pace), `L-Pos/11-Pos` (an arm-entry-angle kick drill),
+`CNS Activation`, `SL Jumps`, `Broken 200/Broken 125`, and `Dryland` itself. `ADAC_SOURCE_META`'s
+`mesocycles` array and `note` field were both updated to disclose that the Weeks 14-15 sessions are
+handwritten (so their sub-block distance splits, unlike the typed sheets, are a best-effort visual
+read — though every session's own overall total, circled by the coach on the page, was used to
+cross-check the block-by-block arithmetic during transcription and matches in every case). Verified
+via Playwright: `ADAC_SESSIONS.length` reads 31 with all-unique ids, and the full existing
+regression suite (all 9 tabs, `generateWorkout()` firing with zero errors) passes unchanged — this
+file remains inert reference data, never read by the live generator.

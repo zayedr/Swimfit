@@ -1,9 +1,11 @@
 // abu-dhabi-aquatics-database.js
 //
-// A local, hardcoded transcription of 15 real training sessions from Abu
-// Dhabi Aquatics Club (Mesocycle 1: Aerobic Development, Weeks 3-5),
-// uploaded directly by the user as scanned coaching documents authored by
-// Coach Sherif Zakaria. This exists purely as a REFERENCE LIBRARY — a saved,
+// A local, hardcoded transcription of 31 real training sessions from Abu
+// Dhabi Aquatics Club, uploaded directly by the user as scanned/typed
+// coaching documents authored by Coach Sherif Zakaria — spanning Mesocycle 1
+// (Aerobic Development, Weeks 3-5, Nov 2025), a later Specific Prep/Taper
+// block (Weeks 14-15, Nov-Dec 2025, handwritten notebook pages), and a set of
+// typed March 2026 sessions. This exists purely as a REFERENCE LIBRARY — a saved,
 // searchable record of real elite club programming this project can look
 // back at for real ideas/patterns/terminology in future rounds — mirroring
 // the same "hardcode real files locally, don't rely on model memory"
@@ -35,9 +37,9 @@
   window.ADAC_SOURCE_META = {
     club: 'Abu Dhabi Aquatics Club',
     coach: 'Sherif Zakaria',
-    mesocycle: 'Mesocycle 1 — Aerobic Development',
-    source: 'User-uploaded scanned training documents (this session)',
-    note: 'Local reference data only — not fetched from any network source, not currently read by the live generator.'
+    mesocycles: ['Mesocycle 1 — Aerobic Development (Weeks 3-5)', 'Specific Prep / Taper — Part 1 (Weeks 14-15)', 'March 2026 sessions (undated mesocycle)'],
+    source: 'User-uploaded scanned/typed training documents (this session)',
+    note: 'Local reference data only — not fetched from any network source, not currently read by the live generator. The Weeks 14-15 sessions are handwritten notebook pages, transcribed by direct visual reading — treat sub-block distance splits there as best-effort, though every overall session total is read directly off the coach\'s own clearly-circled total.'
   };
 
   // The club's own real shorthand, as used verbatim in `lines` below.
@@ -54,13 +56,19 @@
     'UWK / UW': 'Underwater Kick',
     'SL': 'Straight Line / streamlined body position',
     'SC': 'Stroke Count',
+    'DPS': 'Distance Per Stroke — counting strokes to maximize distance covered per stroke cycle',
     'SWOLF': 'Stroke count + time efficiency score (lower is better)',
     'BE3/5/7/9': 'Build Effort scale — an increasing effort level per rep/round',
-    'P200 / P400': 'Target pace derived from the swimmer\'s own 200m / 400m time',
+    'P100 / P200 / P400': 'Target pace derived from the swimmer\'s own 100m / 200m / 400m time (also written as a subscript, e.g. "P200")',
+    'P+1 / P+2 / P-1 / P-2': 'Race-pace band relative to goal pace P — each step roughly a fixed number of seconds faster/slower than P',
     'RDS': 'Rounds',
     'desc': 'Descending — each rep/round faster than the last',
     'G1 / G2': 'Group 1 / Group 2 — two ability groups swum on different send-offs',
-    'BE3/5': 'Build Effort at levels 3 and 5 (alternating or by rep)'
+    'L-Pos / 11-Pos': 'A specific hand/arm entry position drill (named for the clock-face-style arm angle)',
+    'CNS Activation': 'Central Nervous System activation — an explosive jump/kick/turn/underwater sequence early in the Warm-Up',
+    'SL Jumps': 'Standing Long Jumps (a dryland/pool-deck explosive-power drill)',
+    'Broken 200 / Broken 125': 'A Main Set style where a nominal 200m/125m swim is broken into shorter fast segments with brief rest between them',
+    'Dryland': 'The day\'s land-based conditioning focus (e.g. Mobility, Plank, Plyo, Med Ball), noted per session where shown'
   };
 
   window.ADAC_SESSIONS = [
@@ -493,6 +501,484 @@
         { name: 'WD', totalM: 900, lines: [
           '4x200 w/fins & paddles 100 FR / 100 BK, Low SC',
           '1x100 Cho EZ'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D3', week: 14, day: 3, date: '2025-11-19', phase: 'Specific Prep', dryland: '3R :40 work / :20 rest x2', totalM: 4250,
+      blocks: [
+        { name: 'W-UP', totalM: 1000, lines: [
+          '1x400 w/fins every 4th 25 = UW, 6:00',
+          '4x50 Fly Kick on side (1 hand up), 1:00',
+          '4x100 FR Pull BE3/5 by 50, 1:30'
+        ] },
+        { name: 'PREP SET', totalM: 1050, lines: [
+          '3x100 FR Pull BE3, 1:30',
+          '4x50 MS Decel 1→4, :50',
+          '2x100 FR Pull BE3, 1:30',
+          '3x50 MS Decel→3, :55',
+          '1x100 FR Pull BE3, 1:30',
+          '2x50 MS Fast, 1:00'
+        ] },
+        { name: 'MAIN SET', totalM: 1200, focus: 'VO2 MAX', lines: [
+          'Two group options (parallel, same 1200m total):',
+          'G1 — Sprinter 50/100, P100: 24x50 1 fast / 1 EZ @1:00',
+          'G2 — Mid 200/400, P200: 24x50 2 fast / 1 EZ @1:00'
+        ] },
+        { name: 'REC SET', totalM: 700, lines: [
+          '1x200 w/fins scull/sw/kick/sw, 3:30',
+          '4x50 FR Pull, :45',
+          '4x25 w/fins UW (12.5 fast / 12.5 EZ), :40',
+          '1x200 FR DPS'
+        ] },
+        { name: 'FAST TURNS', totalM: 200, lines: [
+          '8x25 OTB Fast — dive 12.5m > open turn/flip turn > 12.5m finish (w/relay-style exchange, next swimmer goes as prior finishes)'
+        ] },
+        { name: 'WD', totalM: 100, lines: [
+          '1x100 scull/sw'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D4', week: 14, day: 4, date: '2025-11-20', phase: 'Specific Prep', dryland: 'Mobility', totalM: 4150,
+      blocks: [
+        { name: 'W-UP', totalM: 600, lines: [
+          '1x200 Cho sw',
+          '1x200 Cho kick',
+          '4x[15m MS OTB + EZ / 4x SL Jumps → :05 kick@wall + turn → 15m UW]'
+        ] },
+        { name: 'SET1 — PREP SET', totalM: 750, rounds: '3RDS (fins & paddles)', lines: [
+          '2x100 (1st 15m UW + breakout fast (MS) / middle 75m = FR low SC / last 10m no-breath finish fast (MS)) @1:45',
+          '1x50 35m build to fast / 15m kick Cho EZ, 1:15'
+        ] },
+        { name: 'SET2 — MAIN SET', totalM: 1300, focus: 'Speed Endurance', lines: [
+          'Two group options (parallel):',
+          'G1 (50/100 specialists), 900m: 3x[4x50 (①OTB build+35m / ②middle 25m / ③④last 15m) @1:30 / 1x100 EZ @3:00]',
+          'G2 (200/400 specialists), 1300m: 4x[1x50 OTB build to fast, 1:20 / 1x75 hold race pace, 1:20 / 1x100 last 50m fast, 1:30 / 1x100 EZ, 3:00]'
+        ] },
+        { name: 'SET3 — KICK', totalM: 1200, rounds: '3x (w/fins & snorkel)', lines: [
+          '4x100 (①② Fly kick on side, 25R-25L / ③ FR kick 11-Pos / ④ FR swim, strong kick, 6 strokes each 25), 1:45'
+        ] },
+        { name: 'WD', totalM: 300, lines: [
+          '1x300 scull / sw / double-arm BK'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D6', week: 14, day: 6, date: '2025-11-22', phase: 'Specific Prep', totalM: 5400,
+      blocks: [
+        { name: 'W-UP', totalM: 1000, lines: [
+          '1x400 Cho sw, 6:00',
+          '1x200 Cho kick, 4:00',
+          '8x50 w/snorkel & fins (odd: 25 Fly kick hand@side / 25 11-Pos Fly kick), "body pos", 1:00'
+        ] },
+        { name: 'SET1', totalM: 500, focus: 'MS Speed', rounds: '3RDS + R3 w/fins', lines: [
+          '2x25 MS kick "11 Pos", :40',
+          '2x25 MS single arm, :40',
+          '2x25 MS (odd: 20m fast / even: 25m fast OTB), :40',
+          '1x50 FR EZ'
+        ] },
+        { name: 'MAIN SET', totalM: 2250, focus: 'FR Aero', rounds: '3RDS', lines: [
+          '3x200 FR sw @2:50 / 2:40 / 2:30',
+          '3x50 BK sw, :50 (:30 rest)'
+        ] },
+        { name: 'SET3', totalM: 1200, focus: 'Kick Set', rounds: '3RDS — R1: FR / R2: MS / R3: Cho', lines: [
+          '1x50 kick build to fast, 1:00',
+          '1x25 FR sw, 6-8 strokes, :30',
+          '1x100 kick, no-breath by 25, 1:45',
+          '1x25 FR sw, 6-8 strokes, :30',
+          '1x200 kick, no-breath by 50, 3:30 / 3:45'
+        ] },
+        { name: 'WD', totalM: 450, lines: [
+          '16x25 FR-dr, paddle on head, :40',
+          '1x50 EZ'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D0', week: 14, day: 0, date: '2025-11-23', phase: 'Specific Prep', dryland: 'Med Ball', totalM: 4500,
+      blocks: [
+        { name: 'W-UP', totalM: 800, lines: [
+          '1x200 Cho sw, 3:30',
+          '1x200 Cho kick, 4:00',
+          '8x50 MS (odd: kick Fly/BR 11-Pos, 3-kick rotation / even: drill single arm), "body pos", 1:10'
+        ] },
+        { name: 'SET1 — PREP SET', totalM: 500, rounds: '2RDS', lines: [
+          '1x100 FR sw, 1:30',
+          '4x25 VS (fast+EZ / EZ+fast / build / fast), :40',
+          '1x50 MS sw, P200 or faster, 1:00'
+        ] },
+        { name: 'SET2 — MAIN SET', totalM: 1800, focus: 'MS Threshold', rounds: '3RDS', lines: [
+          '1x200 (50 MS fast / 150 FR DPS, 13-14 SC each 25), 3:30',
+          '1x200 (100 MS fast / 100 FR DPS), 3:30',
+          '1x200 (150 MS fast / 50 FR DPS), 4:00'
+        ] },
+        { name: 'SET3 — UW SET', totalM: 1200, lines: [
+          '3x100 FR sw w/fins (4 UWK each wall), 1:30',
+          '4x25 UW w/fins smooth, :45',
+          '3x100 FR sw w/fins (6 UWK each wall), 1:30',
+          '4x25 UW w/fins & chute, :50',
+          '3x100 FR sw w/fins (8 UWK each wall), 1:30',
+          '4x25 UW w/fins fast, :45'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '1x200 EZ sw'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D2', week: 14, day: 2, date: '2025-11-24', phase: 'Specific Prep', dryland: 'D:1', totalM: 3900,
+      blocks: [
+        { name: 'W-UP', totalM: 800, lines: [
+          '1x300 Cho every 4th 25 UW, 5:00',
+          '4x50 Kick (25 FR / 25 Cho), 1:00',
+          '4x50 drill Cho, 1:00',
+          '4x25 :05 kick@wall → turn → 15m fast, :45'
+        ] },
+        { name: 'PRE SET', totalM: 600, rounds: '3RDS', lines: [
+          '1x50 kick build to fast, :50',
+          '2x25 MS (①build ②fast), :30',
+          '1x50 BK EZ, 1:20',
+          '1x25 MS fast OTB, :30',
+          '1x25 G2, 1:00'
+        ] },
+        { name: 'MAIN SET', totalM: 1250, focus: 'Lactate Production (MS incl. Free)', lines: [
+          'Two group options (parallel):',
+          'G1 (50/100), 1000m: 5x[1x25 fast OTB, 1:00 / 1x50 fast, 1:30 / 1x25 fast, 1:00 / 1x100 EZ kick/sw, 2:30]',
+          'G2 (200/400), 1250m: 5x[1x50 fast OTB, 1:00 / 1x75 fast, 1:30 / 1x50 fast, 1:00 / 1x75 EZ kick/sw, 2:30]'
+        ] },
+        { name: 'RECOVERY', totalM: 300, lines: [
+          '1x300 scull / drill / EZ sw'
+        ] },
+        { name: 'SET4 — KICK-KICK', totalM: 600, lines: [
+          '12x50 w/fins (25 UW / 25 on back)'
+        ] },
+        { name: 'WD', totalM: 350, lines: [
+          '2x100 FR-IM, no Fly, 1:40',
+          '2x50 Cho-dr, 1:00',
+          '1x50 double-arm BK'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D5', week: 14, day: 5, date: '2025-11-25', dryland: 'Plank', totalM: 5500,
+      blocks: [
+        { name: 'W-UP', totalM: 1000, lines: [
+          '4x100 Cho, every 4th 25 = scull, 1:45',
+          '4x50 kick, any 15m strong, 1:00',
+          'Add fins + snorkel:',
+          '4x[1x50 Fly K on side, 1 arm up, 1:45 / 1x50 Cho " ", "what do you need to work on? dr/K/sprint/Cho"]'
+        ] },
+        { name: 'SET1 — MAIN SET ①', totalM: 800, focus: 'Resisted Skills', rounds: '2RDS', lines: [
+          '6x25 w/chute drill, :45',
+          '4x25 w/fins & paddles sw (①smooth ②build w/big strokes ③fast "tempo" ④EZ FR), :45',
+          '1x50 no equipment, build to fast, 1:00',
+          '1x100 EZ'
+        ] },
+        { name: 'SET2 — MAIN SET ②', totalM: 3400, focus: 'IM Efficiency', rounds: '2RDS', lines: [
+          '8x50 25 IMO / 25 FR, 1:00 — hold consistent UWK@SC',
+          '4x100 IM, sw, 1:40 — stroke limit per stroke (5/9/5/9 or 6/10/7/11/8-12/7-13)',
+          '4x25 body position Fly K, hands@side, :45',
+          '4x100 IM, sw, 8 UWK, "8x double pullout" each wall, 1:40',
+          '8x50 25 FR / 25 IMO, work perfect finishes, 1:00'
+        ] },
+        { name: 'WD', totalM: 300, lines: [
+          '6x50 FR-kick'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D3B', week: 14, day: 3, date: '2025-11-26', totalM: 4400, dryland: 'Plyo',
+      blocks: [
+        { name: 'W-UP', totalM: 1000, lines: [
+          '1x300 Cho-sw, 5:00',
+          '6x50 kick on side (Fly or FR) w/snorkel, 1:00',
+          '2x100 25 scull / 25 catch-up w/snorkel, 1:45',
+          '8x25 UWK (Fly or BR) *3,6,8 = fast, :45'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 1050, rounds: '3RDS', lines: [
+          '3x25 Cho-dr (R1: FR-FR-MS / R2: MS-FR-MS / R3: FR-MS-MS w/fins)',
+          '3x75 (same R1/R2/R3 stroke pattern) @1:15 — FR=smooth, MS=fast',
+          '1x50 EZ'
+        ] },
+        { name: 'MAIN SET', totalM: 1425, focus: 'VO2 MAX', rounds: '3RDS', lines: [
+          '5x75 (odd: MS fast / even: FR EZ), 1:30',
+          'G2 → 200/400: 6x50 (odd: fast / even: EZ), 1:00 / 1x100 EZ kick',
+          '1x100 EZ kick'
+        ] },
+        { name: 'SET3 — REC', totalM: 500, lines: [
+          '1x200 w/fins scull/sw/kick/sw, 3:30',
+          '4x50 FR Pull, :45',
+          '4x25 w/fins UW (12.5 fast / 12.5 EZ), :40'
+        ] },
+        { name: 'SET4 — FAST TURNS', totalM: 200, lines: [
+          '8x25 OTB fast (w/relay exchange) — dive 12.5m > open turn/flip turn > 12.5m finish; next swimmer starts as prior finishes'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '4x50 EZ FR/BR'
+        ] }
+      ]
+    },
+    {
+      id: 'W14D4B', week: 14, day: 4, date: '2025-11-27', totalM: 4900, dryland: 'Mobility',
+      blocks: [
+        { name: 'W-UP', totalM: 600, lines: [
+          '1x200 Cho',
+          '1x200 Cho/EZ, 7:00'
+        ] },
+        { name: 'CNS ACTIVATION', totalM: null, rounds: '4x', lines: [
+          '1x15m OTB, 1:00',
+          '4x SL Jumps → :05 kick@wall → turn → 15m UW, 1:00'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 1200, rounds: '2RDS (R1: w/fins / R2: no equip)', lines: [
+          '4x75 50 FR / 25 MS kick, 1:20',
+          '3x50 MS drill, 1:00',
+          '2x25 MS build, :30',
+          '1x100 50 MS fast / 50 EZ, 2:00'
+        ] },
+        { name: 'MAIN SET', totalM: 1800, focus: 'Speed Endurance "Race Pace"', rounds: '3RDS', lines: [
+          '8x50 MS sw — R1@1:00 (Build,P+2,P+2,P+2,P+1,P+1,P,P), R2@1:10 (Build,P+2,P+2,P+1,P+1,P,P,P-1), R3@1:20 (P+2,P+1,P,P,P-1,P-1,P-2,P-2)',
+          '1x200 EZ kick/sw, 4:00',
+          'P = 100 goal pace (goal-100-time / 4); e.g. goal 100 = 1:04 → P = :16/25; P+2 = :18, P+1 = :17, P = :16, P-1 = :15, P-2 = :14'
+        ] },
+        { name: 'SET3 — KICK / BODY POSITION', totalM: 1000, rounds: '2RDS', lines: [
+          '1x50 Fly or FR 11-Pos kick, 1:00',
+          '1x50 Fly kick on side (one hand up), 1:00',
+          '1x50 Cho kick on back, 1:00',
+          '3x100 Cho kick fast "for time", 2:30',
+          '1x50 Cho G2 sw'
+        ] },
+        { name: 'WD', totalM: 300, lines: [
+          '1x300 scull / sw / double-arm BK'
+        ] }
+      ]
+    },
+    {
+      id: 'W15D0', week: 15, day: 0, date: '2025-11-30', phase: 'Taper — Part 1', dryland: '3RDS x6 Station :30 work / :30 rest', totalM: 3825,
+      blocks: [
+        { name: 'W-UP', totalM: 1025, lines: [
+          '1x200 Cho, 3:30',
+          '3x[1x50 K,Cho, 1:00 / 1x75 50dr/:05r/25build, 1:15 / 1x150 IM "No FR" Desc by Rd, 2:30]'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 700, rounds: '2x, w/chute', lines: [
+          '2x25 smooth, :45',
+          '2x25 15 build / 10 EZ, :45',
+          '2x25 10 fast / 15 EZ, :45',
+          'Chute off: 4x50 drill Cho, 1:00'
+        ] },
+        { name: 'SET2 — MAIN SET', totalM: 1300, rounds: '2x', lines: [
+          '1x100 FR build, 1:30',
+          '1x100 FR BE4,3,2,2,then2,5, 1:30',
+          '5x50 MS → G1: 1 build / 2,3,4,5: P200, :50 (sprinkled) or G2: 3x50@P100@1:30',
+          '1x200 EZ'
+        ] },
+        { name: 'WD', totalM: 800, rounds: '1x', lines: [
+          '8x50 fins,paddles, :50 (odd 80% / even 70%)',
+          '4x50 kick (any 15m fast), 1:00',
+          '4x25 variable sprint, :40',
+          '1x100 IM kick EZ'
+        ] }
+      ]
+    },
+    {
+      id: 'W15D3', week: 15, day: 3, date: '2025-12-03', dryland: '8R :30 work / :30 transition, 6St, 18 min total — Plyo', totalM: 2900,
+      blocks: [
+        { name: 'W-UP', totalM: 1200, lines: [
+          '1x300 Cho, w/fins, 5:00',
+          '3x100 FR, kick w/fins, 1:45',
+          '6x50 25 scull / 25 MS drill, 1:00',
+          '3x100 FR Pull Desc 1→3, 1:30'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 600, rounds: '2x', lines: [
+          '4x25 w/chute (odd: 8 UWK fast+EZ / even: build to last 10m fast), :45',
+          '1x25 UW build, :45',
+          '1x25 15m fast + EZ, :45',
+          '1x50 EZ kick, 1:00',
+          '4x50 MS dr/build, 1:00'
+        ] },
+        { name: 'SET2 — MAIN SET', totalM: 800, lines: [
+          '8x25 (odd: MS strong / even: FR DPS), :30 — Pace=MS, Smooth=FR',
+          '12x50, 1:00 → ①Pace/①Smooth, ①Pace/②Smooth, ①Pace/③Smooth, ①Pace/②Smooth (4 rotations)'
+        ] },
+        { name: 'SET3', totalM: 100, lines: [
+          '4x25 OTB — ①dive@glide, ②UW+2cyc fast, ③④ 15m for time'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '4x50 Cho scull/sw'
+        ] }
+      ]
+    },
+    {
+      id: 'W15D4', week: 15, day: 4, date: '2025-12-04', phase: 'Taper — Part 1', dryland: 'Mobility', totalM: 3400,
+      blocks: [
+        { name: 'W-UP', totalM: 1575, focus: 'Meet-Style Warmup', lines: [
+          '4x100 50sw/25skull/25k, 1:45',
+          '4x75 fins,snorkel, 6UWK, catch-up, 8SK, 1:15',
+          '8x50 (odd: dr/sw MS, 1:00 / even: desc 1→4)',
+          '6x25 Cho turn, 5m in - 10m out, :45',
+          '3x50 MS ①build ②③P200, 1:00',
+          '3x25 OTB ①dive+glide ②③15m',
+          '1x100 FR'
+        ] },
+        { name: 'SET1 — MAIN SET (Broken)', totalM: 325, lines: [
+          'Broken 200: 1x100 OTB EZ speed / R:20 / 1x50 fast / R:10 / 1x50 fast',
+          'Broken 125: 1x50 OTB EZ speed / R:30 / 1x50 fast / R:10 / 1x25 fast'
+        ] },
+        { name: 'REC', totalM: 600, lines: [
+          '2x100 kick/sw, 1:40',
+          '4x50 FR BE5, :45',
+          '1x200 scull/sw/kick/sw'
+        ] },
+        { name: 'WD', totalM: 900, lines: [
+          '4x100 kick/sw, 1:45',
+          '4x50 BE3, :45',
+          '4x25 variable sprint, :30',
+          '1x200 max pace EZ'
+        ] }
+      ]
+    },
+    {
+      id: 'MAR10', date: '2026-03-10', phase: 'March 2026 sessions', totalM: 5150,
+      blocks: [
+        { name: 'W-UP', totalM: 1050, lines: [
+          '1x400 choice w/fins - every 4th 25 UW, 6:00',
+          '6x50 kick (3,6 fast), :55',
+          '1x200 25 scull / 25 swim, 3:00',
+          '6x25 UW w/fins (3,6 fast), :40'
+        ] },
+        { name: 'KICK', totalM: 900, lines: [
+          '4x25 FL kick on side in L-position (w/snorkel), :45',
+          '1x200 choice kick neg split by 50, 70%-80%, 4:00',
+          '4x25 FR kick on side in L-position (w/snorkel), :45',
+          '1x200 choice kick build, 4:00',
+          '4x25 BR kick on back, hands@side, :45',
+          '1x200 choice kick fast, 4:00'
+        ] },
+        { name: 'MAIN SET', totalM: 3000, lines: [
+          '8x100 FR pull desc 1-2, 1:30',
+          '4x50 IM order (fly-bk-br-fr), :50',
+          '6x50 start@mid-pool (turn1: pause :02sec-push / turn2: smooth&fast), 1:00',
+          '8x75 25 IMO / 50 FR, 1:05',
+          '4x50 FR-strong, :50',
+          '6x50 25 drill/:05r/25 build to fast finish (fins optional), 1:00',
+          '8x50 FR w/fins desc 1-2, :50',
+          '4x50 choice no fins, hold strong, 1:00'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '1x200 25 scull / 25 swim / 50 kick'
+        ] }
+      ]
+    },
+    {
+      id: 'MAR22', date: '2026-03-22', phase: 'March 2026 sessions', totalM: 3100,
+      blocks: [
+        { name: 'W-UP', totalM: 900, lines: [
+          '1x300 FR w/fins every 4th 25 UW',
+          '3x100 kick Cho, any 25 fast, 2:00',
+          '6x50 25 drill / 25 build (odd: FR, even: MS), 1:00 (G1) / 1:10 (G2)'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 800, rounds: '2RDS', lines: [
+          '4x50 w/chute, 25 smooth / 25 build (odd: FR, even: MS), 1:15 (G1)',
+          '2x25 no chute, 1: 90% / 2: 95%, :45',
+          '6x50 (1: MS-smooth / 2: MS-build / 3: 25 MS fast - 25 FR EZ), :50 (G1) / 1:00 (G2)'
+        ] },
+        { name: 'MAIN SET', totalM: 800, lines: [
+          '"200 group" (2RDS): 1x50 OTB 95% / 2x50 P200 / 1x50 EZ / 2x75 (25 build / 50 P200), 1:30 — then 1x100 EZ, 3:00 — group total 800m',
+          '"100 group" (2RDS): 1x25 OTB 95% / 1x25 EZ / 1x50 P100 / 1x50 EZ / 2x75 (25 EZ / 25 build / 25 fast), 1:30-1:40 — then 1x100 EZ, 4:00 — group total 700m'
+        ] },
+        { name: 'WD', totalM: 600, lines: [
+          '1x200 75 sw / 25 scull',
+          '4x50 kick, any 10m fast',
+          '1x200 EZ'
+        ] }
+      ]
+    },
+    {
+      id: 'MAR23', date: '2026-03-23', phase: 'March 2026 sessions', totalM: 4100,
+      blocks: [
+        { name: 'W-UP', totalM: 1000, lines: [
+          '2x200 (1: sw / 2: kick)',
+          '4x75 IMO, 25R-25L-25sw, 1:30 (G1) / 1:40 (G2)',
+          '6x50 (odd: FR, 2 BE each 25 / even: Cho build to strong), 1:00 / 1:10'
+        ] },
+        { name: 'SET1 — KICK', totalM: 750, rounds: '3RDS', lines: [
+          '2x75 25R/25L (side kick) / 25 Fly kick on back, 1:30 (G1) / 1:40 (G2)',
+          '2x50 FR kick w/board (desc by RD), 1:00 / 1:10'
+        ] },
+        { name: 'MAIN SET', totalM: 1650, rounds: '3RDS', lines: [
+          '1x300 FR pull w/paddles (BE3,5,3 by 100), 4:30 (G1) / 5:00 (G2)',
+          '4x50 Cho, NO FR (1: 25R arm/25L arm / 2-3: strong, seam stroke count / 4: build to fast), 1:00 / 1:10',
+          '1x50 EZ, BK sw, 2:00'
+        ] },
+        { name: 'SET3', totalM: 500, lines: [
+          '4x25 w/fins fast turns (FR), :45',
+          '16x25 (1-3: UW smooth / 4: UW 15m fast + EZ), :45'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '1x200 kick-Cho'
+        ] }
+      ]
+    },
+    {
+      id: 'MAR24', date: '2026-03-24', phase: 'March 2026 sessions', totalM: 5150,
+      blocks: [
+        { name: 'W-UP', totalM: 1050, lines: [
+          '1x400 Cho w/fins, every 4th 25 UW, 6:00',
+          '6x50 Cho kick (3,6 fast), :55 (G1) / 1:10 (G2)',
+          '1x200 Cho, 25 scull / 25 sw, 3:00 (G1) / 3:20 (G2)',
+          '6x25 UW w/fins, 3,6 fast, :40'
+        ] },
+        { name: 'SET1 — KICK', totalM: 900, rounds: '1RDS', lines: [
+          '4x25 Fly kick on side L-Pos (w/snorkel), :45',
+          '1x200 Cho kick neg split by 50, 70%-80%, 4:00 (G1) / 4:20 (G2)',
+          '4x25 FR kick on side L-Pos (w/snorkel), :45',
+          '1x200 Cho kick build, 4:00 / 4:20',
+          '4x25 BR kick on back, hands@side, :45',
+          '1x200 Cho kick fast, 4:00 / 4:20'
+        ] },
+        { name: 'MAIN SET', totalM: 3000, lines: [
+          '8x100 FR pull desc 1-2, 1:30 (G1) / 1:45 (G2)',
+          '4x50 IMO sw, :30 rest',
+          '6x50 Cho turns (start from mid-pool, 12.5m in / 12.5m out x2), 1:00 / 1:10',
+          '8x75 25 MS fast / 50 FR, 1:10 / 1:20',
+          '4x50 FR strong, :50 / 1:00',
+          '6x50 25 drill > :05 rest > 25 build to fast finish, 1:00 / 1:10',
+          '8x50 FR w/fins desc 1-2, :50 / 1:00',
+          '4x50 MS P200, 1:00 / 1:10'
+        ] },
+        { name: 'WD', totalM: 200, lines: [
+          '1x200 25 scull / 25 sw / 50 kick'
+        ] }
+      ]
+    },
+    {
+      id: 'MAR25', date: '2026-03-25', phase: 'March 2026 sessions', totalM: 3250,
+      blocks: [
+        { name: 'W-UP', totalM: 1050, lines: [
+          '1x300 100sw/50 kick, 5:00',
+          '3x100 FR pull desc 1-3, 1:30 (G1) / 1:40 (G2)',
+          '1x300 scull / drill / sw, 5:00',
+          '4x25 15m from deadstart, :40',
+          '1x50 EZ, 1:10'
+        ] },
+        { name: 'SET1 — PRE SET', totalM: 450, rounds: '3RDS', lines: [
+          '4x25 w/chute desc 1-4 to fast, :45, chute off',
+          '1x25 fast-OTB, :45',
+          '1x25 EZ, 1:00'
+        ] },
+        { name: 'MAIN SET', totalM: 1050, rounds: '3RDS', lines: [
+          '1x100 Cho kick-smooth, 2:00 (G1) / 2:10 (G2)',
+          '4x50 MS — R1: desc 1-4 to P200, :50/1:00 — R2: 1 build/2:P+1/3,4:P200, 1:00/1:05 — R3: 1 build/2,3:P200/4:P-1, 1:10/1:10',
+          '1x50 EZ, 1:00'
+        ] },
+        { name: 'SET3 — UW', totalM: 400, lines: [
+          '4x25 UW w/fins smooth, :40',
+          '4x25 10m UW + glide > then EZ sw, :40',
+          'No fins: 4x25 8 UW + glide > then EZ sw, :45',
+          '4x25 12.5 UW + 3 strokes fast, :45'
+        ] },
+        { name: 'WD', totalM: 300, lines: [
+          '3x100 25 scull / 25 kick / 50 sw, 1:40'
         ] }
       ]
     }
