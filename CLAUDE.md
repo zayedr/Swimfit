@@ -5644,3 +5644,28 @@ merged and present on `main` at the time these screenshots were taken — the li
 the user saw was very likely a GitHub Pages deploy-propagation delay or a cached page (the
 Instagram in-app browser in particular is known for holding onto stale cached pages), not a failed
 or reverted fix.
+
+**A follow-up round proactively audited every button on every tab for this same class of bug
+instead of waiting for the next individual screenshot report** — the user asked, in effect, "what's
+the general fix for a button whose text is too long," which is answered better by a real sweep than
+by a description. A small Playwright script compared `scrollWidth` vs `clientWidth` (the actual,
+measurable signature of text being silently clipped by `overflow:hidden` — not a visual guess) on
+every visible `button`/`.btn` element across all 9 App-view tabs at 390px. It found two more real,
+currently-live instances of the identical bug, both too subtle (single-digit-to-20px overflow, not
+a dramatic multi-word cut) to have been noticed or screenshotted yet: `#generateBtn` ("Generate Swim
+Workout") and `#completeWorkoutBtn` (dynamic text — "Complete Workout — Log {X}" / "Logged To
+Tracker — {X}", where `{X}` is a live `formatDistanceM()` value whose length varies with both the
+chosen distance *and* the swimmer's Units setting, so no fixed font-size tweak could ever reliably
+keep it on one line for every possible value). Fixed identically to the promo popup button above —
+a `@media (max-width:480px)` rule letting both wrap onto multiple lines and grow taller instead of
+clipping, since `.btn` has no fixed height. Re-running the same scrollWidth/clientWidth sweep across
+all 9 tabs afterward returned zero clipped buttons anywhere in the app. This establishes the general
+answer going forward: any `.btn`-classed element whose label is either long or built from dynamic/
+variable-length data should get this same scoped wrap-and-grow treatment rather than relying on
+`.btn`'s shared `white-space:nowrap` to happen to fit — truncation (the Log Out button's own fix) is
+reserved for the one case where the exact wording doesn't matter, only that *something* legible is
+visible. Verified via a real Playwright screenshot of the Complete Workout button post-fix (not just
+the bounding-rect measurement, per this round's own established lesson) showing the checkmark icon
+and full two-line text both fully visible with nothing cut off, and the full existing regression
+suite (all 9 tabs, zero page errors, the ADAC-wiring workout-generation check, the promo popup fix
+from directly above) passes unchanged.

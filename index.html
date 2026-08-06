@@ -628,6 +628,21 @@ section { position: relative; scroll-margin-top: 96px; }
      button's height to fit — .btn has no fixed height, only min-height, so
      this can't overflow anything else on the card. */
   #promoPopupRegisterBtn { white-space: normal; line-height: 1.3; padding-block: 0.9em; }
+  /* The general answer to "what's the fix for a button whose text is long":
+     a proactive audit (scrollWidth vs clientWidth on every visible button at
+     390px, not just eyeballing) found two more real, live instances of the
+     exact same silent-clipping bug — neither had ever been reported, since
+     the overflow is a handful of pixels rather than the dramatic multi-word
+     cut-off the two bugs above were. #generateBtn ("Generate Swim Workout")
+     and #completeWorkoutBtn (dynamic — "Complete Workout — Log {X}" /
+     "Logged To Tracker — {X}", where {X} is a live formatDistanceM() value
+     that changes length with both the chosen distance AND the swimmer's
+     Units setting, so no fixed font-size tweak could ever be relied on to
+     keep it one line at every possible value) both measured scrollWidth >
+     clientWidth here — real, currently-happening clipping, just too subtle
+     to have been screenshotted yet. Same fix, same reasoning as the popup
+     button above: let it wrap and grow taller rather than clip. */
+  #generateBtn, #completeWorkoutBtn { white-space: normal; line-height: 1.3; padding-block: 0.85em; }
 }
 @media (max-width: 400px) {
   /* Below ~400px even the shrunk trio above is tight — the trial countdown
