@@ -612,6 +612,32 @@ section { position: relative; scroll-margin-top: 96px; }
      different, more generic font than the rest of the site's Orbitron
      headings/wordmark. */
   .nav-links button { font-family: var(--font-display); }
+  /* A real, previously-live bug (screenshot-caught: the Log Out button's
+     entire box, not just its text, was sliced off past the right edge of a
+     real phone) — and a genuinely different root cause than the earlier
+     Log Out text-clipping fix above. At mobile widths, .nav-links is pulled
+     out of flow entirely (position:fixed, for the off-canvas drawer), so
+     .nav-cta (badge + Log Out + hamburger) is the ONLY flexible-looking
+     child left in .wrap — except it isn't flexible at all: both .brand and
+     .nav-cta carry flex-shrink:0, so there is nothing left in the row that
+     can absorb overflow. Direct measurement (getBoundingClientRect, not a
+     screenshot guess) across every real device width from 401px to 480px
+     found .nav-cta's own content (badge + Log Out's own capped 108px +
+     the 38px hamburger) needs up to 90px more room than .wrap actually has
+     — worst at ~401-414px (where the badge has just turned back on, see
+     the pre-existing sub-400px rule below) and still ~11px over even at
+     480px, meaning nearly every real phone in this range was silently
+     bleeding the Log Out button/hamburger off-canvas, confirming the user's
+     screenshot was a second, distinct bug, not a regression of the first.
+     The badge (Ultra Access / trial countdown) is real, useful data, but
+     even hiding it completely only reclaims ~106px — not always enough on
+     its own once combined with Log Out + hamburger at the narrowest widths
+     in range — so rather than half-fix it with a smaller badge, this
+     extends the exact reasoning the pre-existing sub-400px rule already
+     established ("the one piece a signed-in swimmer can live without
+     seeing in the top bar — it's still shown inside Settings/Pricing") to
+     the WHOLE mobile breakpoint, not just below 400px. */
+  .nav-status-badge { display: none; }
 }
 @media (max-width: 480px) {
   /* The exact same centering-overflow bug as #navLogoutBtn above, on a
@@ -644,14 +670,12 @@ section { position: relative; scroll-margin-top: 96px; }
      button above: let it wrap and grow taller rather than clip. */
   #generateBtn, #completeWorkoutBtn { white-space: normal; line-height: 1.3; padding-block: 0.85em; }
 }
-@media (max-width: 400px) {
-  /* Below ~400px even the shrunk trio above is tight — the trial countdown
-     badge is the one piece a signed-in swimmer can live without seeing in
-     the top bar itself (it's still shown inside Settings/Pricing), so it's
-     the one that goes fully hidden rather than trying to abbreviate its
-     text further. */
-  .nav-status-badge { display: none; }
-}
+/* The old max-width:400px-only ".nav-status-badge { display:none }" rule
+   that used to live here is gone — it's now folded into the main
+   max-width:980px mobile block above (hides the badge across the ENTIRE
+   mobile range, not just the narrowest phones), since measurement showed
+   the overflow it exists to prevent runs from ~401px all the way up past
+   480px, not just below 400px. See that block's comment for the numbers. */
 
 /* ============================= MOBILE BOTTOM NAV ============================= */
 .mobile-bottom-nav { display: none; }
