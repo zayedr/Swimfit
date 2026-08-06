@@ -5669,3 +5669,36 @@ the bounding-rect measurement, per this round's own established lesson) showing 
 and full two-line text both fully visible with nothing cut off, and the full existing regression
 suite (all 9 tabs, zero page errors, the ADAC-wiring workout-generation check, the promo popup fix
 from directly above) passes unchanged.
+
+**A third, live screenshot report of "Log Out still cut off" turned out to be a genuinely different
+bug from the two fixed above — not a regression of either, and not a deploy-lag/caching issue.**
+The screenshot showed the admin account's nav row: `⚡ ULTRA ACCESS` badge + `LOG OUT (SWIN…`, with
+the Log Out button's entire BOX (not just its text) sliced off past the right edge of the phone
+screen — a different failure mode than the earlier text-only clipping bugs, which never cut off a
+button's own box. Root cause, found via direct `getBoundingClientRect()` measurement across every
+real device width (not guessed): at mobile widths, `.nav-links` is pulled fully out of flow
+(`position:fixed`, for the off-canvas drawer), leaving `.nav-cta` (badge + Log Out + hamburger) as
+the only child left in `.wrap` alongside `.brand` — except NEITHER carries any shrink capacity
+(`flex-shrink:0` on both), so once the pre-existing sub-400px-only `.nav-status-badge { display:none
+}` rule stopped applying (i.e. from 401px up), there was nothing left in the row able to absorb
+overflow at all. Measured across every real device width from 401px to 480px: `.nav-cta`'s own
+content (badge + Log Out's already-capped 108px + the 38px hamburger) needed up to **90px** more
+room than `.wrap` actually had — worst at 401-414px, still ~11px over even at 480px — meaning
+nearly every real phone in this entire range (401-928, i.e. iPhone 11/XR/14 Pro Max/15 Pro Max and
+similar) was silently bleeding the Log Out button and hamburger off-canvas the instant an admin (or
+any signed-in swimmer with the trial badge showing) loaded the site on one. Even fully hiding the
+badge only reclaims ~106px — not always enough margin on its own at the narrowest widths in range —
+so rather than half-fix it with a smaller badge, this extends the *exact* reasoning the pre-existing
+sub-400px rule already established ("the trial countdown badge is the one piece a signed-in swimmer
+can live without seeing in the top bar — it's still shown inside Settings/Pricing") to the **whole**
+mobile breakpoint (`max-width:980px`), not just below 400px; the now-redundant standalone `max-width:
+400px` block was removed. Verified via direct measurement across 12 widths (360 through 1024px): the
+badge now correctly hides for the entire mobile range and Log Out/hamburger stay fully on-screen
+everywhere in it (the one true-ground-truth signal, `document.body.scrollWidth` vs viewport width,
+matches exactly at every tested width except the pre-existing, already-`overflow-x:hidden`-mitigated
+off-canvas-drawer false positive this file has documented since the sidebar/bottom-nav round), while
+the badge correctly reappears at desktop widths (≥981px) with 30+px of margin to spare — confirmed
+via a real Playwright screenshot at 430px showing the full nav row (logo, Log Out pill, hamburger)
+rendering completely on-screen with nothing cut off, box or text. Full regression suite (all 9 tabs,
+zero page errors, the ADAC-wiring workout-generation check, zero clipped buttons anywhere) passes
+unchanged.
