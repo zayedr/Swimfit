@@ -108,16 +108,29 @@
     }
   });
 
-  /* ============================= ACCESS-LOCK OVERLAY =============================
-     FREEMIUM REWORK: this overlay now hard-locks the page for exactly one
-     case — 'locked' (an admin-set manual suspension, accessDisabled).
-     Every earlier "trial expired → full-screen paywall" behavior has been
-     removed: a swimmer whose 3-day trial ends now simply settles onto the
-     permanent Free plan (access.level 'free') instead of being locked out —
-     feature-level gates (Workout Generator levels, the Custom Workout
-     Builder's saved-workout cap, Distance Tracker analytics — see those
-     files) are what actually differentiate Free from All-Access Pro now,
-     never a full-page block. Only Log Out exits a genuine suspension. */
+  /* ============================= ACCESS-LOCK OVERLAY (DISABLED) =============================
+     FULLY DISABLED at the user's explicit request: "fix the paywall/
+     suspension gating logic so that ANY user (new, registered, or without
+     an active paid plan) can freely access and use the platform" — item 1
+     specifically calls out removing the full-screen "Account Access
+     Suspended" lockout so a non-paying/expired swimmer is never blocked.
+     refreshPaywallLock() is now a permanent no-op: it never unhides
+     #paywallOverlay and never toggles body.paywall-locked, regardless of
+     access.level (including 'locked', an admin's accessDisabled flag —
+     even that no longer produces a site-wide block). The admin's suspend/
+     unsuspend toggle in the Admin Panel and the accessDisabled Firestore
+     field are both left completely intact — this only removes the
+     CLIENT-SIDE enforcement of that flag as a full-page lock; toggling it
+     is simply informational going forward, the same "trial badge is
+     informational, never enforcement" precedent this file already
+     established elsewhere. The one narrower exception, left deliberately
+     unchanged since it isn't "the platform" or this overlay: the
+     dedicated full-screen AI Coach page's own coachPageTierAllowed() (see
+     index.html) and the server-side aiSwimCoach 402 check (see
+     functions/index.js) both still decline a genuinely admin-suspended
+     account specifically — a narrow, disclosed anti-abuse/cost-control
+     safety valve on the one feature that spends real Claude API money per
+     message, not a paywall and not part of "browsing the platform." */
   var paywallLogoutBtn = document.getElementById('paywallLogoutBtn');
   if (paywallLogoutBtn) {
     paywallLogoutBtn.addEventListener('click', function () {
@@ -127,12 +140,10 @@
   }
   var latestAccessForPaywall = null;
   function refreshPaywallLock() {
-    var access = latestAccessForPaywall;
-    var locked = !!(access && access.level === 'locked');
     var overlay = document.getElementById('paywallOverlay');
-    if (overlay) overlay.hidden = !locked;
-    document.body.classList.toggle('paywall-locked', locked);
-    return locked;
+    if (overlay) overlay.hidden = true;
+    document.body.classList.remove('paywall-locked');
+    return false;
   }
   window.__refreshPaywallLock = refreshPaywallLock;
   document.addEventListener('swimfit:accesschange', function (e) {

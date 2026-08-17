@@ -164,10 +164,43 @@
       cwbState.blocks.push(blankBlock('New Block'));
       renderBuilder();
     });
+    // Shared by the "Clear / New" button and the Studio's own "Back to
+    // Workouts" close — both discard whatever's currently in the builder,
+    // so both should warn identically rather than only one of them.
+    function hasUnsavedDraft() {
+      return cwbState.blocks.some(function (b) { return b.sets.length > 0; }) && !!(nameInput && nameInput.value.trim());
+    }
     if (newBtn) newBtn.addEventListener('click', function () {
-      var hasContent = cwbState.blocks.some(function (b) { return b.sets.length > 0; }) && (nameInput && nameInput.value.trim());
-      if (hasContent && !confirm('Clear the current draft and start a new workout?')) return;
+      if (hasUnsavedDraft() && !confirm('Clear the current draft and start a new workout?')) return;
       resetBuilder();
+    });
+
+    /* ============================= WORKOUT STUDIO (dedicated view) =============================
+       Opened from the Workouts tab's "Open Workout Studio" CTA card
+       (#openWorkoutStudioBtn) as a full-screen overlay — see
+       #workoutStudioOverlay in index.html, right beside
+       #liveWorkoutOverlay, which this deliberately mirrors (a Back button
+       instead of Exit, no confirm unless there's a genuinely unsaved
+       draft since nothing here is "mid-set" the way a running timer is). */
+    var studioOverlay = document.getElementById('workoutStudioOverlay');
+    var openStudioBtn = document.getElementById('openWorkoutStudioBtn');
+    var studioBackBtn = document.getElementById('workoutStudioBackBtn');
+    function openWorkoutStudio() {
+      if (!studioOverlay) return;
+      studioOverlay.hidden = false;
+      document.body.classList.add('workout-studio-active');
+      loadSavedWorkouts();
+    }
+    function closeWorkoutStudio() {
+      if (!studioOverlay || studioOverlay.hidden) return;
+      if (hasUnsavedDraft() && !confirm('Leave the Studio? Your unsaved draft won’t be kept.')) return;
+      studioOverlay.hidden = true;
+      document.body.classList.remove('workout-studio-active');
+    }
+    if (openStudioBtn) openStudioBtn.addEventListener('click', openWorkoutStudio);
+    if (studioBackBtn) studioBackBtn.addEventListener('click', closeWorkoutStudio);
+    document.addEventListener('keydown', function (e) {
+      if (studioOverlay && !studioOverlay.hidden && e.key === 'Escape' && overlay.hidden) closeWorkoutStudio();
     });
 
     function serializeBuilderBlocks() {
@@ -353,6 +386,12 @@
         resetBuilder();
         renderSavedList();
         if (live) stopLiveWorkout();
+        // Force-close the Studio on sign-out (no confirm — the swimmer is
+        // already gone, prompting them to "stay" makes no sense here).
+        if (studioOverlay && !studioOverlay.hidden) {
+          studioOverlay.hidden = true;
+          document.body.classList.remove('workout-studio-active');
+        }
       }
     });
 

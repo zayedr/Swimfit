@@ -6024,3 +6024,95 @@ system now grants a genuinely usable free product forever, not a countdown to a 
   product code, and the corrected test run confirmed the underlying Freemium logic was correct
   the whole time. The full regression suite (all 9 tabs, a real PDF `download` event, Complete
   Workout logging, zero page errors) passes unchanged.
+
+**The full-screen "Account Access Suspended" lockout was removed entirely, the Hero CTA was
+renamed, and the Custom Workout Builder was pulled out of the Workouts tab into its own dedicated
+Workout Studio view — a genuine reversal of the "hard-locking paywall" posture two rounds prior
+introduced, at the user's explicit, unambiguous instruction that "ANY user (new, registered, or
+without an active paid plan) can freely access and use the platform."**
+
+- **The paywall/suspension overlay is now a permanent no-op.** `refreshPaywallLock()`
+  (`js/paddle-client.js`) previously hard-locked the page for exactly one case — `access.level ===
+  'locked'` (an admin's manual `accessDisabled` suspension) — with a full-screen, non-closable
+  "Account Access Suspended" card. It's now unconditionally a no-op: `#paywallOverlay` stays
+  `hidden` and `body.paywall-locked` is never applied, for every access level including `'locked'`.
+  **This is a deliberate widening beyond just "non-paying/expired users never blocked"** — the
+  user's own item 1 explicitly named removing "the full-screen ACCOUNT ACCESS SUSPENDED modal/
+  lockout" itself, not just retargeting who it applies to, so a genuinely admin-suspended account
+  is no longer blocked from browsing the platform either. The `accessDisabled` Firestore field and
+  the Admin Panel's suspend/unsuspend toggle button are both left completely intact — only the
+  *client-side enforcement* of that flag as a full-page lock is gone; toggling it going forward is
+  informational only, the same "trial badge is informational, never enforcement" precedent this
+  file already established for the old trial-countdown system. `#paywallOverlay`'s markup, its
+  CSS, and the explanatory comments above both were kept as disclosed inert orphans (this file's
+  own long-standing "leave dead markup/CSS in place, don't hunt it down" precedent) rather than
+  deleted outright, in case a hard lock is ever reintroduced.
+- **One narrow, deliberately-preserved exception**: the dedicated full-screen AI Coach page's own
+  `coachPageTierAllowed()` (`index.html`) and the server-side `aiSwimCoach` 402 check
+  (`functions/index.js`) both still decline a genuinely admin-suspended account specifically —
+  neither was touched. This is disclosed as a narrow anti-abuse/cost-control safety valve on the
+  one feature that spends real Claude API money per message, not a paywall and not "browsing the
+  platform" in the sense the removed overlay covered; leaving it in place means a suspended
+  account can browse every tab freely but still can't burn paid AI credits, which reads as the
+  more defensible interpretation of "remove the suspension screen" than silently reopening every
+  anti-abuse valve as an unstated side effect.
+- **Hero CTA renamed.** The signed-out Hero button's label changed from "Start 3-Day Free Trial"
+  to "Start Free" (the ↗ arrow icon, `data-open-auth="signup"` handler, and the mutually-exclusive
+  signed-in "Build My Workout" sibling button are all unchanged) — matching the platform's own new
+  Freemium framing (a permanent Free plan, not a countdown). The three other "Register Free —
+  Start 3-Day Trial" gate buttons on the Workouts/Gym signed-out prompts and the entrance promo
+  popup's own CTA were deliberately left untouched, since the ask specifically named "the main
+  Hero CTA button," not every trial-flavored button site-wide.
+- **The Custom Workout Builder became a dedicated Workout Studio dashboard, not an always-expanded
+  section at the bottom of the Workouts tab.** The old `.cwb-section` (a `bento-grid` of a "My
+  Saved Workouts" card beside a "Workout Builder" card, permanently visible below the daily
+  generator) is gone from the Workouts tab's normal flow, replaced by a compact
+  `.cwb-studio-banner` CTA card ("🛠 Build Your Own Workout" — "Design custom sets, manage saved
+  routines, or launch the poolside Live Timer." — an "Open Workout Studio →" button). The entire
+  builder + saved-workouts UI now lives in `#workoutStudioOverlay`, a new full-screen, exclusive
+  overlay opened from that one CTA — the exact same "dedicated overlay rather than a tab" pattern
+  `#liveWorkoutOverlay` (Live Workout Mode, shipped two rounds ago) already established, so no new
+  router/tab system was needed. It sits at `z-index:470`, just below Live Workout Mode's `480`, so
+  starting a live workout from inside the Studio (the action bar's own "Start Live Workout"
+  button, or a saved workout's Play icon) correctly renders on top of it rather than being hidden
+  behind it. Every element id inside (`customWorkoutsList`, `cwbPlanNote`, `cwbNameInput`,
+  `cwbBlocksList`, `cwbAddBlockBtn`, `cwbSaveBtn`, `cwbStartBtn`, `cwbNewBtn`, `cwbStatus`,
+  `cwbEditingNote`) is byte-for-byte unchanged from the old embedded section — `js/custom-
+  workout.js` needed zero logic changes, since every lookup was already a plain `getElementById`
+  with no assumption about surrounding DOM structure; only the wrapper markup moved.
+- **A genuine 2-column dashboard, not a relabeled modal.** `.workout-studio-header` carries a
+  "← Back to Workouts" button (top-left, an `i-chevron` rotated 90° to point left) plus a "Build
+  Your Own / Workout Studio" title block; `.workout-studio-body` splits into
+  `.workout-studio-col-left` (a fixed 340px "My Saved Workouts" column, reusing the exact same
+  `cwb-saved-list`/`cwb-workout-item` markup and CSS the old embedded card used) and
+  `.workout-studio-col-right` (the full builder form — Workout Name, blocks, sets, Add
+  Block); a persistent `.workout-studio-action-bar` pins Save to My Workouts / Start Live Workout
+  / Clear-New plus the live status line along the bottom, always visible regardless of how far a
+  swimmer has scrolled the builder form. Below 900px the two columns stack (left column becomes a
+  capped 38vh scrollable strip above the builder) rather than trying to force a cramped side-by-
+  side layout on a phone — verified via Playwright at 390px: the columns genuinely stack, there's
+  zero horizontal overflow, and the Back button stays fully reachable.
+- **Opening the Studio always shows the swimmer's real saved list**, not a stale one — the click
+  handler calls the existing `loadSavedWorkouts()` (already idempotent/uid-guarded from the
+  original build, so this is a safe no-op if the list was already freshly loaded from clicking
+  into the Workouts tab itself). **A shared `hasUnsavedDraft()` helper** (the same "has any set
+  content and a typed name" check the pre-existing "Clear / New" button already used) now also
+  gates the Studio's own "Back to Workouts" close — leaving with a genuinely unsaved draft prompts
+  the identical confirm the Clear/New button already used, rather than silently discarding work;
+  a **sign-out** force-closes the Studio with no confirm at all (the swimmer is already gone,
+  prompting them to "stay" makes no sense), mirroring the exact pattern this file's own sign-out
+  handler already used to force-close Live Workout Mode if it happened to be open.
+- Verified via Playwright: for every access level (`free`, `locked`, `pro`, `trial`, `admin`)
+  `#paywallOverlay` stays `hidden` and `body` never gains `paywall-locked` — including `'locked'`,
+  confirming the suspension screen genuinely never shows now; the signed-out Hero CTA reads "Start
+  Free"; the old `.cwb-section` no longer exists anywhere in the DOM while the new
+  `.cwb-studio-banner` renders with the exact requested title/subtitle/button copy; opening the
+  Studio reveals a genuine side-by-side 2-column layout (confirmed via `getBoundingClientRect()`,
+  not just a visual read); saving a workout from inside the Studio persists it, "Back to Workouts"
+  closes the overlay, and re-opening shows the same saved workout still there; a genuinely unsaved
+  draft still prompts a confirm on Back (accepted in the test, confirming the close still
+  proceeds); Escape closes the Studio when it's the topmost overlay; a 390px mobile viewport shows
+  the columns stacked with zero horizontal overflow; and the full pre-existing regression suite
+  (all 9 tabs loading, a 4-stage generated workout, a real PDF `download` event, and both the Live
+  Mode and Complete Workout buttons still appearing correctly) passes unchanged with zero page
+  errors throughout.

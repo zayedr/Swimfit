@@ -2701,12 +2701,67 @@ body.paywall-locked { overflow: hidden; }
 body.paywall-locked .nav,
 body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 
-/* ============================= CUSTOM WORKOUT BUILDER ============================= */
-.cwb-grid > .cwb-saved-card { grid-column: span 4; }
-.cwb-grid > .cwb-builder-card { grid-column: span 8; }
-@media (max-width: 900px) {
-  .cwb-grid > .cwb-saved-card, .cwb-grid > .cwb-builder-card { grid-column: span 12; }
+/* ============================= WORKOUT STUDIO ENTRY CARD ============================= */
+.cwb-studio-banner {
+  display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+  padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--glass-bg); backdrop-filter: var(--glass-blur); margin-top: var(--space-6);
 }
+.cwb-studio-banner-icon { font-size: 2.2rem; flex-shrink: 0; line-height: 1; }
+.cwb-studio-banner-body { flex: 1 1 240px; min-width: 0; }
+.cwb-studio-banner-body h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.cwb-studio-banner-body p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.cwb-studio-banner .btn { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .cwb-studio-banner { flex-direction: column; align-items: flex-start; }
+  .cwb-studio-banner .btn { width: 100%; justify-content: center; }
+}
+
+/* ============================= WORKOUT STUDIO (dedicated dashboard overlay) =============================
+   Same fixed-overlay pattern .live-workout-overlay below already
+   established (header + scrollable body + a persistent action bar),
+   scaled to a 2-column dashboard instead of a 2-pane timer. */
+.workout-studio-overlay {
+  position: fixed; inset: 0; z-index: 470; background: var(--bg); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.workout-studio-overlay[hidden] { display: none; }
+body.workout-studio-active { overflow: hidden; }
+.workout-studio-shell { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.workout-studio-header {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.workout-studio-back-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0.55em 1em; border-radius: 999px;
+  border: 1px solid var(--border-strong); color: var(--muted); font-size: 0.85rem; flex-shrink: 0;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.workout-studio-back-btn .icon { width: 13px; height: 13px; }
+.workout-studio-back-btn:hover { border-color: var(--aqua-bright); color: var(--aqua-bright); }
+.workout-studio-eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-2); margin-bottom: 2px; }
+.workout-studio-header-info h2 { font-size: 1.15rem; margin: 0; }
+
+.workout-studio-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+.workout-studio-col-left {
+  flex: 0 0 340px; max-width: 340px; padding: var(--space-4); border-right: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+.workout-studio-col-right { flex: 1 1 auto; min-width: 0; padding: var(--space-4) var(--space-5); overflow-y: auto; }
+.workout-studio-col-right .cwb-blocks-list { margin-top: var(--space-2); }
+.workout-studio-action-bar {
+  flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); background: var(--bg-alt);
+}
+.workout-studio-action-bar .cwb-status { margin: 0; flex: 1 1 100%; }
+@media (max-width: 900px) {
+  .workout-studio-body { flex-direction: column; }
+  .workout-studio-col-left { flex: 0 0 auto; max-width: none; max-height: 38vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .workout-studio-col-right { padding: var(--space-4); }
+  .workout-studio-action-bar { padding: var(--space-3) var(--space-4); }
+  .workout-studio-header-info h2 { font-size: 1rem; }
+}
+
 .cwb-empty-note { color: var(--muted-2); font-size: 0.85rem; }
 .cwb-plan-note { font-size: 0.78rem; color: var(--muted); margin-bottom: var(--space-3); }
 .cwb-plan-note.is-full { color: var(--muted); }
@@ -3998,7 +4053,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
         <div class="ffhero-actions">
           <button type="button" class="ffhero-cta" data-open-auth="signup" data-auth-signed-out data-welcome-trigger>
-            <span>Start 3-Day Free Trial</span>
+            <span>Start Free</span>
             <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
           </button>
           <button type="button" class="ffhero-cta" data-tab="workouts" data-auth-signed-in style="display:none">
@@ -4181,41 +4236,22 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
        </div><!-- /workouts-col-right -->
       </div><!-- /workouts-columns -->
 
-      <!-- ---------- CUSTOM WORKOUT BUILDER + LIVE MODE ---------- -->
-      <div class="cwb-section" data-reveal>
-        <div class="section-head" style="margin-top:var(--space-6)">
-          <p class="eyebrow"><svg class="icon"><use href="#i-lane"/></svg> Build Your Own</p>
-          <h3>Custom Workout Builder</h3>
-          <p>Hand-build a workout block by block, save it to your profile, then start it hands-free in <strong>Live Workout Mode</strong> poolside.</p>
+      <!-- ---------- WORKOUT STUDIO ENTRY CARD ----------
+           Replaces the old always-expanded "Custom Workout Builder" section
+           embedded at the bottom of the Workouts tab — the builder + saved
+           list are now a dedicated full-screen view (#workoutStudioOverlay,
+           see near #liveWorkoutOverlay below), opened from this one CTA
+           card instead of always taking up scroll space on the main
+           Workouts page. -->
+      <div class="cwb-studio-banner" data-reveal>
+        <div class="cwb-studio-banner-icon" aria-hidden="true">🛠</div>
+        <div class="cwb-studio-banner-body">
+          <h3>Build Your Own Workout</h3>
+          <p>Design custom sets, manage saved routines, or launch the poolside Live Timer.</p>
         </div>
-
-        <div class="bento-grid cwb-grid" style="align-items:start;">
-          <div class="bento-card cwb-saved-card" style="--bento-accent:var(--gold)">
-            <div class="config-label"><svg class="icon"><use href="#i-lane"/></svg> My Saved Workouts</div>
-            <p class="cwb-plan-note" id="cwbPlanNote"></p>
-            <div class="cwb-saved-list" id="customWorkoutsList">
-              <p class="cwb-empty-note" id="customWorkoutsEmpty">No saved workouts yet — build one on the right and hit Save.</p>
-            </div>
-          </div>
-
-          <div class="bento-card cwb-builder-card" style="--bento-accent:var(--aqua-bright)">
-            <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Workout Builder <span class="config-label-hint" id="cwbEditingNote"></span></div>
-            <div class="form-row" style="margin-bottom:var(--space-3);">
-              <label for="cwbNameInput">Workout Name</label>
-              <input type="text" id="cwbNameInput" class="form-input" placeholder="e.g. Thursday Threshold" maxlength="80">
-            </div>
-            <div class="cwb-blocks-list" id="cwbBlocksList"></div>
-            <button type="button" class="btn btn-ghost btn-sm" id="cwbAddBlockBtn" style="margin-top:var(--space-2);">
-              <svg class="icon"><use href="#i-plus"/></svg> Add Block
-            </button>
-            <div class="cwb-builder-actions">
-              <button type="button" class="btn btn-primary" id="cwbSaveBtn"><svg class="icon"><use href="#i-check"/></svg> Save to My Workouts</button>
-              <button type="button" class="btn btn-outline-aqua" id="cwbStartBtn"><svg class="icon"><use href="#i-play"/></svg> Start Live Workout</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="cwbNewBtn">Clear / New</button>
-            </div>
-            <p class="cwb-status" id="cwbStatus" role="status" aria-live="polite"></p>
-          </div>
-        </div>
+        <button type="button" class="btn btn-primary btn-cta-glow" id="openWorkoutStudioBtn">
+          Open Workout Studio <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+        </button>
       </div>
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
      </div>
@@ -5063,16 +5099,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   </div>
 </div>
 
-<!-- ============================= ACCESS-LOCK OVERLAY =============================
-     A full-screen, non-closable lock shown in exactly one case: an admin has
-     manually suspended the account (accessDisabled) — see
-     refreshPaywallLock() in js/paddle-client.js. FREEMIUM REWORK: this used
-     to also lock a swimmer out once their 3-day trial ended; that's gone —
-     a trial ending now just settles the account onto the permanent Free
-     plan (Workout Generator Beginner level, a 2-workout Custom Workout
-     Builder cap, basic Tracker, limited AI chat) rather than a full-page
-     block. The overlay sits at z-index 400 over a blurred backdrop and
-     locks body scroll while it's showing. -->
+<!-- ============================= ACCESS-LOCK OVERLAY (DISABLED) =============================
+     FULLY DISABLED at the user's explicit request: "ANY user (new,
+     registered, or without an active paid plan) can freely access and use
+     the platform" — a non-paying/expired/even an admin-suspended swimmer
+     must never see a full-screen block. refreshPaywallLock() in
+     js/paddle-client.js is now a permanent no-op (never unhides this,
+     never toggles body.paywall-locked) — this markup is kept only as an
+     inert orphan (this file's own long-established "leave dead markup/CSS
+     in place rather than hunting it down" precedent) in case a hard lock
+     is ever reintroduced. A trial ending, or a lapsed/missing plan, simply
+     settles the account onto the permanent Free plan (Workout Generator
+     Beginner level, a 2-workout Custom Workout Builder cap, basic Tracker,
+     limited AI chat) — the feature-level gates in js/workout-generator.js,
+     js/custom-workout.js and js/tracker-service.js are what differentiate
+     Free from All-Access Pro now, never a full-page block of any kind. -->
 <div class="paywall-overlay" id="paywallOverlay" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" hidden>
   <div class="paywall-card">
     <div class="paywall-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
@@ -5080,6 +5121,61 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <p id="paywallBody">Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.</p>
     <p class="paywall-note" id="paywallNote">Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.</p>
     <button type="button" class="btn btn-ghost btn-sm" id="paywallLogoutBtn">Log Out</button>
+  </div>
+</div>
+
+<!-- ============================= WORKOUT STUDIO (dedicated dashboard) =============================
+     A full-screen, exclusive view opened from the Workouts tab's own
+     "Open Workout Studio" CTA card — the same "dedicated overlay rather
+     than a tab" pattern #liveWorkoutOverlay below already established, so
+     no new router/tab was needed. Every id inside (customWorkoutsList,
+     cwbPlanNote, cwbNameInput, cwbBlocksList, cwbAddBlockBtn, cwbSaveBtn,
+     cwbStartBtn, cwbNewBtn, cwbStatus, cwbEditingNote) is unchanged from
+     the old embedded section, so js/custom-workout.js needed zero logic
+     changes — only the surrounding wrapper markup moved. Sits at z-index
+     470, below Live Workout Mode's 480 so starting a live workout from
+     inside the Studio (Start Live Workout, or a saved workout's own Play
+     icon) correctly renders on top of it. -->
+<div class="workout-studio-overlay" id="workoutStudioOverlay" role="dialog" aria-modal="true" aria-labelledby="workoutStudioTitle" hidden>
+  <div class="workout-studio-shell">
+    <header class="workout-studio-header">
+      <button type="button" class="workout-studio-back-btn" id="workoutStudioBackBtn">
+        <svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg> Back to Workouts
+      </button>
+      <div class="workout-studio-header-info">
+        <p class="workout-studio-eyebrow">Build Your Own</p>
+        <h2 id="workoutStudioTitle">Workout Studio</h2>
+      </div>
+    </header>
+
+    <div class="workout-studio-body">
+      <aside class="workout-studio-col-left">
+        <div class="config-label"><svg class="icon"><use href="#i-lane"/></svg> My Saved Workouts</div>
+        <p class="cwb-plan-note" id="cwbPlanNote"></p>
+        <div class="cwb-saved-list" id="customWorkoutsList">
+          <p class="cwb-empty-note" id="customWorkoutsEmpty">No saved workouts yet — build one on the right and hit Save.</p>
+        </div>
+      </aside>
+
+      <div class="workout-studio-col-right">
+        <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Workout Builder <span class="config-label-hint" id="cwbEditingNote"></span></div>
+        <div class="form-row" style="margin-bottom:var(--space-3);">
+          <label for="cwbNameInput">Workout Name</label>
+          <input type="text" id="cwbNameInput" class="form-input" placeholder="e.g. Thursday Threshold" maxlength="80">
+        </div>
+        <div class="cwb-blocks-list" id="cwbBlocksList"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="cwbAddBlockBtn" style="margin-top:var(--space-2);">
+          <svg class="icon"><use href="#i-plus"/></svg> Add Block
+        </button>
+      </div>
+    </div>
+
+    <div class="workout-studio-action-bar">
+      <button type="button" class="btn btn-primary" id="cwbSaveBtn"><svg class="icon"><use href="#i-check"/></svg> Save to My Workouts</button>
+      <button type="button" class="btn btn-outline-aqua" id="cwbStartBtn"><svg class="icon"><use href="#i-play"/></svg> Start Live Workout</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="cwbNewBtn">Clear / New</button>
+      <p class="cwb-status" id="cwbStatus" role="status" aria-live="polite"></p>
+    </div>
   </div>
 </div>
 
