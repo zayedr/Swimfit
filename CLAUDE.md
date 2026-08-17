@@ -5878,3 +5878,149 @@ via a real Playwright screenshot at 430px showing the full nav row (logo, Log Ou
 rendering completely on-screen with nothing cut off, box or text. Full regression suite (all 9 tabs,
 zero page errors, the ADAC-wiring workout-generation check, zero clipped buttons anywhere) passes
 unchanged.
+
+**The billing model was rebuilt from a three-tier Pro/Elite/Ultra ladder into a genuine, permanent
+Freemium split — Free ($0, forever) and All-Access Pro ($13/month) — with the previous
+hard-locking "3-day trial then paywall" enforcement (see the earlier "3-day trial paywall was
+RE-INTRODUCED" entry, later itself refined into a Beginner-only bypass) softened into a real
+non-blocking free tier for every feature except a manual admin suspension.** This is the first
+round to touch pricing/access architecture since those earlier rounds and supersedes them: the
+system now grants a genuinely usable free product forever, not a countdown to a lockout.
+
+- **Pricing tab and the entrance/nav copy simplified to 2 cards.** `#panel-pricing`'s three
+  `.price-card`s (Pro $13/Elite $21/Ultra $135) became two: **Free** ($0/forever — Basic daily
+  workouts on the Beginner track, up to 2 saved custom workouts, basic Distance Tracker
+  daily/weekly/monthly totals, limited AI Coach chat) and **All-Access Pro** ($13/month,
+  `.featured`, unchanged glow/badge treatment — everything unlocked: Competitive/Elite swim
+  tracks, unlimited saved custom workouts, full Live Workout Mode, full AI Coach — widget +
+  full-screen page, photo analysis, saved history — full Gym/dryland plans, the full Academy
+  library, priority support). The FAQ's cancel/billing-currency answers and the "what happens
+  when the trial ends" copy were rewritten to describe settling onto the permanent Free plan
+  rather than a lockout. `.pricing-grid-2` (a new, centered 2-column CSS class, `minmax(0,380px)`
+  columns capped at 820px) replaces the old 3-column `.pricing-grid` for this markup — its own
+  mobile-collapse override was deliberately placed AFTER the pre-existing `.pricing-grid` media
+  query in source order, per this file's own repeatedly-documented "equal-specificity rules are
+  decided by source order, not which one reads more specific" lesson. The announcement bar's
+  "Ultra tier" copy was reworded to "All-Access Pro" in both its full and short text variants.
+- **`PADDLE_PRICE_IDS` collapsed to one entry** (`{ pro: 'pri_...' }`, reusing the exact same real,
+  live Paddle price object the old Pro tier already checked out against — its $13/month cadence
+  already matched exactly what the new single plan needed, so no new Paddle catalog object was
+  created or needed) and every Subscribe/Get-Started button site-wide now drives that one
+  `data-plan="pro"` checkout. **Legacy Elite/Ultra plumbing was deliberately left completely
+  intact, not deleted**, specifically so no already-paying legacy subscriber's access can ever
+  regress: `PADDLE_PLAN_BY_PRODUCT_ID` (server-side, `functions/index.js`) still resolves any
+  legacy Elite/Ultra Paddle product id to its own plan key exactly as before, and a new single
+  source of truth — `window.__hasFullAccess()` (`js/paddle-client.js`) client-side,
+  `accessLevelHasFullAccess(accessLevel)` (`functions/index.js`) server-side — treats
+  `'pro'`/`'elite'`/`'ultra'` (plus `'trial'`/`'admin'`) as equally "full access," so an existing
+  Elite or Ultra subscriber is unaffected and never needs to be migrated or re-billed. The Admin
+  Panel's manual plan-grant dropdown keeps its `elite`/`ultra` options too (relabeled "Elite
+  (legacy)"/"Ultra (legacy)") for the identical reason — hiding them would make an existing
+  legacy grantee's own row render as if nothing were selected.
+- **The paywall overlay stopped hard-locking the app for a lapsed/no-plan swimmer.** The prior
+  `'expired'` access level (which triggered a full-screen, non-closable lock with only Pro/Elite/
+  Ultra checkout buttons as an escape) is renamed `'free'` throughout (`recomputeAccessLevel()` in
+  `js/firebase-service.js`, `getAccessLevel()` in `functions/index.js`) and now means exactly what
+  the name says — a real, permanent, usable tier, not a countdown state. `refreshPaywallLock()`
+  (`js/paddle-client.js`) was rewritten from a multi-case function (suspended vs. expired-with-
+  plan-buttons vs. a Beginner-level bypass) down to the one case that still means real lockout:
+  `access.level === 'locked'` (a manual admin `accessDisabled` suspension) — every other branch,
+  including the old Beginner-only carve-out (now unnecessary since nothing outside Competitive/
+  Elite locks at all), was removed. `#paywallOverlay`'s markup was simplified to match — the three
+  `data-paywall-plan` Pro/Elite/Ultra buttons are gone, and the overlay's copy is now hardcoded to
+  the suspension-only case ("Account Access Suspended," contact support, no billing CTA), since
+  that's the only condition that can still trigger it.
+- **Three real, new feature-level gates distinguish Free from All-Access Pro — the first time
+  this codebase has gated by individual feature rather than an all-or-nothing lock.** All three
+  read through the same `window.__hasFullAccess()` helper and react live to `swimfit:accesschange`,
+  so a Paddle subscription (or an admin's manual plan grant) unlocks every gate the instant access
+  re-resolves, with no re-login needed:
+  1. **Workout Generator level.** `updateLevelTabLocks()` (`js/workout-generator.js`) toggles a new
+     `.is-locked` class (dimmed, with a `" · Pro"` CSS-generated suffix via
+     `.pill-tab.is-locked::after`) on the Competitive/Elite level pills for a non-full-access
+     swimmer, and the `#levelTabs` click handler blocks switching to either and reveals a new
+     `#levelUpsellNote` line ("Competitive & Elite tracks are part of All-Access Pro — upgrade for
+     $13/mo," routing to the Pricing tab via the existing global `[data-tab]` delegation) instead
+     of changing state. A defensive downgrade inside `updateLevelTabLocks()` itself also forces
+     `state.level` back to `'beginner'` the instant access resolves to non-full while a higher
+     level is still selected (covering a lapsed subscriber whose `localStorage` preference predates
+     the lapse), and `generateWorkout()` carries a second, independent defensive check
+     immediately before `LEVEL_SCALERS` is read — if `state.level !== 'beginner'` and access isn't
+     full, the level is force-downgraded for that generation and the "Coach's Plan" note discloses
+     it ("Competitive/Elite level requires All-Access Pro — generated at Beginner instead."),
+     so a workout can never actually render at a locked level through any path, UI-blocked or not.
+  2. **Custom Workout Builder save cap.** `FREE_SAVED_WORKOUT_CAP = 2` in `js/custom-workout.js` —
+     a brand-new **create** (`!cwbState.editingId`) is blocked once a free-tier swimmer already has
+     2 saved workouts ("Free plan is limited to 2 saved workouts — upgrade to All-Access Pro for
+     unlimited"), while updating an already-saved workout in place is always allowed regardless of
+     tier, since editing doesn't grow the swimmer's saved count. A new `#cwbPlanNote` line under
+     the saved-workouts list shows a live "`N / 2` saved on the Free plan — upgrade for unlimited"
+     (or, for full access, "All-Access Pro — unlimited saved workouts."), re-rendered on every
+     `swimfit:accesschange` and every save/delete via the existing `renderSavedList()` call site;
+     its dynamically-injected upgrade link needed its own explicit `[data-tab]` click-delegation
+     (the page's one-time wiring pass, run once at load, never covers markup injected later via
+     `innerHTML`) — matching this file's own established `#workoutResult`-dynamic-button precedent.
+  3. **Distance Tracker advanced analytics.** Everything past the basic Daily/Weekly/Monthly
+     totals — the analytics strip, Weekly Volume Goal, Weekly Volume Breakdown chart, Average Pace
+     Trend chart, and Personal Best Progression mini-log — is now wrapped in
+     `#trackerAdvancedSection`, hidden for a free-tier swimmer behind a new `#trackerUpsellCard`
+     (lock icon, "Unlock Advanced Analytics" heading, a short description, and a Pricing-tab
+     upgrade button) via `updateTrackerPlanGate()` in `js/tracker-service.js`, wired to
+     `swimfit:accesschange` and to the Tracker tab's own click handler (so switching tabs
+     re-checks even if access changed while elsewhere in the app). The basic log form and
+     Daily/Weekly/Monthly totals stay fully available to every signed-in swimmer regardless of
+     tier — this gate only ever hides the deeper analytics layer.
+- **AI Coach's daily message cap is now genuinely tier-differentiated server-side, not just a
+  flat number.** `functions/index.js`'s single `COACH_DAILY_MESSAGE_LIMIT = 40` split into
+  `COACH_DAILY_MESSAGE_LIMIT_FREE = 10` and `COACH_DAILY_MESSAGE_LIMIT_FULL = 40`;
+  `checkAndIncrementCoachUsage(uid, dailyLimit)` now takes the applicable limit as a parameter
+  rather than reading a single module-level constant, and `aiSwimCoach` resolves
+  `accessLevelHasFullAccess(accessLevel)` once per request to pick which limit applies before
+  calling it. The 429 "you've hit your daily limit" response now branches on the same check to
+  show an upgrade hint only to a free-tier swimmer who's hit the lower cap (a full-access swimmer
+  hitting 40 just sees the plain "try again tomorrow" message, unchanged from before). The
+  existing `accessLevel === 'locked'` 402 response's copy was also corrected — it used to say
+  "Your free trial has ended — subscribe...", which is now inaccurate now that a lapsed/no-plan
+  swimmer resolves to `'free'`, not `'locked'` — `'locked'` can now only mean a manual admin
+  suspension, so the message was changed to "Your account has been suspended — contact
+  SWIMFIT.ae@gmail.com for help." **This server-side change has not been deployed** — this
+  sandbox has no Firebase CLI credentials for the live `swimfi-ae` project (the same
+  repeatedly-disclosed limitation this file has carried since the very first Cloud-Function-touching
+  round); run `firebase deploy --only functions` to make the differentiated cap and corrected
+  error copy live. Until that deploy runs, the live function still enforces the old flat 40/day
+  cap for everyone and shows the stale "free trial has ended" wording on a suspension — functionally
+  safe (no swimmer is under-served), just not yet matching the new tier language.
+- **Admin Panel simplified to match.** The manual plan-grant `<select>`'s option labels were
+  changed to `Free / Trial` / `All-Access Pro` / `Elite (legacy)` / `Ultra (legacy)` (values
+  unchanged — `''`/`'pro'`/`'elite'`/`'ultra'` — so existing grant records still round-trip
+  correctly). `renderPlanDonut()` merged what used to be 4 categorical segments (Pro/Elite/Ultra/
+  No Plan) into 2 (`All-Access Pro` — every swimmer on any of pro/elite/ultra — and `Free / Trial`),
+  matching the dataviz `skill`'s "fixed categorical hue order" rule with the now-simpler 2-way
+  split. `renderStatusBarChart()`'s `'Expired'` bucket label was renamed to `'Free'` (the
+  underlying `expired` variable name was deliberately left alone — it's still accurately counting
+  "no active plan, trial window has passed," just now displayed under its correct, non-alarming
+  new name). `timeRemainingInfo()`'s `'Trial ended'` string was likewise relabeled `'Free plan'`.
+- Verified via Playwright against a mocked `window.__firebaseUser`/`__customWorkout*`/
+  `__swimfitAccess` (this sandbox has no path to the real `swimfi-ae` Firebase project, the same
+  disclosed limitation noted throughout this file): the Pricing tab renders exactly 2 cards
+  (`Free`/`All-Access Pro`, `$0`/`$13` after letting the existing count-up-from-0 price animation
+  settle) with the paid card wired to `data-plan="pro"`; a free-tier swimmer sees the "Free Plan"
+  nav badge, a locked Competitive pill that blocks selection and reveals the upsell note on click,
+  a Custom Workout Builder that accepts exactly 2 new saves then blocks a 3rd with the correct
+  message (`2 / 2 saved on the Free plan`), and a Distance Tracker with the advanced section
+  hidden behind the upsell card — while the paywall overlay itself never renders for this
+  swimmer; switching to `'pro'` access live unlocks the Competitive pill, allows a genuine 3rd
+  save, and reveals the Tracker's advanced section, all without a page reload; `'locked'`
+  (suspension) still shows the full-screen overlay with `body.paywall-locked` and the correct
+  "Account Access Suspended" title; and `'admin'` still shows the "Admin Access" nav badge. Two
+  apparent test failures during this round's own verification were investigated and confirmed to
+  be test-harness bugs, not product bugs, before being fixed rather than papered over: an initial
+  Playwright `page.click(..., {force:true})` workaround (used to click past this app's own
+  `[data-reveal]` scroll-triggered IntersectionObserver reveal system in headless mode) turned out
+  to still fail when the target tab wasn't actually the active one, and a saved-workout-count
+  mismatch traced to the test never handling the "New" button's own `confirm()` dialog (auto-
+  dismissed by Playwright by default), which silently left every subsequent "save" updating the
+  first entry in place instead of creating new ones — both fixed in the test harness, not the
+  product code, and the corrected test run confirmed the underlying Freemium logic was correct
+  the whole time. The full regression suite (all 9 tabs, a real PDF `download` event, Complete
+  Workout logging, zero page errors) passes unchanged.

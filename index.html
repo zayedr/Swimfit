@@ -1875,6 +1875,16 @@ body.view-app .slide-dots { display: none; }
 .pill-tab[aria-selected="true"] { background: var(--green); color: var(--on-green); }
 .pill-tab:hover:not([aria-selected="true"]) { color: var(--fg); transform: translateY(-1px); }
 .pill-tab .icon { width: 16px; height: 16px; }
+/* Freemium: a locked pill-tab (Competitive/Elite for a swimmer without full
+   access) reads as "still clickable, just gated" rather than disabled —
+   dimmed plus a small text suffix, same "distinguish by lightness/weight,
+   not a new color" language this file's other status cues already use. */
+.pill-tab.is-locked { opacity: 0.72; }
+.pill-tab.is-locked::after { content: ' · Pro'; font-size: 0.72em; opacity: 0.75; margin-left: 2px; }
+/* A plain inline text-link button, for a short upsell CTA embedded inside a
+   sentence (e.g. "upgrade for $13/mo") where a full .btn would be too heavy. */
+.link-inline { background: none; border: none; padding: 0; color: var(--aqua); text-decoration: underline; cursor: pointer; font: inherit; font-size: inherit; }
+.link-inline:hover { color: var(--fg); }
 
 /* Weekly Training Schedule card — a read-only Mon-Sun strip, today's cell
    highlighted the same way an active pill-tab is (green fill), so it reads
@@ -2451,6 +2461,10 @@ body.view-app .slide-dots { display: none; }
 
 /* ============================= PRICING ============================= */
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); align-items: stretch; }
+/* Freemium: a plain 2-column layout, capped and centered so two cards on a
+   wide screen don't stretch into oddly wide panels the way a straight
+   repeat(2,1fr) off the full-width grid would. */
+.pricing-grid-2 { grid-template-columns: repeat(2, minmax(0, 380px)); justify-content: center; max-width: 820px; margin-inline: auto; }
 .price-card {
   display: flex; flex-direction: column; background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg); padding: var(--space-6); position: relative;
@@ -2470,6 +2484,12 @@ body.view-app .slide-dots { display: none; }
 .price-features li .icon { color: var(--green-bright); width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
 .price-note { text-align: center; color: var(--muted-2); font-size: 0.85rem; margin-top: var(--space-5); }
 @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; } }
+/* Placed AFTER the .pricing-grid media rule above on purpose — with equal
+   selector specificity, source order decides the winner at a tie, and this
+   file has been bitten before by an earlier-declared override losing to a
+   later plain rule. Keeping .pricing-grid-2's own narrower single-column
+   cap last here is what actually makes it win at this breakpoint. */
+@media (max-width: 900px) { .pricing-grid-2 { grid-template-columns: minmax(0, 420px); } }
 
 /* ============================= FAQ ============================= */
 .faq-list { max-width: 760px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-6); }
@@ -2688,6 +2708,10 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
   .cwb-grid > .cwb-saved-card, .cwb-grid > .cwb-builder-card { grid-column: span 12; }
 }
 .cwb-empty-note { color: var(--muted-2); font-size: 0.85rem; }
+.cwb-plan-note { font-size: 0.78rem; color: var(--muted); margin-bottom: var(--space-3); }
+.cwb-plan-note.is-full { color: var(--muted); }
+.cwb-plan-note strong { color: var(--fg); }
+.cwb-plan-note .link-inline { font-size: inherit; }
 .cwb-saved-list { display: flex; flex-direction: column; gap: var(--space-2); max-height: 560px; overflow-y: auto; }
 .cwb-workout-item {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
@@ -3282,6 +3306,10 @@ body.live-workout-active { overflow: hidden; }
 .tracker-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); }
 .tracker-chart-card { padding: var(--space-4); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
 .tracker-chart-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: var(--space-4); }
+.tracker-upsell-card { text-align: center; padding: var(--space-6) var(--space-5); margin-bottom: var(--space-5); }
+.tracker-upsell-icon { width: 32px; height: 32px; color: var(--gold); margin-bottom: var(--space-3); }
+.tracker-upsell-card h3 { text-transform: none; letter-spacing: normal; font-size: 1.1rem; color: var(--fg); margin-bottom: var(--space-2); }
+.tracker-upsell-card p { color: var(--muted); font-size: 0.88rem; max-width: 46ch; margin-inline: auto; margin-bottom: var(--space-4); }
 .tracker-chart-empty { color: var(--muted-2); font-size: 0.85rem; text-align: center; padding: var(--space-4) 0; }
 .tracker-svg-chart { width: 100%; height: auto; overflow: visible; }
 .tracker-svg-chart .chart-grid-line { stroke: var(--border); stroke-width: 1; }
@@ -3657,8 +3685,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="announce-bar-inner">
     <svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg>
     <p class="announce-text">
-      <span class="announce-text-full"><strong>Launch Special —</strong> get 20% off your first month of Ultra tier. Code active now.</span>
-      <span class="announce-text-short"><strong>Launch Special —</strong> 20% off Ultra.</span>
+      <span class="announce-text-full"><strong>Launch Special —</strong> get 20% off your first month of All-Access Pro. Code active now.</span>
+      <span class="announce-text-short"><strong>Launch Special —</strong> 20% off All-Access Pro.</span>
     </p>
     <span class="announce-code">SWIM20</span>
     <button type="button" class="announce-cta" data-tab="pricing">
@@ -4091,6 +4119,10 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
             <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
           </div>
+          <p class="config-label-hint" id="levelUpsellNote" style="display:none; margin-top:8px; color:var(--gold);">
+            Competitive &amp; Elite tracks are part of <strong>All-Access Pro</strong> —
+            <button type="button" class="link-inline" data-tab="pricing">upgrade for $13/mo</button>
+          </p>
           <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:var(--space-4)">
             <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
           </button>
@@ -4160,6 +4192,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="bento-grid cwb-grid" style="align-items:start;">
           <div class="bento-card cwb-saved-card" style="--bento-accent:var(--gold)">
             <div class="config-label"><svg class="icon"><use href="#i-lane"/></svg> My Saved Workouts</div>
+            <p class="cwb-plan-note" id="cwbPlanNote"></p>
             <div class="cwb-saved-list" id="customWorkoutsList">
               <p class="cwb-empty-note" id="customWorkoutsEmpty">No saved workouts yet — build one on the right and hit Save.</p>
             </div>
@@ -4438,6 +4471,13 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
         </div>
 
+        <!-- FREEMIUM: analytics strip through the PB Progression card are an
+             All-Access Pro perk — Free tier gets Daily/Weekly/Monthly totals
+             (above) plus the manual log + Recent Swims list (below) only.
+             Gated by JS (updateTrackerPlanGate in js/tracker-service.js),
+             never rendering-suppressed — the underlying data still computes
+             in the background, this just hides the container. -->
+        <div id="trackerAdvancedSection">
         <div class="tracker-analytics-grid" id="trackerAnalyticsGrid">
           <div class="tracker-analytics-tile">
             <span class="tracker-analytics-label">Weekly Total</span>
@@ -4514,6 +4554,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <p class="tracker-pb-empty" id="trackerPbListEmpty">Log your first personal best above — your fastest time for each stroke &amp; distance will show here instantly.</p>
           <div id="trackerPbChart"></div>
           <p class="tracker-chart-empty" id="trackerPbEmpty">Log at least two times for the same discipline + distance to see a progression trend.</p>
+        </div>
+        </div><!-- /trackerAdvancedSection -->
+
+        <div class="tracker-chart-card tracker-upsell-card" id="trackerUpsellCard" style="display:none">
+          <svg class="icon tracker-upsell-icon"><use href="#i-lock"/></svg>
+          <h3 class="tracker-chart-title">Unlock Full Tracker Analytics</h3>
+          <p>Weekly volume &amp; pace charts, your Weekly Volume Goal, Personal Best progression and more are part of All-Access Pro. Your daily/weekly/monthly totals and swim log above stay free forever.</p>
+          <button type="button" class="btn btn-primary btn-sm" data-tab="pricing">Upgrade — $13/mo</button>
         </div>
 
         <h3 class="tracker-entries-head">Recent Swims</h3>
@@ -4703,50 +4751,38 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center" data-i18n="pricing.eyebrow">Membership</p>
         <h2 data-i18n="pricing.heading">Simple Pricing, Serious Results</h2>
-        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access. Billed in USD after that. Cancel anytime.</p>
+        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access, then settles onto the Free plan below — upgrade to All-Access Pro anytime for everything, unlimited. Billed in USD. Cancel anytime.</p>
       </div>
-      <div class="pricing-grid">
+      <div class="pricing-grid pricing-grid-2">
         <div class="price-card" data-reveal>
-          <span class="price-tier">Pro</span>
+          <span class="price-tier">Free</span>
+          <div class="price-amount"><span class="cur">$</span><span class="num">0</span></div>
+          <p class="price-period">forever</p>
+          <ul class="price-features">
+            <li><svg class="icon"><use href="#i-check"/></svg> Basic daily swim workouts — Beginner track</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Up to 2 saved custom workouts</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Basic Distance Tracker (daily/weekly/monthly totals)</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Limited AI Coach chat</li>
+          </ul>
+          <button type="button" class="btn btn-ghost btn-block" data-open-auth="signup">Get Started Free</button>
+        </div>
+        <div class="price-card featured" data-reveal>
+          <span class="price-badge">All-Access</span>
+          <span class="price-tier">All-Access Pro</span>
           <div class="price-amount"><span class="cur">$</span><span class="num">13</span></div>
           <p class="price-period">per month</p>
           <ul class="price-features">
-            <li><svg class="icon"><use href="#i-check"/></svg> Swim Workouts — Beginner &amp; Competitive tracks</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Full Gym Focus dryland access</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Floating AI Coach widget (chat only)</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker</li>
-          </ul>
-          <button type="button" class="btn btn-ghost btn-block btn-cta-glow" data-plan="pro">Get Started</button>
-        </div>
-        <div class="price-card featured" data-reveal>
-          <span class="price-badge">Most Popular</span>
-          <span class="price-tier">Elite</span>
-          <div class="price-amount"><span class="cur">$</span><span class="num">21</span></div>
-          <p class="price-period">per month</p>
-          <ul class="price-features">
             <li><svg class="icon"><use href="#i-check"/></svg> Everything unlocked, full stop</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Elite high-performance swim tracks</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Competitive &amp; Elite swim tracks</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Unlimited saved custom workouts</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full Live Workout Mode</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full AI Coach access — widget + full-screen page, photo analysis, saved history</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full Gym &amp; dryland training plans</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Full Technique Academy library</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Dedicated full-screen AI Coach page</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Saved AI conversation history</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Photo analysis (workout logs, gear, technique)</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Priority coaching support</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full Distance Tracker — analytics, charts &amp; PB progression</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Priority support</li>
           </ul>
-          <button type="button" class="btn btn-primary btn-block btn-cta-glow" data-plan="elite">Get Started</button>
-        </div>
-        <div class="price-card" data-reveal>
-          <span class="price-badge price-badge-maroon">Includes 2 Months Free!</span>
-          <span class="price-tier">Ultra</span>
-          <div class="price-amount"><span class="cur">$</span><span class="num">135</span></div>
-          <p class="price-period">per year · best value</p>
-          <ul class="price-features">
-            <li><svg class="icon"><use href="#i-check"/></svg> Everything in Elite</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> All-inclusive premium features</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Annual billing — 2 months free</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Early access to new tracks</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Downloadable training plans</li>
-          </ul>
-          <button type="button" class="btn btn-outline-maroon btn-block btn-cta-glow" data-plan="ultra">Get Started</button>
+          <button type="button" class="btn btn-primary btn-block btn-cta-glow" data-plan="pro">Subscribe — $13/mo</button>
         </div>
       </div>
       <p class="price-note">Prices shown in USD · tax where applicable · Email us anytime to manage or cancel your membership.</p>
@@ -4754,7 +4790,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="faq-list">
         <details class="faq-item">
           <summary>Can I cancel anytime?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Yes. Every plan is billed monthly or annually with no lock-in — just email us anytime to manage or cancel.</div>
+          <div class="faq-body">Yes. All-Access Pro is billed monthly with no lock-in — just email us anytime to manage or cancel, or use the billing portal in Settings.</div>
         </details>
         <details class="faq-item">
           <summary>Does the workout generator repeat?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -4762,7 +4798,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </details>
         <details class="faq-item">
           <summary>I've never swum competitively — is this for me?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Absolutely. The Beginner level scales every generated set down to fundamentals, water confidence and stroke mechanics before any race-pace work.</div>
+          <div class="faq-body">Absolutely. The Beginner level — free forever, no subscription needed — scales every generated set down to fundamentals, water confidence and stroke mechanics before any race-pace work.</div>
         </details>
         <details class="faq-item">
           <summary>Do I need special gear to start?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -4770,11 +4806,11 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </details>
         <details class="faq-item">
           <summary>How does USD billing work?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">All plans are priced and billed directly in USD through our secure checkout — no currency conversion surprises.</div>
+          <div class="faq-body">All-Access Pro is priced and billed directly in USD through our secure checkout — no currency conversion surprises.</div>
         </details>
         <details class="faq-item">
           <summary>What happens when my free trial ends?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Nothing — every signed-in swimmer keeps full platform access (every swim track, Gym Focus, the full-screen AI Coach page and Distance Tracker) whether or not you subscribe. A plan above is entirely optional if you'd like to support Swimfit directly.</div>
+          <div class="faq-body">Your account settles onto the Free plan — Beginner-level swim workouts, up to 2 saved custom workouts, a basic tracker and limited AI chat stay available forever, no card required. Subscribe to All-Access Pro anytime to unlock everything, unlimited.</div>
         </details>
       </div>
     </div>
@@ -5028,26 +5064,21 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 </div>
 
 <!-- ============================= ACCESS-LOCK OVERLAY =============================
-     A full-screen, non-closable lock shown in two cases, driven entirely by
-     the swimmit:accesschange handler which swaps the copy/CTAs per case:
-       • 'expired' — the 3-day free trial has ended with no active plan:
-         shows the plan CTAs so the swimmer can subscribe to regain access.
-       • 'locked'  — an admin has manually suspended the account
-         (accessDisabled): shows a contact-support note, no billing path.
-     The overlay sits at z-index 400 over a blurred backdrop and locks body
-     scroll, so an out-of-trial swimmer cannot bypass it to reach Workouts,
-     Gym, AI Coach or the Tracker. -->
+     A full-screen, non-closable lock shown in exactly one case: an admin has
+     manually suspended the account (accessDisabled) — see
+     refreshPaywallLock() in js/paddle-client.js. FREEMIUM REWORK: this used
+     to also lock a swimmer out once their 3-day trial ended; that's gone —
+     a trial ending now just settles the account onto the permanent Free
+     plan (Workout Generator Beginner level, a 2-workout Custom Workout
+     Builder cap, basic Tracker, limited AI chat) rather than a full-page
+     block. The overlay sits at z-index 400 over a blurred backdrop and
+     locks body scroll while it's showing. -->
 <div class="paywall-overlay" id="paywallOverlay" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" hidden>
   <div class="paywall-card">
     <div class="paywall-icon"><svg class="icon"><use href="#i-lock"/></svg></div>
-    <h2 id="paywallTitle">Your Free Trial Has Ended</h2>
-    <p id="paywallBody">Your 3-day free trial is over. Choose a plan below to unlock Workouts, Gym, the AI Swim Coach and your Distance Tracker again.</p>
-    <div class="paywall-plans" id="paywallPlans">
-      <button type="button" class="btn btn-ghost btn-sm" data-paywall-plan="pro">Pro — $13/mo</button>
-      <button type="button" class="btn btn-primary btn-sm" data-paywall-plan="elite">Elite — $21/mo</button>
-      <button type="button" class="btn btn-outline-maroon btn-sm" data-paywall-plan="ultra">Ultra — $135/yr</button>
-    </div>
-    <p class="paywall-note" id="paywallNote">Questions? Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.</p>
+    <h2 id="paywallTitle">Account Access Suspended</h2>
+    <p id="paywallBody">Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.</p>
+    <p class="paywall-note" id="paywallNote">Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.</p>
     <button type="button" class="btn btn-ghost btn-sm" id="paywallLogoutBtn">Log Out</button>
   </div>
 </div>

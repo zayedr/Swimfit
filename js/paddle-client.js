@@ -1,18 +1,39 @@
   /* ============================= PRICING — SUBSCRIBE (Firebase-gated Paddle Billing checkout) =============================
-     Real Paddle PRICE ids (pri_...) as of 2026-07-19 — Paddle.Checkout.open()
-     needs the price id, not the product id (pro_...) that used to live here;
-     the product ids are still used server-side in functions/index.js
-     (PADDLE_PLAN_BY_PRODUCT_ID) to resolve a webhook event to a plan, which is
-     a separate, still-correct mapping unaffected by this fix. */
+     Simplified to a single Freemium paid tier — "All-Access Pro" — at the
+     user's explicit request to collapse the old Pro/Elite/Ultra 3-tier
+     split into a plain Free vs. Paid structure. PADDLE_PRICE_IDS.pro is the
+     exact same real Paddle PRICE id (pri_...) the old $13/mo "Pro" card
+     already checked out against, reused as-is since the price/cadence is
+     identical to what "All-Access Pro" asks for — no new Paddle catalog
+     object was needed. The elite/ultra price ids that used to live here are
+     gone from the client entirely; functions/index.js's
+     PADDLE_PLAN_BY_PRODUCT_ID mapping for those two legacy products is
+     deliberately left in place server-side (see that file) so a swimmer who
+     already subscribed to the old Elite/Ultra tiers keeps resolving to full
+     access via subscriptionGrantsAccess() without needing any data
+     migration — this file only ever offers the one plan going forward. */
   var PADDLE_CLIENT_TOKEN = 'live_8981fe2520a3f946c975f5a1ad2';
   var PADDLE_PRICE_IDS = {
-    pro: 'pri_01kxxv52g2r41z02hsbfzaepyv',
-    elite: 'pri_01kxxvaqrfy9dqnaswssqabgx2',
-    ultra: 'pri_01kxxves4frfx01sww4z6ah0bw'
+    pro: 'pri_01kxxv52g2r41z02hsbfzaepyv'
   };
-  var PLAN_LABELS = { pro: 'Pro', elite: 'Elite', ultra: 'Ultra' };
+  var PLAN_LABELS = { pro: 'All-Access Pro' };
   var pendingSubscribePlan = null;
   var paddleReady = false;
+
+  // Single source of truth for "does this signed-in swimmer currently have
+  // full (paid-tier-equivalent) access" — read by every feature-level
+  // Freemium gate (Workout Generator levels, Custom Workout Builder save
+  // cap, Distance Tracker analytics) instead of each re-deriving its own
+  // copy of this check. 'trial' still counts as full access (the 3-day
+  // trial is a genuine full-access preview before a swimmer settles onto
+  // Free or subscribes); 'pro'/'elite'/'ultra' cover both the current
+  // single paid plan and any legacy subscriber still on an old plan name.
+  window.__hasFullAccess = function () {
+    var access = window.__swimfitAccess;
+    if (!access) return false;
+    return access.level === 'admin' || access.level === 'trial' ||
+      access.level === 'pro' || access.level === 'elite' || access.level === 'ultra';
+  };
 
   function paddleEventCallback(event) {
     if (event.name === 'checkout.completed') {
@@ -70,7 +91,7 @@
   document.querySelectorAll('.price-card [data-plan]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var plan = btn.dataset.plan;
-      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
+      if (window.__isAdminAccount) { alert('This account already has full admin access — no need to subscribe!'); return; }
       if (window.__firebaseUser) { goToPaddleCheckout(plan); return; }
       pendingSubscribePlan = plan;
       window.openAuthModal();
@@ -82,18 +103,21 @@
     if (e.detail.user && pendingSubscribePlan) {
       var plan = pendingSubscribePlan;
       pendingSubscribePlan = null;
-      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
+      if (window.__isAdminAccount) { alert('This account already has full admin access — no need to subscribe!'); return; }
       goToPaddleCheckout(plan);
     }
   });
 
   /* ============================= ACCESS-LOCK OVERLAY =============================
-     Full-screen lock shown in two cases (see the overlay markup comment):
-       • 'expired' — trial over, no active plan → subscribe-to-unlock CTAs.
-       • 'locked'  — admin suspension (accessDisabled) → contact-support only.
-     Both hard-lock the page so an out-of-trial swimmer can't reach any
-     interactive section; only Log Out (or, for 'expired', subscribing) exits
-     the state. */
+     FREEMIUM REWORK: this overlay now hard-locks the page for exactly one
+     case — 'locked' (an admin-set manual suspension, accessDisabled).
+     Every earlier "trial expired → full-screen paywall" behavior has been
+     removed: a swimmer whose 3-day trial ends now simply settles onto the
+     permanent Free plan (access.level 'free') instead of being locked out —
+     feature-level gates (Workout Generator levels, the Custom Workout
+     Builder's saved-workout cap, Distance Tracker analytics — see those
+     files) are what actually differentiate Free from All-Access Pro now,
+     never a full-page block. Only Log Out exits a genuine suspension. */
   var paywallLogoutBtn = document.getElementById('paywallLogoutBtn');
   if (paywallLogoutBtn) {
     paywallLogoutBtn.addEventListener('click', function () {
@@ -101,65 +125,13 @@
       if (navLogout) navLogout.click();
     });
   }
-  // The paywall's own plan buttons open the exact same Paddle checkout the
-  // Pricing tab's Subscribe buttons use — a successful payment writes the
-  // subscription, which flips access level off 'expired' and drops the lock.
-  document.querySelectorAll('#paywallPlans [data-paywall-plan]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var plan = btn.dataset.paywallPlan;
-      if (window.__isAdminAccount) { alert('This account already has full Ultra access — no need to subscribe!'); return; }
-      if (window.__firebaseUser) { goToPaddleCheckout(plan); return; }
-      window.openAuthModal();
-    });
-  });
-  // BEGINNER FREE ACCESS: an out-of-trial swimmer with no active plan used to
-  // be hard-locked out of the entire site. Beginner-level Workouts is now a
-  // permanently free tier, never gated behind a subscription — so the lock
-  // is skipped specifically when the swimmer is on the Workouts tab with
-  // Beginner selected. Competitive/Elite, Gym, the AI Swim Coach and the
-  // Tracker still require subscribing once the trial ends, same as before.
-  // refreshPaywallLock() is re-run not just on swimfit:accesschange but also
-  // on every tab switch and Level-tab click (see switchTab()/the levelTabs
-  // handler below), since either of those can flip the bypass on or off
-  // without the underlying access level itself changing.
   var latestAccessForPaywall = null;
   function refreshPaywallLock() {
     var access = latestAccessForPaywall;
-    var expired = !!(access && access.level === 'expired');
-    var suspended = !!(access && access.level === 'locked');
-    var dashboardEl = document.getElementById('dashboard');
-    var onBeginnerWorkouts = dashboardEl && dashboardEl.getAttribute('data-active-tab') === 'workouts' &&
-      typeof window.__workoutsLevelIsBeginner === 'function' && window.__workoutsLevelIsBeginner();
-    var beginnerBypass = expired && onBeginnerWorkouts;
-    var locked = suspended || (expired && !beginnerBypass);
+    var locked = !!(access && access.level === 'locked');
     var overlay = document.getElementById('paywallOverlay');
     if (overlay) overlay.hidden = !locked;
     document.body.classList.toggle('paywall-locked', locked);
-
-    // Swap the overlay's copy/CTAs to match which lock is active.
-    var pTitle = document.getElementById('paywallTitle');
-    var pBody = document.getElementById('paywallBody');
-    var pPlans = document.getElementById('paywallPlans');
-    var pNote = document.getElementById('paywallNote');
-    if (pTitle && pBody && pPlans && pNote) {
-      if (suspended) {
-        pTitle.textContent = 'Account Access Suspended';
-        pBody.textContent = 'Your account has been temporarily suspended by the Swimfit team. If you believe this is a mistake, please get in touch.';
-        pPlans.hidden = true;
-        pNote.innerHTML = 'Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a> for help.';
-      } else {
-        pTitle.textContent = 'Your Free Trial Has Ended';
-        pBody.textContent = 'Your 3-day free trial is over. Beginner-level Workouts stays free — choose a plan below to unlock Competitive/Elite training, Gym, the AI Swim Coach and your Distance Tracker.';
-        pPlans.hidden = false;
-        pNote.innerHTML = 'Questions? Contact <a href="mailto:SWIMFIT.ae@gmail.com">SWIMFIT.ae@gmail.com</a>.';
-      }
-    }
-
-    // The AI Coach FAB stays gated for the whole 'expired' state — the
-    // Beginner bypass only ever covers Workouts generation, never the paid
-    // AI Coach surfaces.
-    var fab = document.getElementById('coachFab');
-    if (fab) fab.style.display = (expired || suspended) ? 'none' : '';
     return locked;
   }
   window.__refreshPaywallLock = refreshPaywallLock;
@@ -176,14 +148,15 @@
         badge.hidden = true;
       } else if (access.level === 'admin') {
         badge.hidden = false;
-        badge.innerHTML = '<svg class="icon"><use href="#i-bolt"/></svg> Ultra Access';
+        badge.innerHTML = '<svg class="icon"><use href="#i-bolt"/></svg> Admin Access';
       } else if (access.level === 'trial') {
         // A real countdown, not a once-a-page-load day count — days+hours
         // (minutes too, in the final hour) recomputed every time this runs,
         // which is now frequent enough (see the 30s interval below) that it
         // reads as live rather than static. It now also shifts color as the
-        // deadline nears — amber under 24h, pulsing red under 2h — so a
-        // swimmer feels the urgency to subscribe before the hard lock lands.
+        // deadline nears — amber under 24h, pulsing red under 2h — since a
+        // trial ending still means settling down onto the more limited Free
+        // plan, even though it's no longer a hard lock.
         var msLeft = Math.max(0, access.trialEndsAt.getTime() - Date.now());
         var daysLeft = Math.floor(msLeft / 86400000);
         var hoursLeft = Math.floor((msLeft % 86400000) / 3600000);
@@ -196,10 +169,14 @@
         if (msLeft <= 2 * 3600000) badge.classList.add('is-critical');
         else if (msLeft <= 24 * 3600000) badge.classList.add('is-urgent');
       } else if (['pro', 'elite', 'ultra'].indexOf(access.level) > -1) {
+        // Any of the three plan strings (including a legacy Elite/Ultra
+        // subscriber) now reads as the one current paid tier's own name.
         badge.hidden = false;
-        badge.innerHTML = '<svg class="icon"><use href="#i-trophy"/></svg> ' + access.level.charAt(0).toUpperCase() + access.level.slice(1) + ' Plan';
+        badge.innerHTML = '<svg class="icon"><use href="#i-trophy"/></svg> All-Access Pro';
+      } else if (access.level === 'free') {
+        badge.hidden = false;
+        badge.innerHTML = '<svg class="icon"><use href="#i-user"/></svg> Free Plan';
       } else {
-        // 'expired' handled by the overlay above; any other level: nothing to show.
         badge.hidden = true;
       }
     }
@@ -209,5 +186,7 @@
     // rather than only on the next manual interaction.
     if (typeof window.generateWorkout === "function") window.generateWorkout();
     if (typeof window.renderCoachPageGate === "function") window.renderCoachPageGate();
+    if (typeof window.__updateLevelTabLocks === "function") window.__updateLevelTabLocks();
+    if (typeof window.__updateTrackerPlanGate === "function") window.__updateTrackerPlanGate();
   });
 

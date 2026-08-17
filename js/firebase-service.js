@@ -109,7 +109,7 @@
         '<tr><td style="padding:8px 36px 4px;">' +
           '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(224,106,130,0.14),rgba(232,137,12,0.10));border:1px solid rgba(224,106,130,0.32);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
             '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#E06A82;">Don’t lose your momentum on day 4</div>' +
-            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your 3-day trial is the on-ramp — real progress comes from the weeks that follow. Lock in a plan <strong>before your trial ends</strong> to keep your daily workouts, AI Coach and progress tracking without a single interruption. Plans start at just <strong>$13/month</strong>, and Ultra gives you two months free on annual.</div>' +
+            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your 3-day trial is the on-ramp — real progress comes from the weeks that follow. After it ends you keep a free plan forever, but upgrading to <strong>All-Access Pro — just $13/month</strong> — unlocks Competitive &amp; Elite training, unlimited saved workouts, full AI Coach access and more, with zero interruption to what you\'re already using.</div>' +
             '<div style="margin-top:12px;"><a href="https://swimfit.online" style="display:inline-block;background:transparent;color:#FFA53D;border:1px solid rgba(255,165,61,0.5);font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:999px;">See plans &amp; keep training →</a></div>' +
           '</td></tr></table>' +
         '</td></tr>' +
@@ -458,7 +458,7 @@
     ]);
   };
 
-  // House account that always has full, unrestricted "Ultra" access sitewide —
+  // House account that always has full, unrestricted admin access sitewide —
   // client side this only ever drives cosmetic UI (badge, skipping upsell
   // copy, skipping real-money checkout); the one function call that actually
   // enforces a limit (aiSwimCoach's daily message cap) re-checks this same
@@ -556,19 +556,22 @@
     requestAnimationFrame(step);
   }
 
-  // ============================= ACCESS LEVEL (informational trial/plan badge only) =============================
-  // There is no paywall anywhere in this app — every signed-in, non-suspended
-  // swimmer gets full access to everything (AI Coach, photo analysis,
-  // Elite-level workouts, all of it), regardless of trial status or whether
-  // a Paddle plan is active. Resolves 'admin' for the house account (see
-  // SWIMFIT_ADMIN_EMAIL above), 'locked' *only* if the admin has manually
-  // suspended this account (accessDisabled — the sole remaining gate on the
-  // whole site), otherwise 'trial' / the real Paddle plan / 'unlocked' —
-  // these three are purely informational (nav badge, Admin Panel), never
-  // used to block anything. Mirrors the server-side resolution in
-  // functions/index.js (getAccessLevel), which enforces the same thing for
-  // the one call that costs money (aiSwimCoach): full access unless
-  // accessDisabled.
+  // ============================= ACCESS LEVEL (Freemium: 'free' | 'trial' | 'pro'/'elite'/'ultra' | 'locked' | 'admin') =============================
+  // Resolves what tier a signed-in swimmer is actually on. 'admin' for the
+  // house account (see SWIMFIT_ADMIN_EMAIL above, checked first so nothing
+  // below can ever override it); 'locked' only if the admin has manually
+  // suspended this account (accessDisabled — the one remaining full-page
+  // lock on the whole site, see js/paddle-client.js's refreshPaywallLock);
+  // 'trial' during the 3-day full-access preview window; the real Paddle
+  // plan string ('pro', or a legacy 'elite'/'ultra') while a subscription is
+  // active; otherwise 'free' — the permanent, always-available Freemium
+  // tier a trial settles into, never a lock. Every feature-level Freemium
+  // gate (Workout Generator levels, Custom Workout Builder's saved-workout
+  // cap, Distance Tracker analytics) reads this via window.__hasFullAccess()
+  // (js/paddle-client.js) rather than re-deriving its own copy of "does
+  // this swimmer have full access." Mirrors the server-side resolution in
+  // functions/index.js (getAccessLevel), which the one call that costs
+  // money (aiSwimCoach) uses to apply a lower daily message cap for 'free'.
   var TRIAL_DAYS = 3;
   var latestSubscriptionDoc = null; // last paddle_subscriptions/{uid} snapshot data, or null
   var unsubscribeSubscriptionDoc = null;
@@ -612,13 +615,11 @@
     } else if (Date.now() < trialEndsAt.getTime()) {
       level = 'trial';
     } else {
-      // Trial elapsed with no active paid plan → hard lock. This is a real
-      // access gate now (re-introduced at the user's explicit request): the
-      // paywall overlay below full-screen-locks the site for an 'expired'
-      // swimmer, blocking every interactive section until they subscribe. Only
-      // the admin bypass and an active Paddle plan (both handled above) can
-      // keep a signed-in account out of this state once its 3 days are up.
-      level = 'expired';
+      // Trial elapsed with no active paid plan → settles onto the permanent
+      // Free plan (Freemium model) — never a full-page lock. Only the admin
+      // bypass and an active Paddle plan (both handled above) resolve to
+      // anything richer than 'free' once the 3-day trial is up.
+      level = 'free';
     }
     window.__swimfitAccess = { level: level, trialEndsAt: trialEndsAt };
     document.dispatchEvent(new CustomEvent('swimfit:accesschange', { detail: { access: window.__swimfitAccess } }));
@@ -674,9 +675,10 @@
       window.__isAdminAccount = !!(user && user.email && user.email.toLowerCase().trim() === SWIMFIT_ADMIN_EMAIL);
       document.querySelectorAll('[data-admin-only]').forEach(function (el) { el.style.display = window.__isAdminAccount ? '' : 'none'; });
       // Seed the trial start synchronously from the account's real creation
-      // time (Firebase Auth metadata) so an already-expired account locks the
-      // instant auth resolves, without waiting on the ensureUserProfile
-      // Firestore round-trip. ensureUserProfile reconciles/persists it below.
+      // time (Firebase Auth metadata) so an already-trial-expired account
+      // correctly resolves straight to 'free' the instant auth resolves,
+      // without waiting on the ensureUserProfile Firestore round-trip.
+      // ensureUserProfile reconciles/persists it below.
       var __creation = (user && user.metadata && user.metadata.creationTime) ? new Date(user.metadata.creationTime) : null;
       window.__swimfitTrialStartedAt = (__creation && !isNaN(__creation.getTime())) ? __creation : null;
       latestSubscriptionDoc = null;

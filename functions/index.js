@@ -222,9 +222,14 @@ function getPaddleClient() {
 // Maps a Paddle PRODUCT id (subscription/transaction items[].price.productId
 // on the webhook payload) to the Swimfit plan it represents — keyed by
 // product rather than price so this stays correct even across a
-// monthly/annual price change on the same product, and matches the
-// PADDLE_PRICE_IDS constant already hardcoded in index.html's checkout call.
-// Keep the two in sync.
+// monthly/annual price change on the same product, and matches
+// PADDLE_PRICE_IDS in js/paddle-client.js's checkout call. Keep the two in
+// sync. FREEMIUM SIMPLIFICATION: the checkout UI now only ever offers the
+// 'pro' plan ("All-Access Pro") — the 'elite'/'ultra' entries below are
+// deliberately left in place, not deleted, so a swimmer who already
+// subscribed under the old 3-tier pricing keeps resolving correctly via
+// subscriptionGrantsAccess() (which only reads `status`, never the plan
+// name) without needing any data migration.
 const PADDLE_PLAN_BY_PRODUCT_ID = {
   'pro_01kxvepbgps1gw1w5qmt45hev6': 'pro',
   'pro_01kxvet9dy5deg86r4xe16yb5k': 'elite',
@@ -513,7 +518,13 @@ const COACH_MODEL = 'claude-opus-4-8';
 const COACH_MAX_TOKENS = 1536;
 const COACH_MAX_MESSAGE_LENGTH = 2000;
 const COACH_MAX_HISTORY_MESSAGES = 12;
-const COACH_DAILY_MESSAGE_LIMIT = 40;
+// FREEMIUM: Free-tier swimmers get a real but noticeably lower daily cap
+// ("limited AI chat" per the pricing tab); anyone with full access (trial,
+// admin, or the one paid All-Access Pro plan — including a legacy
+// Elite/Ultra subscriber, since subscriptionGrantsAccess() doesn't
+// distinguish between plan names) keeps the original, more generous limit.
+const COACH_DAILY_MESSAGE_LIMIT_FREE = 10;
+const COACH_DAILY_MESSAGE_LIMIT_FULL = 40;
 const COACH_MAX_IMAGES_PER_MESSAGE = 3;
 const COACH_MAX_IMAGE_BASE64_CHARS = 6000000; // ~4.5MB decoded — generous for a compressed phone photo
 const COACH_ALLOWED_IMAGE_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -531,26 +542,27 @@ function isAdminEmail(email) {
 
 const TRIAL_DAYS = 3;
 
-// Resolves what a signed-in swimmer can currently access: 'admin' immediately
-// for the house account (see ADMIN_EMAILS — checked first, before any
-// Firestore read, so the admin override can never be defeated by anything
-// below), then 'locked' if — and only if — the admin has manually suspended
-// the account (adminToggleAccess). There is no other way to end up 'locked':
-// the trial/paid-plan system no longer gates anything. Every authenticated,
-// non-suspended account gets full access everywhere — the AI Coach, photo
-// analysis, Elite-level workouts, all of it — regardless of trial status or
-// whether a Paddle plan is active. Trial/plan are still resolved and
-// returned ('trial' | 'pro' | 'elite' | 'ultra' | 'unlocked') purely for
-// informational display (nav badge, Admin Panel), never to block a request.
-// Takes email as well as uid specifically so the admin check lives in this
-// one place rather than being duplicated (and potentially forgotten) at
-// every call site.
+// FREEMIUM: resolves what tier a signed-in swimmer is actually on —
+// 'admin' immediately for the house account (see ADMIN_EMAILS — checked
+// first, before any Firestore read, so the admin override can never be
+// defeated by anything below), 'locked' if — and only if — the admin has
+// manually suspended the account (adminToggleAccess; the one remaining
+// full lock on the whole site), the real Paddle plan string
+// ('pro', or a legacy 'elite'/'ultra') while a subscription is active,
+// 'trial' during the 3-day full-access preview window, otherwise 'free' —
+// the permanent Freemium tier a trial settles into. Callers that need a
+// plain "does this swimmer have full access" boolean (rather than the raw
+// tier string) should compare against 'locked'/'free' being the only two
+// tiers that DON'T grant it. Takes email as well as uid specifically so the
+// admin check lives in this one place rather than being duplicated (and
+// potentially forgotten) at every call site. Mirrors the client-side
+// resolution in js/firebase-service.js (recomputeAccessLevel).
 async function getAccessLevel(uid, email) {
   if (isAdminEmail(email)) return 'admin';
   var userSnap = await db.collection('users').doc(uid).get();
   var userData = userSnap.exists ? userSnap.data() : null;
   // A manual admin-set suspension (see adminToggleAccess) is the one
-  // remaining way to end up 'locked' — everything else below is informational.
+  // remaining full lock — everything else below is tier resolution, not a gate.
   if (userData && userData.accessDisabled === true) return 'locked';
 
   var subSnap = await db.collection('paddle_subscriptions').doc(uid).get();
@@ -563,7 +575,15 @@ async function getAccessLevel(uid, email) {
   if (!userData || Date.now() < trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) {
     return 'trial';
   }
-  return 'unlocked';
+  return 'free';
+}
+// Single source of truth for "does this access level grant full,
+// paid-tier-equivalent access" — mirrors window.__hasFullAccess() in
+// js/paddle-client.js so the server and client can never disagree on which
+// tiers count as "full."
+function accessLevelHasFullAccess(accessLevel) {
+  return accessLevel === 'admin' || accessLevel === 'trial' ||
+    accessLevel === 'pro' || accessLevel === 'elite' || accessLevel === 'ultra';
 }
 
 // Allowed browser origins for every user-facing (non-webhook) function below —
@@ -847,15 +867,18 @@ function coachTodayKey() {
 // A Firestore-transaction-backed daily counter per signed-in swimmer, so a
 // single account can't run up an unbounded Anthropic API bill. Admin SDK
 // writes bypass firestore.rules entirely, so no client can read or forge
-// this counter — it only ever moves through this transaction.
-async function checkAndIncrementCoachUsage(uid) {
+// this counter — it only ever moves through this transaction. dailyLimit is
+// passed in by the caller (see aiSwimCoach below) so this function stays
+// agnostic to the Free-vs-full-access distinction that decides which cap
+// applies — it just enforces whichever number it's given.
+async function checkAndIncrementCoachUsage(uid, dailyLimit) {
   var ref = db.collection('coach_usage').doc(uid);
   return db.runTransaction(async function (tx) {
     var snap = await tx.get(ref);
     var today = coachTodayKey();
     var data = snap.exists ? snap.data() : null;
     var count = data && data.date === today ? data.count || 0 : 0;
-    if (count >= COACH_DAILY_MESSAGE_LIMIT) return false;
+    if (count >= dailyLimit) return false;
     tx.set(
       ref,
       { date: today, count: count + 1, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
@@ -892,9 +915,10 @@ exports.aiSwimCoach = onRequest(
     var accessLevel = await getAccessLevel(uid, decoded.email);
     var isAdmin = accessLevel === 'admin';
     if (accessLevel === 'locked') {
-      res.status(402).json({ error: 'Your free trial has ended — subscribe to a plan to keep chatting with the AI Coach.' });
+      res.status(402).json({ error: 'Your account has been suspended — contact SWIMFIT.ae@gmail.com for help.' });
       return;
     }
+    var coachDailyLimit = accessLevelHasFullAccess(accessLevel) ? COACH_DAILY_MESSAGE_LIMIT_FULL : COACH_DAILY_MESSAGE_LIMIT_FREE;
 
     var body = req.body || {};
     var message = typeof body.message === 'string' ? body.message.trim() : '';
@@ -920,7 +944,7 @@ exports.aiSwimCoach = onRequest(
     var allowed = true;
     if (!isAdmin) {
       try {
-        allowed = await checkAndIncrementCoachUsage(uid);
+        allowed = await checkAndIncrementCoachUsage(uid, coachDailyLimit);
       } catch (err) {
         logger.error('aiSwimCoach: usage-limit check failed', err);
         res.status(500).json({ error: 'The coach is temporarily unavailable. Please try again shortly.' });
@@ -928,7 +952,10 @@ exports.aiSwimCoach = onRequest(
       }
     }
     if (!allowed) {
-      res.status(429).json({ error: 'You\'ve hit today\'s coaching message limit — come back tomorrow for more.' });
+      var limitMsg = accessLevelHasFullAccess(accessLevel)
+        ? 'You\'ve hit today\'s coaching message limit — come back tomorrow for more.'
+        : 'You\'ve hit today\'s Free plan chat limit — upgrade to All-Access Pro for a higher daily limit, or come back tomorrow.';
+      res.status(429).json({ error: limitMsg });
       return;
     }
 

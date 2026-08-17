@@ -77,7 +77,7 @@
       if (!u.trialStartedAt) return { text: '—', cls: 'is-expired' };
       var endsAt = u.trialStartedAt + ADMIN_TRIAL_DAYS * 24 * 60 * 60 * 1000;
       var msLeft = endsAt - Date.now();
-      if (msLeft <= 0) return { text: 'Trial ended', cls: 'is-expired' };
+      if (msLeft <= 0) return { text: 'Free plan', cls: 'is-expired' };
       var d = Math.floor(msLeft / 86400000), h = Math.floor((msLeft % 86400000) / 3600000);
       return { text: (d > 0 ? d + 'd ' + h + 'h left' : h + 'h left'), cls: 'is-trial' };
     }
@@ -129,8 +129,12 @@
     }
 
     // Plan Distribution — a real donut chart, categorical hues in a fixed
-    // order (Pro=aqua, Elite=green, Ultra=maroon, No Plan=muted gray),
-    // never cycled or reassigned as the underlying counts change.
+    // order (All-Access Pro=aqua, No Plan=muted gray), never cycled or
+    // reassigned as the underlying counts change. FREEMIUM SIMPLIFICATION:
+    // pro/elite/ultra are all bucketed into one "All-Access Pro" segment —
+    // a legacy Elite/Ultra subscriber is still a paying, full-access
+    // swimmer under the new 2-tier model, so a 3-way split here would just
+    // be noise now that checkout itself only ever offers one paid plan.
     function renderPlanDonut(users) {
       var svg = document.getElementById('adminPlanDonut');
       var legend = document.getElementById('adminPlanLegend');
@@ -138,16 +142,12 @@
       if (!svg || !legend) return;
       var total = users.length;
       var counts = {
-        pro: users.filter(function (u) { return u.plan === 'pro'; }).length,
-        elite: users.filter(function (u) { return u.plan === 'elite'; }).length,
-        ultra: users.filter(function (u) { return u.plan === 'ultra'; }).length
+        pro: users.filter(function (u) { return u.plan === 'pro' || u.plan === 'elite' || u.plan === 'ultra'; }).length
       };
-      counts.none = total - counts.pro - counts.elite - counts.ultra;
+      counts.none = total - counts.pro;
       var segments = [
-        { key: 'pro', label: 'Pro', color: 'var(--aqua)', count: counts.pro },
-        { key: 'elite', label: 'Elite', color: 'var(--green-bright)', count: counts.elite },
-        { key: 'ultra', label: 'Ultra', color: 'var(--maroon-bright)', count: counts.ultra },
-        { key: 'none', label: 'No Plan', color: 'var(--muted-2)', count: counts.none }
+        { key: 'pro', label: 'All-Access Pro', color: 'var(--aqua)', count: counts.pro },
+        { key: 'none', label: 'Free / Trial', color: 'var(--muted-2)', count: counts.none }
       ];
       svg.innerHTML = '';
       // Track ring (drawn first, sits underneath every colored segment).
@@ -207,7 +207,10 @@
       var rows = [
         { label: 'Active', color: 'var(--green-bright)', count: active },
         { label: 'Trial', color: 'var(--aqua)', count: onTrial },
-        { label: 'Expired', color: 'var(--gold)', count: expired },
+        // Renamed from "Expired" — under the Freemium model a trial ending
+        // just settles the account onto the permanent Free plan, never a
+        // lock, so this bucket is better read as "on the Free plan" now.
+        { label: 'Free', color: 'var(--gold)', count: expired },
         { label: 'Suspended', color: 'var(--maroon-bright)', count: suspended }
       ];
       var max = Math.max(1, active, onTrial, expired, suspended);
@@ -332,7 +335,14 @@
         var planTd = document.createElement('td');
         var planSelect = document.createElement('select');
         planSelect.className = 'admin-plan-select';
-        [['', 'Trial/None'], ['pro', 'Pro'], ['elite', 'Elite'], ['ultra', 'Ultra']].forEach(function (opt) {
+        // FREEMIUM: only 'pro' ("All-Access Pro") is offered going forward —
+        // 'elite'/'ultra' stay in this list (relabeled "legacy") rather than
+        // being removed outright, so a swimmer who's actually still on one
+        // of those old plans (from before the pricing simplification) shows
+        // correctly selected instead of misleadingly defaulting to
+        // "Free / Trial" the moment their real plan value isn't one of the
+        // dropdown's own options anymore.
+        [['', 'Free / Trial'], ['pro', 'All-Access Pro'], ['elite', 'Elite (legacy)'], ['ultra', 'Ultra (legacy)']].forEach(function (opt) {
           var o = document.createElement('option');
           o.value = opt[0];
           o.textContent = opt[1];

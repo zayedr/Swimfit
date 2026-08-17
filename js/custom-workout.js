@@ -34,6 +34,7 @@
     var statusEl = document.getElementById('cwbStatus');
     var editingNoteEl = document.getElementById('cwbEditingNote');
     var savedListEl = document.getElementById('customWorkoutsList');
+    var planNoteEl = document.getElementById('cwbPlanNote');
 
     var overlay = document.getElementById('liveWorkoutOverlay');
     if (!blocksListEl || !overlay) return; // markup missing — nothing to wire
@@ -188,6 +189,13 @@
       });
     }
 
+    // FREEMIUM: Free tier caps saved workouts at FREE_SAVED_WORKOUT_CAP;
+    // All-Access Pro (and trial/admin) is unlimited. Only gates a brand-new
+    // CREATE — updating an existing saved workout (cwbState.editingId set)
+    // is always allowed, since it doesn't grow the swimmer's saved count.
+    var FREE_SAVED_WORKOUT_CAP = 2;
+    function hasFullAccess() { return typeof window.__hasFullAccess === 'function' && window.__hasFullAccess(); }
+
     if (saveBtn) saveBtn.addEventListener('click', function () {
       var name = nameInput ? nameInput.value.trim() : '';
       if (!name) { setStatus('Give this workout a name first.', true); if (nameInput) nameInput.focus(); return; }
@@ -195,6 +203,10 @@
       if (!hasAnySet) { setStatus('Add at least one set before saving.', true); return; }
       if (!window.__firebaseUser || typeof window.__customWorkoutCreate !== 'function') {
         setStatus('Sign in to save workouts to your profile.', true);
+        return;
+      }
+      if (!cwbState.editingId && !hasFullAccess() && cwbSavedWorkouts.length >= FREE_SAVED_WORKOUT_CAP) {
+        setStatus('Free plan is limited to ' + FREE_SAVED_WORKOUT_CAP + ' saved workouts — upgrade to All-Access Pro for unlimited.', true);
         return;
       }
       var blocks = serializeBuilderBlocks();
@@ -232,7 +244,31 @@
       }, 0);
     }
 
+    function renderPlanNote() {
+      if (!planNoteEl) return;
+      if (hasFullAccess()) {
+        planNoteEl.innerHTML = '<strong>All-Access Pro</strong> — unlimited saved workouts.';
+        planNoteEl.classList.add('is-full');
+      } else {
+        planNoteEl.innerHTML = cwbSavedWorkouts.length + ' / ' + FREE_SAVED_WORKOUT_CAP + ' saved on the Free plan — ' +
+          '<button type="button" class="link-inline" data-tab="pricing">upgrade for unlimited</button>';
+        planNoteEl.classList.remove('is-full');
+      }
+    }
+    window.__updateCustomWorkoutPlanNote = renderPlanNote;
+    document.addEventListener('swimfit:accesschange', renderPlanNote);
+    // planNoteEl's "upgrade" link is injected via innerHTML at runtime, so
+    // it never existed in the DOM at page-load time for the page's own
+    // generic [data-tab] click-wiring pass to have picked up — the same
+    // "dynamic content needs its own delegation" pattern the generated
+    // workout result panel already uses for its own [data-tab] buttons.
+    if (planNoteEl) planNoteEl.addEventListener('click', function (e) {
+      var tabBtn = e.target.closest('[data-tab]');
+      if (tabBtn && typeof window.switchTab === 'function') window.switchTab(tabBtn.dataset.tab);
+    });
+
     function renderSavedList() {
+      renderPlanNote();
       if (!savedListEl) return;
       if (!cwbSavedWorkouts.length) {
         savedListEl.innerHTML = '<p class="cwb-empty-note">No saved workouts yet — build one on the right and hit Save.</p>';

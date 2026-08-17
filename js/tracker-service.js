@@ -485,10 +485,29 @@
       });
     }
 
+    // FREEMIUM: the analytics strip through the PB Progression card
+    // (#trackerAdvancedSection) is an All-Access Pro perk; Free tier sees
+    // #trackerUpsellCard instead. The underlying data still loads/computes
+    // either way (loadEntriesIfNeeded/loadPbEntriesIfNeeded don't check
+    // plan at all) — this only toggles which container is visible, reusing
+    // window.__hasFullAccess() (js/paddle-client.js) rather than a second
+    // access check.
+    var trackerAdvancedSection = document.getElementById('trackerAdvancedSection');
+    var trackerUpsellCard = document.getElementById('trackerUpsellCard');
+    function updateTrackerPlanGate() {
+      if (!trackerAdvancedSection || !trackerUpsellCard) return;
+      var hasFull = typeof window.__hasFullAccess === 'function' && window.__hasFullAccess();
+      trackerAdvancedSection.style.display = hasFull ? '' : 'none';
+      trackerUpsellCard.style.display = hasFull ? 'none' : '';
+    }
+    window.__updateTrackerPlanGate = updateTrackerPlanGate;
+    document.addEventListener('swimfit:accesschange', updateTrackerPlanGate);
+
     document.querySelectorAll('[data-tab="tracker"]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setTimeout(loadEntriesIfNeeded, 0);
         setTimeout(loadPbEntriesIfNeeded, 0);
+        setTimeout(updateTrackerPlanGate, 0);
       });
     });
     document.addEventListener('swimfit:authchange', function (e) {

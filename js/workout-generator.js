@@ -481,10 +481,50 @@
     updateDistanceLabel();
     saveGeneratorPrefs({ distance: state.distance });
   }
+  // FREEMIUM: Competitive/Elite are an All-Access Pro perk — Free tier (and
+  // an unresolved-yet-signed-in state) stays Beginner-only. Reads
+  // window.__hasFullAccess() (js/paddle-client.js) rather than re-deriving
+  // its own access check.
+  function updateLevelTabLocks() {
+    var levelTabs = document.getElementById('levelTabs');
+    if (!levelTabs) return;
+    var hasFull = typeof window.__hasFullAccess === 'function' && window.__hasFullAccess();
+    levelTabs.querySelectorAll('.pill-tab[data-level="competitive"], .pill-tab[data-level="elite"]').forEach(function (b) {
+      b.classList.toggle('is-locked', !hasFull);
+    });
+    // A swimmer whose saved level was Competitive/Elite from an earlier
+    // full-access session (trial, or a subscription that's since lapsed) is
+    // downgraded the instant real access resolves to less than full — the
+    // click-time gate below only ever stops a NEW switch, so without this a
+    // stale localStorage preference could leave state.level pointed at a
+    // level the swimmer can no longer actually select.
+    if (!hasFull && state.level !== 'beginner') {
+      state.level = 'beginner';
+      var beginnerBtn = levelTabs.querySelector('.pill-tab[data-level="beginner"]');
+      levelTabs.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === beginnerBtn ? 'true' : 'false'); });
+      saveGeneratorPrefs({ level: state.level });
+      applyLevelDistanceCap();
+    }
+  }
+  window.__updateLevelTabLocks = updateLevelTabLocks;
+  // Only reacts to REAL resolved access (swimfit:accesschange fires once
+  // auth + Firestore actually resolve) — deliberately not run at plain page
+  // load, so a genuinely paying swimmer's saved Competitive/Elite choice is
+  // never flash-downgraded before their real access level is even known.
+  document.addEventListener('swimfit:accesschange', updateLevelTabLocks);
+
   document.getElementById('levelTabs').addEventListener('click', function (e) {
     var btn = e.target.closest('.pill-tab');
     if (!btn) return;
-    state.level = btn.dataset.level;
+    var requestedLevel = btn.dataset.level;
+    var upsellNote = document.getElementById('levelUpsellNote');
+    var hasFull = typeof window.__hasFullAccess === 'function' && window.__hasFullAccess();
+    if (requestedLevel !== 'beginner' && !hasFull) {
+      if (upsellNote) upsellNote.style.display = '';
+      return;
+    }
+    if (upsellNote) upsellNote.style.display = 'none';
+    state.level = requestedLevel;
     this.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === btn ? 'true' : 'false'); });
     saveGeneratorPrefs({ level: state.level });
     applyLevelDistanceCap();
@@ -1821,6 +1861,16 @@
     // workoutRng, so today's own pick sequence stays exactly as deterministic
     // as before.
     var priorDayRng = makeSeededRandom(dailySeedForDate(new Date(Date.now() - 86400000)));
+    // FREEMIUM LEVEL GATE, defense-in-depth: Competitive/Elite are already
+    // blocked at the UI layer (the levelTabs click handler and
+    // updateLevelTabLocks() below), so this only ever fires for a stored
+    // preference from before a subscription lapsed, or otherwise-stale
+    // state.level reaching this function directly.
+    var freeLevelDowngraded = false;
+    if (state.level !== 'beginner' && !(typeof window.__hasFullAccess === 'function' && window.__hasFullAccess())) {
+      state.level = 'beginner';
+      freeLevelDowngraded = true;
+    }
     var scaler = LEVEL_SCALERS[state.level];
 
     var age = parseInt(document.getElementById('swimmerAge').value, 10);
@@ -2275,7 +2325,8 @@
         : 'Add a Personal Best above for pacing calculated from your own times.') +
       (ageCapApplied ? ' Volume capped at 2000m — age-appropriate load for an 11-and-under swimmer.' : '') +
       (restDayCapApplied ? ' Volume capped at 1.2 km — today is a scheduled Rest / Active Recovery day, so this intentionally ignores your Target Distance slider.' : '') +
-      (beginnerCapApplied ? ' Volume capped at 3 km — Beginner level’s maximum session distance.' : '') + '</p>';
+      (beginnerCapApplied ? ' Volume capped at 3 km — Beginner level’s maximum session distance.' : '') +
+      (freeLevelDowngraded ? ' Competitive/Elite level requires All-Access Pro — generated at Beginner instead.' : '') + '</p>';
 
     // Weekly Periodization + Race Goal transparency lines — directly visible
     // confirmation that both features are actually shaping today's set, not
