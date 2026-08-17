@@ -5465,6 +5465,60 @@ mocks, but neither this sandbox's headless browser nor its network policy can co
 rules accept a real write or that the synthesized audio/voice cues sound right; verify manually in
 a real browser on a normal network connection after the rules deploy.
 
+**A follow-up polish round on Live Workout Mode: dynamic timer color states, a real pool
+whistle/start-horn cue, and a Custom Workout Builder labeling tweak — no new files, all inside
+the existing `js/custom-workout.js` and its `<style>` block.**
+
+- **Dynamic timer color states.** `.live-workout-ring-wrap` (the shared parent of both the SVG
+  progress ring and the digit clock) now carries one custom property, `--live-timer-color`
+  (default `var(--fg)`), that both `.live-workout-timer`'s `color` and
+  `.live-workout-ring-progress`'s `stroke` read through — so toggling a single class on that one
+  ancestor recolors the ring and the digits together, rather than juggling two separate class
+  lists from JS. `.is-warning` sets it to `#facc15` (amber) and is applied by `renderTimer()`
+  whenever `0 < remaining ≤ 5` seconds on ANY interval (swim or rest) — a deliberately wider
+  window than the pre-existing 3-2-1 audio tick, which stays audio-only. `.is-go` sets it to
+  `#22c55e` (green) and is applied by a new `flashGo()`, called from `advanceStep()` the instant
+  a new rep/rest/set begins (including the very first rep of the whole workout), held for 450ms
+  via a tracked `live.goFlashTimeout` (cleared and reset on every subsequent call so rapid
+  skip-clicking can never stack overlapping flashes), then released back to whatever
+  `renderTimer()` would otherwise show. Both colors are a deliberate, disclosed exception to this
+  file's otherwise-monochrome palette — real yellow/green here read as universally-understood
+  stoplight/pool-deck timing cues, not decorative accent color, the same category of exception
+  this file's Workout stage-coding and Gym muscle-tags already carry. A short interval (≤5s) that
+  is already inside its own warning window the instant it starts correctly settles from the GO
+  flash straight into amber rather than back to the default white — verified directly via a
+  4-second-interval test.
+- **A real pool whistle/start-horn Web Audio cue**, `playStartHorn()` — a `square`-wave oscillator
+  (harsher, buzzier harmonic content than the existing soft `sine` countdown ticks) with a fast
+  four-step frequency wobble (2150→2600→2100→2550→2150 Hz over ~220ms) mimicking a real pea
+  whistle's trill, louder and longer than the tick beep so it's unmistakably the GO cue. Fires
+  from `advanceStep()` at the exact instant a new rep/rest/set begins — the same moment the
+  GO-green flash fires, so the audible and visual "take off" cues are always in lockstep,
+  including on the very first rep of a session (a real start horn fires at the initial dive too,
+  not just mid-set transitions). The previous plain completion `beep(920,220)` this cue replaces
+  is gone — playing both back to back would have been two overlapping sounds for the same event.
+  Manual **Skip** deliberately stays silent: `finishCurrentStep(skipHorn)` threads a `playHorn`
+  flag through to `advanceStep()`, `true` only for the automatic (timer-driven) transition in
+  `tick()`, so a swimmer choosing to jump ahead isn't startled by a horn they didn't earn — the
+  GO-green visual flash still fires either way, just not the audio. Verified by instrumenting
+  `AudioContext.prototype.createOscillator` in Playwright (headless Web Audio doesn't produce
+  audible sound, but the oscillator graph itself still gets built exactly the same way): a
+  `square`-type oscillator starts at every automatic rep transition (confirmed for both rep 1 and
+  rep 2 of a 2-rep test workout) and zero oscillators of any type fire on a manual Skip.
+- **Custom Workout Builder: "Save Workout" renamed to "Save to My Workouts"**, and the saved
+  list's Start icon-button's `aria-label` tightened to `"Start Live Workout: {name}"` — matching
+  the exact "prepare ahead of time, then pull it up and click Start Live Workout" wording this
+  round's ask used, on top of a save/list/edit/delete flow that was already fully working (single
+  click, named, validated, persisted, reachable later) — this was a labeling-clarity pass, not a
+  functional rebuild.
+- Verified via Playwright: the go-green flash and its exact `rgb(34,197,94)` color render
+  correctly in a real screenshot at rep start, the warning-yellow state and its exact
+  `rgb(250,204,21)` color render correctly in a real screenshot inside the final 5 seconds
+  (confirmed on both the digit color and the ring's own `stroke`), the full pre-existing
+  regression suite (builder CRUD, saved-list start/edit/delete, live mode from a draft/saved
+  workout/generated workout, auto-advance completion + Tracker logging, pause/resume, exit) still
+  passes unchanged with zero page errors, and the Save button reads exactly "Save to My Workouts".
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later

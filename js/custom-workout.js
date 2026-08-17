@@ -43,6 +43,7 @@
     var timerEl = document.getElementById('liveWorkoutTimer');
     var timerSubEl = document.getElementById('liveWorkoutTimerSub');
     var ringProgressEl = document.getElementById('liveWorkoutRingProgress');
+    var ringWrapEl = document.querySelector('.live-workout-ring-wrap');
     var playPauseBtn = document.getElementById('liveWorkoutPlayPauseBtn');
     var restartBtn = document.getElementById('liveWorkoutRestartBtn');
     var skipBtn = document.getElementById('liveWorkoutSkipBtn');
@@ -244,7 +245,7 @@
           '<div class="cwb-workout-item-info"><strong>' + escHtml(w.name) + '</strong>' +
           '<span class="cwb-workout-item-meta">' + blockCount + ' block' + (blockCount === 1 ? '' : 's') + ' · ' + (typeof formatDistanceM === 'function' ? formatDistanceM(totalM, 1) : totalM + 'm') + '</span></div>' +
           '<div class="cwb-workout-item-actions">' +
-          '<button type="button" class="cwb-icon-btn cwb-icon-start" data-action="start" aria-label="Start ' + escHtml(w.name) + '">' + icon('i-play') + '</button>' +
+          '<button type="button" class="cwb-icon-btn cwb-icon-start" data-action="start" aria-label="Start Live Workout: ' + escHtml(w.name) + '">' + icon('i-play') + '</button>' +
           '<button type="button" class="cwb-icon-btn" data-action="edit" aria-label="Edit ' + escHtml(w.name) + '">' + icon('i-settings') + '</button>' +
           '<button type="button" class="cwb-icon-btn cwb-icon-delete" data-action="delete" aria-label="Delete ' + escHtml(w.name) + '">' + icon('i-close') + '</button>' +
           '</div></div>';
@@ -410,6 +411,37 @@
       } catch (e) { /* ignore — a missed beep never blocks the timer itself */ }
     }
 
+    // A sharp pool-deck whistle/start-horn — the "take off" cue fired the
+    // instant a set/rep's timer hits 00:00 and the next one begins. A pure
+    // sine tone (used for the softer 3-2-1 countdown ticks above) doesn't
+    // read as a real whistle; a square wave has the harsher, buzzier
+    // harmonic content an actual whistle/buzzer has, and a fast few-step
+    // frequency wobble mimics the "trill" of a real pea whistle rather than
+    // a flat, synthetic tone. Louder and longer than the tick beep so it's
+    // unmistakably the GO cue, not another countdown tick.
+    function playStartHorn() {
+      var ctx = ensureAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
+      try {
+        var now = ctx.currentTime;
+        var osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(2150, now);
+        osc.frequency.linearRampToValueAtTime(2600, now + 0.05);
+        osc.frequency.linearRampToValueAtTime(2100, now + 0.10);
+        osc.frequency.linearRampToValueAtTime(2550, now + 0.15);
+        osc.frequency.linearRampToValueAtTime(2150, now + 0.22);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.32, now + 0.015);
+        gain.gain.setValueAtTime(0.32, now + 0.24);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.42);
+      } catch (e) { /* ignore — a missed horn never blocks the timer itself */ }
+    }
+
     // Screen Wake Lock — best-effort so a phone poolside doesn't lock mid-set
     // and silently pause the whole hands-free flow; not supported everywhere
     // (e.g. older Safari/Firefox), so this degrades gracefully to "the
@@ -505,17 +537,50 @@
           step.distance + 'm ' + step.stroke;
       }
     }
+    // 5-4-3-2-1 warning-yellow window, matching the request's own spec —
+    // deliberately a wider window than the 3-2-1 audio tick below (that's
+    // just the "about to go" audio nudge; the color has more room to warn).
+    var TIMER_WARNING_SEC = 5;
+    // How long the GO-green flash holds before the ring/digits settle back
+    // to their normal color (or straight back to warning-yellow, for a
+    // interval so short it's already inside its own final-5-seconds window).
+    var GO_FLASH_MS = 450;
+
     function renderTimer(remaining, total) {
       timerEl.textContent = formatClock(remaining);
       var frac = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
       ringProgressEl.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - frac));
+      // The GO flash (see advanceStep()) owns the color for its own brief
+      // window — this only ever toggles the warning state outside of that.
+      if (ringWrapEl && !ringWrapEl.classList.contains('is-go')) {
+        ringWrapEl.classList.toggle('is-warning', remaining > 0.05 && remaining <= TIMER_WARNING_SEC + 0.05);
+      }
     }
     function renderTotals() {
       elapsedTotalEl.textContent = formatClock((Date.now() - live.workoutStartTs) / 1000);
       distDoneEl.textContent = typeof formatDistanceM === 'function' ? formatDistanceM(live.doneDistanceM, 2) : live.doneDistanceM + 'm';
     }
 
-    function advanceStep() {
+    // Flashes the ring + digits GO-green for a beat at the exact instant a
+    // new rep/rest/set begins — the visual half of the "take-off" cue,
+    // paired with playStartHorn() below for the audible half.
+    function flashGo() {
+      if (!ringWrapEl) return;
+      if (live && live.goFlashTimeout) { clearTimeout(live.goFlashTimeout); live.goFlashTimeout = null; }
+      ringWrapEl.classList.remove('is-warning');
+      ringWrapEl.classList.add('is-go');
+      var timeoutId = setTimeout(function () {
+        ringWrapEl.classList.remove('is-go');
+        if (live && live.goFlashTimeout === timeoutId) live.goFlashTimeout = null;
+      }, GO_FLASH_MS);
+      if (live) live.goFlashTimeout = timeoutId;
+    }
+
+    // playHorn defaults to true (every automatic timer-driven transition,
+    // including the very first rep of the whole workout, is a genuine
+    // "take off" moment) — the manual Skip control passes false so a
+    // swimmer deliberately jumping ahead doesn't get startled by the horn.
+    function advanceStep(playHorn) {
       live.index++;
       if (live.index >= live.steps.length) { completeWorkout(); return; }
       var step = live.steps[live.index];
@@ -526,15 +591,16 @@
       live.lastBeepSec = null;
       updatePhaseUI(step);
       renderTimer(step.durationSec, step.durationSec);
+      flashGo();
+      if (playHorn !== false) playStartHorn();
       announceStep(step);
       updateSetsListHighlight();
     }
-    function finishCurrentStep(skipBeep) {
+    function finishCurrentStep(skipHorn) {
       var step = live.steps[live.index];
       if (step && step.kind === 'swim') live.doneDistanceM += step.distance;
-      if (!skipBeep) beep(920, 220);
       if (live.index > -1) markStepDone(live.index);
-      advanceStep();
+      advanceStep(!skipHorn);
     }
 
     function tick() {
@@ -581,7 +647,7 @@
         stepStartTs: 0, stepDurationSec: 0, pausedAt: null, pauseAccumSec: 0,
         running: true, voiceEnabled: !voiceToggle || voiceToggle.checked,
         doneDistanceM: 0, workoutStartTs: Date.now(), tickHandle: null,
-        lastBeepSec: null, logged: false
+        lastBeepSec: null, logged: false, goFlashTimeout: null
       };
       liveTitleEl.textContent = title;
       bodyEl.style.display = '';
@@ -598,12 +664,14 @@
 
     function stopLiveWorkout() {
       if (live && live.tickHandle) clearInterval(live.tickHandle);
+      if (live && live.goFlashTimeout) clearTimeout(live.goFlashTimeout);
       try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
       releaseWakeLock();
       overlay.hidden = true;
       document.body.classList.remove('live-workout-active');
       if (completeScreenEl) completeScreenEl.hidden = true;
       if (bodyEl) bodyEl.style.display = '';
+      if (ringWrapEl) ringWrapEl.classList.remove('is-warning', 'is-go');
       live = null;
     }
 
