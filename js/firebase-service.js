@@ -296,6 +296,29 @@
     return deleteDoc(doc(db, 'coach_threads', uid, 'threads', threadId));
   };
 
+  // Custom Workout Builder — a swimmer's own hand-built workouts, saved to
+  // custom_workouts/{uid}/entries/{workoutId} (see firestore.rules for the
+  // doc shape/validation). Same list/create/save/delete shape as the
+  // coach_threads bridges directly above, since a saved workout is
+  // conceptually identical — a named, owner-only, editable-in-place doc a
+  // swimmer picks from a sidebar-style list.
+  window.__customWorkoutsList = function (uid) {
+    var q = query(collection(db, 'custom_workouts', uid, 'entries'), orderBy('updatedAt', 'desc'));
+    return getDocs(q).then(function (snap) {
+      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    });
+  };
+  window.__customWorkoutCreate = function (uid, name, blocks) {
+    var now = serverTimestamp();
+    return addDoc(collection(db, 'custom_workouts', uid, 'entries'), { name: name, blocks: blocks || [], createdAt: now, updatedAt: now });
+  };
+  window.__customWorkoutSave = function (uid, workoutId, name, blocks) {
+    return setDoc(doc(db, 'custom_workouts', uid, 'entries', workoutId), { name: name, blocks: blocks, updatedAt: serverTimestamp() }, { merge: true });
+  };
+  window.__customWorkoutDelete = function (uid, workoutId) {
+    return deleteDoc(doc(db, 'custom_workouts', uid, 'entries', workoutId));
+  };
+
   // Distance Tracker data-access bridges — same "expose a narrow function on
   // window" pattern as __firebaseGetIdToken above, so the plain <script>
   // (which owns all of this feature's DOM/UI logic) never needs its own

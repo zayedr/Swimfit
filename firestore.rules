@@ -35,6 +35,15 @@ rules_version = '2';
 // personal_bests/{uid}/entries/{entryId} — a swimmer's manually-logged PB times, for the
 //                      Tracker's PB progression chart. Same owner-only, create+delete,
 //                      no-edit-in-place shape as swim_logs.
+// custom_workouts/{uid}/entries/{workoutId} — a swimmer's own hand-built workouts from the
+//                      Custom Workout Builder (Workouts tab), each its own doc: {name,
+//                      blocks: [{label, sets: [{reps, distance, stroke, intervalSec, restSec,
+//                      note}]}], createdAt, updatedAt}. Owner-only read/list/write, same
+//                      "list is needed for the builder's own saved-workouts sidebar" reasoning
+//                      as coach_threads below, and the same create+update+delete shape (a
+//                      saved workout can be renamed/edited in place, unlike swim_logs/
+//                      personal_bests above) — capped at 30 blocks so one workout can never
+//                      approach Firestore's 1 MiB document limit.
 // coach_history/{uid} — persisted AI Coach chat transcript for the full-screen page. Available
 //                      to any signed-in, non-suspended swimmer — there is no paywall/tier gate
 //                      anywhere in this app anymore (see aiSwimCoach in functions/index.js).
@@ -195,6 +204,27 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'messages', 'updatedAt'])
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.messages is list && request.resource.data.messages.size() <= 60;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Custom Workout Builder — see the top-of-file comment for the doc shape.
+    // Deliberately loose on the internal shape of `blocks` (a list of maps of
+    // lists of maps): the rules language has no practical way to type-check
+    // arbitrarily-nested list-of-maps content beyond "it's a list", the same
+    // trade-off coach_threads' own `messages` list already makes above — real
+    // validation of each field happens client-side in the builder UI, and the
+    // 30-block cap plus Firestore's own 1 MiB document ceiling bound the blast
+    // radius of a malformed write either way.
+    match /custom_workouts/{uid}/entries/{workoutId} {
+      allow read, list: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'blocks', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.blocks is list && request.resource.data.blocks.size() <= 30;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'blocks', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.blocks is list && request.resource.data.blocks.size() <= 30;
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 

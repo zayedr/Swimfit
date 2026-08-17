@@ -2307,6 +2307,12 @@
     });
     var pdfBtn = document.getElementById('workoutPdfBtn');
     if (pdfBtn) pdfBtn.style.display = '';
+    // Live Split-Screen Workout Mode (js/custom-workout.js) reuses this
+    // already-rendered result panel via window.__extractStructuredWorkout —
+    // just unhide the static button here, same as the PDF button above;
+    // its click handler is wired entirely from custom-workout.js.
+    var liveBtn = document.getElementById('workoutLiveModeBtn');
+    if (liveBtn) liveBtn.style.display = '';
   }
 
   document.getElementById('generateBtn').addEventListener('click', generateWorkout);
@@ -3161,6 +3167,12 @@
       });
       return { blocks: blocks };
     }
+    // Exposed so js/custom-workout.js (Live Split-Screen Workout Mode) can
+    // build its flat, sequential set list from exactly what's already
+    // rendered in #workoutResult — the identical "read the on-screen DOM,
+    // never recompute" principle the PDF export above already established,
+    // so Live Mode can never drift from what the swimmer is looking at.
+    window.__extractStructuredWorkout = extractStructuredWorkout;
 
     function extractStructuredGym(rootEl) {
       var phases = Array.prototype.map.call(rootEl.querySelectorAll('.gym-phase'), function (phase) {

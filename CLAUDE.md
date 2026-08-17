@@ -5343,6 +5343,128 @@ multi-step plan the user is directing personally — Step 2 (wiping the current 
 rebuilding a new UI from scratch on top of these now-isolated service files) has **not** been
 started, pending the user's explicit confirmation to proceed.
 
+**A new Custom Workout Builder and Live Split-Screen Workout Mode with automatic set
+progression** — a genuinely new feature area, not a modification of the daily-generated Workout
+Generator, which is completely untouched by this round. `js/custom-workout.js` is a new,
+self-contained file (following the same one-IIFE-per-file convention `tracker-service.js`/
+`admin-service.js` already use) covering two halves that share one closure since Live Mode is
+launched directly from the Builder's own state.
+
+**1) Custom Workout Builder** (a new `.cwb-section` sitting below the existing
+`.workouts-columns` grid on the Workouts tab, inside the same signed-in gate — no new tab, no new
+paywall check). A swimmer builds a workout from scratch as a list of named blocks (Warm-Up, Main
+Set, Cool-Down, or any custom label), each holding one or more sets with Reps / Distance (m) /
+Stroke / Interval (send-off, mm:ss) / Rest (seconds) / an optional Note — plain `<input>`/`<select>`
+rows (`#cwbBlocksList`, rendered by `renderBuilder()`) with Add Set / Add Block / Remove buttons,
+matching this file's existing "flexible entry list" pattern (the PB Tracker's own `#pbEntriesList`)
+rather than a fixed-shape form. Saving persists to a new Firestore collection,
+`custom_workouts/{uid}/entries/{workoutId}` — `{name, blocks: [{label, sets: [{reps, distance,
+stroke, intervalSec, restSec, note}]}], createdAt, updatedAt}` — via four new bridges in
+`js/firebase-service.js` (`__customWorkoutsList`/`__customWorkoutCreate`/`__customWorkoutSave`/
+`__customWorkoutDelete`), modeled directly on the existing `coach_threads` bridges (list + create +
+update + delete, owner-only, since a saved workout is conceptually identical to a named,
+editable-in-place conversation thread). `firestore.rules` gained a matching
+`custom_workouts/{uid}/entries/{workoutId}` block (owner-only read/list/create/update/delete,
+capped at 30 blocks per doc to stay well inside Firestore's 1 MiB limit) — **this rules change has
+not been deployed**, per this file's own long-standing, repeatedly-disclosed limitation that this
+sandbox has no Firebase CLI credentials for the live `swimfi-ae` project; run `firebase deploy
+--only firestore:rules` before this feature can actually write in production. "My Saved Workouts"
+(`#customWorkoutsList`) lists every saved workout with its block count and total distance, and a
+Play/Edit/Delete icon-button row per item — Play launches Live Mode directly from the saved doc,
+Edit (`loadWorkoutIntoBuilder()`) repopulates the builder (including formatting `intervalSec` back
+to `mm:ss` for the Interval field) and switches the Save button into an update-in-place mode via
+`cwbState.editingId`, Delete confirms then removes the doc. The list loads on sign-in
+(`swimfit:authchange`) and on every click into the Workouts tab (`loadedForUid` guard, same
+once-per-session pattern `loadEntriesIfNeeded()` already uses in `tracker-service.js`), and clears
+on sign-out.
+
+**2) Live Split-Screen Workout Mode** (`#liveWorkoutOverlay`) — a dedicated, exclusive full-screen
+surface (`z-index:480`, above the paywall overlay's 400, deliberately never a tab) launched from
+three places: the Builder's own draft ("Start Live Workout"), a saved workout's Play button, and a
+new **"Start Live Workout"** button sitting beside the existing "Save Workout as PDF" button under
+every daily-generated workout (`#workoutLiveModeBtn`, shown/hidden by `generateWorkout()`'s own
+existing pdf-button-visibility line). The layout is a genuine 46%/54% split: the left pane
+(`.live-workout-timer-pane`) is a massive pool-side-visible `clamp(3rem,11vw,5rem)` monospace
+countdown clock inside a draining SVG progress ring, a SWIM/REST phase badge, Restart/Play-Pause/
+Skip controls, running Total Elapsed + Distance Done stats, and a Voice Cues checkbox; the right
+pane (`.live-workout-sets-pane`) lists every rep/rest step grouped by block label, with the current
+step ringed and auto-scrolled into view and completed steps dimmed+checked.
+
+**AUTOMATIC set cycling is the actual point of this feature** — `tick()` (a 200ms `setInterval`,
+elapsed time computed from `Date.now()` deltas rather than a naive per-tick decrement, so it can't
+drift under a throttled background tab) counts down each step's `durationSec`; the final 3 seconds
+of every step play a short ascending Web Audio beep (`beep()`, a synthesized sine-wave tone via a
+lazily-constructed `AudioContext` — a functional UI cue like a kitchen timer, not music, so there's
+no licensing/asset dependency at all), and the instant a step's timer reaches zero it plays a
+distinct completion tone, credits that rep's distance (`live.doneDistanceM`), marks it done in the
+right-pane list, and immediately begins the next step — **no tap required**. A swimmer with the
+Voice Cues checkbox on also gets a spoken `SpeechSynthesisUtterance` at the start of every step
+("Next: 4 times 100 meters Freestyle. Go." on a new set's first rep, a terser "Rep 2 of 4. Go." on
+subsequent reps of the same set, "Rest, 20 seconds." for a rest phase) — genuine hands-free flow: a
+swimmer never needs to look at or touch the phone mid-swim, only hear it. The Screen Wake Lock API
+(`navigator.wakeLock`, re-acquired on `visibilitychange` if lost) keeps the phone screen on
+poolside as a best-effort layer on top of the audio/voice cues — degrades silently to "the
+swimmer's own screen-timeout setting still applies" on browsers without support (older Safari/
+Firefox), never an error. Play/Pause/Restart/Skip/Exit remain as manual overrides for accessibility
+and recovering from a missed cue, not because anything requires them — Escape exits (with a
+`confirm()` if mid-workout) and Space toggles Play/Pause as keyboard shortcuts. On completion, a
+summary screen shows total distance/time and the session auto-logs to the Distance Tracker via the
+exact same `window.__swimLogAdd` bridge the generated workout's own "Complete Workout" button and
+the Tracker's manual log form already use (plus the existing `swimfit:swimlogchange` event so an
+already-open Tracker tab refreshes immediately) — a finished Live Mode session shows up there
+identically to any other logged swim, no new Firestore collection needed for that part.
+
+**Two flattening functions turn either source into the same flat step list the live engine steps
+through.** `flattenCustomBlocks()` expands a custom workout's `{reps, distance, stroke, intervalSec,
+restSec}` sets into individual per-rep `swim` steps plus an optional trailing `rest` step (falling
+back to a generic ~1:40/100m pace estimate, `estimateDurationSec()`, only when a set's own Interval
+field was left blank, so Live Mode can never divide by zero or run an unbounded "rep"). For the
+daily-generated workout, `flattenGeneratedWorkout()` deliberately does **not** touch
+`generateWorkout()`'s own archetype/pace internals at all — it reads whatever's already rendered in
+`#workoutResult` via a newly-exposed `window.__extractStructuredWorkout` (the exact same DOM-reading
+function `wirePdfExport()` in `js/workout-generator.js` already used internally for the PDF export,
+now assigned to `window` alongside its existing sibling exports), regexes each row's `"4×200m
+Freestyle, ..."` label back into reps/distance/stroke and its `"@ 1:45"` send-off into seconds via
+the existing global `parseTimeToSeconds()` — so Live Mode for a generated workout can never drift
+from what the swimmer actually generated and sees on screen, the identical "read the DOM, never
+recompute" principle this file's PDF export has followed for many rounds.
+
+**A real flexbox text-wrapping bug was caught and fixed via an actual Playwright screenshot, not
+just a code read** (this file's own established discipline for this class of issue): the current
+step's sub-label under the big countdown clock (`.live-workout-timer-sub`, e.g. "Warm-Up — Rep 1 of
+4 — 100m Freestyle") is a flex item inside `.live-workout-timer-inner`
+(`display:flex;align-items:center`), which gives it an implicit `min-width:auto` — without an
+explicit override, a flex item's minimum content size can exceed its available cross-axis space,
+so the text rendered on one un-wrapped line and visually poked past the decorative 340px SVG ring's
+curve instead of wrapping inside it. Fixed with `min-width:0` (lets it shrink to wrap at all) plus
+`max-width:78%` (deliberately less than the ring's full diameter, since a circle's chord narrows
+away from its vertical center — a line sized to the full width reads fine exactly at the ring's
+center but still pokes past the curve at the sub-label's actual below-center position) and a
+slightly smaller `0.92rem` font size, re-verified via a cropped screenshot showing the text cleanly
+wrapping to two lines well inside the ring. A second, initially-missed rule (`.live-workout-shell`
+had markup but no CSS at all, so the header/body `flex-direction:column` stacking the whole overlay
+markup describes never actually applied) was also added.
+
+Verified via Playwright against a mocked `window.__firebaseUser`/`__customWorkout*`/`__swimLogAdd`
+(this sandbox has no path to the real `swimfi-ae` Firebase project, the same disclosed limitation
+noted throughout this file): the builder renders, adding blocks/sets and saving a new workout works
+end-to-end (`__customWorkoutCreate` called, saved list shows the correct block count/distance);
+editing a saved workout correctly repopulates every field (including the interval reformatted back
+to `mm:ss`) and re-saves via `__customWorkoutSave` (the update path) rather than creating a
+duplicate; deleting removes it and resets the builder if it was the one being edited; starting Live
+Mode from the builder draft, from a saved workout, and from a freshly-generated workout all render
+the correct step count and phase text; a short (3-second-interval) custom workout auto-advances
+through both reps with zero clicks and auto-logs the correct total distance on completion;
+Play/Pause correctly toggles its icon/aria-label and Skip correctly advances the current step;
+Exit's mid-workout confirmation and the post-completion Close both correctly hide the overlay and
+clear `body.live-workout-active`; and signing out clears both the saved-workouts list and the
+builder draft. All of this ran with zero page errors throughout. **What this round could not
+verify**: the actual Firestore rules deploy (see above) and real speech/beep audio output/Wake Lock
+behavior on a real device — the client-side logic driving all three is written and exercised via
+mocks, but neither this sandbox's headless browser nor its network policy can confirm the deployed
+rules accept a real write or that the synthesized audio/voice cues sound right; verify manually in
+a real browser on a normal network connection after the rules deploy.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
