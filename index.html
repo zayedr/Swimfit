@@ -2701,12 +2701,21 @@ body.paywall-locked { overflow: hidden; }
 body.paywall-locked .nav,
 body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 
-/* ============================= WORKOUT STUDIO ENTRY CARD ============================= */
+/* ============================= WORKOUTS HUB ENTRY CARDS =============================
+   Two side-by-side cards (AI Swim Workout Generator, Build Your Own
+   Workout) replacing the old single always-expanded generator form as
+   the main Workouts tab's landing content. */
+.workouts-hub-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);
+  margin-top: var(--space-6);
+}
 .cwb-studio-banner {
   display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
   padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  background: var(--glass-bg); backdrop-filter: var(--glass-blur); margin-top: var(--space-6);
+  background: var(--glass-bg); backdrop-filter: var(--glass-blur);
 }
+.workouts-hub-grid .cwb-studio-banner { margin-top: 0; flex-direction: column; align-items: flex-start; height: 100%; }
+.workouts-hub-grid .cwb-studio-banner .btn { width: 100%; justify-content: center; }
 .cwb-studio-banner-icon { font-size: 2.2rem; flex-shrink: 0; line-height: 1; }
 .cwb-studio-banner-body { flex: 1 1 240px; min-width: 0; }
 .cwb-studio-banner-body h3 { margin: 0 0 4px; font-size: 1.15rem; }
@@ -2760,6 +2769,19 @@ body.workout-studio-active { overflow: hidden; }
   .workout-studio-col-right { padding: var(--space-4); }
   .workout-studio-action-bar { padding: var(--space-3) var(--space-4); }
   .workout-studio-header-info h2 { font-size: 1rem; }
+}
+
+/* ============================= SWIM GENERATOR STUDIO BODY =============================
+   Unlike the Workout Studio's fixed saved-list/builder split above, the
+   generator's own .workouts-columns (40/60 split, already tuned for this
+   exact content) is reused verbatim — this just adds the scroll + a
+   centered max-width so it reads as "cleanly centered" inside the
+   dedicated view instead of stretching edge-to-edge on very wide
+   screens. */
+.swim-generator-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-5); }
+.swim-generator-body .workouts-columns { max-width: 1200px; margin-inline: auto; }
+@media (max-width: 900px) {
+  .swim-generator-body { padding: var(--space-4); }
 }
 
 .cwb-empty-note { color: var(--muted-2); font-size: 0.85rem; }
@@ -4135,8 +4157,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      <div class="panel-wide-inner">
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-stopwatch"/></svg> <span data-i18n="workouts.eyebrow">Build Your Own</span></p>
-        <h2 data-i18n="workouts.heading">Swim Workout Generator</h2>
-        <p>Set your discipline, distance, gear and goal — Swimfit computes a full warm-up-to-cool-down set on the spot.</p>
+        <h2 data-i18n="workouts.heading">Workouts Hub</h2>
+        <p>Get an AI-generated swim set in seconds, or hand-build your own — pick a tool below to get started.</p>
       </div>
 
       <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutsContactCoachBtn" data-auth-signed-in style="display:none; margin-bottom: var(--space-4);">
@@ -4151,140 +4173,39 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="workouts-columns">
-       <div class="workouts-col-left">
-        <div class="bento-card wb-schedule" data-reveal="left">
-          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span class="config-label-hint">(tap any day to preview or override its focus &amp; recommended volume — tap again to return to today's auto schedule)</span></div>
-          <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule — tap a day to override"></div>
-          <p class="wb-schedule-override-note" id="scheduleOverrideNote" style="display:none;"></p>
-          <div class="wb-recommended-badge" id="recommendedVolumeBadge"></div>
-        </div>
-
-        <div class="bento-card wb-discipline" data-reveal="left">
-          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span class="config-label-hint">(pick one, or several for a medley/transition set)</span></div>
-          <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
-        </div>
-
-        <div class="bento-card wb-distance" data-reveal="left">
-          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Target Distance</div>
-          <div class="slider-row">
-            <input type="range" id="distanceSlider" min="1000" max="6000" step="500" value="2000" aria-label="Target distance in meters">
-            <span class="slider-value" id="distanceValue">2000m</span>
+      <!-- ---------- WORKOUTS HUB ----------
+           The main Workouts tab is now a landing hub, not the generator
+           form itself — both the generator and the Custom Workout Builder
+           moved into their own dedicated full-screen views
+           (#swimGeneratorStudioOverlay / #workoutStudioOverlay, both near
+           #liveWorkoutOverlay below), each reachable from one of these two
+           cards. Both overlays reuse the exact same .workout-studio-*
+           classes for their header/back-button/shell, so they share
+           pixel-identical styling and transitions by construction, not by
+           two hand-matched copies. -->
+      <div class="workouts-hub-grid">
+        <div class="cwb-studio-banner" data-reveal>
+          <div class="cwb-studio-banner-icon" aria-hidden="true">🏊‍♂️</div>
+          <div class="cwb-studio-banner-body">
+            <h3>AI Swim Workout Generator</h3>
+            <p>Generate smart, targeted swim routines customized to your discipline, volume, and weekly schedule.</p>
           </div>
-        </div>
-
-        <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
-          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Athlete Profile <span class="config-label-hint">(everything about you — profile, PBs, race goals, gear and level — in one place)</span></div>
-          <div class="wb-athlete-row">
-            <div class="profile-field">
-              <label for="swimmerAge">Age</label>
-              <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
-            </div>
-          </div>
-
-          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests &amp; Race Goals <span class="config-label-hint">— your current PB paired with an optional target per stroke; sharpens pacing and estimates a realistic timeline to hit each target</span></div>
-          <div class="profile-field wb-swimmer-type-field">
-            <label id="swimmerTypeLabel">Swimmer Type</label>
-            <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
-              <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
-              <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
-              <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
-            </div>
-          </div>
-          <div class="pb-stroke-grid" id="pbEntriesList"></div>
-          <button type="button" class="btn btn-ghost btn-sm pb-add-entry-btn" id="pbAddEntryBtn">+ Add Personal Best</button>
-
-          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
-          <div class="equipment-grid" id="equipmentGrid"></div>
-
-          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span class="config-label-hint">(pick one, or combine several — matches today's Weekly Schedule day)</span></div>
-          <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
-
-          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
-          <div class="pill-tabs" role="tablist" aria-label="Training level" id="levelTabs">
-            <button class="pill-tab" role="tab" data-level="beginner" aria-selected="true">Beginner</button>
-            <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
-            <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
-          </div>
-          <p class="config-label-hint" id="levelUpsellNote" style="display:none; margin-top:8px; color:var(--gold);">
-            Competitive &amp; Elite tracks are part of <strong>All-Access Pro</strong> —
-            <button type="button" class="link-inline" data-tab="pricing">upgrade for $13/mo</button>
-          </p>
-          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:var(--space-4)">
-            <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
+          <button type="button" class="btn btn-primary btn-cta-glow" id="openSwimGeneratorBtn">
+            Launch Workout Generator <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
           </button>
         </div>
-       </div><!-- /workouts-col-left -->
 
-       <div class="workouts-col-right">
-        <div class="wb-quote" data-reveal="right">
-          <div class="quote-card">
-            <svg class="icon"><use href="#i-quote"/></svg>
-            <blockquote id="quoteText">Every length is a deposit in the bank of race day.</blockquote>
-            <cite id="quoteGoal">Endurance</cite>
+        <div class="cwb-studio-banner" data-reveal>
+          <div class="cwb-studio-banner-icon" aria-hidden="true">🛠</div>
+          <div class="cwb-studio-banner-body">
+            <h3>Build Your Own Workout</h3>
+            <p>Design custom sets, manage saved routines, or launch the poolside Live Timer.</p>
           </div>
+          <button type="button" class="btn btn-primary btn-cta-glow" id="openWorkoutStudioBtn">
+            Open Workout Studio <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+          </button>
         </div>
-
-        <div class="wb-result" data-reveal="right">
-          <div class="result-panel">
-            <div class="result-panel-water-bg" aria-hidden="true"></div>
-            <svg class="icon workout-watermark result-watermark"><use href="#i-stopwatch"/></svg>
-            <div id="workoutResult">
-              <div class="result-empty">
-                <svg class="icon"><use href="#i-stopwatch"/></svg>
-                <p>Configure your set above, then hit <strong>Generate Swim Workout</strong>.</p>
-              </div>
-            </div>
-            <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutPdfBtn" style="display:none; margin-top:20px;">
-              <svg class="icon"><use href="#i-download"/></svg> Save Workout as PDF
-            </button>
-            <button type="button" class="btn btn-primary btn-sm" id="workoutLiveModeBtn" style="display:none; margin-top:20px; margin-inline-start:8px;">
-              <svg class="icon"><use href="#i-play"/></svg> Start Live Workout
-            </button>
-          </div>
-        </div>
-
-        <div class="wb-ai" data-auth-signed-in style="display:none">
-          <div class="workout-ai-panel">
-            <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>Ask The Coach About This Workout</h4></div>
-            <div class="coach-messages workout-ai-messages" id="workoutAiMessages"></div>
-            <form class="coach-page-form" id="workoutAiForm">
-              <div class="workout-ai-chips" id="workoutAiChips">
-                <button type="button" class="coach-prompt-chip" data-action="refresh">Regenerate this workout</button>
-                <button type="button" class="coach-prompt-chip" data-prompt="Explain the target pace zones in this workout and why they matter.">Explain target zones</button>
-                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it easier — reduce volume or intensity.">Make it easier</button>
-                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it harder — add volume or intensity.">Make it harder</button>
-              </div>
-              <div class="coach-page-form-row">
-                <label for="workoutAiInput" class="sr-only">Ask the coach about this workout</label>
-                <textarea id="workoutAiInput" class="coach-input" rows="1" placeholder="Ask the coach to adjust this workout, explain pacing, or anything else…" maxlength="1000"></textarea>
-                <button type="submit" class="coach-send-btn" id="workoutAiSendBtn" aria-label="Send">
-                  <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-       </div><!-- /workouts-col-right -->
-      </div><!-- /workouts-columns -->
-
-      <!-- ---------- WORKOUT STUDIO ENTRY CARD ----------
-           Replaces the old always-expanded "Custom Workout Builder" section
-           embedded at the bottom of the Workouts tab — the builder + saved
-           list are now a dedicated full-screen view (#workoutStudioOverlay,
-           see near #liveWorkoutOverlay below), opened from this one CTA
-           card instead of always taking up scroll space on the main
-           Workouts page. -->
-      <div class="cwb-studio-banner" data-reveal>
-        <div class="cwb-studio-banner-icon" aria-hidden="true">🛠</div>
-        <div class="cwb-studio-banner-body">
-          <h3>Build Your Own Workout</h3>
-          <p>Design custom sets, manage saved routines, or launch the poolside Live Timer.</p>
-        </div>
-        <button type="button" class="btn btn-primary btn-cta-glow" id="openWorkoutStudioBtn">
-          Open Workout Studio <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
-        </button>
-      </div>
+      </div><!-- /workouts-hub-grid -->
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
      </div>
     </div>
@@ -5208,6 +5129,155 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <button type="button" class="btn btn-ghost btn-sm" id="cwbNewBtn">Clear / New</button>
       <p class="cwb-status" id="cwbStatus" role="status" aria-live="polite"></p>
     </div>
+  </div>
+</div>
+
+<!-- ============================= SWIM GENERATOR STUDIO (dedicated dashboard) =============================
+     Opened from the Workouts Hub's "Launch Workout Generator" card.
+     Deliberately reuses #workoutStudioOverlay's own .workout-studio-
+     overlay/-shell/-header/-back-btn/-header-info/-eyebrow classes
+     verbatim (not a second hand-matched copy) so both dedicated views
+     share pixel-identical header styling and transitions by construction.
+     Holds the entire pre-existing Swim Workout Generator interface —
+     Weekly Schedule, Discipline, Distance, Athlete Profile, the quote
+     card, the generated result panel, and the inline AI panel — moved
+     here verbatim from the old embedded Workouts-tab section. Every
+     element id inside is byte-for-byte unchanged, so js/workout-
+     generator.js needed zero logic changes beyond wiring the new open/
+     close behavior. Sits at the same z-index (470) as
+     #workoutStudioOverlay — the two are mutually exclusive (both only
+     ever reachable from the Hub, never from inside one another), so
+     there's no stacking conflict between them. -->
+<div class="workout-studio-overlay" id="swimGeneratorStudioOverlay" role="dialog" aria-modal="true" aria-labelledby="swimGeneratorStudioTitle" hidden>
+  <div class="workout-studio-shell">
+    <header class="workout-studio-header">
+      <button type="button" class="workout-studio-back-btn" id="swimGeneratorBackBtn">
+        <svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg> Back to Workouts
+      </button>
+      <div class="workout-studio-header-info">
+        <p class="workout-studio-eyebrow">Build Your Own</p>
+        <h2 id="swimGeneratorStudioTitle">Workout Generator</h2>
+      </div>
+    </header>
+
+    <div class="swim-generator-body">
+      <div class="workouts-columns">
+       <div class="workouts-col-left">
+        <div class="bento-card wb-schedule" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Weekly Training Schedule <span class="config-label-hint">(tap any day to preview or override its focus &amp; recommended volume — tap again to return to today's auto schedule)</span></div>
+          <div class="weekly-schedule-grid" id="weeklyScheduleGrid" role="list" aria-label="Weekly training focus schedule — tap a day to override"></div>
+          <p class="wb-schedule-override-note" id="scheduleOverrideNote" style="display:none;"></p>
+          <div class="wb-recommended-badge" id="recommendedVolumeBadge"></div>
+        </div>
+
+        <div class="bento-card wb-discipline" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-wave"/></svg> Discipline <span class="config-label-hint">(pick one, or several for a medley/transition set)</span></div>
+          <div class="chip-group" id="disciplineChips" role="group" aria-label="Discipline — multiple selectable"></div>
+        </div>
+
+        <div class="bento-card wb-distance" data-reveal="left">
+          <div class="config-label"><svg class="icon"><use href="#i-target"/></svg> Target Distance</div>
+          <div class="slider-row">
+            <input type="range" id="distanceSlider" min="1000" max="6000" step="500" value="2000" aria-label="Target distance in meters">
+            <span class="slider-value" id="distanceValue">2000m</span>
+          </div>
+        </div>
+
+        <div class="bento-card wb-profile" data-reveal="left" style="--bento-accent:var(--aqua-bright)">
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Athlete Profile <span class="config-label-hint">(everything about you — profile, PBs, race goals, gear and level — in one place)</span></div>
+          <div class="wb-athlete-row">
+            <div class="profile-field">
+              <label for="swimmerAge">Age</label>
+              <input type="number" id="swimmerAge" min="6" max="99" placeholder="e.g. 16">
+            </div>
+          </div>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Personal Bests &amp; Race Goals <span class="config-label-hint">— your current PB paired with an optional target per stroke; sharpens pacing and estimates a realistic timeline to hit each target</span></div>
+          <div class="profile-field wb-swimmer-type-field">
+            <label id="swimmerTypeLabel">Swimmer Type</label>
+            <div class="pill-tabs" role="tablist" aria-label="Swimmer type" id="swimmerTypeTabs">
+              <button class="pill-tab" role="tab" data-swimmer-type="sprinter" aria-selected="false">Sprinter</button>
+              <button class="pill-tab" role="tab" data-swimmer-type="distance" aria-selected="false">Distance</button>
+              <button class="pill-tab" role="tab" data-swimmer-type="both" aria-selected="true">Both</button>
+            </div>
+          </div>
+          <div class="pb-stroke-grid" id="pbEntriesList"></div>
+          <button type="button" class="btn btn-ghost btn-sm pb-add-entry-btn" id="pbAddEntryBtn">+ Add Personal Best</button>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-fin"/></svg> Equipment Available</div>
+          <div class="equipment-grid" id="equipmentGrid"></div>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-bolt"/></svg> Fitness Goals <span class="config-label-hint">(pick one, or combine several — matches today's Weekly Schedule day)</span></div>
+          <div class="chip-group" id="goalChips" role="group" aria-label="Fitness goals — multiple selectable"></div>
+
+          <div class="wb-profile-subhead"><svg class="icon"><use href="#i-trophy"/></svg> Level</div>
+          <div class="pill-tabs" role="tablist" aria-label="Training level" id="levelTabs">
+            <button class="pill-tab" role="tab" data-level="beginner" aria-selected="true">Beginner</button>
+            <button class="pill-tab" role="tab" data-level="competitive" aria-selected="false">Competitive</button>
+            <button class="pill-tab" role="tab" data-level="elite" aria-selected="false">Elite</button>
+          </div>
+          <p class="config-label-hint" id="levelUpsellNote" style="display:none; margin-top:8px; color:var(--gold);">
+            Competitive &amp; Elite tracks are part of <strong>All-Access Pro</strong> —
+            <button type="button" class="link-inline" data-tab="pricing">upgrade for $13/mo</button>
+          </p>
+          <button type="button" class="btn btn-primary btn-block" id="generateBtn" style="margin-top:var(--space-4)">
+            <svg class="icon"><use href="#i-bolt"/></svg> Generate Swim Workout
+          </button>
+        </div>
+       </div><!-- /workouts-col-left -->
+
+       <div class="workouts-col-right">
+        <div class="wb-quote" data-reveal="right">
+          <div class="quote-card">
+            <svg class="icon"><use href="#i-quote"/></svg>
+            <blockquote id="quoteText">Every length is a deposit in the bank of race day.</blockquote>
+            <cite id="quoteGoal">Endurance</cite>
+          </div>
+        </div>
+
+        <div class="wb-result" data-reveal="right">
+          <div class="result-panel">
+            <div class="result-panel-water-bg" aria-hidden="true"></div>
+            <svg class="icon workout-watermark result-watermark"><use href="#i-stopwatch"/></svg>
+            <div id="workoutResult">
+              <div class="result-empty">
+                <svg class="icon"><use href="#i-stopwatch"/></svg>
+                <p>Configure your set above, then hit <strong>Generate Swim Workout</strong>.</p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutPdfBtn" style="display:none; margin-top:20px;">
+              <svg class="icon"><use href="#i-download"/></svg> Save Workout as PDF
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="workoutLiveModeBtn" style="display:none; margin-top:20px; margin-inline-start:8px;">
+              <svg class="icon"><use href="#i-play"/></svg> Start Live Workout
+            </button>
+          </div>
+        </div>
+
+        <div class="wb-ai" data-auth-signed-in style="display:none">
+          <div class="workout-ai-panel">
+            <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>Ask The Coach About This Workout</h4></div>
+            <div class="coach-messages workout-ai-messages" id="workoutAiMessages"></div>
+            <form class="coach-page-form" id="workoutAiForm">
+              <div class="workout-ai-chips" id="workoutAiChips">
+                <button type="button" class="coach-prompt-chip" data-action="refresh">Regenerate this workout</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Explain the target pace zones in this workout and why they matter.">Explain target zones</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it easier — reduce volume or intensity.">Make it easier</button>
+                <button type="button" class="coach-prompt-chip" data-prompt="Adjust this workout to make it harder — add volume or intensity.">Make it harder</button>
+              </div>
+              <div class="coach-page-form-row">
+                <label for="workoutAiInput" class="sr-only">Ask the coach about this workout</label>
+                <textarea id="workoutAiInput" class="coach-input" rows="1" placeholder="Ask the coach to adjust this workout, explain pacing, or anything else…" maxlength="1000"></textarea>
+                <button type="submit" class="coach-send-btn" id="workoutAiSendBtn" aria-label="Send">
+                  <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+       </div><!-- /workouts-col-right -->
+      </div><!-- /workouts-columns -->
+    </div><!-- /swim-generator-body -->
   </div>
 </div>
 
@@ -6599,7 +6669,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'hero.headline': 'Outswim Your Limits.<br>Own the <span class="accent">Race.</span>',
         'hero.sub': 'Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.',
         'hero.cta1': 'Build My Workout', 'hero.cta2': 'Explore Gym Plan',
-        'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Swim Workout Generator',
+        'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Workouts Hub',
         'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'What Are You Training Today?',
         'gear.eyebrow': 'Equipment Integration', 'gear.heading': 'Gear That Powers Every Set',
         'academy.eyebrow': 'Technique Academy', 'academy.heading': 'Watch. Break Down. Improve.',
@@ -6620,7 +6690,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'hero.headline': 'تجاوز حدودك.<br>املك <span class="accent">السباق.</span>',
         'hero.sub': 'أطلق العنان لإمكاناتك مع تمارين سباحة عالية الأداء، وتدريب بري مخصص، وتتبّع فوري للتقدم.',
         'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'استكشف خطة الجيم',
-        'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مولّد تمارين السباحة',
+        'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مركز التمارين',
         'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'ماذا تتدرب اليوم؟',
         'gear.eyebrow': 'تكامل المعدات', 'gear.heading': 'معدات تدعم كل تمرين',
         'academy.eyebrow': 'أكاديمية التقنية', 'academy.heading': 'شاهد. حلّل. تحسّن.',

@@ -3546,3 +3546,45 @@
     });
   })();
 
+  /* ============================= SWIM GENERATOR STUDIO (dedicated view) =============================
+     Mirrors the Custom Workout Builder's own Studio overlay
+     (js/custom-workout.js's openWorkoutStudio()/closeWorkoutStudio()) —
+     opened from the Workouts Hub's "Launch Workout Generator" card,
+     closed via its own Back button. Reuses the same 'workout-studio-
+     active' body class that overlay already established for locking
+     scroll (safe to share: the two overlays are mutually exclusive, both
+     only ever reachable from the Hub, never from inside one another) and
+     the same Escape-to-close precedent, gated so it only fires when this
+     is genuinely the topmost overlay — Live Workout Mode (z-index 480)
+     sits above both Studio-family overlays (470) and owns Escape while
+     it's open. No "unsaved draft" confirm is needed on Back, unlike the
+     Builder's Studio — there's no draft concept here, the generator's
+     own config just persists to localStorage as it always has. */
+  (function wireSwimGeneratorStudio() {
+    var overlay = document.getElementById('swimGeneratorStudioOverlay');
+    var openBtn = document.getElementById('openSwimGeneratorBtn');
+    var backBtn = document.getElementById('swimGeneratorBackBtn');
+    if (!overlay || !openBtn) return;
+
+    function openStudio() {
+      overlay.hidden = false;
+      document.body.classList.add('workout-studio-active');
+    }
+    function closeStudio() {
+      if (overlay.hidden) return;
+      overlay.hidden = true;
+      document.body.classList.remove('workout-studio-active');
+    }
+    openBtn.addEventListener('click', openStudio);
+    if (backBtn) backBtn.addEventListener('click', closeStudio);
+    document.addEventListener('keydown', function (e) {
+      if (overlay.hidden || e.key !== 'Escape') return;
+      var liveOverlay = document.getElementById('liveWorkoutOverlay');
+      if (liveOverlay && !liveOverlay.hidden) return; // Live Mode owns Escape while it's on top
+      closeStudio();
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) closeStudio();
+    });
+  })();
+

@@ -6209,3 +6209,64 @@ intervals were already correctly implemented as their own distinct step.**
 - Verified via Playwright: the full pre-existing regression suite (all 9 tabs loading, a 4-stage
   generated workout, a real PDF `download` event, Live Mode/Complete Workout buttons appearing
   correctly) passes unchanged with zero page errors throughout this round.
+
+**The Workouts tab was rebuilt into a modular Hub, matching the Workout Studio pattern from two
+rounds ago — the long, always-embedded Swim Workout Generator form is now its own dedicated
+full-screen view, reached from a card, exactly like the Custom Workout Builder already was.**
+
+- **`#panel-workouts` is now a landing hub with two cards, not the generator form itself.** The
+  entire `.workouts-columns` block (Weekly Training Schedule, Discipline, Target Distance, Athlete
+  Profile, the quote card, the generated result panel, the inline AI panel) — previously always
+  rendered inline on the main Workouts tab — moved verbatim into a new dedicated overlay,
+  `#swimGeneratorStudioOverlay`. In its place, `.workouts-hub-grid` (a new 2-column
+  `repeat(auto-fit, minmax(320px,1fr))` grid, collapsing to one column on mobile) holds two
+  `.cwb-studio-banner` cards — **AI Swim Workout Generator** ("🏊‍♂️ ... Generate smart, targeted
+  swim routines customized to your discipline, volume, and weekly schedule." /
+  "Launch Workout Generator →", `#openSwimGeneratorBtn`) and the pre-existing **Build Your Own
+  Workout** card (unchanged copy/behavior, `#openWorkoutStudioBtn`) — reusing the exact same
+  `.cwb-studio-banner` card component both cards and the original Custom-Workout-Builder entry
+  card already share, so the two tiles are visually identical by construction, not two hand-matched
+  copies. The section head above both cards was retitled from "Swim Workout Generator" to
+  "Workouts Hub" (English and Arabic `I18N` dictionaries both updated) with new copy describing the
+  choice between the two tools; the "Message Coach / Company" quick-action button and the
+  signed-out guest gate both stay at the Hub level, above/outside either card, since neither is
+  specific to one sub-tool.
+- **The new Generator overlay deliberately reuses `#workoutStudioOverlay`'s own CSS classes
+  verbatim** — `.workout-studio-overlay`/`-shell`/`-header`/`-back-btn`/`-header-info`/`-eyebrow` —
+  rather than a second, hand-matched copy of the same rules, so the two dedicated views are
+  pixel-identical in header styling and transitions by construction, exactly matching the explicit
+  "identical header styling" ask. Only the *body* content differs: a new `.swim-generator-body`
+  wrapper (scroll + padding + a `max-width:1200px` centered container) holds the moved
+  `.workouts-columns` markup as-is, reusing its own already-tuned 40/60 left/right split rather than
+  forcing it into the Custom Workout Builder's fixed 340px-sidebar layout, which was tuned for a
+  different kind of content (a saved-item list, not a multi-section config form) and wouldn't have
+  fit the generator's own sections well. Every element id inside the moved block (`generateBtn`,
+  `weeklyScheduleGrid`, `disciplineChips`, `distanceSlider`, `pbEntriesList`, `equipmentGrid`,
+  `goalChips`, `levelTabs`, `workoutResult`, `workoutPdfBtn`, `workoutLiveModeBtn`,
+  `workoutAiForm`, etc.) is byte-for-byte unchanged from the old embedded section, so
+  `js/workout-generator.js`'s existing `getElementById`-based logic needed zero changes beyond the
+  new open/close wiring itself — the same lesson already established when the Custom Workout
+  Builder got the identical treatment two rounds ago.
+- **`wireSwimGeneratorStudio()`** (a new, small, self-contained IIFE appended to the end of
+  `js/workout-generator.js`, mirroring `js/custom-workout.js`'s own `openWorkoutStudio()`/
+  `closeWorkoutStudio()`) wires `#openSwimGeneratorBtn`/`#swimGeneratorBackBtn` and reuses the
+  exact same `body.workout-studio-active` scroll-lock class the Custom Workout Builder's overlay
+  already established — safe to share since the two overlays are strictly mutually exclusive
+  (both only ever reachable from the Hub, never from inside one another, so there's no path to
+  having both open and fighting over the same class). Escape closes it too, gated the same way
+  the Builder's own Escape handler is — deferring to Live Workout Mode (z-index 480, above both
+  Studio-family overlays at 470) whenever it's the genuinely topmost overlay. Unlike the Builder's
+  Studio, Back needs no confirm-before-leaving prompt — there's no "unsaved draft" concept here,
+  the generator's own config already persists to `localStorage` exactly as it always has,
+  regardless of which view it's rendered inside.
+- Verified via Playwright: the Hub renders exactly 2 cards with the exact requested titles/
+  subtitles/button labels, and the old embedded `.workouts-columns` form no longer exists directly
+  on the Hub; opening the Generator overlay unhides it and locks body scroll, its title reads
+  "Workout Generator" under a "Build Your Own" eyebrow, and Back correctly closes it; a direct
+  computed-style comparison of both overlays' header/back-button (padding, border width, border-
+  radius) confirms byte-for-byte identical values, not just a visual approximation; generating a
+  workout from inside the new Generator overlay still renders all 4 stage blocks and fires a real
+  PDF `download` event; Escape closes the overlay; a 390px mobile viewport shows the two Hub cards
+  stacked and the open Generator overlay both with zero horizontal overflow; and the full
+  pre-existing regression suite (all 9 tabs, Complete Workout/Live Mode buttons) passes unchanged
+  with zero page errors throughout.
