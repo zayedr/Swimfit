@@ -6116,3 +6116,96 @@ without an active paid plan) can freely access and use the platform."**
   (all 9 tabs loading, a 4-stage generated workout, a real PDF `download` event, and both the Live
   Mode and Complete Workout buttons still appearing correctly) passes unchanged with zero page
   errors throughout.
+
+**A Live Workout Mode refinement round — a full-screen high-visibility flash, a genuine rewind
+control, and a site-wide scrub of "3-day trial" marketing copy — plus confirmation that rest
+intervals were already correctly implemented as their own distinct step.**
+
+- **Full-screen warning/GO flash, not just the ring/digits.** The existing per-second color state
+  (`.live-workout-ring-wrap.is-warning`/`.is-go`, toggled by the same JS that already ran the
+  5-4-3-2-1 countdown and the take-off flash) previously only recolored the small ring and timer
+  digits. It's now a genuine full-screen flash, built with pure CSS `:has()` (already used
+  elsewhere in this file, e.g. `.equip-check`) reacting to those same two classes with zero new JS
+  needed for the background itself — `.live-workout-overlay:has(.live-workout-ring-wrap.is-
+  warning)` fills the whole screen `#eab308` (amber), `:has(...is-go)` fills it `#22c55e` (green),
+  both readable from the far end of a pool. Every descendant (phase badge, timer digits, controls,
+  the sets-list sidebar) re-themes automatically rather than needing a long list of per-element
+  overrides, by rescoping the same custom-property tokens they already read color through
+  (`--fg`/`--bg`/`--bg-alt`/`--surface`/`--surface-2`/`--muted`/`--muted-2`/`--border`/`--border-
+  strong`) to a light, high-contrast palette — this file's own established re-skinning pattern
+  (e.g. `.result-panel`'s light-on-dark rescope). **A real color-clash was caught and fixed before
+  shipping**: the ring/digit's own `--live-timer-color` would otherwise have stayed bright yellow/
+  green even once the *background* also turned that same hue — yellow-on-yellow, green-on-green,
+  functionally invisible. Fixed with a higher-specificity combo selector
+  (`.live-workout-overlay:has(...is-warning) .live-workout-ring-wrap.is-warning`, 3 classes,
+  beating the plain 2-class rule) that forces the digits/ring to the same dark `#111318` as
+  everything else while a flash is active. The GO flash duration was also extended from 450ms to
+  1200ms to match the explicit 1-1.5s spec. Verified via Playwright: the overlay's computed
+  `background-color` reads exactly `rgb(234,179,8)` during the warning window and exactly
+  `rgb(34,197,94)` during the GO flash, with the timer digit's computed color reading exactly
+  `rgb(17,19,24)` (dark, legible) in both states — confirmed via `getComputedStyle`, not just a
+  screenshot — and real screenshots at both desktop and 390px mobile widths confirm the whole
+  screen flashes with every control/label still readable and zero layout regression.
+- **Rest intervals were audited, not rebuilt — they already render as a fully distinct step/card,**
+  matching the ask's own "REST — 30s" example almost verbatim. `flattenCustomBlocks()` (Custom
+  Workout Builder) has pushed a separate `{kind:'rest', durationSec}` entry into the flat step
+  queue since Live Mode originally shipped, and `renderSetsList()`/`updatePhaseUI()` already give
+  it its own list card (a clock-icon marker, a "Rest" title, a "0:0X rest" meta line) and its own
+  phase badge ("REST", a distinct `is-rest` style) — never nested inside the swim step it follows.
+  Verified directly this round: a 2-rep set with a rest value renders exactly 3 queue entries (2
+  swim reps + 1 separate "Rest" card), not 2. **The one real, disclosed gap**: the *daily-generated*
+  workout's own Live Mode path (`flattenGeneratedWorkout()`) has no rest steps at all, since that
+  data model has no separate rest field to read — a generated set's `@m:ss` is a real swim send-off
+  interval (the standard "leave every X:XX" convention), not a swim-time-plus-rest-time pair the
+  way a custom-built set's Interval/Rest fields are, so there's nothing to split out without
+  guessing at the swimmer's actual pace. This is unchanged from before; only Custom Workout Builder
+  sets have ever carried a real, distinct rest value.
+- **A "Previous" rewind control** (`#liveWorkoutPrevBtn`, a down-chevron rotated 180° to point up,
+  placed first in the controls row before Restart) lets a swimmer redo a step they missed a cue on
+  without pushing through the whole workout. `advanceStep()` was refactored to extract a shared
+  `enterStep(playHorn)` helper (the "arrive at this step" sequence — reset the per-step clock, flash
+  GO, announce, re-highlight) that both it and the new `goToPrevStep()` call, rather than
+  duplicating that logic for the reverse direction. Rewinding un-marks the target step's `is-done`
+  class and — since a step can only be reached by rewinding into it if `live.index` had already
+  advanced past it once, meaning it's necessarily already been credited — un-credits its distance
+  from `doneDistanceM`, so redoing and re-completing it doesn't double-count. Like Skip, Previous
+  intentionally skips the start-horn audio (`enterStep(false)`) since a deliberate manual rewind
+  isn't the same "take off" moment an automatic timer-driven advance is, while still firing the
+  visual GO-flash. Verified via Playwright: clicking Previous after auto-advancing past a completed
+  rep correctly resets the timer to that rep's full duration and brings Distance Done back down by
+  exactly that rep's own distance; a 390px mobile viewport shows all 4 controls (Previous, Restart,
+  Play/Pause, Skip) fitting with zero horizontal overflow.
+- **"3-day trial" scrubbed from every modal and landing-page string, while the underlying temporary
+  full-access preview window (and the nav badge that displays its real countdown) is completely
+  unchanged.** This is a copy-only round: `TRIAL_DAYS`/`recomputeAccessLevel()`/the nav badge's
+  live countdown were not touched, since the user's ask was specifically to stop *advertising* a
+  3-day trial as the signup hook, not to remove the still-real mechanic itself. Updated, all in
+  `index.html` unless noted: the Google sign-up modal's subtitle (`AUTH_MODE_COPY.signup`, and its
+  static HTML fallback) to the user's own exact wording — "Sign up in one tap with Google to get
+  started with your free account."; the Workouts/Gym signed-out gate cards' copy and button label
+  ("Register Free — Start 3-Day Trial" → "Register Free — Get Started"); the Pricing tab's intro
+  paragraph and its "What happens when my free trial ends?" FAQ (retitled "What's included in the
+  Free plan?", body reworded to drop the trial-ending framing entirely); the Support tab's FAQ
+  about resetting a trial — **also a real, now-fixed factual inaccuracy**, since its old body text
+  ("subscribing... restores full access immediately") implied a subscription was required to regain
+  access post-trial, contradicting the Freemium model shipped two rounds ago where the trial simply
+  settles onto a fully-usable Free plan; retitled "What does the trial countdown badge in the nav
+  bar mean?" with an accurate answer; the entrance promo popup's badge ("3-Day Free Trial" → "100%
+  Free To Join") and register button ("Register Now — Start Free Trial" → "Register Now — It's
+  Free"); and, in `js/firebase-service.js`, the EmailJS welcome-email template's two banner
+  sections (the "Your 3 days of full access are live" headline → "Everything is open — dive in
+  today"; the "Don't lose your momentum on day 4" upsell → "Ready for more? Go All-Access," body
+  reworded to plainly describe Free-vs-Pro rather than a countdown) and its subject line ("your
+  3-day free trial is live" → "your free account is live"). **Deliberately left untouched**: the
+  nav bar's own live trial-countdown badge (real, useful account-status data, not marketing copy),
+  the Admin Panel's "On Free Trial" stat tile and its "+3 Day Trial" manual-extend grant button
+  (legitimate internal admin tooling, not user-facing landing/modal text), and every code
+  comment/internal variable name referencing the real 3-day mechanic (`TRIAL_DAYS`,
+  `ADMIN_TRIAL_DAYS`, `trialStartedAt`, etc.) — none of those are "modals or landing page text" the
+  ask was scoped to, and the mechanic they describe is still genuinely in effect. Verified via a
+  full-source grep after every edit: zero remaining "3-day"/"3 day" mentions anywhere in
+  `index.html` or `js/firebase-service.js` outside of internal code comments describing the
+  still-real mechanic.
+- Verified via Playwright: the full pre-existing regression suite (all 9 tabs loading, a 4-stage
+  generated workout, a real PDF `download` event, Live Mode/Complete Workout buttons appearing
+  correctly) passes unchanged with zero page errors throughout this round.

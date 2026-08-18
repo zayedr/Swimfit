@@ -2841,6 +2841,38 @@ body.workout-studio-active { overflow: hidden; }
 .live-workout-overlay[hidden] { display: none; }
 .live-workout-shell { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 body.live-workout-active { overflow: hidden; }
+/* FULL-SCREEN high-visibility flash — a pool-deck-visible-from-a-distance
+   upgrade on top of the existing ring/digit-only warning-yellow/go-green
+   state above. Pure CSS :has() (already used elsewhere in this file, e.g.
+   .equip-check) reacting to the exact same .live-workout-ring-wrap.is-
+   warning/.is-go classes the JS already toggles at the right moments — no
+   new JS class-toggling needed for the background itself, it can never
+   drift out of sync with the ring/digit state. Re-themes every descendant
+   via the same custom-property tokens they already read color through
+   (this file's own established re-skinning pattern, e.g. .result-panel's
+   own light-on-dark rescope) rather than a long list of per-element
+   overrides — flips the whole screen to a light, high-contrast palette
+   so text/icons/cards stay legible against the bright fill. */
+.live-workout-overlay:has(.live-workout-ring-wrap.is-warning),
+.live-workout-overlay:has(.live-workout-ring-wrap.is-go) {
+  transition: background-color 200ms ease;
+  --fg: #111318; --bg: #FFFFFF; --bg-alt: rgba(255,255,255,0.55);
+  --surface: rgba(255,255,255,0.72); --surface-2: rgba(255,255,255,0.88);
+  --muted: #262B35; --muted-2: #3A4152;
+  --border: rgba(17,19,24,0.25); --border-strong: rgba(17,19,24,0.45);
+}
+.live-workout-overlay:has(.live-workout-ring-wrap.is-warning) { background-color: #eab308; }
+.live-workout-overlay:has(.live-workout-ring-wrap.is-go) { background-color: #22c55e; }
+/* The ring/digit's own --live-timer-color would otherwise stay bright
+   yellow/green (see .live-workout-ring-wrap.is-warning/.is-go below) —
+   invisible against a same-hue full-screen flash. This combo selector
+   (3 classes) outranks that plainer 2-class rule, so digits/ring switch
+   to the same dark, high-contrast color as everything else while the
+   flash is live, instead of vanishing into their own background. */
+.live-workout-overlay:has(.live-workout-ring-wrap.is-warning) .live-workout-ring-wrap.is-warning,
+.live-workout-overlay:has(.live-workout-ring-wrap.is-go) .live-workout-ring-wrap.is-go {
+  --live-timer-color: #111318;
+}
 .live-workout-header {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
   padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -4114,8 +4146,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Members-Only Training Area</h3>
-        <p>Register free to unlock the full Swim Workout Generator — 3 days of complete premium access across the entire platform, no card required.</p>
-        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 3-Day Trial</button>
+        <p>Register free to unlock the full Swim Workout Generator — no card required, upgrade to All-Access Pro anytime for everything, unlimited.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Get Started</button>
       </div>
 
       <div data-auth-signed-in style="display:none">
@@ -4268,8 +4300,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="coach-page-locked" data-auth-signed-out>
         <svg class="icon"><use href="#i-lock"/></svg>
         <h3>Members-Only Training Area</h3>
-        <p>Register free to unlock every dryland Gym plan with live technique demos — 3 days of complete premium access, no card required.</p>
-        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Start 3-Day Trial</button>
+        <p>Register free to unlock every dryland Gym plan with live technique demos — no card required, upgrade to All-Access Pro anytime for everything, unlimited.</p>
+        <button type="button" class="btn btn-primary" data-open-auth="signup">Register Free — Get Started</button>
       </div>
 
       <div data-auth-signed-in style="display:none">
@@ -4632,8 +4664,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <h3 class="support-section-title"><svg class="icon"><use href="#i-comment"/></svg> Quick Answers</h3>
         <div class="faq-list support-faq-list">
           <details class="faq-item">
-            <summary>How do I reset my trial or check how much time is left?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-            <div class="faq-body">Your remaining trial time shows as a badge in the nav bar. Once it ends, subscribing to any plan on the Pricing tab restores full access immediately — message us here first if you think your trial ended in error.</div>
+            <summary>What does the trial countdown badge in the nav bar mean?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">New accounts get a temporary full-access preview window, shown as a countdown badge in the nav bar — it's purely informational and never blocks you. Once it ends, your account simply settles onto the Free plan, which stays fully usable — upgrade to All-Access Pro anytime on the Pricing tab for everything, unlimited.</div>
           </details>
           <details class="faq-item">
             <summary>I can't sign in, or I'm not sure which account I used.<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -4787,7 +4819,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="section-head center">
         <p class="eyebrow" style="justify-content:center" data-i18n="pricing.eyebrow">Membership</p>
         <h2 data-i18n="pricing.heading">Simple Pricing, Serious Results</h2>
-        <p>Every new account starts with a <strong style="color:var(--fg)">free 3-day trial</strong> of full platform access, then settles onto the Free plan below — upgrade to All-Access Pro anytime for everything, unlimited. Billed in USD. Cancel anytime.</p>
+        <p>Every new account gets the <strong style="color:var(--fg)">Free plan</strong> below immediately, no card required — upgrade to All-Access Pro anytime for everything, unlimited. Billed in USD. Cancel anytime.</p>
       </div>
       <div class="pricing-grid pricing-grid-2">
         <div class="price-card" data-reveal>
@@ -4845,8 +4877,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <div class="faq-body">All-Access Pro is priced and billed directly in USD through our secure checkout — no currency conversion surprises.</div>
         </details>
         <details class="faq-item">
-          <summary>What happens when my free trial ends?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Your account settles onto the Free plan — Beginner-level swim workouts, up to 2 saved custom workouts, a basic tracker and limited AI chat stay available forever, no card required. Subscribe to All-Access Pro anytime to unlock everything, unlimited.</div>
+          <summary>What's included in the Free plan?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+          <div class="faq-body">Every account can use the Free plan forever — Beginner-level swim workouts, up to 2 saved custom workouts, a basic tracker and limited AI chat, no card required. Subscribe to All-Access Pro anytime to unlock everything, unlimited.</div>
         </details>
       </div>
     </div>
@@ -5061,7 +5093,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
     <div class="icon-tile aqua"><svg class="icon"><use href="#i-user"/></svg></div>
     <h3 id="authModalTitle">Sign In to Swimfit</h3>
-    <p id="authModalSubtitle">One tap with Google — that&rsquo;s it. Your 3-day full-access trial starts the moment you join.</p>
+    <p id="authModalSubtitle">One tap with Google — that&rsquo;s it. No password to remember.</p>
     <button type="button" class="google-btn" id="googleLoginBtn">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -5086,7 +5118,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <button type="button" class="promo-popup-close" id="promoPopupClose" aria-label="Close">
       <svg class="icon"><use href="#i-close"/></svg>
     </button>
-    <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 3-Day Free Trial</div>
+    <div class="promo-popup-badge"><svg class="icon"><use href="#i-bolt"/></svg> 100% Free To Join</div>
     <h2 id="promoPopupTitle">Train Like It&rsquo;s Race Season</h2>
     <p class="promo-popup-copy">Register free and get complete access to the entire platform — no card required, and nothing locks later.</p>
     <ul class="promo-popup-perks">
@@ -5094,7 +5126,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><svg class="icon"><use href="#i-check"/></svg> AI Swim Coach with photo technique analysis</li>
       <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker &amp; full Technique Academy</li>
     </ul>
-    <button type="button" class="btn btn-primary btn-block" id="promoPopupRegisterBtn">Register Now — Start Free Trial</button>
+    <button type="button" class="btn btn-primary btn-block" id="promoPopupRegisterBtn">Register Now — It's Free</button>
     <button type="button" class="promo-popup-later" id="promoPopupLaterBtn">Maybe later</button>
   </div>
 </div>
@@ -5206,6 +5238,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           </div>
         </div>
         <div class="live-workout-controls">
+          <button type="button" class="live-workout-ctrl-btn" id="liveWorkoutPrevBtn" aria-label="Previous step">
+            <svg class="icon" aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-chevron"/></svg>
+          </button>
           <button type="button" class="live-workout-ctrl-btn" id="liveWorkoutRestartBtn" aria-label="Restart this rep">
             <svg class="icon"><use href="#i-clock"/></svg>
           </button>
@@ -6151,7 +6186,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     },
     signup: {
       title: 'Join Swimfit — Free',
-      subtitle: 'Sign up in one tap with Google and start your 3-day full-access trial.',
+      subtitle: 'Sign up in one tap with Google to get started with your free account.',
       google: 'Sign up with Google'
     }
   };

@@ -46,6 +46,7 @@
     var ringProgressEl = document.getElementById('liveWorkoutRingProgress');
     var ringWrapEl = document.querySelector('.live-workout-ring-wrap');
     var playPauseBtn = document.getElementById('liveWorkoutPlayPauseBtn');
+    var prevBtn = document.getElementById('liveWorkoutPrevBtn');
     var restartBtn = document.getElementById('liveWorkoutRestartBtn');
     var skipBtn = document.getElementById('liveWorkoutSkipBtn');
     var exitBtn = document.getElementById('liveWorkoutExitBtn');
@@ -616,10 +617,11 @@
     // deliberately a wider window than the 3-2-1 audio tick below (that's
     // just the "about to go" audio nudge; the color has more room to warn).
     var TIMER_WARNING_SEC = 5;
-    // How long the GO-green flash holds before the ring/digits settle back
-    // to their normal color (or straight back to warning-yellow, for a
-    // interval so short it's already inside its own final-5-seconds window).
-    var GO_FLASH_MS = 450;
+    // How long the full-screen GO-green flash holds before settling back to
+    // normal (or straight back to warning-yellow, for an interval so short
+    // it's already inside its own final-5-seconds window) — 1-1.5s per the
+    // explicit spec, long enough to register from the far end of a pool.
+    var GO_FLASH_MS = 1200;
 
     function renderTimer(remaining, total) {
       timerEl.textContent = formatClock(remaining);
@@ -651,13 +653,15 @@
       if (live) live.goFlashTimeout = timeoutId;
     }
 
-    // playHorn defaults to true (every automatic timer-driven transition,
-    // including the very first rep of the whole workout, is a genuine
-    // "take off" moment) — the manual Skip control passes false so a
-    // swimmer deliberately jumping ahead doesn't get startled by the horn.
-    function advanceStep(playHorn) {
-      live.index++;
-      if (live.index >= live.steps.length) { completeWorkout(); return; }
+    // Shared by advanceStep() (moving forward) and goToPrevStep() (moving
+    // back) — both land on live.index and need the identical "arrive at
+    // this step" sequence (reset the per-step clock, flash GO, announce,
+    // re-highlight). playHorn defaults to true (every automatic timer-
+    // driven transition, including the very first rep of the whole
+    // workout, is a genuine "take off" moment) — Skip and Previous both
+    // pass false so a swimmer deliberately jumping around doesn't get
+    // startled by the horn on every tap.
+    function enterStep(playHorn) {
       var step = live.steps[live.index];
       live.stepStartTs = Date.now();
       live.pauseAccumSec = 0;
@@ -671,11 +675,32 @@
       announceStep(step);
       updateSetsListHighlight();
     }
+    function advanceStep(playHorn) {
+      live.index++;
+      if (live.index >= live.steps.length) { completeWorkout(); return; }
+      enterStep(playHorn);
+    }
     function finishCurrentStep(skipHorn) {
       var step = live.steps[live.index];
       if (step && step.kind === 'swim') live.doneDistanceM += step.distance;
       if (live.index > -1) markStepDone(live.index);
       advanceStep(!skipHorn);
+    }
+    // "Previous" — rewind to redo a step the swimmer missed a cue on or
+    // wants to repeat, rather than pushing through to the end. Un-credits
+    // the step's own distance and un-marks it "done" (it was necessarily
+    // marked done the first time we advanced past it, since live.index
+    // only ever increases via advanceStep()), so completing it a second
+    // time re-credits it correctly instead of double-counting.
+    function goToPrevStep() {
+      if (!live || live.index <= 0) return;
+      live.index--;
+      var step = live.steps[live.index];
+      if (step.kind === 'swim') live.doneDistanceM = Math.max(0, live.doneDistanceM - step.distance);
+      var row = setsListEl && setsListEl.querySelector('.live-workout-step[data-step-index="' + live.index + '"]');
+      if (row) row.classList.remove('is-done');
+      renderTotals();
+      enterStep(false);
     }
 
     function tick() {
@@ -765,6 +790,7 @@
         playPauseBtn.setAttribute('aria-label', 'Pause');
       }
     });
+    if (prevBtn) prevBtn.addEventListener('click', goToPrevStep);
     restartBtn.addEventListener('click', function () {
       if (!live || live.index < 0) return;
       live.stepStartTs = Date.now();

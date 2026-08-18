@@ -81,10 +81,12 @@
           '<h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;color:#F8FAFC;">Welcome to the squad, ' + name + '! 🏊</h1>' +
           '<p style="margin:0;font-size:15px;line-height:1.6;color:#AEBBCC;">This is the day your training gets serious. Swimfit is your personal, always-adaptive swim &amp; dryland coach — a fresh, professionally-structured workout every single day, plus the tools to actually watch yourself get faster. No more guessing what to swim. Just show up, and we’ll have the set ready. Let’s command the water together. 💪</p>' +
         '</td></tr>' +
-        // Trial offer banner
+        // Welcome-offer banner (no day-count/trial framing, per explicit
+        // request — the underlying temporary full-access preview window
+        // still exists server-side, this just stops advertising it here)
         '<tr><td style="padding:20px 36px 4px;">' +
           '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(22,214,115,0.16),rgba(232,137,12,0.12));border:1px solid rgba(22,214,115,0.35);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
-            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#39FF9E;">Your 3 days of full access are live — right now</div>' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#39FF9E;">Everything is open — dive in today</div>' +
             '<div style="font-size:14px;line-height:1.5;color:#E7EDF3;margin-top:4px;">Every feature unlocked, no card needed. The swimmers who improve fastest start on day one — so dive in today while it’s all open.</div>' +
           '</td></tr></table>' +
         '</td></tr>' +
@@ -105,11 +107,11 @@
             '</tr></table>';
           }).join('') +
         '</td></tr>' +
-        // Upsell — keep access after the trial
+        // Upsell — Free vs. All-Access Pro, no trial/countdown framing
         '<tr><td style="padding:8px 36px 4px;">' +
           '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(224,106,130,0.14),rgba(232,137,12,0.10));border:1px solid rgba(224,106,130,0.32);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
-            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#E06A82;">Don’t lose your momentum on day 4</div>' +
-            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your 3-day trial is the on-ramp — real progress comes from the weeks that follow. After it ends you keep a free plan forever, but upgrading to <strong>All-Access Pro — just $13/month</strong> — unlocks Competitive &amp; Elite training, unlimited saved workouts, full AI Coach access and more, with zero interruption to what you\'re already using.</div>' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#E06A82;">Ready for more? Go All-Access</div>' +
+            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your free account keeps the essentials forever — Beginner workouts, up to 2 saved custom workouts, basic tracking and limited AI chat. Upgrading to <strong>All-Access Pro — just $13/month</strong> — unlocks Competitive &amp; Elite training, unlimited saved workouts, full AI Coach access and more, anytime you\'re ready.</div>' +
             '<div style="margin-top:12px;"><a href="https://swimfit.online" style="display:inline-block;background:transparent;color:#FFA53D;border:1px solid rgba(255,165,61,0.5);font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:999px;">See plans &amp; keep training →</a></div>' +
           '</td></tr></table>' +
         '</td></tr>' +
@@ -185,7 +187,7 @@
         // template's fields happen to be defined:
         //   • recipient email: to_email / user_email / email
         //   • recipient name:  to_name / user_name / name
-        //   • the branded body (SWIMFIT wordmark, aqua/green colors, 3-day-trial
+        //   • the branded body (SWIMFIT wordmark, aqua/green colors, welcome
         //     banner, feature list, upsell, "Start Training" CTA to
         //     swimfit.online) is passed under BOTH message_html and message, so
         //     a template using {{{message_html}}} OR {{{message}}} renders it.
@@ -199,7 +201,7 @@
           user_name: displayName,
           name: displayName,
           reply_to: 'swimfit.ae@gmail.com',
-          subject: 'Welcome to Swimfit — your 3-day free trial is live 🏊',
+          subject: 'Welcome to Swimfit — your free account is live 🏊',
           title: 'Welcome to Swimfit 🏊',
           company_name: 'Swimfit',
           site_url: 'https://swimfit.online',
