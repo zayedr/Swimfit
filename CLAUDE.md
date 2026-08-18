@@ -6351,3 +6351,65 @@ Workouts tab already established.**
   overflow in both the Hub and the open Studio; and the full pre-existing regression suite (all 9
   tabs, the Swim Generator Studio's own workout generation + PDF export) passes unchanged with zero
   page errors throughout.
+
+**Optional standalone Rest / Recovery rows were added to the Custom Workout Builder — a swimmer
+can now drop a dedicated recovery step anywhere in a block, reorder it freely, and have Live Mode
+run it as its own timed step.** No Firestore rules change and no rules deploy was needed:
+`firestore.rules` only ever validated `custom_workouts`' `blocks` as a list of ≤30, never the inner
+row shape, so a new row type is invisible to it.
+
+- **Every builder row now carries a `kind`** — `'set'` (a real swim set) or `'rest'` (a standalone
+  recovery step). A shared `rowKind(s)` helper treats a row with **no** `kind` at all as `'set'`,
+  which is what makes every workout saved before this feature keep loading correctly with zero
+  migration. `blankRest()` seeds a new rest row at `30s`; `renderRowHtml()` dispatches to
+  `renderSetRowHtml()`/`renderRestRowHtml()`.
+- **A Rest row is deliberately a much simpler shape than a Set row** — just a duration and an
+  optional note, behind an aqua left rail and a small "REST" tag, so recovery reads at a glance as
+  "not work" inside a list of sets. `parseRestDuration()` is intentionally forgiving about how the
+  duration is typed (`30`, `30s`, `90 sec`, `2m`, `1:30` all resolve), since the whole point of a
+  Rest row is that it's quick to add poolside; on save it's floored at 5s so a row left blank still
+  produces a real, countable step rather than one that flashes past instantly.
+- **Reordering ships as BOTH a drag handle and up/down buttons, deliberately, not redundantly.**
+  The grip uses native HTML5 drag-and-drop — which never fires on touch at all — so on a phone or
+  poolside tablet (this app's primary device) a drag-only implementation would be a control that
+  silently does nothing. The up/down buttons are what actually make reordering work there, and the
+  grip is hidden entirely below 700px rather than left as dead weight. Drag is deliberately allowed
+  **across** blocks as well as within one, since "place rest steps anywhere they want" includes
+  dragging a recovery step out of the warm-up and down into the main set. **A real off-by-one was
+  caught and fixed while writing the drop handler**: splicing the dragged row out of its source
+  array first shifts every later index in that same block, so the target index has to be
+  re-resolved *after* the removal — using the pre-splice index dropped the row one slot off
+  whenever it moved downward within its own block.
+- **`+ Add Rest` sits alongside `+ Add Set`** in a new `.cwb-block-actions` row, and the feature is
+  entirely opt-in: a swimmer who never touches it builds standard sets exactly as before. Two
+  guards keep the model honest — removing the last row in a block always restores a blank **Set**
+  (never a Rest, since a block that's nothing but recovery isn't a workout), and the save
+  validation now counts real sets only, so a Rest-only workout is correctly refused with "Add at
+  least one set before saving."
+- **Live Mode**: `flattenCustomBlocks()` emits a standalone Rest row as its own `{kind:'rest'}`
+  queue step — distinct from, and coexisting with, the pre-existing per-set trailing `restSec`
+  field, which still works exactly as before. The queue card is labeled **"REST / RECOVERY —
+  {duration}"** with the swimmer's own note as its meta line, the phase badge reads **REST**, and
+  the note also rides along into the timer sub-label and the spoken voice cue. The final-5s yellow
+  warning, the 00:00 green flash and the start horn all already applied to rest steps (they're
+  driven by remaining time and step transitions, not by step kind) — verified empirically this
+  round rather than assumed.
+- **Two apparent failures during verification were both traced to the test, not the product,
+  before being "fixed."** First, the GO flash appeared never to fire after a rest — the sample was
+  simply landing ~4.9s into a 6s rest because of hand-computed delays; replaced with a
+  `waitForFunction` on the `is-go` class itself, which is deterministic. Second, even then the
+  overlay background still read yellow *while* `is-go` was confirmed true — diagnosed with a
+  dedicated debug script that dumped the element's classList and computed background together, and
+  confirmed to be the overlay's own 200ms `background-color` transition being sampled at 0%
+  progress (only `is-go` was present, no `is-warning`); a 300ms settle before sampling returns
+  exactly `rgb(34,197,94)` with the phase correctly advanced to SWIM.
+- Verified via Playwright: `+ Add Rest` inserts a rest row with a duration + note field and the
+  right placeholder; up/down and a real `dragTo()` both reorder it (rest dragged from last to first)
+  with no stuck drag classes left behind; a save round-trips `{kind:'rest', durationSec:45, note:
+  'Catch breath / Hydrate'}` to Firestore and reloads back into the builder intact; a Rest-only
+  workout is refused; in Live Mode a set→rest→set workout produces exactly 3 queue steps with the
+  middle one titled "REST / RECOVERY — 0:06", the REST badge and note render, the screen is
+  `rgb(234,179,8)` in the rest's final 5s and `rgb(34,197,94)` at 00:00, and it auto-advances to
+  SWIM; a 390px viewport stacks the rows with the grip hidden and zero horizontal overflow; and the
+  full pre-existing regression suite (all 9 tabs, workout generation, PDF export) passes unchanged
+  with zero page errors.

@@ -2831,8 +2831,50 @@ body.workout-studio-active { overflow: hidden; }
 .cwb-remove-btn:hover { border-color: var(--maroon-bright); color: var(--maroon-bright); background: color-mix(in srgb, var(--maroon-bright) 12%, transparent); }
 .cwb-sets-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-2); }
 .cwb-set-row {
-  display: grid; grid-template-columns: 52px 70px 108px 84px 70px 1fr 26px; gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 20px 52px 70px 108px 84px 70px 1fr auto; gap: 6px; align-items: center;
+  border-radius: var(--radius-sm);
 }
+/* ---------- Row reorder controls (shared by Set and Rest rows) ---------- */
+.cwb-row-grip {
+  display: flex; align-items: center; justify-content: center; cursor: grab;
+  color: var(--muted-2); width: 20px; height: 26px; flex-shrink: 0;
+  transition: color var(--dur) var(--ease);
+}
+.cwb-row-grip:hover { color: var(--fg); }
+.cwb-row-grip:active { cursor: grabbing; }
+.cwb-row-grip .icon { width: 15px; height: 15px; }
+.cwb-row-controls { display: flex; align-items: center; gap: 3px; }
+.cwb-row-btn {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--border);
+  color: var(--muted-2); display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.cwb-row-btn .icon { width: 11px; height: 11px; }
+.cwb-row-btn:hover { border-color: var(--aqua); color: var(--fg); }
+/* The chevron symbol points down by default — the "move up" button is the
+   same icon rotated, so there's one symbol in the sprite, not two. */
+.cwb-row-btn[data-action="move-up"] .icon { transform: rotate(180deg); }
+.cwb-set-row.is-dragging { opacity: 0.4; }
+.cwb-set-row.is-drop-before { box-shadow: 0 -2px 0 0 var(--aqua-bright); }
+.cwb-set-row.is-drop-after { box-shadow: 0 2px 0 0 var(--aqua-bright); }
+
+/* ---------- Rest / Recovery row ----------
+   A deliberately different, much simpler shape than a Set row (just a
+   duration + an optional note) plus an aqua left rail, so recovery reads
+   at a glance as "not work" inside a list of sets. */
+.cwb-rest-row {
+  grid-template-columns: 20px auto 110px 1fr auto;
+  background: color-mix(in srgb, var(--aqua) 8%, transparent);
+  border-left: 2px solid var(--aqua); padding: 4px 6px 4px 4px;
+}
+.cwb-rest-tag {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-family: var(--font-display); font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--aqua-bright);
+}
+.cwb-rest-tag .icon { width: 12px; height: 12px; }
+.cwb-rest-row input { background: var(--surface); }
+.cwb-block-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .cwb-set-row input, .cwb-set-row select {
   width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.5em 0.55em; color: var(--fg); font-size: 0.8rem; transition: border-color var(--dur) var(--ease);
@@ -2841,8 +2883,13 @@ body.workout-studio-active { overflow: hidden; }
 .cwb-set-row select { appearance: none; }
 .cwb-set-add-btn { align-self: flex-start; }
 @media (max-width: 700px) {
-  .cwb-set-row { grid-template-columns: 1fr 1fr; }
-  .cwb-set-row .cwb-remove-btn { grid-column: 1 / -1; justify-self: end; }
+  .cwb-set-row, .cwb-rest-row { grid-template-columns: 1fr 1fr; }
+  /* HTML5 drag events never fire on touch, so the grip is dead weight on a
+     phone — hidden there, leaving the up/down buttons (which work
+     everywhere) as the reorder path. */
+  .cwb-set-row .cwb-row-grip { display: none; }
+  .cwb-set-row .cwb-row-controls { grid-column: 1 / -1; justify-content: flex-end; }
+  .cwb-rest-row .cwb-rest-tag { grid-column: 1 / -1; }
 }
 .cwb-builder-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 .cwb-status { margin-top: var(--space-2); font-size: 0.82rem; color: var(--muted); min-height: 1.2em; }
@@ -3852,6 +3899,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c0.5-1 2-2.5 2-6.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+<symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.1"/><circle cx="15" cy="6" r="1.1"/><circle cx="9" cy="12" r="1.1"/><circle cx="15" cy="12" r="1.1"/><circle cx="9" cy="18" r="1.1"/><circle cx="15" cy="18" r="1.1"/></symbol>
 <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/></symbol>
 </defs>
 </svg>

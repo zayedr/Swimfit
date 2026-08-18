@@ -77,8 +77,37 @@
     var STROKE_OPTIONS = ['Freestyle', 'Backstroke', 'Breaststroke', 'Butterfly', 'Individual Medley', 'Kick', 'Drill', 'Mixed'];
     var cwbIdCounter = 1;
     function newLocalId() { return 'x' + (cwbIdCounter++) + '-' + Date.now().toString(36); }
-    function blankSet() { return { id: newLocalId(), reps: 4, distance: 100, stroke: 'Freestyle', interval: '', restSec: '', note: '' }; }
+    // Every builder row carries a `kind`: 'set' (a real swim set) or 'rest'
+    // (a standalone Rest/Recovery step the swimmer optionally inserts
+    // anywhere in a block). A row with NO kind at all is treated as 'set'
+    // everywhere below — that's how every workout saved before this feature
+    // existed keeps loading correctly, with no migration and no rules change
+    // (firestore.rules only validates `blocks` is a list of ≤30, never the
+    // inner row shape, so a new field needs no deploy).
+    function rowKind(s) { return (s && s.kind === 'rest') ? 'rest' : 'set'; }
+    function blankSet() { return { id: newLocalId(), kind: 'set', reps: 4, distance: 100, stroke: 'Freestyle', interval: '', restSec: '', note: '' }; }
+    function blankRest() { return { id: newLocalId(), kind: 'rest', duration: '30s', note: '' }; }
     function blankBlock(label) { return { id: newLocalId(), label: label || 'Warm-Up', sets: [blankSet()] }; }
+
+    // Deliberately forgiving about how a swimmer types a rest length — the
+    // whole point of a Rest row is that it's quick to add poolside, so
+    // "30", "30s", "90 sec", "2m" and "1:30" all resolve rather than
+    // forcing one rigid format. Falls back to 0 (which the save path then
+    // floors to a usable minimum) rather than NaN.
+    function parseRestDuration(raw) {
+      var str = String(raw == null ? '' : raw).trim().toLowerCase();
+      if (!str) return 0;
+      if (str.indexOf(':') > -1) {
+        return (typeof parseTimeToSeconds === 'function' ? parseTimeToSeconds(str) : 0) || 0;
+      }
+      var m = str.match(/^(\d+(?:\.\d+)?)\s*(s|sec|secs|seconds|m|min|mins|minutes)?$/);
+      if (!m) return 0;
+      var value = parseFloat(m[1]);
+      if (!isFinite(value) || value <= 0) return 0;
+      var unit = m[2] || 's';
+      if (unit.charAt(0) === 'm') value *= 60;
+      return Math.round(value);
+    }
 
     var cwbState = { editingId: null, blocks: [blankBlock('Warm-Up')] };
 
@@ -89,19 +118,52 @@
       statusEl.classList.toggle('is-success', !!isSuccess);
     }
 
+    // Shared by both row types so a Set and a Rest row are reordered and
+    // removed through the exact same controls. Drag (the grip) is the
+    // desktop affordance; the up/down buttons are what actually make
+    // reordering work on a phone or poolside tablet, where HTML5 drag
+    // events never fire at all — so both exist deliberately, rather than
+    // shipping a drag handle that silently does nothing on the primary
+    // device this app is used on.
+    function rowControlsHtml(label) {
+      return '<div class="cwb-row-controls">' +
+        '<button type="button" class="cwb-row-btn" data-action="move-up" aria-label="Move ' + label + ' up">' + icon('i-chevron') + '</button>' +
+        '<button type="button" class="cwb-row-btn" data-action="move-down" aria-label="Move ' + label + ' down">' + icon('i-chevron') + '</button>' +
+        '<button type="button" class="cwb-remove-btn" data-action="remove-set" aria-label="Remove ' + label + '">' + icon('i-close') + '</button>' +
+        '</div>';
+    }
+    function gripHtml(label) {
+      return '<span class="cwb-row-grip" draggable="true" role="button" tabindex="-1" aria-label="Drag to reorder ' + label + '">' + icon('i-grip') + '</span>';
+    }
     function renderSetRowHtml(s) {
       var options = STROKE_OPTIONS.map(function (name) {
         return '<option' + (name === s.stroke ? ' selected' : '') + '>' + name + '</option>';
       }).join('');
-      return '<div class="cwb-set-row" data-set-id="' + s.id + '">' +
+      return '<div class="cwb-set-row" data-set-id="' + s.id + '" data-kind="set">' +
+        gripHtml('set') +
         '<input type="number" class="cwb-set-reps" data-field="reps" value="' + (s.reps != null ? s.reps : 4) + '" min="1" max="99" aria-label="Reps">' +
         '<input type="number" class="cwb-set-dist" data-field="distance" value="' + (s.distance != null ? s.distance : 100) + '" min="25" max="4000" step="25" aria-label="Distance in meters">' +
         '<select class="cwb-set-stroke" data-field="stroke" aria-label="Stroke">' + options + '</select>' +
         '<input type="text" class="cwb-set-interval" data-field="interval" value="' + escHtml(s.interval) + '" placeholder="Interval mm:ss" aria-label="Interval / send-off time">' +
         '<input type="text" class="cwb-set-rest" data-field="restSec" value="' + escHtml(s.restSec) + '" placeholder="Rest (s)" aria-label="Rest seconds after this set">' +
         '<input type="text" class="cwb-set-note" data-field="note" value="' + escHtml(s.note) + '" placeholder="Note (optional)" maxlength="60" aria-label="Note">' +
-        '<button type="button" class="cwb-remove-btn" data-action="remove-set" aria-label="Remove set">' + icon('i-close') + '</button>' +
+        rowControlsHtml('set') +
         '</div>';
+    }
+    // A Rest row is deliberately a different, much simpler shape than a Set
+    // row — just a duration and an optional note — so it reads at a glance
+    // as "this is recovery, not work" in a list of sets.
+    function renderRestRowHtml(s) {
+      return '<div class="cwb-set-row cwb-rest-row" data-set-id="' + s.id + '" data-kind="rest">' +
+        gripHtml('rest step') +
+        '<span class="cwb-rest-tag">' + icon('i-clock') + ' Rest</span>' +
+        '<input type="text" class="cwb-rest-duration" data-field="duration" value="' + escHtml(s.duration) + '" placeholder="30s / 2m / 1:30" aria-label="Rest duration">' +
+        '<input type="text" class="cwb-set-note" data-field="note" value="' + escHtml(s.note) + '" placeholder="Note (e.g. Catch breath / Hydrate)" maxlength="60" aria-label="Rest note">' +
+        rowControlsHtml('rest step') +
+        '</div>';
+    }
+    function renderRowHtml(s) {
+      return rowKind(s) === 'rest' ? renderRestRowHtml(s) : renderSetRowHtml(s);
     }
     function renderBlockHtml(block) {
       return '<div class="cwb-block" data-block-id="' + block.id + '">' +
@@ -109,8 +171,11 @@
         '<input type="text" class="cwb-block-label" data-action="block-label" value="' + escHtml(block.label) + '" placeholder="Block name (e.g. Warm-Up, Main Set)" maxlength="40" aria-label="Block name">' +
         '<button type="button" class="cwb-remove-btn" data-action="remove-block" aria-label="Remove block">' + icon('i-close') + '</button>' +
         '</div>' +
-        '<div class="cwb-sets-list">' + block.sets.map(renderSetRowHtml).join('') + '</div>' +
+        '<div class="cwb-sets-list">' + block.sets.map(renderRowHtml).join('') + '</div>' +
+        '<div class="cwb-block-actions">' +
         '<button type="button" class="btn btn-ghost btn-sm cwb-set-add-btn" data-action="add-set">' + icon('i-plus') + ' Add Set</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm cwb-rest-add-btn" data-action="add-rest">' + icon('i-clock') + ' Add Rest</button>' +
+        '</div>' +
         '</div>';
     }
     function renderBuilder() {
@@ -138,12 +203,101 @@
       } else if (e.target.closest('[data-action="add-set"]')) {
         block.sets.push(blankSet());
         renderBuilder();
+      } else if (e.target.closest('[data-action="add-rest"]')) {
+        block.sets.push(blankRest());
+        renderBuilder();
+      } else if (e.target.closest('[data-action="move-up"]') || e.target.closest('[data-action="move-down"]')) {
+        var dir = e.target.closest('[data-action="move-up"]') ? -1 : 1;
+        moveRow(block, e.target.closest('.cwb-set-row').dataset.setId, dir);
       } else if (e.target.closest('[data-action="remove-set"]')) {
         var setId = e.target.closest('.cwb-set-row').dataset.setId;
         block.sets = block.sets.filter(function (s) { return s.id !== setId; });
+        // Always falls back to a blank SET, never a blank Rest — a block
+        // that's nothing but recovery isn't a workout.
         if (!block.sets.length) block.sets.push(blankSet());
         renderBuilder();
       }
+    });
+
+    /* ============================= ROW REORDERING ============================= */
+    // Swap-with-neighbour, used by the up/down buttons (and therefore the
+    // only reorder path that works on touch).
+    function moveRow(block, rowId, delta) {
+      var i = block.sets.findIndex(function (s) { return s.id === rowId; });
+      var j = i + delta;
+      if (i < 0 || j < 0 || j >= block.sets.length) return;
+      var moved = block.sets[i];
+      block.sets[i] = block.sets[j];
+      block.sets[j] = moved;
+      renderBuilder();
+    }
+    // Desktop drag-and-drop, deliberately allowed ACROSS blocks as well as
+    // within one — "place rest steps anywhere they want" includes dragging
+    // a recovery step out of the warm-up and down into the main set.
+    var dragRowId = null;
+    function findRowOwner(rowId) {
+      for (var i = 0; i < cwbState.blocks.length; i++) {
+        var idx = cwbState.blocks[i].sets.findIndex(function (s) { return s.id === rowId; });
+        if (idx > -1) return { block: cwbState.blocks[i], index: idx };
+      }
+      return null;
+    }
+    // Only the drop indicators — deliberately NOT .is-dragging, which has to
+    // survive every dragover tick and is cleared once on dragend instead.
+    function clearDropMarkers() {
+      blocksListEl.querySelectorAll('.cwb-set-row').forEach(function (r) {
+        r.classList.remove('is-drop-before', 'is-drop-after');
+      });
+    }
+    blocksListEl.addEventListener('dragstart', function (e) {
+      var grip = e.target.closest('.cwb-row-grip');
+      if (!grip) return;
+      var row = grip.closest('.cwb-set-row');
+      if (!row) return;
+      dragRowId = row.dataset.setId;
+      row.classList.add('is-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        // Firefox refuses to start a drag at all unless some data is set.
+        try { e.dataTransfer.setData('text/plain', dragRowId); } catch (err) { /* ignore */ }
+      }
+    });
+    blocksListEl.addEventListener('dragover', function (e) {
+      if (!dragRowId) return;
+      var row = e.target.closest('.cwb-set-row');
+      if (!row || row.dataset.setId === dragRowId) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      var rect = row.getBoundingClientRect();
+      var after = e.clientY > rect.top + rect.height / 2;
+      clearDropMarkers();
+      row.classList.add(after ? 'is-drop-after' : 'is-drop-before');
+    });
+    blocksListEl.addEventListener('drop', function (e) {
+      if (!dragRowId) return;
+      var row = e.target.closest('.cwb-set-row');
+      if (!row || row.dataset.setId === dragRowId) { clearDropMarkers(); dragRowId = null; return; }
+      e.preventDefault();
+      var from = findRowOwner(dragRowId);
+      var to = findRowOwner(row.dataset.setId);
+      if (from && to) {
+        var rect = row.getBoundingClientRect();
+        var after = e.clientY > rect.top + rect.height / 2;
+        var moved = from.block.sets.splice(from.index, 1)[0];
+        // Re-resolve the target index AFTER the splice — removing the
+        // dragged row first shifts every later index in the same block,
+        // so a stale to.index would drop the row one slot off.
+        var targetIdx = to.block.sets.findIndex(function (s) { return s.id === row.dataset.setId; });
+        to.block.sets.splice(targetIdx + (after ? 1 : 0), 0, moved);
+        if (!from.block.sets.length) from.block.sets.push(blankSet());
+      }
+      dragRowId = null;
+      renderBuilder();
+    });
+    blocksListEl.addEventListener('dragend', function () {
+      clearDropMarkers();
+      blocksListEl.querySelectorAll('.cwb-set-row.is-dragging').forEach(function (r) { r.classList.remove('is-dragging'); });
+      dragRowId = null;
     });
     // Plain field edits never re-render the block list (that would blow
     // away focus/cursor position on every keystroke) — just update the
@@ -209,8 +363,19 @@
         return {
           label: (b.label || 'Block').trim().slice(0, 40) || 'Block',
           sets: b.sets.map(function (s) {
+            if (rowKind(s) === 'rest') {
+              return {
+                kind: 'rest',
+                // Floored at 5s (not 0) so a Rest row left blank still
+                // produces a real, countable step in Live Mode rather than
+                // a zero-length one that flashes past instantly.
+                durationSec: Math.max(5, Math.min(1800, parseRestDuration(s.duration) || 30)),
+                note: (s.note || '').trim().slice(0, 60)
+              };
+            }
             var intervalSec = (typeof parseTimeToSeconds === 'function' ? parseTimeToSeconds(s.interval) : null) || 0;
             return {
+              kind: 'set',
               reps: Math.max(1, Math.min(99, parseInt(s.reps, 10) || 1)),
               distance: Math.max(1, Math.min(10000, parseInt(s.distance, 10) || 0)),
               stroke: s.stroke || 'Freestyle',
@@ -233,7 +398,11 @@
     if (saveBtn) saveBtn.addEventListener('click', function () {
       var name = nameInput ? nameInput.value.trim() : '';
       if (!name) { setStatus('Give this workout a name first.', true); if (nameInput) nameInput.focus(); return; }
-      var hasAnySet = cwbState.blocks.some(function (b) { return b.sets.length > 0; });
+      // Deliberately counts real SETS only — a "workout" made entirely of
+      // Rest rows has nothing to actually swim, so it isn't saveable.
+      var hasAnySet = cwbState.blocks.some(function (b) {
+        return b.sets.some(function (s) { return rowKind(s) === 'set'; });
+      });
       if (!hasAnySet) { setStatus('Add at least one set before saving.', true); return; }
       if (!window.__firebaseUser || typeof window.__customWorkoutCreate !== 'function') {
         setStatus('Sign in to save workouts to your profile.', true);
@@ -274,7 +443,10 @@
 
     function workoutTotalMeters(workout) {
       return (workout.blocks || []).reduce(function (sum, b) {
-        return sum + (b.sets || []).reduce(function (s2, s) { return s2 + (s.reps || 1) * (s.distance || 0); }, 0);
+        return sum + (b.sets || []).reduce(function (s2, s) {
+          if (rowKind(s) === 'rest') return s2; // recovery adds no distance
+          return s2 + (s.reps || 1) * (s.distance || 0);
+        }, 0);
       }, 0);
     }
 
@@ -326,8 +498,14 @@
       cwbState.editingId = workout.id;
       cwbState.blocks = (workout.blocks && workout.blocks.length ? workout.blocks : [{ label: 'Warm-Up', sets: [] }]).map(function (b) {
         var sets = (b.sets && b.sets.length ? b.sets : [{}]).map(function (s) {
+          if (rowKind(s) === 'rest') {
+            // Round-trips back into the same forgiving text field the
+            // swimmer typed into, formatted as mm:ss so it re-parses
+            // identically via parseRestDuration()'s own ':' branch.
+            return { id: newLocalId(), kind: 'rest', duration: formatClock(s.durationSec || 30), note: s.note || '' };
+          }
           return {
-            id: newLocalId(), reps: s.reps || 4, distance: s.distance || 100, stroke: s.stroke || 'Freestyle',
+            id: newLocalId(), kind: 'set', reps: s.reps || 4, distance: s.distance || 100, stroke: s.stroke || 'Freestyle',
             interval: s.intervalSec ? formatClock(s.intervalSec) : '', restSec: s.restSec || '', note: s.note || ''
           };
         });
@@ -407,6 +585,19 @@
       (blocks || []).forEach(function (block) {
         var label = (block.label || 'Block').trim() || 'Block';
         (block.sets || []).forEach(function (set) {
+          // A standalone Rest row becomes its own queue step directly —
+          // distinct from the per-set trailing `restSec` field below, which
+          // still works exactly as before. Both can coexist in one block.
+          if (rowKind(set) === 'rest') {
+            steps.push({
+              kind: 'rest',
+              blockLabel: label,
+              durationSec: Math.max(1, parseInt(set.durationSec, 10) || 30),
+              note: set.note || '',
+              standalone: true
+            });
+            return;
+          }
           var reps = Math.max(1, parseInt(set.reps, 10) || 1);
           var distance = Math.max(1, parseInt(set.distance, 10) || 0);
           var stroke = set.stroke || 'Freestyle';
@@ -547,7 +738,7 @@
       if (!step) return;
       var text;
       if (step.kind === 'rest') {
-        text = 'Rest, ' + Math.round(step.durationSec) + ' seconds.';
+        text = 'Rest, ' + Math.round(step.durationSec) + ' seconds.' + (step.note ? ' ' + step.note + '.' : '');
       } else if (step.repIndex === 1) {
         text = 'Next: ' + step.repsTotal + (step.repsTotal > 1 ? ' times ' : ' time ') + step.distance + ' meters ' + step.stroke + '. Go.';
       } else {
@@ -574,9 +765,11 @@
         }
         var marker = step.kind === 'rest' ? icon('i-clock') : String(step.repIndex);
         var title = step.kind === 'rest'
-          ? 'Rest'
+          ? 'REST / RECOVERY — ' + formatClock(step.durationSec)
           : step.distance + 'm ' + escHtml(step.stroke) + (step.repsTotal > 1 ? ' (rep ' + step.repIndex + '/' + step.repsTotal + ')' : '');
-        var meta = formatClock(step.durationSec) + (step.kind === 'rest' ? ' rest' : ' interval');
+        var meta = step.kind === 'rest'
+          ? (step.note ? escHtml(step.note) : formatClock(step.durationSec) + ' rest')
+          : formatClock(step.durationSec) + ' interval';
         html += '<div class="live-workout-step" data-step-index="' + i + '">' +
           '<div class="live-workout-step-marker">' + marker + '</div>' +
           '<div class="live-workout-step-body"><div class="live-workout-step-title">' + title + '</div>' +
@@ -604,7 +797,7 @@
       if (step.kind === 'rest') {
         phaseBadgeEl.textContent = 'REST';
         phaseBadgeEl.className = 'live-workout-phase-badge is-rest';
-        timerSubEl.textContent = step.blockLabel + ' — Rest';
+        timerSubEl.textContent = step.blockLabel + ' — Rest / Recovery' + (step.note ? ' — ' + step.note : '');
       } else {
         phaseBadgeEl.textContent = 'SWIM';
         phaseBadgeEl.className = 'live-workout-phase-badge';
