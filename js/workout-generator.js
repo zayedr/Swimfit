@@ -3588,3 +3588,51 @@
     });
   })();
 
+  /* ============================= GYM STUDIO (dedicated view) =============================
+     Same pattern as wireSwimGeneratorStudio() above, opened from the Gym
+     Hub's two cards. Both cards open the identical #gymStudioOverlay —
+     there's only one underlying Gym system (Strength Profile + Target
+     Focus tabs driving one shared #gymGrid board), not two separate
+     ones — "Explore Drills" additionally pre-selects the Plyometrics
+     focus tab on open, reusing the exact same aria-selected sync +
+     renderGym() call the tab's own click handler already uses, so
+     opening via the card is indistinguishable from a swimmer clicking
+     the pill themselves. */
+  (function wireGymStudio() {
+    var overlay = document.getElementById('gymStudioOverlay');
+    var strengthBtn = document.getElementById('openGymStrengthBtn');
+    var plyoBtn = document.getElementById('openGymPlyoBtn');
+    var backBtn = document.getElementById('gymStudioBackBtn');
+    if (!overlay || !strengthBtn) return;
+
+    function openStudio(focus) {
+      overlay.hidden = false;
+      document.body.classList.add('workout-studio-active');
+      if (focus) {
+        var tabs = document.getElementById('gymFocusTabs');
+        var target = tabs && tabs.querySelector('.pill-tab[data-focus="' + focus + '"]');
+        if (target) {
+          tabs.querySelectorAll('.pill-tab').forEach(function (b) { b.setAttribute('aria-selected', b === target ? 'true' : 'false'); });
+          renderGym(focus);
+        }
+      }
+    }
+    function closeStudio() {
+      if (overlay.hidden) return;
+      overlay.hidden = true;
+      document.body.classList.remove('workout-studio-active');
+    }
+    strengthBtn.addEventListener('click', function () { openStudio(); });
+    if (plyoBtn) plyoBtn.addEventListener('click', function () { openStudio('plyometrics'); });
+    if (backBtn) backBtn.addEventListener('click', closeStudio);
+    document.addEventListener('keydown', function (e) {
+      if (overlay.hidden || e.key !== 'Escape') return;
+      var liveOverlay = document.getElementById('liveWorkoutOverlay');
+      if (liveOverlay && !liveOverlay.hidden) return; // Live Mode owns Escape while it's on top
+      closeStudio();
+    });
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) closeStudio();
+    });
+  })();
+

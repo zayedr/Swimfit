@@ -96,7 +96,7 @@
           [
             ['🏊', 'Daily-rotating swim workouts', 'A full warm-up-to-cool-down set built from your discipline, distance, gear &amp; goals — new every day.'],
             ['🏋️', 'Tailored dryland &amp; gym focus', 'Muscle-group routines with live technique demos, matched to your swimming.'],
-            ['🤖', 'AI Swim Coach', 'Ask anything about technique, pacing or your log — attach a photo for real feedback.'],
+            ['💬', 'Swim Coach', 'Ask anything about technique, pacing or your log — attach a photo for real feedback.'],
             ['📊', 'Distance Tracker', 'Log every swim and watch your weekly &amp; monthly volume, pace and PBs climb.'],
             ['🎓', 'Technique Academy', 'Stroke-by-stroke video breakdowns — 100% free, no tiers.']
           ].map(function (f) {
@@ -111,7 +111,7 @@
         '<tr><td style="padding:8px 36px 4px;">' +
           '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(224,106,130,0.14),rgba(232,137,12,0.10));border:1px solid rgba(224,106,130,0.32);border-radius:12px;"><tr><td style="padding:18px 22px;">' +
             '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#E06A82;">Ready for more? Go All-Access</div>' +
-            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your free account keeps the essentials forever — Beginner workouts, up to 2 saved custom workouts, basic tracking and limited AI chat. Upgrading to <strong>All-Access Pro — just $13/month</strong> — unlocks Competitive &amp; Elite training, unlimited saved workouts, full AI Coach access and more, anytime you\'re ready.</div>' +
+            '<div style="font-size:14px;line-height:1.55;color:#E7EDF3;margin-top:6px;">Your free account keeps the essentials forever — Beginner workouts, up to 2 saved custom workouts, basic tracking and limited Coach chat. Upgrading to <strong>All-Access Pro — just $13/month</strong> — unlocks Competitive &amp; Elite training, unlimited saved workouts, full Swim Coach access and more, anytime you\'re ready.</div>' +
             '<div style="margin-top:12px;"><a href="https://swimfit.online" style="display:inline-block;background:transparent;color:#FFA53D;border:1px solid rgba(255,165,61,0.5);font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:999px;">See plans &amp; keep training →</a></div>' +
           '</td></tr></table>' +
         '</td></tr>' +

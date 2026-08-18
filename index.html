@@ -2771,17 +2771,17 @@ body.workout-studio-active { overflow: hidden; }
   .workout-studio-header-info h2 { font-size: 1rem; }
 }
 
-/* ============================= SWIM GENERATOR STUDIO BODY =============================
-   Unlike the Workout Studio's fixed saved-list/builder split above, the
-   generator's own .workouts-columns (40/60 split, already tuned for this
-   exact content) is reused verbatim — this just adds the scroll + a
-   centered max-width so it reads as "cleanly centered" inside the
-   dedicated view instead of stretching edge-to-edge on very wide
-   screens. */
-.swim-generator-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-5); }
-.swim-generator-body .workouts-columns { max-width: 1200px; margin-inline: auto; }
+/* ============================= GENERIC STUDIO BODY =============================
+   Shared by the Swim Generator Studio and the Gym Studio (both reuse their
+   own already-tuned content layout verbatim — .workouts-columns' 40/60
+   split, .gym-top-bar/.gym-bottom's stacked layout) — this just adds the
+   scroll + a centered max-width so either reads as "cleanly centered"
+   inside its dedicated view instead of stretching edge-to-edge on very
+   wide screens, rather than a second hand-matched copy of the same rule. */
+.studio-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-5); }
+.studio-body .workouts-columns, .studio-body .gym-top-bar, .studio-body .gym-bottom { max-width: 1200px; margin-inline: auto; }
 @media (max-width: 900px) {
-  .swim-generator-body { padding: var(--space-4); }
+  .studio-body { padding: var(--space-4); }
 }
 
 .cwb-empty-note { color: var(--muted-2); font-size: 0.85rem; }
@@ -3873,7 +3873,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <li><button type="button" data-tab="gym"><svg class="icon nav-icon nav-icon-dumbbell" aria-hidden="true"><use href="#i-dumbbell"/></svg><span data-i18n="nav.gym">Gym</span></button></li>
       <li><button type="button" data-tab="gear"><svg class="icon nav-icon nav-icon-fin" aria-hidden="true"><use href="#i-fin"/></svg><span data-i18n="nav.gear">Gear</span></button></li>
       <li><button type="button" data-tab="academy"><svg class="icon nav-icon nav-icon-target" aria-hidden="true"><use href="#i-target"/></svg><span data-i18n="nav.academy">Academy</span></button></li>
-      <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span data-i18n="nav.coach">AI Coach</span></button></li>
+      <li><button type="button" data-tab="coach"><svg class="icon nav-icon nav-icon-comment" aria-hidden="true"><use href="#i-comment"/></svg><span data-i18n="nav.coach">Swim Coach</span></button></li>
       <li><button type="button" data-tab="tracker"><svg class="icon nav-icon nav-icon-droplet" aria-hidden="true"><use href="#i-droplet"/></svg><span data-i18n="nav.tracker">Tracker</span></button></li>
       <li><button type="button" data-tab="support"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-quote"/></svg><span data-i18n="nav.support">Support</span></button></li>
       <li><button type="button" data-tab="settings"><svg class="icon nav-icon nav-icon-settings" aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="nav.settings">Settings</span></button></li>
@@ -4005,7 +4005,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <nav class="pmenu-links" aria-label="Primary">
       <button type="button" data-tab="workouts" style="transition-delay:100ms">Workouts</button>
       <button type="button" data-tab="gym" style="transition-delay:160ms">Gym</button>
-      <button type="button" data-tab="coach" style="transition-delay:220ms">AI Coach</button>
+      <button type="button" data-tab="coach" style="transition-delay:220ms">Swim Coach</button>
       <button type="button" data-tab="tracker" style="transition-delay:280ms">Tracker</button>
       <button type="button" data-tab="academy" style="transition-delay:340ms">Academy</button>
       <button type="button" data-tab="pricing" style="transition-delay:400ms">Pricing</button>
@@ -4069,7 +4069,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <nav class="ffhero-nav-links" id="heroNavLinks" aria-label="Primary">
           <button type="button" data-tab="workouts">Workouts</button>
           <button type="button" data-tab="gym">Gym</button>
-          <button type="button" data-tab="coach">AI Coach</button>
+          <button type="button" data-tab="coach">Swim Coach</button>
           <button type="button" data-tab="tracker">Tracker</button>
           <button type="button" data-tab="academy">Academy</button>
           <button type="button" data-tab="pricing">Pricing</button>
@@ -4158,7 +4158,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-stopwatch"/></svg> <span data-i18n="workouts.eyebrow">Build Your Own</span></p>
         <h2 data-i18n="workouts.heading">Workouts Hub</h2>
-        <p>Get an AI-generated swim set in seconds, or hand-build your own — pick a tool below to get started.</p>
+        <p>Get a targeted swim set in seconds, or hand-build your own — pick a tool below to get started.</p>
       </div>
 
       <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutsContactCoachBtn" data-auth-signed-in style="display:none; margin-bottom: var(--space-4);">
@@ -4187,8 +4187,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="cwb-studio-banner" data-reveal>
           <div class="cwb-studio-banner-icon" aria-hidden="true">🏊‍♂️</div>
           <div class="cwb-studio-banner-body">
-            <h3>AI Swim Workout Generator</h3>
-            <p>Generate smart, targeted swim routines customized to your discipline, volume, and weekly schedule.</p>
+            <h3>Smart Swim Workout Generator</h3>
+            <p>Generate targeted swim routines customized to your discipline, volume, and weekly schedule.</p>
           </div>
           <button type="button" class="btn btn-primary btn-cta-glow" id="openSwimGeneratorBtn">
             Launch Workout Generator <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
@@ -4214,8 +4214,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="tab-panel" id="panel-gym">
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-dumbbell"/></svg> <span data-i18n="gym.eyebrow">Dryland &amp; Strength</span></p>
-        <h2 data-i18n="gym.heading">What Are You Training Today?</h2>
-        <p>Pick a focus and the exercise board updates instantly — built for swimmers, not bodybuilders.</p>
+        <h2 data-i18n="gym.heading">Gym Hub</h2>
+        <p>Pick a card below — a tailored strength prescription, or a focused plyometrics &amp; core session.</p>
       </div>
 
       <div class="coach-page-locked" data-auth-signed-out>
@@ -4226,69 +4226,39 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
 
       <div data-auth-signed-in style="display:none">
-      <div class="gym-top-bar">
-       <div class="gym-top-half" data-reveal>
-          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span class="config-label-hint">(optional — tailors load &amp; volume for aquatic power)</span></div>
-          <div class="profile-row">
-            <div class="profile-field">
-              <label for="gymAge">Age</label>
-              <input type="number" id="gymAge" min="6" max="99" placeholder="e.g. 24">
-            </div>
-            <div class="profile-field">
-              <label for="gymWorkingWeight">Current Working Weight</label>
-              <input type="text" id="gymWorkingWeight" placeholder="e.g. 40kg">
-            </div>
-            <div class="profile-field">
-              <label for="gymStrengthLimit">Strength Limit / Max Capacity</label>
-              <input type="text" id="gymStrengthLimit" placeholder="e.g. 80kg 1RM">
-            </div>
+      <!-- ---------- GYM HUB ----------
+           Mirrors the Workouts tab's own Hub pattern — the always-visible
+           Strength Profile + Target Focus + exercise board moved into a
+           dedicated full-screen view (#gymStudioOverlay, near
+           #swimGeneratorStudioOverlay below), reached from one of these
+           two cards instead of always taking up scroll space here. Both
+           cards open the identical dedicated board (there's only ever one
+           underlying Gym system, not two) — Card 2 additionally
+           pre-selects the Plyometrics focus tab on open, since that's a
+           real shortcut into the same board, not a separate feature. -->
+      <div class="workouts-hub-grid">
+        <div class="cwb-studio-banner" data-reveal>
+          <div class="cwb-studio-banner-icon" aria-hidden="true">🏋️‍♂️</div>
+          <div class="cwb-studio-banner-body">
+            <h3>Custom Dryland Prescription</h3>
+            <p>Targeted strength, mobility, and explosive power workouts tailored for aquatic performance.</p>
           </div>
-          <button type="button" class="btn btn-primary" id="gymApplyBtn" style="margin-top:20px">
-            <svg class="icon"><use href="#i-bolt"/></svg> Update My Prescription
+          <button type="button" class="btn btn-primary btn-cta-glow" id="openGymStrengthBtn">
+            Open Strength Studio <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
           </button>
-       </div><!-- /gym-top-half (profile) -->
-
-       <div class="gym-top-half" data-reveal>
-          <div class="config-label"><svg class="icon"><use href="#i-dumbbell"/></svg> Target Focus</div>
-          <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
-          <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs">
-            <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
-            <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
-            <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
-            <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
-            <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
-            <button class="pill-tab" role="tab" data-focus="plyometrics" aria-selected="false"><svg class="icon"><use href="#i-target"/></svg> Plyometrics &amp; Explosive Power</button>
-          </div>
-          <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
-       </div><!-- /gym-top-half (focus) -->
-      </div><!-- /gym-top-bar -->
-
-      <div class="gym-bottom">
-        <div id="gymGrid"></div>
-        <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
-          <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
-        </button>
-
-        <div class="bento-card workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6); --bento-accent:var(--aqua-bright)">
-          <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>AI Dryland Routine Generator</h4></div>
-          <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
-          <form class="coach-page-form" id="gymAiForm">
-            <div class="workout-ai-chips" id="gymAiChips">
-              <button type="button" class="coach-prompt-chip" data-prompt="Generate a complete dryland routine for today, tailored to a competitive swimmer.">Generate today's routine</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Generate a full week (7 days) of dryland training, balancing strength, power and recovery for a competitive swimmer.">Generate this week's plan</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Make the routine you just gave me shorter — I have less time today.">Make it shorter</button>
-            <button type="button" class="coach-prompt-chip" data-prompt="Add more core and rotator-cuff / shoulder-health work to the routine.">Add more core work</button>
-          </div>
-          <div class="coach-page-form-row">
-            <label for="gymAiInput" class="sr-only">Ask the AI Gym Coach</label>
-            <textarea id="gymAiInput" class="coach-input" rows="1" placeholder="Ask for a routine, or refine the one above…" maxlength="1000"></textarea>
-            <button type="submit" class="coach-send-btn" id="gymAiSendBtn" aria-label="Send">
-              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
-            </button>
-          </div>
-        </form>
         </div>
-      </div><!-- /gym-bottom -->
+
+        <div class="cwb-studio-banner" data-reveal>
+          <div class="cwb-studio-banner-icon" aria-hidden="true">⚡</div>
+          <div class="cwb-studio-banner-body">
+            <h3>Plyometrics &amp; Core Drills</h3>
+            <p>Specific dryland activation routines, core stability, and swimmer mobility circuits.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-cta-glow" id="openGymPlyoBtn">
+            Explore Drills <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+          </button>
+        </div>
+      </div><!-- /workouts-hub-grid -->
       </div><!-- /data-auth-signed-in (guest gate wrapper) -->
     </div>
 
@@ -4323,7 +4293,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <div class="tab-panel panel-wide" id="panel-coach">
      <div class="panel-wide-inner">
       <div class="section-head">
-        <p class="eyebrow"><svg class="icon"><use href="#i-comment"/></svg> <span data-i18n="coach.eyebrow">AI Swim Coach</span></p>
+        <p class="eyebrow"><svg class="icon"><use href="#i-comment"/></svg> <span data-i18n="coach.eyebrow">Swim Coach</span></p>
         <h2 data-i18n="coach.heading">Your Coach, On Call</h2>
         <p>Ask about technique, dryland or your training log — attach a photo of a workout page, your gear, or your stroke for specific, coach-level feedback.</p>
       </div>
@@ -4332,7 +4302,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <div class="coach-page-locked">
           <svg class="icon"><use href="#i-lock"/></svg>
           <h3>Sign In To Chat With The Coach</h3>
-          <p>Creating a free account takes seconds and unlocks the full AI Swim Coach, including photo analysis of your technique, gear and logs.</p>
+          <p>Creating a free account takes seconds and unlocks the full Swim Coach, including photo analysis of your technique, gear and logs.</p>
           <button type="button" class="btn btn-primary" id="coachPageSignInBtn">Sign In</button>
         </div>
       </div>
@@ -4352,7 +4322,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <div class="coach-page-header">
               <div class="coach-page-avatar"><svg class="icon"><use href="#i-bolt"/></svg></div>
               <div class="coach-page-header-body">
-                <span class="coach-page-header-name">AI Swim Coach</span>
+                <span class="coach-page-header-name">Swim Coach</span>
                 <span class="coach-page-header-status"><span class="coach-status-dot"></span> Ready to help</span>
               </div>
             </div>
@@ -4385,7 +4355,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                   <svg class="icon"><use href="#i-camera"/></svg>
                 </button>
                 <input type="file" id="coachPageFileInput" accept="image/*,video/*" multiple hidden>
-                <label for="coachPageInput" class="sr-only">Ask the AI Swim Coach</label>
+                <label for="coachPageInput" class="sr-only">Ask the Swim Coach</label>
                 <textarea id="coachPageInput" class="coach-input coach-page-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo/video…" maxlength="2000"></textarea>
                 <button type="submit" class="coach-send-btn" id="coachPageSendBtn" aria-label="Send">
                   <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
@@ -4597,8 +4567,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <div class="faq-body">Open Settings → Billing → Manage Billing to reach your secure Paddle billing portal, where you can update payment details, switch plans, or cancel any time — no need to message us for routine billing changes.</div>
           </details>
           <details class="faq-item">
-            <summary>Why does the AI Coach only answer swimming questions?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-            <div class="faq-body">The AI Coach is scoped intentionally to swim training, technique, and dryland programming — that focus is what keeps its advice reliable. For account or billing questions, message the human team right here instead.</div>
+            <summary>Why does the Swim Coach only answer swimming questions?<svg class="icon"><use href="#i-chevron"/></svg></summary>
+            <div class="faq-body">The Swim Coach is scoped intentionally to swim training, technique, and dryland programming — that focus is what keeps its advice reliable. For account or billing questions, message the human team right here instead.</div>
           </details>
           <details class="faq-item">
             <summary>How fast will a real person reply here?<svg class="icon"><use href="#i-chevron"/></svg></summary>
@@ -4691,7 +4661,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 
           <div class="settings-card">
             <h3><svg class="icon"><use href="#i-globe"/></svg> Language</h3>
-            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Switch the site’s menus and headings between English and Arabic. Generated workouts, AI Coach replies, and PDFs stay in English for now.</p>
+            <p style="color:var(--muted); font-size:0.88rem; margin-bottom:14px;">Switch the site’s menus and headings between English and Arabic. Generated workouts, Swim Coach replies, and PDFs stay in English for now.</p>
             <div class="pill-tabs" role="tablist" aria-label="Language" id="settingsLangTabs">
               <button type="button" class="pill-tab" role="tab" data-lang-choice="en" aria-selected="true">English</button>
               <button type="button" class="pill-tab" role="tab" data-lang-choice="ar" aria-selected="false">العربية</button>
@@ -4751,7 +4721,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Basic daily swim workouts — Beginner track</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Up to 2 saved custom workouts</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Basic Distance Tracker (daily/weekly/monthly totals)</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Limited AI Coach chat</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Limited Swim Coach chat</li>
           </ul>
           <button type="button" class="btn btn-ghost btn-block" data-open-auth="signup">Get Started Free</button>
         </div>
@@ -4765,7 +4735,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             <li><svg class="icon"><use href="#i-check"/></svg> Competitive &amp; Elite swim tracks</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Unlimited saved custom workouts</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Full Live Workout Mode</li>
-            <li><svg class="icon"><use href="#i-check"/></svg> Full AI Coach access — widget + full-screen page, photo analysis, saved history</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Full Swim Coach access — widget + full-screen page, photo analysis, saved history</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Full Gym &amp; dryland training plans</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Full Technique Academy library</li>
             <li><svg class="icon"><use href="#i-check"/></svg> Full Distance Tracker — analytics, charts &amp; PB progression</li>
@@ -4799,7 +4769,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </details>
         <details class="faq-item">
           <summary>What's included in the Free plan?<svg class="icon"><use href="#i-chevron"/></svg></summary>
-          <div class="faq-body">Every account can use the Free plan forever — Beginner-level swim workouts, up to 2 saved custom workouts, a basic tracker and limited AI chat, no card required. Subscribe to All-Access Pro anytime to unlock everything, unlimited.</div>
+          <div class="faq-body">Every account can use the Free plan forever — Beginner-level swim workouts, up to 2 saved custom workouts, a basic tracker and limited Coach chat, no card required. Subscribe to All-Access Pro anytime to unlock everything, unlimited.</div>
         </details>
       </div>
     </div>
@@ -4965,7 +4935,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
           <li><button type="button" data-tab="gym">Gym Focus</button></li>
           <li><button type="button" data-tab="gear">Gear</button></li>
           <li><button type="button" data-tab="academy">Technique Academy</button></li>
-          <li><button type="button" data-tab="coach">AI Swim Coach</button></li>
+          <li><button type="button" data-tab="coach">Swim Coach</button></li>
           <li><button type="button" data-tab="tracker">Distance Tracker</button></li>
           <li><button type="button" data-tab="support">Support</button></li>
           <li><button type="button" data-tab="settings">Settings</button></li>
@@ -5044,7 +5014,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
     <p class="promo-popup-copy">Register free and get complete access to the entire platform — no card required, and nothing locks later.</p>
     <ul class="promo-popup-perks">
       <li><svg class="icon"><use href="#i-check"/></svg> Adaptive Swim Workout Generator &amp; dryland Gym plans</li>
-      <li><svg class="icon"><use href="#i-check"/></svg> AI Swim Coach with photo technique analysis</li>
+      <li><svg class="icon"><use href="#i-check"/></svg> Swim Coach with photo technique analysis</li>
       <li><svg class="icon"><use href="#i-check"/></svg> Distance Tracker &amp; full Technique Academy</li>
     </ul>
     <button type="button" class="btn btn-primary btn-block" id="promoPopupRegisterBtn">Register Now — It's Free</button>
@@ -5160,7 +5130,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       </div>
     </header>
 
-    <div class="swim-generator-body">
+    <div class="studio-body">
       <div class="workouts-columns">
        <div class="workouts-col-left">
         <div class="bento-card wb-schedule" data-reveal="left">
@@ -5277,7 +5247,100 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
        </div><!-- /workouts-col-right -->
       </div><!-- /workouts-columns -->
-    </div><!-- /swim-generator-body -->
+    </div><!-- /studio-body -->
+  </div>
+</div>
+
+<!-- ============================= GYM STUDIO (dedicated dashboard) =============================
+     Opened from the Gym Hub's two cards — both lead here, since there's
+     only one underlying Gym system (a Strength Profile + Target Focus
+     tabs driving one shared exercise board), not two separate ones.
+     "Plyometrics & Core Drills" additionally pre-selects the Plyometrics
+     focus tab on open (see wireGymStudio() in js/workout-generator.js).
+     Reuses #workoutStudioOverlay's own .workout-studio-* classes
+     verbatim, same as #swimGeneratorStudioOverlay above, so all three
+     dedicated views share identical header styling and transitions by
+     construction. Every element id inside (gymAge, gymWorkingWeight,
+     gymStrengthLimit, gymApplyBtn, gymWeeklyFocusNote, gymFocusTabs,
+     gymNote, gymGrid, gymPdfBtn, gymAiForm, etc.) is byte-for-byte
+     unchanged from the old embedded section. -->
+<div class="workout-studio-overlay" id="gymStudioOverlay" role="dialog" aria-modal="true" aria-labelledby="gymStudioTitle" hidden>
+  <div class="workout-studio-shell">
+    <header class="workout-studio-header">
+      <button type="button" class="workout-studio-back-btn" id="gymStudioBackBtn">
+        <svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg> Back to Gym
+      </button>
+      <div class="workout-studio-header-info">
+        <p class="workout-studio-eyebrow">Dryland &amp; Strength</p>
+        <h2 id="gymStudioTitle">Gym Studio</h2>
+      </div>
+    </header>
+
+    <div class="studio-body">
+      <div class="gym-top-bar">
+       <div class="gym-top-half" data-reveal>
+          <div class="config-label"><svg class="icon"><use href="#i-user"/></svg> Your Strength Profile <span class="config-label-hint">(optional — tailors load &amp; volume for aquatic power)</span></div>
+          <div class="profile-row">
+            <div class="profile-field">
+              <label for="gymAge">Age</label>
+              <input type="number" id="gymAge" min="6" max="99" placeholder="e.g. 24">
+            </div>
+            <div class="profile-field">
+              <label for="gymWorkingWeight">Current Working Weight</label>
+              <input type="text" id="gymWorkingWeight" placeholder="e.g. 40kg">
+            </div>
+            <div class="profile-field">
+              <label for="gymStrengthLimit">Strength Limit / Max Capacity</label>
+              <input type="text" id="gymStrengthLimit" placeholder="e.g. 80kg 1RM">
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" id="gymApplyBtn" style="margin-top:20px">
+            <svg class="icon"><use href="#i-bolt"/></svg> Update My Prescription
+          </button>
+       </div><!-- /gym-top-half (profile) -->
+
+       <div class="gym-top-half" data-reveal>
+          <div class="config-label"><svg class="icon"><use href="#i-dumbbell"/></svg> Target Focus</div>
+          <p id="gymWeeklyFocusNote" style="color:var(--aqua); font-size:0.88rem; margin-bottom:12px;"></p>
+          <div class="pill-tabs" role="tablist" aria-label="Gym focus" id="gymFocusTabs">
+            <button class="pill-tab" role="tab" data-focus="cardio" aria-selected="false"><svg class="icon"><use href="#i-heart-pulse"/></svg> Fitness / Cardio</button>
+            <button class="pill-tab" role="tab" data-focus="full" aria-selected="false"><svg class="icon"><use href="#i-dumbbell"/></svg> Full Body</button>
+            <button class="pill-tab" role="tab" data-focus="upper" aria-selected="false"><svg class="icon"><use href="#i-shoulder"/></svg> Upper Body</button>
+            <button class="pill-tab" role="tab" data-focus="lower" aria-selected="false"><svg class="icon"><use href="#i-bolt"/></svg> Lower Body</button>
+            <button class="pill-tab" role="tab" data-focus="flexibility" aria-selected="false"><svg class="icon"><use href="#i-wave"/></svg> Flexibility &amp; Agility</button>
+            <button class="pill-tab" role="tab" data-focus="plyometrics" aria-selected="false"><svg class="icon"><use href="#i-target"/></svg> Plyometrics &amp; Explosive Power</button>
+          </div>
+          <p id="gymNote" style="color:var(--aqua); font-size:0.88rem; margin-top:12px; display:none;"></p>
+       </div><!-- /gym-top-half (focus) -->
+      </div><!-- /gym-top-bar -->
+
+      <div class="gym-bottom">
+        <div id="gymGrid"></div>
+        <button type="button" class="btn btn-outline-aqua btn-sm" id="gymPdfBtn" style="display:none; margin-top:24px;">
+          <svg class="icon"><use href="#i-download"/></svg> Save Routine as PDF
+        </button>
+
+        <div class="bento-card workout-ai-panel" data-auth-signed-in style="display:none; margin-top: var(--space-6); --bento-accent:var(--aqua-bright)">
+          <div class="workout-ai-head"><svg class="icon"><use href="#i-comment"/></svg> <h4>Ask The Coach For A Dryland Routine</h4></div>
+          <div class="coach-messages workout-ai-messages" id="gymAiMessages"></div>
+          <form class="coach-page-form" id="gymAiForm">
+            <div class="workout-ai-chips" id="gymAiChips">
+              <button type="button" class="coach-prompt-chip" data-prompt="Generate a complete dryland routine for today, tailored to a competitive swimmer.">Generate today's routine</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Generate a full week (7 days) of dryland training, balancing strength, power and recovery for a competitive swimmer.">Generate this week's plan</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Make the routine you just gave me shorter — I have less time today.">Make it shorter</button>
+            <button type="button" class="coach-prompt-chip" data-prompt="Add more core and rotator-cuff / shoulder-health work to the routine.">Add more core work</button>
+          </div>
+          <div class="coach-page-form-row">
+            <label for="gymAiInput" class="sr-only">Ask the Dryland Coach</label>
+            <textarea id="gymAiInput" class="coach-input" rows="1" placeholder="Ask for a routine, or refine the one above…" maxlength="1000"></textarea>
+            <button type="submit" class="coach-send-btn" id="gymAiSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+        </form>
+        </div>
+      </div><!-- /gym-bottom -->
+    </div><!-- /studio-body -->
   </div>
 </div>
 
@@ -5347,14 +5410,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 </div>
 
 <!-- ============================= AI SWIM COACH WIDGET ============================= -->
-<button type="button" class="coach-fab" id="coachFab" aria-haspopup="dialog" aria-expanded="false" aria-label="Chat with the AI Swim Coach">
+<button type="button" class="coach-fab" id="coachFab" aria-haspopup="dialog" aria-expanded="false" aria-label="Chat with the Swim Coach">
   <svg class="icon" aria-hidden="true"><use href="#i-comment"/></svg>
 </button>
 
 <div class="coach-panel" id="coachPanel" role="dialog" aria-labelledby="coachPanelTitle">
   <div class="coach-panel-header">
     <div>
-      <h4 id="coachPanelTitle">AI Swim Coach</h4>
+      <h4 id="coachPanelTitle">Swim Coach</h4>
       <p>Technique, dryland &amp; log analysis — swim topics only</p>
     </div>
     <button type="button" class="coach-panel-close" id="coachPanelClose" aria-label="Close chat">
@@ -5368,7 +5431,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
       <svg class="icon"><use href="#i-camera"/></svg>
     </button>
     <input type="file" id="coachWidgetFileInput" accept="image/*,video/*" multiple hidden>
-    <label for="coachInput" class="sr-only">Ask the AI Swim Coach</label>
+    <label for="coachInput" class="sr-only">Ask the Swim Coach</label>
     <textarea id="coachInput" class="coach-input" rows="1" placeholder="Ask about technique, dryland, your log, or attach a photo/video…" maxlength="2000"></textarea>
     <button type="submit" class="coach-send-btn" id="coachSendBtn" aria-label="Send">
       <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
@@ -6663,17 +6726,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var I18N = {
       en: {
         'nav.workouts': 'Workouts', 'nav.gym': 'Gym', 'nav.gear': 'Gear', 'nav.academy': 'Academy',
-        'nav.coach': 'AI Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
+        'nav.coach': 'Swim Coach', 'nav.tracker': 'Tracker', 'nav.support': 'Support', 'nav.settings': 'Settings', 'nav.pricing': 'Pricing',
         'nav.signin': 'Sign In',
         'hero.eyebrow': 'Swim & Gym Workout Schedules',
         'hero.headline': 'Outswim Your Limits.<br>Own the <span class="accent">Race.</span>',
         'hero.sub': 'Unleash your potential with high-performance swim sets, tailored dryland training, and instant progress tracking.',
         'hero.cta1': 'Build My Workout', 'hero.cta2': 'Explore Gym Plan',
         'workouts.eyebrow': 'Build Your Own', 'workouts.heading': 'Workouts Hub',
-        'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'What Are You Training Today?',
+        'gym.eyebrow': 'Dryland & Strength', 'gym.heading': 'Gym Hub',
         'gear.eyebrow': 'Equipment Integration', 'gear.heading': 'Gear That Powers Every Set',
         'academy.eyebrow': 'Technique Academy', 'academy.heading': 'Watch. Break Down. Improve.',
-        'coach.eyebrow': 'AI Swim Coach', 'coach.heading': 'Your Coach, On Call',
+        'coach.eyebrow': 'Swim Coach', 'coach.heading': 'Your Coach, On Call',
         'tracker.eyebrow': 'Distance Tracker', 'tracker.heading': 'Log Your Swims, Watch The Volume Add Up',
         'support.eyebrow': 'Support', 'support.heading': 'Talk To The Swimfit Team',
         'support.sub': 'Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.',
@@ -6691,7 +6754,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'hero.sub': 'أطلق العنان لإمكاناتك مع تمارين سباحة عالية الأداء، وتدريب بري مخصص، وتتبّع فوري للتقدم.',
         'hero.cta1': 'ابنِ تمريني', 'hero.cta2': 'استكشف خطة الجيم',
         'workouts.eyebrow': 'ابنِ تمرينك', 'workouts.heading': 'مركز التمارين',
-        'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'ماذا تتدرب اليوم؟',
+        'gym.eyebrow': 'القوة واللياقة البدنية', 'gym.heading': 'مركز الجيم',
         'gear.eyebrow': 'تكامل المعدات', 'gear.heading': 'معدات تدعم كل تمرين',
         'academy.eyebrow': 'أكاديمية التقنية', 'academy.heading': 'شاهد. حلّل. تحسّن.',
         'coach.eyebrow': 'مدرب السباحة الذكي', 'coach.heading': 'مدربك، على استعداد دائم',
@@ -6919,7 +6982,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       fab.setAttribute('aria-expanded', 'true');
       loadHistoryIfNeeded();
       if (!messagesEl.children.length) {
-        appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach — ask me about stroke technique, dryland training, or how to read your workout log. What\'s up?');
+        appendMessage('assistant', 'Hey! I\'m your Swimfit Coach — ask me about stroke technique, dryland training, or how to read your workout log. What\'s up?');
       }
       setTimeout(function () { input.focus(); }, 50);
     }
@@ -7247,7 +7310,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if (!messages.length) {
         if (promptsEl) promptsEl.style.display = '';
         if (window.__firebaseUser) {
-          appendMessage('assistant', 'Hey! I\'m your Swimfit AI Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
+          appendMessage('assistant', 'Hey! I\'m your Swimfit Coach. Ask me anything about technique, dryland training or your workout log — or attach a photo of your log, gear, or stroke and I\'ll break it down for you.');
         }
         return;
       }

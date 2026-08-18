@@ -6270,3 +6270,84 @@ full-screen view, reached from a card, exactly like the Custom Workout Builder a
   stacked and the open Generator overlay both with zero horizontal overflow; and the full
   pre-existing regression suite (all 9 tabs, Complete Workout/Live Mode buttons) passes unchanged
   with zero page errors throughout.
+
+**A copy-and-structure polish round: "AI" branding scrubbed from every user-facing surface in
+favor of natural coaching terms, and the Gym tab rebuilt into the same modular Hub pattern the
+Workouts tab already established.**
+
+- **"AI" stripped from every user-facing string site-wide, replaced with plain coaching
+  terminology — never touching an element id, CSS class, or JS variable name, only visible text/
+  aria-labels/i18n dictionary values.** The nav's "AI Coach" (desktop sidebar, mobile bottom nav,
+  Home page nav-links, capsule nav, footer) is now **"Swim Coach"** everywhere (the `I18N.en`
+  dictionary's `nav.coach`/`coach.eyebrow` values updated alongside every static-HTML fallback that
+  reads them, so there's no flash-of-old-text before JS applies the dictionary on load) —
+  deliberately not "Pro Coach," since the Coach feature is available to every signed-in tier (Free
+  gets a lower daily message cap, not a full lock), and "Pro" risked implying it's paid-only when
+  it isn't. The Arabic dictionary already said "المدرب الذكي" (**the smart coach**) — never a
+  literal "AI" translation — so it needed no change. Every other "AI Swim Coach"/"AI Coach" mention
+  (the full-screen Coach page's eyebrow/header/sr-only labels, the floating widget's panel title/
+  aria-label/sr-only label, both surfaces' own canned greeting text, the Pricing tab's Free/Pro
+  feature-list bullets, two FAQ entries, the Settings language note, the entrance promo popup's
+  perks list, and the EmailJS welcome-email template's feature list + upsell paragraph — including
+  swapping its 🤖 robot emoji for 💬, since the emoji itself read as "AI" as much as the word did)
+  was renamed the same way, verified via a full-file grep before and after (every remaining `AI`
+  hit traces to an HTML/JS **comment**, never rendered user-facing text).
+- **Gym's own inline coaching panel was renamed to match its Workouts-tab sibling's existing
+  naming convention** ("Ask The Coach About This Workout," no "AI" word) rather than inventing a
+  new pattern: "AI Dryland Routine Generator" → **"Ask The Coach For A Dryland Routine"**, and its
+  sr-only input label "Ask the AI Gym Coach" → **"Ask the Dryland Coach."**
+- **Workouts Hub, part 1's own AI wording was also caught and fixed in this same sweep** (that
+  card/copy was written in the immediately-preceding round, before this round's broader "AI"
+  policy existed): the card title "AI Swim Workout Generator" → **"Smart Swim Workout Generator"**
+  (the other offered option, "Pro Swim Workout Generator," was avoided for the identical tier-
+  confusion reason "Pro Coach" was — the generator's Beginner track is free for everyone, only
+  Competitive/Elite are gated), its subtitle trimmed to the exact requested wording ("Generate
+  targeted swim routines customized to your discipline, volume, and weekly schedule." — dropping
+  "smart, " since the ask's own literal replacement text didn't include it), and the Hub's own
+  section-lead paragraph ("Get an AI-generated swim set…") reworded to "Get a targeted swim set…".
+- **The Gym tab was rebuilt into a Hub, mirroring the Workouts tab's own two-card pattern exactly
+  — same shared `.workouts-hub-grid`/`.cwb-studio-banner` component, no new card CSS needed.** The
+  always-visible Strength Profile + Target Focus tabs + exercise board (`.gym-top-bar`/
+  `.gym-bottom`) moved verbatim into a new dedicated overlay, `#gymStudioOverlay`, replaced on the
+  main Gym tab by two cards: **Custom Dryland Prescription** ("🏋️‍♂️ … Targeted strength, mobility,
+  and explosive power workouts tailored for aquatic performance." / "Open Strength Studio →",
+  `#openGymStrengthBtn`) and **Plyometrics & Core Drills** ("⚡ … Specific dryland activation
+  routines, core stability, and swimmer mobility circuits." / "Explore Drills →",
+  `#openGymPlyoBtn`). **Both cards open the identical dedicated board** — there's only ever one
+  underlying Gym system (one Strength Profile, one `#gymFocusTabs` pill group, one shared
+  `#gymGrid`), not two separate ones, so building two different overlays would have meant either
+  duplicating that whole system or making the second one a hollow shell; `wireGymStudio()`'s
+  `openStudio(focus)` optionally pre-selects a focus tab on open (syncing `aria-selected` and
+  calling the existing `renderGym(focus)` exactly the way the tab's own click handler already does)
+  — "Explore Drills" passes `'plyometrics'`, "Open Strength Studio" passes nothing and simply opens
+  the board as it currently stands (today's weekly-rotation default, or whatever a swimmer had
+  last selected). The Gym tab's own section head was retitled "What Are You Training Today?" →
+  **"Gym Hub"** (English + Arabic `I18N` dictionaries both updated) with new copy describing the
+  card choice.
+- **A shared body-wrapper class was introduced for reuse across all three dedicated Studio views**,
+  not a third hand-copied CSS block: `.swim-generator-body` (added in the immediately-preceding
+  round for the Swim Generator Studio alone) was generalized to **`.studio-body`** — a scroll +
+  padding + `max-width:1200px`-centered wrapper — and both the Swim Generator Studio's own markup
+  and the new Gym Studio now reference it, each still laying out its own already-tuned inner content
+  (`.workouts-columns`' 40/60 split for the generator, `.gym-top-bar`/`.gym-bottom`'s stacked layout
+  for Gym) unchanged. Combined with the pre-existing `.workout-studio-overlay`/`-shell`/`-header`/
+  `-back-btn`/`-header-info`/`-eyebrow` classes every one of the three dedicated views (Custom
+  Workout Builder Studio, Swim Generator Studio, Gym Studio) now shares verbatim, all three read as
+  one consistent "family" of dedicated views with zero duplicated CSS.
+- **Every element id inside the moved Gym markup is byte-for-byte unchanged** (`gymAge`,
+  `gymWorkingWeight`, `gymStrengthLimit`, `gymApplyBtn`, `gymWeeklyFocusNote`, `gymFocusTabs`,
+  `gymNote`, `gymGrid`, `gymPdfBtn`, `gymAiMessages`, `gymAiForm`, `gymAiChips`, `gymAiInput`,
+  `gymAiSendBtn`) — `js/workout-generator.js`'s existing `getElementById`-based rendering/PDF-export
+  logic needed zero changes beyond the new `wireGymStudio()` open/close/focus-preselect wiring
+  itself, the same lesson already proven twice over by the two prior Studio-view extractions.
+- Verified via Playwright: a full-file grep confirms zero remaining user-facing "AI" text anywhere
+  in `index.html` or the `js/*.js` files (only comments); the Gym Hub renders exactly 2 cards with
+  the exact requested titles/subtitles/button labels; opening via "Open Strength Studio" leaves the
+  currently-selected focus tab untouched while "Explore Drills" correctly pre-selects Plyometrics
+  (`aria-selected="true"`) and renders that focus's exercise board; a direct computed-style
+  comparison confirms the Gym Studio's header/back-button are byte-for-byte identical to the Swim
+  Generator Studio's own (not just visually close); the Gym PDF export still fires a real `download`
+  event from inside the new overlay; Escape closes it; a 390px mobile viewport shows zero horizontal
+  overflow in both the Hub and the open Studio; and the full pre-existing regression suite (all 9
+  tabs, the Swim Generator Studio's own workout generation + PDF export) passes unchanged with zero
+  page errors throughout.
