@@ -72,7 +72,7 @@
   form-action 'self';
 ">
 -->
-<script type="module" src="js/firebase-service.js"></script>
+<script type="module" src="js/firebase-service.js?v=20260818a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -6447,11 +6447,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   })();
 
 </script>
-<script src="js/paddle-client.js"></script>
-<script src="js/pdf-fonts.js"></script>
-<script src="js/swiml-database.js"></script>
-<script src="js/abu-dhabi-aquatics-database.js"></script>
-<script src="js/workout-generator.js"></script>
+<!-- ============================= CACHE BUSTING (?v=) =============================
+     EVERY local js/*.js tag in this file carries the SAME ?v= token, and it
+     MUST be bumped in the same commit as any change to those files.
+
+     Why this exists: back when this was one self-contained index.html, a
+     refresh updated markup and behaviour atomically. Since the JS was split
+     into js/*.js, a browser can hold a STALE cached script alongside a fresh
+     page — which surfaces as "the new button isn't there", because most of
+     this app's UI (the whole Custom Workout Builder block markup, for one) is
+     rendered by JS, while its neighbours (e.g. #cwbAddBlockBtn) are static
+     HTML. That exact split is what a real swimmer reported after the Rest-row
+     ship: "+ Add Block" (static, updated) present, "+ Add Set"/"+ Add Rest"
+     (JS-rendered, stale) wrong. GitHub Pages serves these assets cacheable
+     and there's no build step to hash filenames, so this literal token is the
+     cache key. Bump it (date + letter) on every deploy that touches js/. -->
+<script src="js/paddle-client.js?v=20260818a"></script>
+<script src="js/pdf-fonts.js?v=20260818a"></script>
+<script src="js/swiml-database.js?v=20260818a"></script>
+<script src="js/abu-dhabi-aquatics-database.js?v=20260818a"></script>
+<script src="js/workout-generator.js?v=20260818a"></script>
 <script>
   /* ============================= SETTINGS: PROFILE + SPECIALTIES ============================= */
   (function wireSettingsPanel() {
@@ -7850,9 +7865,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   })();
 
 </script>
-<script src="js/tracker-service.js"></script>
-<script src="js/admin-service.js"></script>
-<script src="js/custom-workout.js"></script>
+<script src="js/tracker-service.js?v=20260818a"></script>
+<script src="js/admin-service.js?v=20260818a"></script>
+<script src="js/custom-workout.js?v=20260818a"></script>
 <script>
   /* ============================= ADMIN MESSAGES WIDGET (user-facing inbox) =============================
      Every signed-in non-admin swimmer gets this floating widget so they can see

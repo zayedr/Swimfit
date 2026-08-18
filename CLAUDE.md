@@ -6413,3 +6413,44 @@ row shape, so a new row type is invisible to it.
   SWIM; a 390px viewport stacks the rows with the grip hidden and zero horizontal overflow; and the
   full pre-existing regression suite (all 9 tabs, workout generation, PDF export) passes unchanged
   with zero page errors.
+
+**A "+ Add Rest is missing from the live site" report turned out to be a genuine, structural
+STALE-CACHED-JAVASCRIPT bug — not a missing button — and the fix is `?v=` cache-busting on every
+local script tag.** The reported symptom was oddly specific: each block showed "+ Add Set" and
+"+ Add Block" but no "+ Add Rest". That combination is the tell, and it's diagnostic rather than
+ambiguous — **`#cwbAddBlockBtn` is static HTML in `index.html`, while the per-block "+ Add Set" /
+"+ Add Rest" buttons are emitted at runtime by `renderBlockHtml()` in `js/custom-workout.js`.** A
+browser holding a stale copy of that one JS file therefore renders the NEW page shell (so "+ Add
+Block" is present and correct) alongside the OLD JS-rendered block actions (so "+ Add Rest" is
+absent) — exactly what was reported.
+
+- **The shipped code was verified correct before changing anything**, rather than trusting either
+  the report or the previous round's tests: `git show origin/main:js/custom-workout.js` confirmed
+  the `data-action="add-rest"` button is on `main`, and a **pristine `git worktree` checkout of
+  `origin/main`** was served and driven with Playwright — the button renders at 130×40px with
+  `display:flex`/`visibility:visible`/`opacity:1`, and clicking it inserts a full rest row
+  (duration, note, move-up, move-down, delete, grip). So there was no button to "re-add"; the
+  deployed source was already right and re-adding it would have been fixing the wrong thing.
+- **Root cause**: every local `<script src="js/*.js">` tag was unversioned. This is a regression in
+  kind — not in code — introduced when the JS was split out of the single self-contained
+  `index.html` several rounds ago. Before that split, one refresh updated markup and behaviour
+  atomically; afterwards, HTML and JS can drift apart in a browser/CDN cache, and because so much
+  of this app's UI is JS-rendered, that drift presents as "a feature I just shipped isn't there."
+  GitHub Pages serves these assets cacheable and this repo has no build step to hash filenames, so
+  a literal version token is the available cache key.
+- **Fix**: all 9 local script tags (`firebase-service`, `paddle-client`, `pdf-fonts`,
+  `swiml-database`, `abu-dhabi-aquatics-database`, `workout-generator`, `tracker-service`,
+  `admin-service`, `custom-workout`) now carry the same `?v=` token, with a prominent comment above
+  the main script block stating the rule: **every js/*.js change must bump the token in the same
+  commit.** Verified no dynamic `import()`/`fetch()` of these paths exists that a query string
+  could break, and that the versioned URLs resolve 200.
+- **Also confirmed and worth recording, since it read as a discrepancy in the report** ("verify the
+  button in both the main view and the dedicated Workout Studio"): there is exactly **one** builder
+  instance, and it lives only inside `#workoutStudioOverlay` — measured as 0 `#cwbBlocksList` on the
+  main Workouts tab vs 1 in the Studio. That's by design from the Workouts-Hub refactor two rounds
+  earlier, which deliberately replaced the always-embedded builder with a Hub card; there is no
+  second "main view" builder for the button to be missing from.
+- Verified via Playwright after adding the tokens: the versioned asset URLs load, "+ Add Rest"
+  still renders and still inserts a complete rest row, the whole Rest-row suite (add/reorder/
+  round-trip/rest-only-refused/live REST step with its yellow→green transitions) still passes, and
+  the full 9-tab regression plus PDF export pass with zero page errors.
