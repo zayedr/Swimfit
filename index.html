@@ -72,7 +72,7 @@
   form-action 'self';
 ">
 -->
-<script type="module" src="js/firebase-service.js?v=20260818b"></script>
+<script type="module" src="js/firebase-service.js?v=20260822a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2720,6 +2720,13 @@ body.paywall-locked .mobile-bottom-nav { z-index: 410; }
 }
 .workouts-hub-grid .cwb-studio-banner { margin-top: 0; flex-direction: column; align-items: flex-start; height: 100%; }
 .workouts-hub-grid .cwb-studio-banner .btn { width: 100%; justify-content: center; }
+/* .cwb-studio-banner-body's `flex: 1 1 240px` basis was written for the
+   ROW-direction banner, where 240px is a width. The Hub grid flips the card
+   to a column, which makes that same basis a 240px MINIMUM HEIGHT — measured
+   at 240px for a two-line body, leaving a large dead gap above the button.
+   Keep the grow (so buttons still bottom-align across equal-height cards in
+   a multi-card Hub) but reset the basis to content height. */
+.workouts-hub-grid .cwb-studio-banner-body { flex: 1 1 auto; }
 .cwb-studio-banner-icon { font-size: 2.2rem; flex-shrink: 0; line-height: 1; }
 .cwb-studio-banner-body { flex: 1 1 240px; min-width: 0; }
 .cwb-studio-banner-body h3 { margin: 0 0 4px; font-size: 1.15rem; }
@@ -3242,6 +3249,14 @@ body.live-workout-active { overflow: hidden; }
    top of the shared .coach-page-shell, since this surface is the one place
    a swimmer with an actual account/billing problem lands and needs to feel
    confident a real team is on the other end. */
+/* Inside the dedicated Support Studio the chat should fill the view rather
+   than sit as a fixed-height card with dead space beneath it — the shell's
+   own `height: min(72vh, 760px)` is sized for an in-page panel, not a
+   full-screen studio. Scoped to this overlay only, so the floating widget
+   and any other .coach-page-shell use are untouched. */
+#supportStudioOverlay .studio-body { display: flex; flex-direction: column; }
+#supportStudioOverlay #supportChatWrap { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+#supportStudioOverlay .support-page-shell { flex: 1 1 auto; height: auto; min-height: 0; }
 .support-page-shell {
   border-image: linear-gradient(135deg, var(--aqua), var(--green-bright)) 1;
   border-width: 1.5px; border-style: solid;
@@ -3269,7 +3284,7 @@ body.live-workout-active { overflow: hidden; }
   margin-bottom: var(--space-4);
 }
 .support-section-title .icon { width: 18px; height: 18px; color: var(--aqua); }
-.support-faq-section { margin-bottom: var(--space-6); }
+.support-faq-section { margin-top: var(--space-6); margin-bottom: var(--space-6); }
 .support-faq-list { max-width: none; margin-top: 0; }
 .support-chat-title { margin-top: var(--space-2); }
 /* ---------- Support desk entry CTA (shown before the chat is opened) ---------- */
@@ -4475,8 +4490,8 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      <div class="panel-wide-inner">
       <div class="section-head">
         <p class="eyebrow"><svg class="icon"><use href="#i-quote"/></svg> <span data-i18n="support.eyebrow">Support</span></p>
-        <h2 data-i18n="support.heading">Talk To The Swimfit Team</h2>
-        <p data-i18n="support.sub">Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.</p>
+        <h2 data-i18n="support.heading">Support Hub</h2>
+        <p data-i18n="support.sub">Talk to a real person about your account, your subscription, or your training. Open the support chat below, or check the quick answers first — most questions are covered there.</p>
       </div>
 
       <div class="coach-page-locked" data-auth-signed-out>
@@ -4486,12 +4501,32 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         <button type="button" class="btn btn-primary" data-open-auth="signup">Sign In</button>
       </div>
 
-      <!-- Real Help Center content: a genuine FAQ (reusing the same .faq-list/
-           .faq-item disclosure pattern the Pricing tab already uses, so no new
-           CSS system was needed) above the chat, so the page reads as a full
-           Help Center rather than a single, mostly-empty chat box. Every
-           answer here describes only real, already-shipped behavior — no new
-           feature or claim was invented for this copy. -->
+      <!-- ---------- SUPPORT HUB ENTRY CARD ----------
+           Same Hub pattern as Workouts / Gym / Tracker: the tab itself is a
+           landing view, and the chat lives in its own dedicated full-screen
+           studio (#supportStudioOverlay, below the panels) reached from this
+           one card. Every element id inside the moved chat shell is
+           unchanged, so wireSupportPage() needed no rendering changes — only
+           the open/close wiring. -->
+      <div class="workouts-hub-grid is-single" data-auth-signed-in style="display:none">
+        <div class="cwb-studio-banner" data-reveal>
+          <div class="cwb-studio-banner-icon" aria-hidden="true">💬</div>
+          <div class="cwb-studio-banner-body">
+            <h3>Swimfit Support Desk</h3>
+            <p>Talk to a real coach or report an issue.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-cta-glow" id="openSupportChatBtn">
+            Open Support Chat <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+          </button>
+          <p class="support-cta-note" id="supportHubNote"><span class="support-status-dot"></span> Typically replies within a few hours</p>
+        </div>
+      </div>
+
+      <!-- Self-serve answers, deliberately BELOW the entry card: a Hub's
+           primary action shouldn't sit under five disclosure rows. Reuses the
+           same .faq-list/.faq-item pattern the Pricing tab already uses, so
+           no new CSS system was needed. Every answer describes only real,
+           already-shipped behavior — no claim was invented for this copy. -->
       <div class="support-faq-section" data-auth-signed-in style="display:none">
         <h3 class="support-section-title"><svg class="icon"><use href="#i-comment"/></svg> Quick Answers</h3>
         <div class="faq-list support-faq-list">
@@ -4518,49 +4553,6 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
         </div>
       </div>
 
-      <!-- ---------- SUPPORT DESK ENTRY STATE ----------
-           The chat window used to sit permanently open on this tab, which
-           read as a static widget rather than a support desk. It's now
-           gated behind this call-to-action: the chat only opens once the
-           swimmer actually asks to start one. #supportChatWrap below is
-           controlled purely by that button (and by the auto-open in
-           wireSupportPage() for a swimmer who ALREADY has a conversation —
-           otherwise a returning swimmer with an unread reply would find
-           their own history hidden behind a "Start a Conversation"
-           button, which would be a worse state than the one this
-           replaces). -->
-      <div class="support-cta-card" id="supportChatCta" data-auth-signed-in style="display:none">
-        <div class="support-cta-icon" aria-hidden="true"><svg class="icon"><use href="#i-comment"/></svg></div>
-        <h3>Still need a hand?</h3>
-        <p>Message the Swimfit team directly — a real person reads every message and replies right here. Account, billing, or training, we've got you.</p>
-        <button type="button" class="btn btn-primary btn-cta-glow" id="supportStartChatBtn">
-          Contact Support Team <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
-        </button>
-        <p class="support-cta-note"><span class="support-status-dot"></span> Typically replies within a few hours</p>
-      </div>
-
-      <div id="supportChatWrap" style="display:none">
-      <h3 class="support-section-title support-chat-title" data-auth-signed-in style="display:none"><svg class="icon"><use href="#i-droplet"/></svg> Still Need Help? Message Us Directly</h3>
-      <div class="coach-page-shell support-page-shell" data-auth-signed-in style="display:none">
-        <div class="support-page-header">
-          <div class="support-page-avatar"><svg class="icon"><use href="#i-droplet"/></svg></div>
-          <div class="support-page-header-body">
-            <span class="support-page-header-name">Swimfit Support Team</span>
-            <span class="support-page-header-status"><span class="support-status-dot"></span> Online now</span>
-          </div>
-        </div>
-        <div class="coach-messages coach-page-messages" id="supportPageMessages"></div>
-        <form class="coach-page-form" id="supportPageForm">
-          <div class="coach-page-form-row">
-            <label for="supportPageInput" class="sr-only">Message the Swimfit team</label>
-            <textarea id="supportPageInput" class="coach-input coach-page-input" rows="1" placeholder="Message the Swimfit team…" maxlength="2000"></textarea>
-            <button type="submit" class="coach-send-btn" id="supportPageSendBtn" aria-label="Send">
-              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
-            </button>
-          </div>
-        </form>
-      </div>
-      </div><!-- /supportChatWrap -->
      </div>
     </div>
 
@@ -5317,6 +5309,48 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
      keeps every element id (trackerLogForm, trackerStatTabs,
      trackerAdvancedSection, trackerUpsellCard, trackerEntriesList, ...)
      byte-for-byte, so js/tracker-service.js needed zero logic changes. -->
+<!-- ---------- SUPPORT STUDIO (dedicated support-chat view) ----------
+     Reuses the exact same .workout-studio-* classes as the Workout / Gym /
+     Tracker studios, so all four dedicated views share one header treatment
+     by construction rather than four hand-matched copies. -->
+<div class="workout-studio-overlay" id="supportStudioOverlay" role="dialog" aria-modal="true" aria-labelledby="supportStudioTitle" hidden>
+  <div class="workout-studio-shell">
+    <header class="workout-studio-header">
+      <button type="button" class="workout-studio-back-btn" id="supportStudioBackBtn">
+        <svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg> Back to Support
+      </button>
+      <div class="workout-studio-header-info">
+        <p class="workout-studio-eyebrow">Swimfit Support Desk</p>
+        <h2 id="supportStudioTitle">Support Chat</h2>
+      </div>
+    </header>
+
+    <div class="studio-body">
+      <div id="supportChatWrap">
+      <div class="coach-page-shell support-page-shell" data-auth-signed-in style="display:none">
+        <div class="support-page-header">
+          <div class="support-page-avatar"><svg class="icon"><use href="#i-droplet"/></svg></div>
+          <div class="support-page-header-body">
+            <span class="support-page-header-name">Swimfit Support Team</span>
+            <span class="support-page-header-status"><span class="support-status-dot"></span> Online now</span>
+          </div>
+        </div>
+        <div class="coach-messages coach-page-messages" id="supportPageMessages"></div>
+        <form class="coach-page-form" id="supportPageForm">
+          <div class="coach-page-form-row">
+            <label for="supportPageInput" class="sr-only">Message the Swimfit team</label>
+            <textarea id="supportPageInput" class="coach-input coach-page-input" rows="1" placeholder="Message the Swimfit team…" maxlength="2000"></textarea>
+            <button type="submit" class="coach-send-btn" id="supportPageSendBtn" aria-label="Send">
+              <svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+      </div><!-- /supportChatWrap -->
+    </div>
+  </div>
+</div>
+
 <div class="workout-studio-overlay" id="trackerStudioOverlay" role="dialog" aria-modal="true" aria-labelledby="trackerStudioTitle" hidden>
   <div class="workout-studio-shell">
     <header class="workout-studio-header">
@@ -6543,11 +6577,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      (JS-rendered, stale) wrong. GitHub Pages serves these assets cacheable
      and there's no build step to hash filenames, so this literal token is the
      cache key. Bump it (date + letter) on every deploy that touches js/. -->
-<script src="js/paddle-client.js?v=20260818b"></script>
-<script src="js/pdf-fonts.js?v=20260818b"></script>
-<script src="js/swiml-database.js?v=20260818b"></script>
-<script src="js/abu-dhabi-aquatics-database.js?v=20260818b"></script>
-<script src="js/workout-generator.js?v=20260818b"></script>
+<script src="js/paddle-client.js?v=20260822a"></script>
+<script src="js/pdf-fonts.js?v=20260822a"></script>
+<script src="js/swiml-database.js?v=20260822a"></script>
+<script src="js/abu-dhabi-aquatics-database.js?v=20260822a"></script>
+<script src="js/workout-generator.js?v=20260822a"></script>
 <script>
   /* ============================= SETTINGS: PROFILE + SPECIALTIES ============================= */
   (function wireSettingsPanel() {
@@ -6882,8 +6916,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'academy.eyebrow': 'Technique Academy', 'academy.heading': 'Watch. Break Down. Improve.',
         'coach.eyebrow': 'Swim Coach', 'coach.heading': 'Your Coach, On Call',
         'tracker.eyebrow': 'Distance Tracker', 'tracker.heading': 'Log Your Swims, Watch The Volume Add Up',
-        'support.eyebrow': 'Support', 'support.heading': 'Talk To The Swimfit Team',
-        'support.sub': 'Questions about your account, a subscription, or anything else — message us directly and we’ll reply right here. This is the same conversation as the floating message widget, so nothing gets lost switching between them.',
+        'support.eyebrow': 'Support', 'support.heading': 'Support Hub',
+        'support.sub': 'Talk to a real person about your account, your subscription, or your training. Open the support chat below, or check the quick answers first — most questions are covered there.',
         'settings.eyebrow': 'Settings', 'settings.heading': 'Your Profile, Your Preferences',
         'settings.sub': 'Update your details, set your training focus, and tune how Swimfit looks and reads for you.',
         'pricing.eyebrow': 'Membership', 'pricing.heading': 'Simple Pricing, Serious Results',
@@ -6903,8 +6937,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         'academy.eyebrow': 'أكاديمية التقنية', 'academy.heading': 'شاهد. حلّل. تحسّن.',
         'coach.eyebrow': 'مدرب السباحة الذكي', 'coach.heading': 'مدربك، على استعداد دائم',
         'tracker.eyebrow': 'متتبع المسافة', 'tracker.heading': 'سجّل سباحاتك وشاهد حجمها يتراكم',
-        'support.eyebrow': 'الدعم', 'support.heading': 'تحدّث مع فريق Swimfit',
-        'support.sub': 'أسئلة حول حسابك أو اشتراكك أو أي شيء آخر — راسلنا مباشرة وسنرد هنا.',
+        'support.eyebrow': 'الدعم', 'support.heading': 'مركز الدعم',
+        'support.sub': 'تحدّث مع شخص حقيقي حول حسابك أو اشتراكك أو تدريبك. افتح محادثة الدعم بالأسفل، أو راجع الإجابات السريعة أولاً.',
         'settings.eyebrow': 'الإعدادات', 'settings.heading': 'ملفك الشخصي وتفضيلاتك',
         'settings.sub': 'حدّث بياناتك، اضبط تركيز تدريبك، واختر كيف يبدو Swimfit ويُقرأ بالنسبة لك.',
         'pricing.eyebrow': 'العضوية', 'pricing.heading': 'أسعار بسيطة، نتائج جادة',
@@ -7946,9 +7980,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   })();
 
 </script>
-<script src="js/tracker-service.js?v=20260818b"></script>
-<script src="js/admin-service.js?v=20260818b"></script>
-<script src="js/custom-workout.js?v=20260818b"></script>
+<script src="js/tracker-service.js?v=20260822a"></script>
+<script src="js/admin-service.js?v=20260822a"></script>
+<script src="js/custom-workout.js?v=20260822a"></script>
 <script>
   /* ============================= ADMIN MESSAGES WIDGET (user-facing inbox) =============================
      Every signed-in non-admin swimmer gets this floating widget so they can see
@@ -8140,38 +8174,62 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var unsubscribeMessages = null;
     var loadedForUid = null;
 
-    /* ---------- Support desk entry state ----------
-       The chat is gated behind a "Contact Support Team" CTA so this tab
-       reads as a real support desk rather than a permanently-open widget.
-       openChat() is called either by that button or automatically by
-       renderMessages() when a real conversation already exists — a
-       returning swimmer with an unread reply must never find their own
-       history hidden behind a "start a conversation" prompt. */
-    var chatCta = document.getElementById('supportChatCta');
-    var chatWrap = document.getElementById('supportChatWrap');
-    var startChatBtn = document.getElementById('supportStartChatBtn');
-    var chatOpen = false;
+    /* ---------- Support Hub entry state ----------
+       Same Hub pattern as Workouts / Gym / Tracker: the Support tab is a
+       landing view with one entry card, and the chat itself lives in a
+       dedicated full-screen studio overlay reached from that card.
+       Deliberately NOT auto-opened when a conversation already exists —
+       throwing a swimmer into a full-screen modal they didn't ask for is a
+       worse state than the inline reveal this replaces ever was. The real
+       concern behind that old auto-open (a returning swimmer must never
+       find their own history silently hidden) is handled instead by
+       #supportHubNote below, which surfaces the ongoing conversation right
+       on the entry card so they know there's something waiting. */
+    var supportOverlay = document.getElementById('supportStudioOverlay');
+    var startChatBtn = document.getElementById('openSupportChatBtn');
+    var hubNote = document.getElementById('supportHubNote');
+    var defaultHubNote = hubNote ? hubNote.innerHTML : '';
     function openChat(focusInput) {
-      if (chatOpen) return;
-      chatOpen = true;
-      if (chatCta) chatCta.style.display = 'none';
-      if (chatWrap) chatWrap.style.display = '';
+      if (!supportOverlay) return;
+      supportOverlay.hidden = false;
+      document.body.classList.add('workout-studio-active');
       subscribeIfNeeded();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
       if (focusInput) { try { input.focus(); } catch (e) { /* ignore */ } }
     }
+    function closeChat() {
+      if (!supportOverlay || supportOverlay.hidden) return;
+      supportOverlay.hidden = true;
+      document.body.classList.remove('workout-studio-active');
+    }
     function resetChatEntryState() {
-      chatOpen = false;
-      if (chatWrap) chatWrap.style.display = 'none';
-      // The CTA itself stays auth-gated — the global [data-auth-signed-in]
-      // pass owns whether it shows at all, this only clears the inline
-      // override openChat() applied.
-      if (chatCta) chatCta.style.display = '';
+      closeChat();
+      if (hubNote) hubNote.innerHTML = defaultHubNote;
     }
     if (startChatBtn) startChatBtn.addEventListener('click', function () { openChat(true); });
+    var backBtn = document.getElementById('supportStudioBackBtn');
+    if (backBtn) backBtn.addEventListener('click', closeChat);
+    document.addEventListener('keydown', function (e) {
+      if (!supportOverlay || supportOverlay.hidden || e.key !== 'Escape') return;
+      var live = document.getElementById('liveWorkoutOverlay');
+      if (live && !live.hidden) return; // Live Mode owns Escape while it's on top
+      closeChat();
+    });
 
     function renderMessages(messages) {
-      // A real, existing conversation always wins over the entry CTA.
-      if (messages.length && !chatOpen) openChat(false);
+      // Surface an existing conversation on the Hub card itself rather than
+      // force-opening the overlay (see the entry-state comment above).
+      if (hubNote) {
+        if (messages.length) {
+          var last = messages[messages.length - 1];
+          hubNote.innerHTML = '<span class="support-status-dot"></span> ' +
+            (last.sender === 'admin'
+              ? 'The team has replied to your conversation'
+              : 'Your conversation is open — we’ll reply here');
+        } else {
+          hubNote.innerHTML = defaultHubNote;
+        }
+      }
       messagesEl.innerHTML = '';
       if (!messages.length) {
         var row = document.createElement('div');

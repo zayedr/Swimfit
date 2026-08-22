@@ -77,16 +77,82 @@
   // to warmupM by buildToShare(), so volume changes already change the
   // rendered distances, and including it would reshuffle the whole structure
   // on every drag of the distance slider.
-  function generatorVarianceSeed(dateObj) {
-    var profile = [
+  // A SECOND, SEPARATE BUG on top of the one above, and the one behind the
+  // "still the exact same warm-up when I generate for a different day"
+  // report: the seed had no idea which Weekly Schedule day was actually
+  // driving generation. Tapping a day badge sets state.scheduleOverrideKey
+  // and applies that day's goalKeys — but SEVERAL WEEKLY_FOCUS days share
+  // identical goalKeys ('im' and 'technique' are both technique+endurance;
+  // 'sprint' and 'race' are both speed+endurance), so previewing one of
+  // those days produced a byte-identical profile string, a byte-identical
+  // seed, and therefore a byte-identical Warm-Up and Pre-Set. Mixing the
+  // effective focus key in directly means every one of the seven schedule
+  // days re-rolls, regardless of whether two of them happen to want the same
+  // goal pools.
+  function generatorProfileString() {
+    return [
       (state.disciplines || []).join('|'),
       (state.goals || []).join('|'),
       state.level || '',
       state.swimmerType || ''
     ].join('~');
-    return (stringHash(profile)
+  }
+  // Split out so the day-walk below can hash the profile and read the
+  // completion counter ONCE instead of once per simulated day (the counter
+  // read hits localStorage).
+  function varianceSeedFrom(profileStr, genSeed, dateObj, focusKey) {
+    return (stringHash(profileStr + '~' + (focusKey || ''))
       ^ Math.imul(dailySeedForDate(dateObj), 0x9E3779B1)
-      ^ Math.imul(workoutGenSeed() + 1, 0x85EBCA77)) >>> 0;
+      ^ Math.imul(genSeed + 1, 0x85EBCA77)) >>> 0;
+  }
+  function generatorVarianceSeed(dateObj, focusKey) {
+    return varianceSeedFrom(generatorProfileString(), workoutGenSeed(), dateObj, focusKey);
+  }
+  // GUARANTEED-NON-REPEAT DAILY ROTATION.
+  //
+  // The previous approach (pickOneNoRepeatFrom: draw today, simulate
+  // yesterday, re-draw on a collision) is only *probabilistically* correct,
+  // and this file already documented why — a day whose own pick needed the
+  // tie-break re-draw can't have that re-draw reconstructed by the next day's
+  // independent simulation, so the guard silently misses. Measured directly:
+  // over 14 simulated consecutive days it still produced a back-to-back
+  // repeat of the same Warm-Up blueprint.
+  //
+  // This replaces the draw-and-compare with a WALK. Starting from a fixed
+  // epoch, each day advances the pool index by a step in [1, n-1] derived
+  // from that day's own seed. A step is never 0, so idx(D) !== idx(D-1) is
+  // true BY CONSTRUCTION rather than by a check that can fail — and because
+  // the walk is anchored to a fixed epoch (not a rolling window), the index
+  // any given day lands on is a pure, exactly-reproducible function of the
+  // date, with no hidden branch to reconstruct.
+  //
+  // `salt` keeps independent pools (Warm-Up blueprint vs Pre-Set archetype)
+  // walking independently instead of in lockstep.
+  var ROTATION_EPOCH_MS = Date.UTC(2026, 0, 1);
+  var ROTATION_MAX_STEPS = 4000; // ~11 years; a hard bound on the walk cost
+  function dailyRotationPick(pool, salt, nowMs) {
+    if (!pool || !pool.length) return null;
+    var n = pool.length;
+    if (n === 1) return pool[0];
+    // With an override active every day in the walk shares that pinned focus
+    // key; with none, each day contributes its own real schedule key, so the
+    // walk reflects the actual weekly rotation.
+    var overrideKey = state.scheduleOverrideKey || null;
+    var todayMs = typeof nowMs === 'number' ? nowMs : Date.now();
+    var profileStr = generatorProfileString();
+    var genSeed = workoutGenSeed();
+    var totalDays = Math.floor((todayMs - ROTATION_EPOCH_MS) / 86400000);
+    if (totalDays < 0) totalDays = 0;
+    if (totalDays > ROTATION_MAX_STEPS) totalDays = ROTATION_MAX_STEPS;
+    var idx = 0;
+    for (var back = totalDays; back >= 0; back--) {
+      var d = new Date(todayMs - back * 86400000);
+      var key = overrideKey || WEEKLY_FOCUS[uaeRotationShiftedDate(d).getUTCDay()].key;
+      var seed = (varianceSeedFrom(profileStr, genSeed, d, key) ^ Math.imul(salt, 0x27D4EB2F)) >>> 0;
+      var rng = makeSeededRandom(seed);
+      idx = (idx + 1 + Math.floor(rng() * (n - 1))) % n;
+    }
+    return pool[idx];
   }
 
   // Deterministic PRNG (mulberry32) so a workout generated today always comes
@@ -1183,19 +1249,6 @@
     if (pick === priorPick) pick = pickOne(pool.filter(function (x) { return x !== priorPick; }));
     return pick;
   }
-  // Same technique, but against an arbitrary RNG pair instead of the global
-  // day-seeded workoutRng — needed by the Warm-Up blueprint and Pre-Set
-  // archetype, which draw from postCompletionRng (see generatorVarianceSeed
-  // above). Mixing the composite seed in already makes a day-to-day repeat
-  // unlikely; this makes it impossible rather than merely improbable.
-  function pickOneNoRepeatFrom(rng, priorRng, pool) {
-    if (pool.length <= 1) return pickOneFrom(rng, pool);
-    var priorPick = pickOneFrom(priorRng, pool);
-    var pick = pickOneFrom(rng, pool);
-    if (pick === priorPick) pick = pickOneFrom(rng, pool.filter(function (x) { return x !== priorPick; }));
-    return pick;
-  }
-
   // A "check N days back, not just 1" extension of pickOneNoRepeat was
   // attempted for the Warm-Up's drill/kick pools (three escalating designs:
   // naive-vs-decorated comparison, a depth-bounded recursive resolver, and
@@ -1241,7 +1294,26 @@
     'Catch-Up Drill — exaggerate the front-end extension every length',
     'Fingertip Drag — brush your fingertips along the surface on recovery',
     'desc 1-4 — each 25 a little faster than the last',
-    '3-3-3 Breathing — 3 lengths breathing every 3, 5, then every 2 strokes'
+    '3-3-3 Breathing — 3 lengths breathing every 3, 5, then every 2 strokes',
+    // The pool was previously only 6 entries deep, so even a correctly-seeded
+    // draw kept landing on the same handful of drills. These are all real,
+    // standard squad drills, deliberately spread across catch, rotation,
+    // tempo, balance and breathing so consecutive days feel genuinely
+    // different rather than being six phrasings of the same idea.
+    'Single-Arm — one arm only, other arm at your side, switch every 25',
+    'Scull #1 — front scull, elbows high, forearms doing all the work',
+    'Scull #2 — mid-scull at the hip line, feel the pressure change',
+    '6-Kick Switch — 6 kicks on your side, one stroke, 6 on the other side',
+    'Zipper Drill — thumb brushes your side all the way up the recovery',
+    'Doggy Paddle — heads-up, short front-quadrant pulls, no recovery over the water',
+    'Closed-Fist — swim with fists closed, then open the hands and feel the water',
+    'Tarzan / Water Polo — head-up freestyle, high tempo, strong catch',
+    'Stroke Count — count strokes each 25, take one fewer every length',
+    'Broken Tempo — 25 slow and long, 25 fast turnover, same stroke length',
+    'Pull With Buoy — long strokes, no kick, hips high and still',
+    'Head-Lead Balance — arms at your sides, kick on your back, then your side',
+    'Turn Focus — no breath in or out of the wall, tight tuck, fast breakout',
+    'Distance Per Stroke — glide the front end, longest possible strokes'
   ];
   // The Warm-Up's kick set used to be hardcoded to underwater-dolphin focus
   // every single day — combined with the Pre-Set's own activation archetypes
@@ -1255,7 +1327,20 @@
     'Kick — steady flutter, relaxed tempo, focus on ankle flexibility not speed',
     'Kick — on your side, one arm extended, rotate every 4 kicks',
     'Kick — BR whip-kick isolation, narrow and snappy, no glide skipped',
-    'Kick — vertical kick treading position for 10s, then 40m EZ flutter'
+    'Kick — vertical kick treading position for 10s, then 40m EZ flutter',
+    // Same reasoning as the drill pool above — 5 entries was far too shallow
+    // to read as a rotation. Each of these targets a genuinely different
+    // part of the kick (ankles, streamline, dolphin, tempo, balance).
+    'Kick — streamline on your back, no board, arms locked overhead',
+    'Kick — dolphin on your back, small and fast from the hips',
+    'Kick — 25 fast / 25 easy by 25, hold the same body line on both',
+    'Kick — board out front, head down, breathe every 4 kicks',
+    'Kick — fins on if you have them, long powerful flutter, pointed toes',
+    'Kick — 15m UWK off the wall, then EZ swim to the far end',
+    'Kick — alternating 12.5m dolphin / 12.5m flutter, no break at the switch',
+    'Kick — BK flutter with a slight hip rotation each 6 kicks',
+    'Kick — descend 1-4 by 50, last one at race-leg effort',
+    'Kick — heels breaking the surface only, small tight kick from the hips'
   ];
   // js/swiml-database.js (loaded before this file — see index.html) hardcodes
   // real drill/kick phrases transcribed verbatim from actual swiML XML swim
@@ -1875,6 +1960,59 @@
       intents: [
         'A Technique-focused Main Set is wasted if the swimmer arrives thinking about speed. A slow, deliberate primer with one technical focus per length gets the mind and the stroke into a feel-first mode before the real drill work begins.'
       ]
+    },
+    // Four additional activation archetypes — the pool was 8 deep, which with
+    // a once-per-day draw meant a swimmer could plausibly see the same
+    // Pre-Set twice inside a single week. Each of these primes a genuinely
+    // different system (pull pressure, breath control, tempo laddering,
+    // broken race pace) rather than restating one of the eight above.
+    {
+      name: 'Pull-Pressure Activation',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(3, Math.round(shareM / 75));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 75, stroke + ' build the catch — 25 scull, 50 strong pull', [], pace100 + 4, 20, scaler, '200 Pace')];
+        return [{ label: 'Pull Activation — Catch Pressure', sets: sets }];
+      },
+      intents: [
+        'Sculling straight into a hard pull teaches the hand to find pressure before the Main Set demands it, so the first hard rep is not the one spent looking for the catch.'
+      ]
+    },
+    {
+      name: 'Hypoxic Breath Control',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(4, Math.round(shareM / 50));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 50, stroke + ' breathe 3/5/7 by 50, steady tempo throughout', [], pace100 + 6, 25, scaler, 'Cruise Pace')];
+        return [{ label: 'Breath Control — Restricted Breathing 50s', sets: sets }];
+      },
+      intents: [
+        'Restricting the breath at an easy pace trains the swimmer to stay relaxed under CO2 load, so breathing patterns hold together later in the session instead of collapsing the stroke.'
+      ]
+    },
+    {
+      name: 'Tempo Ladder Activation',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(3, Math.round(shareM / 75));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 75, stroke + ' 25 slow / 25 moderate / 25 fast, same stroke length', [], pace100 + 2, 20, scaler, '200 Pace')];
+        return [{ label: 'Tempo Ladder — Three-Gear 75s', sets: sets }];
+      },
+      intents: [
+        'Shifting through three gears inside one rep proves the swimmer can raise turnover without shortening the stroke — the exact skill every descending Main Set is about to ask for.'
+      ]
+    },
+    {
+      name: 'Broken Race-Pace Primer',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var reps = Math.max(2, Math.round(shareM / 100));
+        var stroke = nextStroke();
+        var sets = [buildSet(reps, 50, stroke + ' at goal race pace, 10s break at the 25 — feel the pace, not the effort', [], pace100 - 3, 30, scaler, '100 Pace')];
+        return [{ label: 'Race-Pace Primer — Broken 50s', sets: sets }];
+      },
+      intents: [
+        'Breaking the rep lets a swimmer touch real race pace while still fresh, so the body has a clear reference point for what the Main Set is chasing rather than guessing at it under fatigue.'
+      ]
     }
   ];
 
@@ -1913,10 +2051,11 @@
     // Composite seed (day + completion counter + the swimmer's own
     // selections) — see generatorVarianceSeed() for why seeding this from
     // the completion counter alone was a real bug.
-    postCompletionRng = makeSeededRandom(generatorVarianceSeed(new Date()));
-    // Yesterday's equivalent, used only to guarantee the Warm-Up blueprint
-    // and Pre-Set archetype never repeat on consecutive days.
-    var priorVarianceRng = makeSeededRandom(generatorVarianceSeed(new Date(Date.now() - 86400000)));
+    // Drives the drill/kick LABEL picks inside whichever Warm-Up blueprint
+    // gets chosen. The blueprint and Pre-Set archetype themselves no longer
+    // draw from this — they use dailyRotationPick()'s guaranteed-non-repeat
+    // walk instead (see above).
+    postCompletionRng = makeSeededRandom(generatorVarianceSeed(new Date(), effectiveFocus().key));
     // A separate, throwaway RNG seeded with yesterday's date, used only to
     // simulate "what would today's current settings have produced yesterday"
     // for the Pre-Set and first Main Set archetype — so a swimmer generating
@@ -2064,7 +2203,7 @@
     // run through buildToShare() against warmupM, so whichever one gets
     // picked still respects the swimmer's chosen distance exactly like every
     // other stage.
-    var warmupBlueprint = pickOneNoRepeatFrom(postCompletionRng, priorVarianceRng, WARMUP_BLUEPRINTS);
+    var warmupBlueprint = dailyRotationPick(WARMUP_BLUEPRINTS, 1) || WARMUP_BLUEPRINTS[0];
     var warmupRounds = buildToShare(function () {
       return warmupBlueprint.build(warmupM, pace100, noScale, nextStroke, state.equipment);
     }, warmupM);
@@ -2077,7 +2216,7 @@
     // completes a workout, then both rotate together — not the day-stable
     // workoutRng (a full 24h cycle) and not per-click Math.random()
     // (reshuffling on every single click) either.
-    var presetArchetype = pickOneNoRepeatFrom(postCompletionRng, priorVarianceRng, PRESET_ARCHETYPES);
+    var presetArchetype = dailyRotationPick(PRESET_ARCHETYPES, 2) || PRESET_ARCHETYPES[0];
     // Pre-Set is locked to one stroke for the whole activation block.
     var presetStroke = nextBlockStroke();
     var preset = {
@@ -2486,17 +2625,17 @@
   var GYM_FOCUS = {
     cardio: {
       warmup: [
-        { name: 'Arm Circles & Leg Swings', prescription: '2 x 10 each', cue: 'Opens the shoulders and hips before the heart rate climbs.' },
-        { name: 'Jumping Jacks', prescription: '2 x 30s', cue: 'Raises core temperature and primes the whole body for intervals.' }
+        { name: 'Band Shoulder Dislocates', prescription: '2 x 12', cue: 'Wide grip, slow overhead arc — opens the exact shoulder range a locked streamline demands before anything ballistic.' },
+        { name: 'Explosive Streamline Jumps', prescription: '2 x 8', cue: 'Hands locked overhead in a tight streamline the whole rep — the dryland rehearsal of the position you leave every wall in.' }
       ],
       core: [
         { name: 'Plank Hold', prescription: '3 x 30s', cue: 'Braces the trunk so cardio work doesn’t leak power through a loose core.' },
-        { name: 'Dead Bug', prescription: '3 x 10 / side', cue: 'Slow and controlled — anti-extension strength for a raised heart rate.' }
+        { name: 'Med Ball Russian Twists', prescription: '3 x 20 / side', cue: 'Rotate from the ribs, not the arms — the anti-fishtail trunk control that keeps a stroke tracking straight under fatigue.' }
       ],
       main: [
         { name: 'Jump Rope Intervals', prescription: '6 x 45s', cue: 'Fast feet, light bounce — builds the cardio base that carries into longer swim sets.' },
-        { name: 'Burpees', prescription: '4 x 12', cue: 'Full-body reset that mirrors the gasping recovery after a race turn.' },
-        { name: 'Mountain Climbers', prescription: '4 x 30s', cue: 'Keep hips level — trains core stability under a raised heart rate.' },
+        { name: 'Burpee to Streamline Jump', prescription: '4 x 10', cue: 'Finish every rep locked overhead in a streamline — trains you to hold race position when your heart rate is already redlined.' },
+        { name: 'Med Ball Rotational Wall Throws', prescription: '4 x 10 / side', cue: 'Throw hard from the hip, not the shoulder — rotational power under a raised heart rate, the same torque a fast turn asks for.' },
         { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms sequence mirrors a strong pull phase.' },
         { name: 'Battle Ropes', prescription: '5 x 30s', cue: 'Alternating waves build the shoulder endurance a hard sprint set demands.' }
       ],
@@ -2509,11 +2648,13 @@
     full: {
       warmup: [
         { name: 'Bodyweight Squats', prescription: '2 x 10', cue: 'Grooves the squat pattern before any load goes on the bar.' },
-        { name: 'Band Pull-Aparts (light)', prescription: '2 x 15', cue: 'Wakes up the upper back before pulling under load.' }
+        { name: 'Band Pull-Aparts (light)', prescription: '2 x 15', cue: 'Wakes up the upper back before pulling under load.' },
+        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Cuff prehab before the bar — a swimmer’s shoulder takes far more volume than any lifter’s, so it gets warmed first.' }
       ],
       core: [
         { name: 'Pallof Press', prescription: '3 x 12 / side', cue: 'Anti-rotation strength — keeps the trunk stable while lifting heavy.' },
-        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The same braced position you hold in a streamline off every wall.' }
+        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The same braced position you hold in a streamline off every wall.' },
+        { name: 'Landmine Rotations', prescription: '3 x 10 / side', cue: 'Drive the bar across with your hips and ribs, arms just along for the ride — heavy loaded rotation, the trunk torque behind a powerful pull and a fast turn.' }
       ],
       // Sprint swimmers (Speed goal, or a short target distance): heavy,
       // low-rep explosive power work.
@@ -2555,7 +2696,7 @@
     // strength profile the same way every other weighted exercise does.
     upper: {
       warmup: [
-        { name: 'Arm Circles', prescription: '2 x 15 each direction', cue: 'Lubricates the shoulder joint before any pressing or pulling.' },
+        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Elbow pinned to your side, rotate only the forearm — the single most protective prehab movement there is for a swimmer’s shoulder under high stroke volume.' },
         { name: 'Cable Face Pulls (light warm-up sets)', prescription: '2 x 15', loadPct: 0.15, weighted: true, cue: 'Wakes up the rear delts and rotator cuff before heavier pressing and pulling.' }
       ],
       core: [
@@ -2618,7 +2759,7 @@
     plyometrics: {
       warmup: [
         { name: 'Ankle Pogo Hops', prescription: '2 x 20s', cue: 'Stiff-ankled little bounces — wakes up the reactive strength used in every wall push-off.' },
-        { name: 'High Knees', prescription: '2 x 20m', cue: 'Fast ground contact, tall posture — primes the nervous system for explosive work ahead.' },
+        { name: 'Explosive Streamline Jumps', prescription: '2 x 8', cue: 'Hands locked overhead in a tight streamline, jump for height — grooves the exact push-off position before any real plyometric load.' },
         { name: 'Dynamic Walking Lunge with Reach', prescription: '2 x 8 / side', cue: 'Opens the hips through full range before anything ballistic.' }
       ],
       core: [
@@ -3060,7 +3201,22 @@
     'Continuous Lateral Bounds': 'lunge',
     'Bounding for Distance': 'lunge',
     'Jump Rope — Endurance Bounce': 'jumprope',
-    'Jump Rope — Basic Bounce': 'jumprope'
+    'Jump Rope — Basic Bounce': 'jumprope',
+    // Swimmer-specific replacements for the generic filler that used to sit
+    // in the Cardio/Upper/Plyometrics warm-ups and the Cardio main block
+    // (Jumping Jacks, Arm Circles, High Knees, Burpees, Mountain Climbers).
+    // Each maps to the existing archetype whose stick-figure pose genuinely
+    // matches the movement — an overhead streamline jump reads as the
+    // vertical-jump 'boxjump' figure, every band/cuff movement reads as
+    // 'bandpull', and every loaded rotation reads as 'woodchop'.
+    'Explosive Streamline Jumps': 'boxjump',
+    'Streamline Jump Squats': 'boxjump',
+    'Band Shoulder Dislocates': 'bandpull',
+    'Band External Rotations (Rotator Cuff)': 'bandpull',
+    'Burpee to Streamline Jump': 'burpee',
+    'Med Ball Rotational Wall Throws': 'woodchop',
+    'Med Ball Russian Twists': 'woodchop',
+    'Landmine Rotations': 'woodchop'
   };
 
   function renderGymAnim(exerciseName) {
@@ -3115,12 +3271,12 @@
   var MUSCLE_KEYWORDS = [
     { re: /pulldown|pull-?up|rows?\b|rowing|face pull|lat pull|lats\b/i, key: 'back', label: 'Back / Lats' },
     { re: /bench|chest|push-?up|\bdip\b/i, key: 'chest', label: 'Chest' },
-    { re: /overhead press|shoulder|arm circle|band pull/i, key: 'shoulders', label: 'Shoulders' },
+    { re: /overhead press|shoulder|arm circle|band pull|rotator|cuff|dislocate|external rotation/i, key: 'shoulders', label: 'Shoulders' },
     { re: /tricep|pushdown|bicep|skull ?crusher/i, key: 'arms', label: 'Arms' },
     { re: /deadlift|romanian|hinge|pull-?through|kettlebell swing|good morning|turkish|get-?up/i, key: 'posterior', label: 'Posterior Chain' },
     { re: /hamstring|ham curl|leg curl/i, key: 'posterior', label: 'Hamstrings' },
-    { re: /squat|lunge|leg press|split squat|step-?up|box jump|calf|leg extension|glute/i, key: 'legs', label: 'Legs / Glutes' },
-    { re: /plank|dead ?bug|hollow|pallof|bird dog|90\/90|woodchop|russian twist|hanging leg|v-?up|sit-?up|crunch/i, key: 'core', label: 'Core' },
+    { re: /squat|lunge|leg press|split squat|step-?up|box jump|calf|leg extension|glute|streamline jump/i, key: 'legs', label: 'Legs / Glutes' },
+    { re: /plank|dead ?bug|hollow|pallof|bird dog|90\/90|woodchop|russian twist|hanging leg|v-?up|sit-?up|crunch|landmine|rotational|med ball/i, key: 'core', label: 'Core' },
     { re: /stretch|foam roll|mobility|child|cobra|pigeon|forward fold|straddle|open book|thoracic|hip flexor|cat-?cow|breathing|leg swing|world.s greatest|deep squat hold/i, key: 'mobility', label: 'Mobility' },
     { re: /jump rope|burpee|mountain climber|battle rope|jumping jack|ladder|cone|shuffle|bound|skater|sprint|\bwalk/i, key: 'cardio', label: 'Conditioning' }
   ];

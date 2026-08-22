@@ -5519,6 +5519,109 @@ the existing `js/custom-workout.js` and its `<style>` block.**
   workout/generated workout, auto-advance completion + Tracker logging, pause/resume, exit) still
   passes unchanged with zero page errors, and the Save button reads exactly "Save to My Workouts".
 
+**A deep-logic round: the Warm-Up/Pre-Set repetition was fixed at a SECOND, distinct root cause
+and the guard rewritten to be correct by construction; the Gym database was rewritten around
+swimmer-specific dryland work; and Support was moved onto the Hub pattern.**
+
+- **A second, independent cause of "the Warm-Up and Pre-Set are STILL the same" was found — the
+  variance seed had no idea which Weekly Schedule day was driving generation.** The previous round
+  correctly fixed the seed being tied to the completion counter alone, but `generatorVarianceSeed()`
+  still hashed only discipline/goals/level/swimmer-type. Tapping a Weekly Schedule day badge sets
+  `state.scheduleOverrideKey` and applies that day's `goalKeys` — but several `WEEKLY_FOCUS` days
+  share identical `goalKeys` (`im` and `technique` are both technique+endurance; `sprint` and
+  `race` are both speed+endurance), so previewing one of those produced a byte-identical profile
+  string, a byte-identical seed, and therefore a byte-identical Warm-Up and Pre-Set. The seed now
+  mixes the effective focus key in directly, so all seven schedule days re-roll regardless of
+  whether two of them happen to want the same goal pools. Verified: 7 schedule days now produce 6-7
+  distinct Warm-Ups and 6 distinct Pre-Sets, with `im` vs `technique` and `sprint` vs `race`
+  explicitly asserted to differ.
+- **The never-repeat-yesterday guard was replaced outright, because it was only probabilistically
+  correct.** `pickOneNoRepeatFrom()` drew today's pick, simulated yesterday's, and re-drew on a
+  collision — and this file already documented why that can silently miss: a day whose own pick
+  needed the tie-break re-draw can't have that re-draw reconstructed by the next day's independent
+  simulation. Measured directly this round rather than assumed: across 14 simulated consecutive
+  days it still produced a back-to-back repeat of the same Warm-Up blueprint. It's now
+  `dailyRotationPick(pool, salt, nowMs)` — a **walk** anchored to a fixed epoch (2026-01-01, capped
+  at 4000 steps) where each day advances the pool index by a step in `[1, n-1]` derived from that
+  day's own seed. A step is never 0, so `idx(D) !== idx(D-1)` holds **by construction** rather than
+  by a check that can fail, and because the walk is epoch-anchored (not a rolling window) each day's
+  index is a pure, exactly-reproducible function of the date with no hidden branch. `salt`
+  (1 = Warm-Up blueprint, 2 = Pre-Set archetype) keeps the two pools walking independently instead
+  of in lockstep. `generatorVarianceSeed()` was split into `generatorProfileString()` +
+  `varianceSeedFrom()` so the walk hashes the profile and reads the completion counter once rather
+  than once per simulated day (that counter read hits `localStorage`). `pickOneNoRepeatFrom()` and
+  `priorFocusKeyFor()` became fully dead and were deleted rather than left as unused code. Verified
+  across 60 simulated consecutive days: all 7 blueprints and all 12 Pre-Set archetypes appear, with
+  **zero** consecutive repeats of either. Same-day repeated Generate clicks are still byte-stable,
+  and completing a workout still rotates the pick — both prior behaviours preserved.
+- **The two Warm-Up label pools were roughly 4x deepened**, per the "must actively pull from a
+  larger, diverse pool of drills" ask — `WARMUP_DRILL_POOL` from 6 base entries to 20 (25 after the
+  swiML splice) and `WARMUP_KICK_POOL` from 5 to 15 (18 after the splice). Every addition is a real,
+  standard squad drill, deliberately spread across catch, rotation, tempo, balance and breathing
+  (Single-Arm, front/mid Scull, 6-Kick Switch, Zipper, Doggy Paddle, Closed-Fist, Tarzan, Stroke
+  Count, Broken Tempo, Pull With Buoy, Head-Lead Balance, Turn Focus, DPS) and across the kick
+  itself (streamline-on-back, dolphin-on-back, 25 fast/25 easy, board-out-front, fins, 15m UWK,
+  alternating dolphin/flutter, BK flutter with hip rotation, descend 1-4, small tight kick) rather
+  than being rephrasings of what was already there. `PRESET_ARCHETYPES` also went from 8 to 12 —
+  four new activation archetypes each priming a genuinely different system: **Pull-Pressure
+  Activation** (scull straight into a strong pull), **Hypoxic Breath Control** (3/5/7 by 50),
+  **Tempo Ladder Activation** (25 slow / 25 moderate / 25 fast inside one rep), and **Broken
+  Race-Pace Primer** (goal-pace 50s broken at the 25).
+- **The Gym's generic filler was replaced with elite swimmer-specific dryland work.** Removed
+  outright: Jumping Jacks, Arm Circles (both instances), Burpees, Mountain Climbers, High Knees.
+  In their place — **Explosive Streamline Jumps** (Cardio warm-up and Plyometrics warm-up; hands
+  locked overhead the whole rep, the dryland rehearsal of a wall push-off), **Band Shoulder
+  Dislocates**, **Band External Rotations (Rotator Cuff)** (Upper warm-up and Full Body warm-up;
+  the single most protective shoulder-prehab movement for a swimmer's stroke volume), **Burpee to
+  Streamline Jump** (finish every rep in race position under a redlined heart rate), **Med Ball
+  Rotational Wall Throws**, **Med Ball Russian Twists**, and **Landmine Rotations** (heavy loaded
+  rotation in Full Body's core phase — the trunk torque behind a powerful pull and a fast turn).
+  Each maps to the existing `GYM_ANIM_MAP` archetype whose stick-figure pose genuinely matches
+  (overhead jumps → `boxjump`, every band/cuff movement → `bandpull`, every loaded rotation →
+  `woodchop`), so no new SVGs were needed. `MUSCLE_KEYWORDS` gained `rotator|cuff|dislocate|external
+  rotation` (shoulders), `streamline jump` (legs) and `landmine|rotational|med ball` (core) so every
+  new exercise resolves to a real muscle tag instead of falling through to the "Full Body" default —
+  verified every rendered card across all six focuses carries both a muscle tag and a technique demo.
+- **Support was moved onto the same Hub pattern as Workouts / Gym / Tracker.** The tab is now a
+  landing view — a single `💬 Swimfit Support Desk` / "Talk to a real coach or report an issue." /
+  "Open Support Chat →" entry card, with the "Quick Answers" FAQ moved BELOW it (a Hub's primary
+  action shouldn't sit under five disclosure rows; measured, it was previously below the fold at
+  1440×950). The chat itself moved verbatim into `#supportStudioOverlay`, reusing the identical
+  `.workout-studio-*` classes the other three studios use, with a "← Back to Support" button,
+  Escape-to-close (deferring to Live Mode while that's on top), and the shared
+  `body.workout-studio-active` scroll lock. Every element id inside the moved shell is unchanged,
+  so `wireSupportPage()` needed no rendering changes — only the open/close wiring. The section
+  heading became "Support Hub" in both `I18N.en` and `I18N.ar`.
+- **The previous round's chat auto-open was deliberately NOT carried over, and the concern behind
+  it was solved a different way.** Auto-opening an inline reveal was fine; auto-opening a
+  full-screen modal a swimmer didn't ask for would be a worse state than the one it replaces. The
+  real requirement — a returning swimmer must never find their own history (or an unread admin
+  reply) silently hidden behind a button — is met instead by `#supportHubNote`, which
+  `renderMessages()` rewrites on the entry card itself ("The team has replied to your conversation"
+  / "Your conversation is open — we'll reply here") whenever a conversation exists. Verified with a
+  genuine fresh page load carrying prior history: the note updates, the overlay correctly stays
+  closed, and the full history renders the moment it's opened.
+- **A real latent CSS bug was found and fixed while screenshotting the new Hub card** (measured via
+  `getBoundingClientRect()`, not eyeballed): `.cwb-studio-banner-body` carries `flex: 1 1 240px`,
+  written for the ROW-direction banner where 240px is a width — but `.workouts-hub-grid` flips the
+  card to a column, which turns that same basis into a 240px **minimum height**. Measured at exactly
+  240px for a two-line body, leaving a large dead gap above the button on every single-card Hub.
+  Fixed with `.workouts-hub-grid .cwb-studio-banner-body { flex: 1 1 auto; }` — keeps the grow (so
+  buttons still bottom-align across equal-height cards in a multi-card Hub) while resetting the
+  basis to content height. `.support-faq-section` also gained a `margin-top` (it only had
+  `margin-bottom`, so the FAQ heading nearly touched the card once reordered below it), and the
+  Support Studio's chat shell is scoped to fill the studio height (`height: auto` overriding
+  `.coach-page-shell`'s in-page `min(72vh, 760px)`) so the dedicated view isn't a fixed-height card
+  with dead space beneath it.
+- Verified via Playwright: everything above, plus zero page errors anywhere, zero horizontal
+  overflow on Workouts/Gym/Support at 390px (including the open Support Studio), the Support Studio
+  header computed-style-identical to the Tracker Studio's, sending a message from inside the studio
+  rendering correctly, and the full pre-existing regression suite (all 9 tabs, a 4-stage generated
+  workout, both Workouts' and Gym's PDF exports firing real `download` events, Live Mode/Complete
+  Workout buttons, and the whole Rest-row/Live-Mode yellow→green suite) passing unchanged. The
+  `?v=` cache-bust token was bumped to `20260822a` in the same commit as the `js/*.js` changes, per
+  this file's own standing rule.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
