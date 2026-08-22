@@ -537,5 +537,44 @@
       renderStat();
       renderEntries();
     });
+
+    /* ============================= TRACKER STUDIO (dedicated view) =============================
+       Same pattern as the Workout Studio / Swim Generator Studio / Gym
+       Studio: the Tracker tab is now a Hub with one entry card, and the
+       dashboard itself lives in #trackerStudioOverlay. Shares the same
+       body.workout-studio-active scroll-lock class every other studio
+       overlay uses — safe because they're all mutually exclusive (each is
+       only reachable from its own tab's Hub, never from inside another).
+       Opening forces a data refresh rather than relying on the tab-click
+       handler, since the dashboard is no longer rendered by simply
+       switching to the tab. */
+    var trackerOverlay = document.getElementById('trackerStudioOverlay');
+    var trackerOpenBtn = document.getElementById('openTrackerStudioBtn');
+    var trackerBackBtn = document.getElementById('trackerStudioBackBtn');
+    function openTrackerStudio() {
+      if (!trackerOverlay) return;
+      trackerOverlay.hidden = false;
+      document.body.classList.add('workout-studio-active');
+      loadEntriesIfNeeded();
+      loadPbEntriesIfNeeded();
+      updateTrackerPlanGate();
+    }
+    function closeTrackerStudio() {
+      if (!trackerOverlay || trackerOverlay.hidden) return;
+      trackerOverlay.hidden = true;
+      document.body.classList.remove('workout-studio-active');
+    }
+    if (trackerOpenBtn) trackerOpenBtn.addEventListener('click', openTrackerStudio);
+    if (trackerBackBtn) trackerBackBtn.addEventListener('click', closeTrackerStudio);
+    document.addEventListener('keydown', function (e) {
+      if (!trackerOverlay || trackerOverlay.hidden || e.key !== 'Escape') return;
+      var live = document.getElementById('liveWorkoutOverlay');
+      if (live && !live.hidden) return; // Live Mode owns Escape while it's on top
+      closeTrackerStudio();
+    });
+    // A signed-out swimmer must never be left inside the dashboard.
+    document.addEventListener('swimfit:authchange', function (e) {
+      if (!e.detail.user) closeTrackerStudio();
+    });
   })();
 

@@ -43,6 +43,52 @@
     return next;
   }
 
+  // FNV-1a, used only to fold the swimmer's own selections into the variance
+  // seed below — not security-sensitive, just needs to spread similar strings
+  // to very different integers.
+  function stringHash(str) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  // THE WARM-UP/PRE-SET VARIANCE SEED — a real bug fix, not a tuning tweak.
+  // postCompletionRng used to be seeded from workoutGenSeed() ALONE, i.e. a
+  // localStorage counter that only ever moves when the swimmer presses
+  // "Complete Workout". The practical effect: a swimmer who generates
+  // workouts without ever pressing that button got the byte-identical
+  // Warm-Up blueprint and Pre-Set archetype forever — not merely "the same
+  // all day", the same every day, indefinitely. That's exactly the
+  // "outputting the exact same exercises/distances every single day"
+  // report.
+  //
+  // The seed is now a mix of THREE independent inputs, so a change to any
+  // one of them re-rolls the sequence:
+  //   • the calendar day  -> genuinely rotates day to day (the original intent)
+  //   • the completion counter -> still rotates the moment a workout is
+  //     completed, preserving the earlier explicitly-requested behaviour
+  //     rather than silently dropping it
+  //   • discipline / goals / level / swimmer type -> a Butterfly sprinter and
+  //     a Freestyle distance swimmer no longer share a warm-up shape
+  // state.distance is deliberately EXCLUDED: the blueprint is already scaled
+  // to warmupM by buildToShare(), so volume changes already change the
+  // rendered distances, and including it would reshuffle the whole structure
+  // on every drag of the distance slider.
+  function generatorVarianceSeed(dateObj) {
+    var profile = [
+      (state.disciplines || []).join('|'),
+      (state.goals || []).join('|'),
+      state.level || '',
+      state.swimmerType || ''
+    ].join('~');
+    return (stringHash(profile)
+      ^ Math.imul(dailySeedForDate(dateObj), 0x9E3779B1)
+      ^ Math.imul(workoutGenSeed() + 1, 0x85EBCA77)) >>> 0;
+  }
+
   // Deterministic PRNG (mulberry32) so a workout generated today always comes
   // out the same for a given set of picks — refreshing automatically at
   // midnight — instead of reshuffling on every single click of Generate.
@@ -1137,6 +1183,18 @@
     if (pick === priorPick) pick = pickOne(pool.filter(function (x) { return x !== priorPick; }));
     return pick;
   }
+  // Same technique, but against an arbitrary RNG pair instead of the global
+  // day-seeded workoutRng — needed by the Warm-Up blueprint and Pre-Set
+  // archetype, which draw from postCompletionRng (see generatorVarianceSeed
+  // above). Mixing the composite seed in already makes a day-to-day repeat
+  // unlikely; this makes it impossible rather than merely improbable.
+  function pickOneNoRepeatFrom(rng, priorRng, pool) {
+    if (pool.length <= 1) return pickOneFrom(rng, pool);
+    var priorPick = pickOneFrom(priorRng, pool);
+    var pick = pickOneFrom(rng, pool);
+    if (pick === priorPick) pick = pickOneFrom(rng, pool.filter(function (x) { return x !== priorPick; }));
+    return pick;
+  }
 
   // A "check N days back, not just 1" extension of pickOneNoRepeat was
   // attempted for the Warm-Up's drill/kick pools (three escalating designs:
@@ -1852,7 +1910,13 @@
     // the swimmer's workout automatically rotates at midnight rather than
     // reshuffling on every click of Generate.
     workoutRng = makeSeededRandom(dailySeed());
-    postCompletionRng = makeSeededRandom(workoutGenSeed());
+    // Composite seed (day + completion counter + the swimmer's own
+    // selections) — see generatorVarianceSeed() for why seeding this from
+    // the completion counter alone was a real bug.
+    postCompletionRng = makeSeededRandom(generatorVarianceSeed(new Date()));
+    // Yesterday's equivalent, used only to guarantee the Warm-Up blueprint
+    // and Pre-Set archetype never repeat on consecutive days.
+    var priorVarianceRng = makeSeededRandom(generatorVarianceSeed(new Date(Date.now() - 86400000)));
     // A separate, throwaway RNG seeded with yesterday's date, used only to
     // simulate "what would today's current settings have produced yesterday"
     // for the Pre-Set and first Main Set archetype — so a swimmer generating
@@ -2000,7 +2064,7 @@
     // run through buildToShare() against warmupM, so whichever one gets
     // picked still respects the swimmer's chosen distance exactly like every
     // other stage.
-    var warmupBlueprint = pickOneFrom(postCompletionRng, WARMUP_BLUEPRINTS);
+    var warmupBlueprint = pickOneNoRepeatFrom(postCompletionRng, priorVarianceRng, WARMUP_BLUEPRINTS);
     var warmupRounds = buildToShare(function () {
       return warmupBlueprint.build(warmupM, pace100, noScale, nextStroke, state.equipment);
     }, warmupM);
@@ -2013,7 +2077,7 @@
     // completes a workout, then both rotate together — not the day-stable
     // workoutRng (a full 24h cycle) and not per-click Math.random()
     // (reshuffling on every single click) either.
-    var presetArchetype = pickOneFrom(postCompletionRng, PRESET_ARCHETYPES);
+    var presetArchetype = pickOneNoRepeatFrom(postCompletionRng, priorVarianceRng, PRESET_ARCHETYPES);
     // Pre-Set is locked to one stroke for the whole activation block.
     var presetStroke = nextBlockStroke();
     var preset = {
@@ -3590,20 +3654,21 @@
 
   /* ============================= GYM STUDIO (dedicated view) =============================
      Same pattern as wireSwimGeneratorStudio() above, opened from the Gym
-     Hub's two cards. Both cards open the identical #gymStudioOverlay —
+     Hub's ONE consolidated "Gym & Dryland Studio" card. The Hub used to
+     have two cards, but both always opened this identical overlay —
      there's only one underlying Gym system (Strength Profile + Target
-     Focus tabs driving one shared #gymGrid board), not two separate
-     ones — "Explore Drills" additionally pre-selects the Plyometrics
-     focus tab on open, reusing the exact same aria-selected sync +
-     renderGym() call the tab's own click handler already uses, so
-     opening via the card is indistinguishable from a swimmer clicking
-     the pill themselves. */
+     Focus tabs driving one shared #gymGrid board) — so the second card
+     was a focus-tab shortcut, not a separate feature. Consolidated at the
+     user's request; strength AND plyometrics prescriptions are both
+     reached from the focus tabs inside this one studio. openStudio()
+     keeps its optional `focus` argument (unused by the single card, which
+     opens on whatever focus is already current) so a future entry point
+     can still deep-link straight to a focus without re-adding plumbing. */
   (function wireGymStudio() {
     var overlay = document.getElementById('gymStudioOverlay');
-    var strengthBtn = document.getElementById('openGymStrengthBtn');
-    var plyoBtn = document.getElementById('openGymPlyoBtn');
+    var openBtn = document.getElementById('openGymStrengthBtn');
     var backBtn = document.getElementById('gymStudioBackBtn');
-    if (!overlay || !strengthBtn) return;
+    if (!overlay || !openBtn) return;
 
     function openStudio(focus) {
       overlay.hidden = false;
@@ -3622,8 +3687,7 @@
       overlay.hidden = true;
       document.body.classList.remove('workout-studio-active');
     }
-    strengthBtn.addEventListener('click', function () { openStudio(); });
-    if (plyoBtn) plyoBtn.addEventListener('click', function () { openStudio('plyometrics'); });
+    openBtn.addEventListener('click', function () { openStudio(); });
     if (backBtn) backBtn.addEventListener('click', closeStudio);
     document.addEventListener('keydown', function (e) {
       if (overlay.hidden || e.key !== 'Escape') return;

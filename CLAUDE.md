@@ -6454,3 +6454,72 @@ absent) — exactly what was reported.
   still renders and still inserts a complete rest row, the whole Rest-row suite (add/reorder/
   round-trip/rest-only-refused/live REST step with its yellow→green transitions) still passes, and
   the full 9-tab regression plus PDF export pass with zero page errors.
+
+**A wide UX round: a REAL Warm-Up/Pre-Set repetition bug fixed at its root, the Gym Hub
+consolidated to one card, the Tracker moved onto the Hub pattern, and the Support tab turned into
+an actionable support desk.**
+
+- **The "same warm-up and pre-set every single day" report was a genuine bug, and the cause was
+  the seed, not the pools.** `postCompletionRng` — which drives ONLY the Warm-Up blueprint and the
+  Pre-Set archetype — was seeded from `workoutGenSeed()` **alone**: a `localStorage` counter that
+  moves only when the swimmer presses "Complete Workout". So a swimmer who generates workouts
+  without ever pressing that button got the byte-identical Warm-Up structure and Pre-Set archetype
+  **forever** — not merely "stable for the day", frozen indefinitely. (That completion-triggered
+  design was itself an earlier explicit request, which is why it was there; the fix keeps it rather
+  than reverting it.) `generatorVarianceSeed(dateObj)` now mixes **three independent inputs**, so a
+  change to any one re-rolls the sequence: the calendar day (genuine day-to-day rotation), the
+  completion counter (still rotates on completion, preserving the earlier behaviour), and a
+  `stringHash()` of the swimmer's own selections — disciplines, goals, level, swimmer type — so a
+  Butterfly sprinter and a Freestyle distance swimmer no longer share a warm-up shape.
+  `state.distance` is deliberately EXCLUDED: the blueprint is already scaled to `warmupM` by
+  `buildToShare()`, so volume changes already change the rendered distances, and including it
+  would reshuffle the whole structure on every drag of the distance slider. A new
+  `pickOneNoRepeatFrom(rng, priorRng, pool)` (the arbitrary-RNG twin of the existing
+  `pickOneNoRepeat`) then guarantees the blueprint and archetype never repeat on consecutive days,
+  rather than merely making it unlikely. Verified via Playwright with a frozen simulated clock: 4
+  unique warm-ups and 4 unique pre-sets across 5 consecutive days, **zero** consecutive repeats,
+  changing discipline changes the output, bumping the completion counter still rotates it, and
+  identical inputs still produce identical output (so it does not reshuffle on every click).
+- **Gym Hub consolidated from two cards to one "Gym & Dryland Studio."** This was always the
+  honest shape: both cards already opened the identical `#gymStudioOverlay`, because there is only
+  ever one underlying Gym system (one Strength Profile, one `#gymFocusTabs` pill group, one shared
+  `#gymGrid`) — the second card was a focus-tab shortcut, not a separate feature. Strength AND
+  plyometrics prescriptions are both reached from the focus tabs inside the one studio (all 6 tabs
+  including Plyometrics verified present). `wireGymStudio()`'s `openStudio(focus)` keeps its
+  optional `focus` argument even though the single card doesn't pass one, so a future entry point
+  can still deep-link to a focus without re-adding plumbing. A new `.workouts-hub-grid.is-single`
+  caps a lone Hub card at 560px so it reads as a card rather than a full-width banner.
+- **Tracker moved onto the same Hub pattern as Workouts and Gym.** The whole dashboard (log form,
+  stat tabs, analytics strip, goal card, charts, PB grid, recent-swims list) moved verbatim into a
+  new `#trackerStudioOverlay`, reached from a single "📊 Distance & Progress Tracker → Launch
+  Tracker" card. Every element id inside the moved shell is byte-for-byte unchanged, so
+  `js/tracker-service.js` needed no rendering changes — only new open/close wiring. Opening forces
+  a data refresh (`loadEntriesIfNeeded`/`loadPbEntriesIfNeeded`/`updateTrackerPlanGate`) rather
+  than relying on the tab-click handler, since the dashboard is no longer rendered by merely
+  switching to the tab. It reuses the same `.workout-studio-*` classes as the other three studios —
+  verified by computed-style diff that its header is identical to the Gym Studio's, not just
+  visually close.
+- **Support is now a real support desk, not a permanently-open chat widget.** The chat is gated
+  behind a "Contact Support Team" CTA card (`#supportChatCta`); `#supportChatWrap` only opens when
+  the swimmer asks for it. **One important state-management detail, handled rather than
+  overlooked**: a returning swimmer who ALREADY has a conversation must never find their own
+  history — including an unread admin reply — hidden behind a "start a conversation" button, so
+  `renderMessages()` auto-opens the chat whenever a non-empty message list arrives. The
+  subscription still starts in the background on tab-click/sign-in regardless of CTA state, so
+  that auto-open fires without the swimmer doing anything. Sign-out calls `resetChatEntryState()`
+  so a signed-out visitor is never left looking at the previous session's opened shell. The FAQ
+  ("Quick Answers") deliberately stays above the CTA — self-serve first, contact second, which is
+  how a real help desk reads.
+- **A test artifact was correctly diagnosed rather than "fixed" in product code**: the auto-open
+  check initially failed because the test poked the DOM back to the entry state without clearing
+  the internal `chatOpen` flag — a state the real reset path (`resetChatEntryState()`) never
+  leaves behind. Re-tested via a genuine fresh page load with pre-existing history, which is the
+  scenario that actually matters, and it passes.
+- Verified via Playwright: the Gym Hub renders exactly 1 card whose studio opens with all 6 focus
+  tabs and 12 exercise cards; the Tracker Hub renders 1 card, has zero tracker form on the tab
+  itself, opens a studio whose header computed-style matches the Gym Studio's exactly, and closes
+  on Escape; Support shows the CTA with the chat hidden, opens the chat on click with the greeting
+  intact, and auto-opens with history on a fresh load; zero horizontal overflow at 390px on Gym,
+  Tracker, Support and the open Tracker Studio; and the full pre-existing regression suite (all 9
+  tabs, workout generation, PDF export, the whole Rest-row/Live-Mode suite) passes unchanged with
+  zero page errors.
