@@ -3871,6 +3871,125 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   .footer-top { gap: var(--space-5); }
 }
 
+/* ============================= MOBILE: RESPONSIVE POLISH PASS =============================
+   A follow-up to the breathing-room block directly above, driven by real
+   measurements at 320/360/390/414px rather than by eye. Declared AFTER that
+   block on purpose: several rules here deliberately override it (the
+   32px side gutter it introduced was itself what squeezed full-width CTAs
+   until their labels clipped), and equal-specificity conflicts are decided
+   by source order.
+
+   What was actually measured, and what each group below fixes:
+     • "LAUNCH WORKOUT GENERATOR" rendered 306px of text inside a 260px box
+       — .btn's shared `white-space: nowrap` plus `justify-content: center`
+       clips an equal amount off BOTH ends, so the label read
+       "…UNCH WORKOUT GENERATO…". Same for "OPEN WORKOUT STUDIO" (273/260)
+       and, at 320px, "SAVE TO MY WORKOUTS". This is the same failure mode
+       already fixed one-off for the promo popup / Generate / Complete
+       Workout buttons; it keeps recurring, so it is fixed here for every
+       .btn at once instead of one more element at a time.
+     • The Workout Studio header's eyebrow + title wrapped to three lines
+       beside the Back pill at 320px, blowing the header up to 109px and
+       crowding the two against each other.
+     • Builder set-row inputs measured 32-35px tall — under any real
+       touch-target floor — and every input's font-size sat under 16px,
+       which makes iOS auto-zoom the whole page on focus (the "hard to tap
+       and type in" report).
+     • The studio action bar's three buttons each sized to their own text,
+       so they rendered as three different widths stacked on top of each
+       other. */
+@media (max-width: 768px) {
+  /* --- Side gutters: 16px, so content clears the screen edge without
+         eating the width full-width CTAs need. Vertical rhythm from the
+         breathing-room block above is deliberately left alone. --- */
+  .wrap, .panel-wide-inner { padding-inline: var(--space-3); }
+  .studio-body { padding: var(--space-3); }
+  .bento-card { padding: var(--space-4) var(--space-3); }
+  .card, .price-card, .tracker-log-form, .tracker-stat-card, .tracker-goal-card,
+  .tracker-chart-card, .settings-card, .cwb-studio-banner { padding: var(--space-4); }
+
+  /* --- Buttons: wrap instead of clip, real touch height, no fixed height.
+         .btn has only min-height (never height), so a wrapped second line
+         grows the button rather than overflowing anything around it. --- */
+  .btn {
+    white-space: normal; height: auto; min-height: 48px;
+    padding: 12px 16px; font-size: 0.92rem; line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .btn-sm { min-height: 40px; padding: 10px 14px; font-size: 0.78rem; }
+  /* Re-assert the nav Log Out truncation: its own rule lives in the 980px
+     block far earlier in this file, so the wrap rule above would otherwise
+     win on source order and undo the ellipsis fix. A swimmer's own name is
+     never the point of that button, so it stays truncated rather than
+     wrapping the top bar to two rows. */
+  .nav-cta #navLogoutBtn {
+    white-space: nowrap; min-height: 34px; padding: 0.45em 0.7em; font-size: 0.66rem;
+  }
+
+  /* --- Studio headers stack, so the Back pill can never crowd the title.
+         The eyebrow is dropped here rather than kept: it was the piece that
+         actually wrapped to three lines beside the Back pill at 320px, and
+         stacking alone would have taken the header from 72px to 121px — a
+         seventh of a phone viewport spent on chrome. Every studio title is
+         self-describing on its own ("Workout Studio", "Support Chat"), and
+         the swimmer just tapped the card that opened it. --- */
+  .workout-studio-header {
+    flex-direction: column; align-items: flex-start; gap: var(--space-2);
+    padding: 12px var(--space-3);
+  }
+  .workout-studio-eyebrow { display: none; }
+  .workout-studio-back-btn { min-height: 38px; }
+  .workout-studio-header-info h2 { font-size: 1.05rem; }
+
+  /* --- Action bar: one full-width column of equal buttons --- */
+  .workout-studio-action-bar {
+    flex-direction: column; align-items: stretch; flex-wrap: nowrap;
+    gap: var(--space-2); padding: var(--space-3);
+  }
+  .workout-studio-action-bar .btn { width: 100%; }
+  .workout-studio-action-bar .cwb-status { flex: 0 0 auto; text-align: center; }
+
+  /* --- Inputs: full width, 44px touch floor, and a 16px font size so iOS
+         doesn't auto-zoom the page the moment the keyboard opens. Checkboxes,
+         radios and the distance range slider are excluded — sizing those
+         like text fields would break them. --- */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea {
+    font-size: 16px; min-height: 44px; width: 100%; box-sizing: border-box;
+  }
+  .coach-input, .coach-page-input { min-height: 44px; }
+
+  /* The block-title field is the one input that must NOT take the blanket
+     `width: 100%` above — it shares a row with the block's own remove
+     button, and a 100%-wide field pushes that button onto its own line. */
+  .cwb-block-label { width: auto; flex: 1 1 auto; min-width: 0; }
+
+  /* --- Flex rows that genuinely run out of horizontal room --- */
+  .cwb-block-actions, .tracker-log-row, .profile-row { flex-wrap: wrap; }
+
+  /* --- Icon-only builder controls: 22-26px is well under any real touch
+         target. These sit in right-aligned rows with room to spare, so
+         they're genuinely enlarged rather than given invisible hit-slop. --- */
+  .cwb-row-btn { width: 34px; height: 34px; }
+  .cwb-remove-btn { width: 36px; height: 36px; }
+  .cwb-row-btn .icon { width: 13px; height: 13px; }
+  .cwb-remove-btn .icon { width: 13px; height: 13px; }
+  .cwb-row-controls { gap: 6px; }
+
+  /* --- Icon-only close buttons measured 28-36px. These all carry an
+         explicit width/height, so padding-based hit-slop would be absorbed
+         by the fixed box rather than expanding it — they're sized up
+         directly instead. Two of the three are absolutely positioned, so
+         growing them shifts nothing around them. --- */
+  .announce-close { width: 36px; height: 36px; }
+  .modal-close { width: 44px; height: 44px; }
+  .coach-panel-close { width: 40px; height: 40px; }
+  /* --- Footer link columns: 24px rows on a 34px pitch. A little vertical
+         padding lifts each row to a ~36px target without changing the
+         column's visual rhythm. --- */
+  .footer-col a, .footer-col button { display: inline-block; padding-block: 6px; }
+}
+
 </style>
 </head>
 <body class="sidebar-collapsed view-home">

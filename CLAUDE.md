@@ -5622,6 +5622,82 @@ swimmer-specific dryland work; and Support was moved onto the Hub pattern.**
   `?v=` cache-bust token was bumped to `20260822a` in the same commit as the `js/*.js` changes, per
   this file's own standing rule.
 
+**A mobile responsiveness pass driven by real measurements at 320/360/390/414px — CSS only, one
+new `@media (max-width: 768px)` block plus a few scoped rules; no JS, markup, Firestore or Cloud
+Function changes anywhere, and desktop verified byte-identical afterward.**
+
+- **The reported "button text overlapping/clipping" was real and reproduced exactly.**
+  `#openSwimGeneratorBtn` rendered **306px of text inside a 260px box**; because `.btn` carries both
+  `white-space: nowrap` and `justify-content: center`, the overflow was clipped equally off BOTH
+  ends, so "LAUNCH WORKOUT GENERATOR" read as "…UNCH WORKOUT GENERATO…" (confirmed in a real
+  screenshot, not just from the scrollWidth delta). `#openWorkoutStudioBtn` (273/260) and, at
+  320px, `#cwbSaveBtn` had the same failure. This is the identical bug this file has already fixed
+  one element at a time three separate times (the promo popup CTA, `#generateBtn`,
+  `#completeWorkoutBtn`) — so rather than add a fourth one-off, `.btn` itself now switches to
+  `white-space: normal; height: auto; min-height: 48px; padding: 12px 16px` at ≤768px. `.btn` has
+  only ever had a `min-height` (never a fixed `height`), so a wrapped second line grows the button
+  instead of overflowing anything around it. **`#navLogoutBtn` is deliberately re-asserted as
+  `nowrap` inside the same block** — its own ellipsis-truncation rule lives in the 980px block far
+  earlier in the file, so the new wrap rule would otherwise win on source order and silently undo
+  that fix; a swimmer's own display name is never the point of that button, so it stays truncated
+  rather than wrapping the top bar onto two rows.
+- **The 32px mobile side gutter introduced by the earlier "breathing room" round was itself the
+  cause.** That round widened `.wrap`/`.panel-wide-inner` to `--space-5` (32px) to fix a "feels
+  cramped" complaint — which on a 390px phone leaves only 326px of usable width, which is what
+  squeezed every full-width CTA until its label clipped. The new block (declared AFTER it on
+  purpose, since equal-specificity conflicts are decided by source order) takes the horizontal
+  gutters back to `--space-3` (16px), per the explicit ask, while leaving that round's vertical
+  gaps and rhythm completely alone — the two complaints were about different axes.
+- **Studio headers stack on mobile.** At 320px the eyebrow + title wrapped to three lines beside
+  the "← Back" pill, inflating `.workout-studio-header` to 109px and crowding the two against each
+  other (measured: no true geometric overlap, but visually crashing, which is what the report
+  described). `.workout-studio-header` is now `flex-direction: column` at ≤768px. Stacking alone
+  would have taken it from 72px to **121px**, so `.workout-studio-eyebrow` is hidden at this
+  breakpoint too — it was the element that actually wrapped, every studio title is self-describing
+  on its own ("Workout Studio", "Workout Generator", "Support Chat", "Progress Dashboard"), and the
+  swimmer just tapped the card that opened it. Net header height: **91px**, cleanly separated.
+- **The Workout Studio action bar is one full-width column.** It was `flex-wrap: wrap` with each
+  button sized to its own text, so the three rendered at three different widths (284 / 270 / 130px)
+  stacked on top of each other. Now `flex-direction: column; align-items: stretch` with
+  `.workout-studio-action-bar .btn { width: 100% }` — all three are equal width at 48/48/40px, and
+  the bar dropped from 244px to 209px.
+- **Inputs: 44px touch floor, full width, and a 16px font size.** Builder set-row inputs measured
+  32-35px tall, and every input's font-size sat under 16px — which makes iOS auto-zoom the whole
+  page the moment the field is focused, the literal "hard to tap and type in" report. A scoped
+  `input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea` rule now
+  sets `font-size: 16px; min-height: 44px; width: 100%; box-sizing: border-box` at ≤768px —
+  checkboxes, radios and the distance range slider are excluded because sizing those like text
+  fields would break them. Verified after: every builder input is 44px, the Workout Name field is
+  50px at 16px, the Tracker log form stacks to full-width 46-52px rows, and both chat forms
+  (Support studio and the floating widget) keep their send button fully on-screen.
+- **A regression this pass introduced was caught by screenshot and fixed before shipping.** The
+  blanket `width: 100%` also hit `.cwb-block-label` (a block's inline title field), which shares a
+  row with that block's own remove button — the 100%-wide field pushed the `×` onto its own line
+  below the title. Fixed with a scoped `.cwb-block-label { width: auto; flex: 1 1 auto; min-width: 0 }`
+  override, and the `flex-wrap: wrap` that had been added to `.cwb-block-head` was dropped again
+  since it was no longer needed.
+- **Touch targets on the small icon-only controls.** A programmatic sweep of every button on every
+  tab (flagging anything clipped, over 70px tall, or under 40px) found the builder's reorder/remove
+  buttons at 22px and 26px — genuinely too small for a tool used poolside — so they're enlarged
+  directly to 34/36px at ≤768px, since they sit in right-aligned rows with room to spare. The
+  close buttons (`.announce-close` 28px, `.coach-panel-close` 31px, `.modal-close` 36px) all carry
+  an explicit `width`/`height`, so padding-based hit-slop would have been absorbed by the fixed box
+  rather than expanding it — they're sized up directly instead (36/40/44px), and two of the three
+  are absolutely positioned so nothing around them shifts. Footer link columns (24px rows on a 34px
+  pitch) got `padding-block: 6px`, lifting each to a ~36px target without changing the column's
+  visual rhythm.
+- Verified via Playwright: at 320/360/390/414px, zero clipped buttons, zero horizontal overflow on
+  any of the 9 tabs, and a full sibling-bounding-box overlap scan plus a text-overflow scan across
+  every tab returns **zero** real hits (the one flagged element is an `.sr-only` screen-reader
+  label, a 1px clipped box by design and a false positive this file has already documented).
+  Desktop was explicitly re-measured at 1024px and 1440px and is **unchanged** — header still
+  `row` with the eyebrow visible, action bar still `row`, `.btn` still `nowrap`, set-row inputs
+  still 35px, zero overflow, zero errors. The full pre-existing regression suite (all 9 tabs, a
+  4-stage generated workout, both PDF exports firing real `download` events, Live Mode/Complete
+  Workout, the whole generator-rotation and Support Hub suite from the previous round) passes
+  unchanged. No `js/*.js` file was touched, so the `?v=` cache-bust token is deliberately left at
+  `20260822a` rather than bumped for a CSS-only change.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
