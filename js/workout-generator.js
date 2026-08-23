@@ -18,6 +18,17 @@
   function dailySeedForDate(d) { return uaeRotationShiftedDate(d).getUTCFullYear() * 1000 + dayIndexForDate(d); }
   function dailySeed() { return dailySeedForDate(new Date()); }
   function weekIndex() { return Math.floor(dayIndex() / 7); }
+  // 6-HOUR FRESHNESS BUCKET — swimmers train twice a day (sometimes three
+  // times), so a workout that only refreshes once every 24 hours is too slow
+  // for a swimmer generating a second session the same afternoon. This is
+  // deliberately SEPARATE from dailySeed()/dayIndex()/weekIndex() above,
+  // which still drive genuinely calendar-based content (the Weekly Training
+  // Schedule's Mon-Sun rotation, Gym's weekly focus) that has no business
+  // flipping every 6 hours — this bucket only feeds the generator's own
+  // archetype/structure freshness (workoutRng, the Warm-Up/Pre-Set rotation
+  // walk below), never the day-of-week schedule itself.
+  var SIX_HOUR_MS = 6 * 60 * 60 * 1000;
+  function sixHourBucket(dateObj) { return Math.floor(dateObj.getTime() / SIX_HOUR_MS); }
 
   // COMPLETION-TRIGGERED ROTATION — a second, separate mechanism from the
   // daily one above, specifically for the Warm-Up blueprint and Pre-Set
@@ -67,7 +78,10 @@
   //
   // The seed is now a mix of THREE independent inputs, so a change to any
   // one of them re-rolls the sequence:
-  //   • the calendar day  -> genuinely rotates day to day (the original intent)
+  //   • a 6-hour freshness bucket (sixHourBucket(), not the calendar day) ->
+  //     genuinely rotates every 6 hours, so a swimmer training twice in one
+  //     day gets a fresh, deeply-structured workout for the second session
+  //     rather than the identical one from the morning
   //   • the completion counter -> still rotates the moment a workout is
   //     completed, preserving the earlier explicitly-requested behaviour
   //     rather than silently dropping it
@@ -102,13 +116,22 @@
   // read hits localStorage).
   function varianceSeedFrom(profileStr, genSeed, dateObj, focusKey) {
     return (stringHash(profileStr + '~' + (focusKey || ''))
-      ^ Math.imul(dailySeedForDate(dateObj), 0x9E3779B1)
+      ^ Math.imul(sixHourBucket(dateObj), 0x9E3779B1)
       ^ Math.imul(genSeed + 1, 0x85EBCA77)) >>> 0;
   }
   function generatorVarianceSeed(dateObj, focusKey) {
     return varianceSeedFrom(generatorProfileString(), workoutGenSeed(), dateObj, focusKey);
   }
-  // GUARANTEED-NON-REPEAT DAILY ROTATION.
+  // Drives workoutRng — the Main Set/Cool-Down's own freshness — combining
+  // the 6-hour bucket with the swimmer's discipline/goals/level/swimmer-type
+  // profile (generatorProfileString() already carries all four), so two
+  // swimmers training the same 6-hour window but on different disciplines or
+  // levels never land on the same generated set, and a swimmer's own second
+  // session later the same day gets a genuinely different one.
+  function freshnessSeed(dateObj) {
+    return (stringHash(generatorProfileString()) ^ Math.imul(sixHourBucket(dateObj), 0x9E3779B1)) >>> 0;
+  }
+  // GUARANTEED-NON-REPEAT 6-HOUR ROTATION.
   //
   // The previous approach (pickOneNoRepeatFrom: draw today, simulate
   // yesterday, re-draw on a collision) is only *probabilistically* correct,
@@ -119,34 +142,38 @@
   // repeat of the same Warm-Up blueprint.
   //
   // This replaces the draw-and-compare with a WALK. Starting from a fixed
-  // epoch, each day advances the pool index by a step in [1, n-1] derived
-  // from that day's own seed. A step is never 0, so idx(D) !== idx(D-1) is
-  // true BY CONSTRUCTION rather than by a check that can fail — and because
-  // the walk is anchored to a fixed epoch (not a rolling window), the index
-  // any given day lands on is a pure, exactly-reproducible function of the
-  // date, with no hidden branch to reconstruct.
+  // epoch, each 6-hour bucket advances the pool index by a step in [1, n-1]
+  // derived from that bucket's own seed. A step is never 0, so
+  // idx(B) !== idx(B-1) is true BY CONSTRUCTION rather than by a check that
+  // can fail — and because the walk is anchored to a fixed epoch (not a
+  // rolling window), the index any given bucket lands on is a pure, exactly-
+  // reproducible function of the timestamp, with no hidden branch to
+  // reconstruct. The bucket width is SIX HOURS (not a full day) so a
+  // swimmer generating a second session the same day gets a genuinely fresh
+  // Warm-Up/Pre-Set, not the same one from the morning.
   //
   // `salt` keeps independent pools (Warm-Up blueprint vs Pre-Set archetype)
   // walking independently instead of in lockstep.
   var ROTATION_EPOCH_MS = Date.UTC(2026, 0, 1);
-  var ROTATION_MAX_STEPS = 4000; // ~11 years; a hard bound on the walk cost
+  var ROTATION_MAX_STEPS = 8000; // ~5.5 years at 4 buckets/day; a hard bound on the walk cost
   function dailyRotationPick(pool, salt, nowMs) {
     if (!pool || !pool.length) return null;
     var n = pool.length;
     if (n === 1) return pool[0];
-    // With an override active every day in the walk shares that pinned focus
-    // key; with none, each day contributes its own real schedule key, so the
-    // walk reflects the actual weekly rotation.
+    // With an override active every bucket in the walk shares that pinned
+    // focus key; with none, each bucket contributes its own real schedule
+    // key (from whichever calendar day that bucket falls on), so the walk
+    // still reflects the actual weekly rotation underneath the 6h freshness.
     var overrideKey = state.scheduleOverrideKey || null;
-    var todayMs = typeof nowMs === 'number' ? nowMs : Date.now();
+    var nowT = typeof nowMs === 'number' ? nowMs : Date.now();
     var profileStr = generatorProfileString();
     var genSeed = workoutGenSeed();
-    var totalDays = Math.floor((todayMs - ROTATION_EPOCH_MS) / 86400000);
-    if (totalDays < 0) totalDays = 0;
-    if (totalDays > ROTATION_MAX_STEPS) totalDays = ROTATION_MAX_STEPS;
+    var totalBuckets = Math.floor((nowT - ROTATION_EPOCH_MS) / SIX_HOUR_MS);
+    if (totalBuckets < 0) totalBuckets = 0;
+    if (totalBuckets > ROTATION_MAX_STEPS) totalBuckets = ROTATION_MAX_STEPS;
     var idx = 0;
-    for (var back = totalDays; back >= 0; back--) {
-      var d = new Date(todayMs - back * 86400000);
+    for (var back = totalBuckets; back >= 0; back--) {
+      var d = new Date(nowT - back * SIX_HOUR_MS);
       var key = overrideKey || WEEKLY_FOCUS[uaeRotationShiftedDate(d).getUTCDay()].key;
       var seed = (varianceSeedFrom(profileStr, genSeed, d, key) ^ Math.imul(salt, 0x27D4EB2F)) >>> 0;
       var rng = makeSeededRandom(seed);
@@ -155,12 +182,13 @@
     return pool[idx];
   }
 
-  // Deterministic PRNG (mulberry32) so a workout generated today always comes
-  // out the same for a given set of picks — refreshing automatically at
-  // midnight — instead of reshuffling on every single click of Generate.
-  // pickN/pickOne/roundCountFor below all draw from workoutRng rather than
-  // Math.random() directly; generateWorkout() reseeds it from dailySeed()
-  // at the top of every call.
+  // Deterministic PRNG (mulberry32) so a workout generated within the same
+  // 6-hour window always comes out the same for a given set of picks —
+  // refreshing automatically every 6 hours — instead of reshuffling on
+  // every single click of Generate. pickN/pickOne/roundCountFor below all
+  // draw from workoutRng rather than Math.random() directly;
+  // generateWorkout() reseeds it from freshnessSeed() at the top of every
+  // call.
   function makeSeededRandom(seed) {
     var s = seed >>> 0;
     return function () {
@@ -631,7 +659,19 @@
     var requestedLevel = btn.dataset.level;
     var upsellNote = document.getElementById('levelUpsellNote');
     var hasFull = typeof window.__hasFullAccess === 'function' && window.__hasFullAccess();
-    if (requestedLevel !== 'beginner' && !hasFull) {
+    // A REAL BUG WAS HERE, the actual root cause behind "the level tabs show
+    // Competitive selected but my distance still got capped": this used to
+    // block the switch (with an easy-to-miss upsell note) whenever hasFull
+    // was false — but hasFull is ALSO false the instant a swimmer signs in,
+    // before window.__swimfitAccess has resolved for the first time. A
+    // genuinely full-access swimmer clicking Competitive/Elite in that brief
+    // window got silently bounced back to Beginner with no visible cause.
+    // Only block when access is DEFINITIVELY known and not full — an
+    // unresolved state trusts the tentative switch, exactly like
+    // updateLevelTabLocks() already does; if access then resolves to
+    // non-full a moment later, that same listener corrects it visibly.
+    var accessResolved = !!window.__swimfitAccess;
+    if (requestedLevel !== 'beginner' && accessResolved && !hasFull) {
       if (upsellNote) upsellNote.style.display = '';
       return;
     }
@@ -1263,8 +1303,9 @@
   // this failure mode and is what both pool picks use.
 
   // How many rounds (2-3) a given level is allowed to build a Main Set
-  // circuit from — seeded per day (see workoutRng above) so the shape is
-  // stable across regenerations today and rotates automatically tomorrow.
+  // circuit from — seeded per 6-hour window (see workoutRng above) so the
+  // shape is stable across regenerations within that window and rotates
+  // automatically once the next one starts.
   function roundCountFor(scaler) {
     var min = scaler.minRounds || 2, max = scaler.maxRounds || min;
     return min + Math.floor(workoutRng() * (max - min + 1));
@@ -1555,6 +1596,28 @@
         'Real race-pace training is keyed to a named pace band, not one flat interval — starting at P+2 and tightening toward P (and past it) round by round is exactly how a personalized target gets handed to you, rather than a generic send-off everyone swims the same.',
         'The interval gets tighter at the same moment the target pace gets faster — that double squeeze is what actually simulates the closing stages of a race, where the clock and your own effort are both compressing together.'
       ]
+    },
+    // A genuine heart-rate-targeting Main Set structure — climbing through
+    // named training zones rather than just a faster clock time — one of
+    // the explicitly-requested "elite coach" tools this pool didn't have
+    // before. Excluded from Beginner (see BEGINNER_EXCLUDED_ARCHETYPES
+    // below): all-out Zone 5 work with full recovery asks for pacing
+    // control a beginner hasn't built yet.
+    {
+      name: 'VO2 Max — Heart-Rate Zone Ladder',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Zone 3 — Controlled', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' hold Zone 3, comfortably hard', [], pace100 + 1, 15, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Zone 4 — Threshold Push', sets: [buildSet(Math.max(3, Math.round(m / 50)), 50, nextStroke() + ' hold Zone 4, breathing hard', [], pace100 - 1, 20, scaler, '100 Pace')] }; },
+          function (m) { return { label: 'Zone 5 — Max Effort', sets: [buildSet(Math.max(2, Math.round(m / 50)), 50, nextStroke() + ' hold Zone 5, all-out, full REC', [], pace100 - 4, 40, scaler, '50 Pace')] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
+      },
+      intents: [
+        'Climbing through named heart-rate zones — not just faster clock times — teaches a swimmer to read their own effort honestly, the same skill that keeps a race from being paced entirely off feel and adrenaline once the lactate builds.'
+      ]
     }
   ];
   // js/swiml-database.js hardcodes real Main Set shapes transcribed verbatim
@@ -1680,6 +1743,28 @@
       intents: [
         'Descending through real distance rungs — 400 down to 100 — asks for a completely different pacing skill than repeating the same rep over and over: you have to genuinely shift gears as the rung shrinks, which is exactly what a race\'s closing stages demand.'
       ]
+    },
+    // A genuine hypoxic threshold structure — widening the breathing pattern
+    // WHILE holding real threshold pace, not just a slow easy-swim breath-hold
+    // exercise. One of the explicitly-requested "elite coach" tools this pool
+    // didn't have before. Excluded from Beginner: restricted breathing at
+    // pace is a real risk for a swimmer who hasn't built the aerobic base
+    // for it yet.
+    {
+      name: 'Threshold — Hypoxic Breath Ladder',
+      build: function (shareM, pace100, scaler, nextStroke) {
+        var n = roundCountFor(scaler);
+        var shares = splitShareEqual(shareM, n);
+        var templates = [
+          function (m) { return { label: 'Breathe Every 3', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' @ threshold, breathe every 3', [], pace100 + 4, 15, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Breathe Every 5', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' @ threshold, breathe every 5', [], pace100 + 4, 15, scaler, 'Threshold Pace')] }; },
+          function (m) { return { label: 'Breathe Every 7', sets: [buildSet(Math.max(2, Math.round(m / 100)), 100, nextStroke() + ' @ threshold, breathe every 7 — hold form', [], pace100 + 4, 15, scaler, 'Threshold Pace')] }; }
+        ];
+        return templates.slice(0, n).map(function (t, i) { return t(shares[i]); });
+      },
+      intents: [
+        'Widening the breathing pattern while holding real threshold pace forces genuine oxygen efficiency, not a breath-hold party trick — the same restricted-air discipline that keeps stroke length together on the last 50 of a race, when legal breathing feels like a luxury you can\'t afford to take.'
+      ]
     }
   ];
   // See the matching SPEED_ARCHETYPES splice above — same real-swiML-data
@@ -1704,9 +1789,9 @@
   // fix mid-set, organically, instead of feeling lectured. Each cue targets
   // one of the three explicitly-requested fundamentals — underwater
   // propulsion, a clean catch, or body rotation — and rotates via the same
-  // day-stable workoutRng/pickOne() as every other random choice in the
-  // generator, so it's stable for the day and changes at the same midnight
-  // rotation as the rest of the workout.
+  // 6-hour-stable workoutRng/pickOne() as every other random choice in the
+  // generator, so it's stable within that window and changes at the same
+  // 6-hour rotation as the rest of the workout.
   var TECHNIQUE_MICRO_CUES = [
     'a strong early-vertical-forearm catch — feel the water "grab" before the pull even starts',
     'a subtle hip-driven body rotation feeding power into every stroke, not just the arms',
@@ -1820,7 +1905,7 @@
   // gradually within its own rounds (e.g. Sprint Reps ramps 200-pace ->
   // 100-pace -> 50-pace) and stays available. The Technique pool is entirely
   // drill-based already and is never filtered.
-  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder', 'Low Aero — swiML Vikings Ladder', 'Sprint — swiML 25s Ladder', 'Sprint — ADAC Broken Ladder'];
+  var BEGINNER_EXCLUDED_ARCHETYPES = ['Resist-Power — Turns & Starts', 'VO2 Max — Power Ladder', 'Threshold — Broken Swim', 'Low Aero — Distance Ladder', 'Low Aero — swiML Vikings Ladder', 'Sprint — swiML 25s Ladder', 'Sprint — ADAC Broken Ladder', 'VO2 Max — Heart-Rate Zone Ladder', 'Threshold — Hypoxic Breath Ladder'];
 
   // SPRINTER PHYSIOLOGY: a swimmer who set their Swimmer Type (Race Goal
   // card) to Sprinter shouldn't be handed the Endurance pool's long-
@@ -2016,6 +2101,40 @@
     }
   ];
 
+  // PRE-SET MUST PHYSICALLY PRIME THE MAIN SET — a Pre-Set drawn at random
+  // from the full 12-archetype pool above could hand a Sprint/Power day a
+  // slow aerobic lead-in, or a Distance/Threshold day an explosive CNS
+  // activation block that just burns matches before the real work starts.
+  // These two sub-pools split the same 12 archetypes (by reference, not by
+  // duplicating their build()s) into the two physiological camps a real
+  // coach actually reasons in: CNS/explosive priming for a sprint-oriented
+  // Main Set, DPS/pacing/feel priming for a distance-, threshold- or
+  // technique-oriented one. presetPoolForGoals() below picks which sub-pool
+  // actually feeds dailyRotationPick() — the Pre-Set is no longer goal-blind.
+  var PRESET_SPEED_ARCHETYPES = PRESET_ARCHETYPES.filter(function (a) {
+    return ['Speed-Build Activation', 'Underwater Dolphin Activation', 'Turn & Breakout Activation',
+      'Start & Reaction Power', 'Stroke-Rate Activation', 'Heart-Rate Activation',
+      'Tempo Ladder Activation', 'Broken Race-Pace Primer'].indexOf(a.name) > -1;
+  });
+  var PRESET_ENDURANCE_ARCHETYPES = PRESET_ARCHETYPES.filter(function (a) {
+    return ['Aerobic Lead-In', 'Feel & Technique Primer', 'Pull-Pressure Activation',
+      'Hypoxic Breath Control'].indexOf(a.name) > -1;
+  });
+  // Mirrors exactly how the Main Set's own archetype pool is chosen (see
+  // `state.goals.reduce(...)` below) — Speed-only -> CNS priming,
+  // Endurance-only -> DPS/pacing priming, both selected -> the swimmer is
+  // training both systems today so the full combined pool stays in play,
+  // Technique-only or no signal at all -> the gentler DPS/feel bucket (a
+  // Technique day's own Feel & Technique Primer already lives there).
+  function presetPoolForGoals(goals) {
+    var hasSpeed = goals.indexOf('speed') > -1;
+    var hasEndurance = goals.indexOf('endurance') > -1;
+    if (hasSpeed && !hasEndurance) return PRESET_SPEED_ARCHETYPES;
+    if (hasEndurance && !hasSpeed) return PRESET_ENDURANCE_ARCHETYPES;
+    if (hasSpeed && hasEndurance) return PRESET_ARCHETYPES;
+    return PRESET_ENDURANCE_ARCHETYPES;
+  }
+
   var TIPS_BY_DISCIPLINE = {
     'Freestyle': 'Keep a high-elbow catch and rotate through the hips, not just the shoulders.',
     'Backstroke': 'Keep your head still and level — just a slight ripple at the crown, eyes on the ceiling.',
@@ -2043,12 +2162,14 @@
   }
 
   function generateWorkout() {
-    // Reseed from today's date first, so every archetype/round-count pick
-    // this function makes below comes from the same day-stable sequence —
-    // the swimmer's workout automatically rotates at midnight rather than
-    // reshuffling on every click of Generate.
-    workoutRng = makeSeededRandom(dailySeed());
-    // Composite seed (day + completion counter + the swimmer's own
+    // Reseed from the current 6-hour freshness bucket first, so every
+    // archetype/round-count pick this function makes below comes from the
+    // same bucket-stable sequence — a swimmer's workout automatically
+    // rotates every 6 hours (not once a day) rather than reshuffling on
+    // every single click of Generate, so a second session later the same
+    // day still gets a genuinely fresh, deeply-structured set.
+    workoutRng = makeSeededRandom(freshnessSeed(new Date()));
+    // Composite seed (6-hour bucket + completion counter + the swimmer's own
     // selections) — see generatorVarianceSeed() for why seeding this from
     // the completion counter alone was a real bug.
     // Drives the drill/kick LABEL picks inside whichever Warm-Up blueprint
@@ -2056,21 +2177,43 @@
     // draw from this — they use dailyRotationPick()'s guaranteed-non-repeat
     // walk instead (see above).
     postCompletionRng = makeSeededRandom(generatorVarianceSeed(new Date(), effectiveFocus().key));
-    // A separate, throwaway RNG seeded with yesterday's date, used only to
-    // simulate "what would today's current settings have produced yesterday"
-    // for the Pre-Set and first Main Set archetype — so a swimmer generating
-    // on consecutive days with unchanged settings never sees the identical
-    // headline archetype twice in a row. This never touches the real
-    // workoutRng, so today's own pick sequence stays exactly as deterministic
-    // as before.
-    var priorDayRng = makeSeededRandom(dailySeedForDate(new Date(Date.now() - 86400000)));
+    // A separate, throwaway RNG seeded with the PREVIOUS 6-hour bucket, used
+    // only to simulate "what would this exact profile have produced last
+    // bucket" for the Pre-Set and first Main Set archetype — so a swimmer
+    // generating twice in the same day with unchanged settings never sees
+    // the identical headline archetype twice in a row. This never touches
+    // the real workoutRng, so the current bucket's own pick sequence stays
+    // exactly as deterministic as before.
+    var priorBucketRng = makeSeededRandom(freshnessSeed(new Date(Date.now() - SIX_HOUR_MS)));
     // FREEMIUM LEVEL GATE, defense-in-depth: Competitive/Elite are already
     // blocked at the UI layer (the levelTabs click handler and
     // updateLevelTabLocks() below), so this only ever fires for a stored
     // preference from before a subscription lapsed, or otherwise-stale
     // state.level reaching this function directly.
+    //
+    // A REAL, PREVIOUSLY-LIVE BUG WAS FOUND HERE: this check used to fire
+    // whenever window.__hasFullAccess() returned false — but that function
+    // ALSO returns false while access simply hasn't resolved yet (the brief
+    // window right after sign-in, before the async Firestore round-trip in
+    // recomputeAccessLevel() sets window.__swimfitAccess for the first
+    // time). A swimmer — including a genuinely full-access Pro/Trial/Admin
+    // one — who opened the Workout Studio, dragged the Target Distance
+    // slider to e.g. 5.0 km, and hit Generate quickly (well within normal
+    // human reaction time relative to that round-trip) would get silently
+    // downgraded to Beginner AND capped to 3000m below, with the level tabs
+    // still visually showing their real, unlocked selection — reading
+    // exactly like "I asked for 5km and got 3km" with no visible cause. The
+    // fix distinguishes "access is DEFINITIVELY known and not full" (the
+    // real intended case: a genuinely free-tier swimmer with a stale
+    // Competitive/Elite preference in localStorage) from "access hasn't
+    // resolved yet" (window.__swimfitAccess still null/undefined) — only
+    // the former downgrades; the latter trusts whatever state.level the UI
+    // itself is already showing, since updateLevelTabLocks() will correct
+    // it visually and re-run this same check a moment later once access
+    // actually resolves.
     var freeLevelDowngraded = false;
-    if (state.level !== 'beginner' && !(typeof window.__hasFullAccess === 'function' && window.__hasFullAccess())) {
+    var accessResolved = !!window.__swimfitAccess;
+    if (accessResolved && state.level !== 'beginner' && !(typeof window.__hasFullAccess === 'function' && window.__hasFullAccess())) {
       state.level = 'beginner';
       freeLevelDowngraded = true;
     }
@@ -2152,19 +2295,27 @@
     function fixedStrokeFn(strokeLabel) { return function () { return strokeLabel; }; }
     var disciplinesLabel = state.disciplines.map(strokeLabelSingle).join(' + ');
     // STRICT DISTANCE ACCURACY: Warm-Up and Pre-Set get their usual fixed
-    // shares. The Main Set's own nominal share grew from 55%→65% since the
-    // Cool-Down no longer needs a large fixed allocation — active recovery
-    // that used to live there is now carved OUT of the Main Set's own budget
-    // (see EZ_RECOVERY_M below), never added on top of it, so the grand total
-    // stays conserved by construction rather than by luck. The Cool-Down's own
-    // size is deliberately NOT fixed here — it's computed further down as
-    // whatever's actually left once Warm-Up/Pre-Set/Main Set have rendered
-    // their real (rounded, stroke-capped) meters, so it's the one block that
-    // absorbs every other stage's own internal rounding drift and guarantees
-    // the finished workout lands within ±50m of the swimmer's chosen distance.
-    var warmupM = Math.round((totalM * 0.10) / 100) * 100 || 200;
-    var presetM = Math.round((totalM * 0.15) / 100) * 100 || 200;
-    var mainM = Math.max(200, Math.round((totalM * 0.65) / 100) * 100);
+    // shares. Warm-Up moved from 10%→17% of totalM — real coaching practice
+    // scales the warm-up to roughly 15-20% of session volume rather than a
+    // flat 10%, so a 6km session genuinely gets a substantial ~1km warm-up,
+    // not the same proportionally-thin one a 2km session gets. Main Set's
+    // own nominal share (62%, down slightly from 65% to make room for the
+    // bigger Warm-Up) is still the dominant share by a wide margin — active
+    // recovery that used to live in the Cool-Down is carved OUT of the Main
+    // Set's own budget (see EZ_RECOVERY_M below), never added on top of it,
+    // so the grand total stays conserved by construction rather than by
+    // luck. The Cool-Down's own size is deliberately NOT fixed here — it's
+    // computed further down as whatever's actually left once Warm-Up/
+    // Pre-Set/Main Set have rendered their real (rounded, stroke-capped)
+    // meters, so it's the one block that absorbs every other stage's own
+    // internal rounding drift and guarantees the finished workout lands
+    // within ±50m of the swimmer's chosen distance regardless of how big
+    // that distance is — this is what makes "ask for 5.0 km, get 5.0 km"
+    // true by construction rather than by hoping several independently-
+    // rounded blocks happen to add up.
+    var warmupM = Math.round((totalM * 0.17) / 100) * 100 || 200;
+    var presetM = Math.round((totalM * 0.13) / 100) * 100 || 200;
+    var mainM = Math.max(200, Math.round((totalM * 0.62) / 100) * 100);
     var noScale = { intervalMult: 1, restAdd: 0 };
     // A real target time tightens the actual work — quality intervals aimed
     // at a specific clock, not just "more of the same." Warm-Up/Cool-Down
@@ -2210,13 +2361,14 @@
 
     // Pre-Set: always exactly one archetype — a short, purposeful bridge
     // between Warm-Up and the Main Set (see PRESET_ARCHETYPES above), the
-    // second of this generator's four fixed stages. Drawn from the same
-    // postCompletionRng as the Warm-Up blueprint just above, so both stay
-    // fixed together across every Generate click until the swimmer
-    // completes a workout, then both rotate together — not the day-stable
-    // workoutRng (a full 24h cycle) and not per-click Math.random()
-    // (reshuffling on every single click) either.
-    var presetArchetype = dailyRotationPick(PRESET_ARCHETYPES, 2) || PRESET_ARCHETYPES[0];
+    // second of this generator's four fixed stages. Drawn from
+    // presetPoolForGoals(state.goals) — the sub-pool that actually PRIMES
+    // whatever the Main Set is about to demand (CNS/explosive for a Sprint/
+    // Power day, DPS/pacing for a Distance/Threshold day) — via the same
+    // 6-hour rotation walk as the Warm-Up blueprint, so both stay fixed
+    // together for the current 6-hour window, then both rotate together.
+    var presetPool = presetPoolForGoals(state.goals);
+    var presetArchetype = dailyRotationPick(presetPool, 2) || presetPool[0];
     // Pre-Set is locked to one stroke for the whole activation block.
     var presetStroke = nextBlockStroke();
     var preset = {
@@ -2284,13 +2436,33 @@
     var mainBlockCount = 1;
     var chosenArchetypes = pickN(pool, mainBlockCount);
     if (pool.length > 1) {
-      var priorFirstMainArchetype = pickOneFrom(priorDayRng, pool);
+      var priorFirstMainArchetype = pickOneFrom(priorBucketRng, pool);
       if (chosenArchetypes[0] === priorFirstMainArchetype) {
         var altMainPool = pool.filter(function (a) { return a !== priorFirstMainArchetype; });
         var replacementMain = pickOne(altMainPool);
         if (chosenArchetypes.indexOf(replacementMain) === -1) {
           chosenArchetypes[0] = replacementMain;
         }
+      }
+    }
+    // ELITE INTENSITY GUARANTEE: an Elite swimmer's Main Set is guaranteed to
+    // draw from one of the pool's genuinely most demanding structures —
+    // broken swims, VO2/lactate ladders, race-pace holds, hypoxic or
+    // heart-rate-zone work — rather than leaving it purely to chance which
+    // archetype the 6-hour rotation happens to land on. Same "guarantee it's
+    // present" principle swimmerType bias and the race-goal band below
+    // already use; this just raises the floor for the level whose whole
+    // point is training at the absolute limit.
+    var ELITE_INTENSITY_ARCHETYPE_NAMES = [
+      'Lactate — Sprint Ladder', 'VO2 Max — Power Ladder', 'Broken — Race-Pace 100s',
+      'Speed Endurance — Race-Pace Band', 'VO2 Max — Heart-Rate Zone Ladder',
+      'Threshold — Broken Swim', 'Threshold — Hypoxic Breath Ladder', 'Low Aero — Distance Ladder'
+    ];
+    if (state.level === 'elite' && chosenArchetypes.length) {
+      var alreadyElite = chosenArchetypes.some(function (a) { return ELITE_INTENSITY_ARCHETYPE_NAMES.indexOf(a.name) > -1; });
+      if (!alreadyElite) {
+        var eliteCandidates = pool.filter(function (a) { return ELITE_INTENSITY_ARCHETYPE_NAMES.indexOf(a.name) > -1; });
+        if (eliteCandidates.length) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(eliteCandidates);
       }
     }
     // SWIMMER TYPE BIAS: a Sprinter or Distance swimmer gets that emphasis
@@ -2520,7 +2692,7 @@
       '<strong style="color:var(--fg)">Coach’s Plan — Today’s Set:</strong> ' + disciplinesLabel + ' · ' + formatDistanceM(totalM, 1) + (totalM >= 6000 ? '+' : '') + ' · ' +
       state.goals.map(function (k) { return GOALS.find(function (g) { return g.key === k; }).label; }).join(' + ') + ' focus · ' + state.level + ' level. ' + scaler.note +
       (state.disciplines.length > 1 ? ' Strokes alternate set-to-set across your selected disciplines.' : '') +
-      ' This exact set structure holds for the rest of today and rotates automatically at midnight.' + '</p>';
+      ' This exact set structure holds for the next 6 hours and rotates automatically after that.' + '</p>';
 
     scalerNoteHtml += '<p style="color:var(--aqua); font-size:0.78rem; margin-bottom:4px;">' +
       (personalPace != null

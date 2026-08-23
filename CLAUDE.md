@@ -5698,6 +5698,115 @@ Function changes anywhere, and desktop verified byte-identical afterward.**
   unchanged. No `js/*.js` file was touched, so the `?v=` cache-bust token is deliberately left at
   `20260822a` rather than bumped for a CSS-only change.
 
+**A round covering a real, previously-live distance-math bug (not a math bug in the
+distance-scaling engine itself, but a race condition that silently overrode it), a switch from
+daily to 6-hour generator freshness, Pre-Set/Main-Set physiological priming, and two new
+elite-tier Main Set structures.**
+
+- **"Set the slider to 5.0 km, got 3.0 km back" was real, and root-caused rather than patched at
+  the symptom.** Direct empirical testing first ruled out the obvious suspect: for any genuinely
+  full-access swimmer, `generateWorkout()`'s distance-reconciliation engine (Warm-Up/Pre-Set/Main
+  Set built to their shares, Cool-Down absorbing the residual, then a final nudge — all already
+  documented in this file across many earlier rounds) produces an **exact** match — 5000 in,
+  5000 out, confirmed at 1000-6000m across Beginner/Competitive/Elite. The actual cause was a real
+  race condition in the Freemium gate: **two separate call sites** (`generateWorkout()`'s own
+  defense-in-depth downgrade, and the `#levelTabs` click handler that lets a swimmer select
+  Competitive/Elite in the first place) both treated `window.__hasFullAccess()` returning `false`
+  as "this swimmer is on the Free plan," but that function ALSO returns `false` during the brief,
+  entirely normal window right after sign-in when `window.__swimfitAccess` simply hasn't resolved
+  yet (the async Firestore round-trip in `recomputeAccessLevel()` hasn't completed). A swimmer —
+  including a genuinely Pro/Trial/Admin one — who opened the Workout Studio and clicked
+  Competitive/Elite + dragged the distance slider to 5km quickly (well within normal human
+  reaction time relative to that round-trip) got silently bounced to Beginner and capped at 3000m,
+  **with the level tabs still visually showing whatever they'd clicked** — reading exactly like
+  "I asked for 5km and got 3km" with no visible cause. Confirmed via a dedicated Playwright
+  reproduction: simulating a signed-in swimmer with `window.__swimfitAccess` deliberately left
+  unresolved reproduced the exact 3.0km-instead-of-5.0km symptom before the fix, and produced the
+  correct 5.0km after it. Both call sites now distinguish "access is DEFINITIVELY known and not
+  full" (the real, intended case — a genuinely free-tier swimmer with a stale Competitive/Elite
+  preference in localStorage) from "access hasn't resolved yet" (`window.__swimfitAccess` still
+  null/undefined) — only the former downgrades; the latter trusts whatever the UI is already
+  showing, exactly matching the philosophy `updateLevelTabLocks()` already documented ("never
+  flash-downgrade before real access is known") but that these two other call sites hadn't
+  actually followed. Verified the genuine Free-tier cap (3000m, Beginner-only) still fires
+  correctly once access is definitively resolved to `'free'` — this is a race-condition fix, not a
+  removal of the real enforcement.
+- **Warm-Up grew from a flat 10% of total volume to 17%**, landing inside the requested 15-20%
+  band at virtually every real distance (confirmed 10-20% across the whole 1000-6000m ×
+  Beginner/Competitive/Elite sweep, varying slightly by which archetype's own internal rep floors
+  happen to fire — an already-disclosed, pre-existing property of `buildToShare()`, not new this
+  round). Pre-Set nudged 15%→13% and Main Set 65%→62% to make room, while staying by far the
+  dominant share; Cool-Down is still computed as whatever's left, absorbing rounding drift exactly
+  as before. Distance accuracy re-verified across the full sweep: max deviation 75m (the same
+  already-documented small-total edge case — a real Warm-Up + Cool-Down structurally need a
+  certain minimum volume, proportionally larger against a 1000m target than a 6000m one), zero
+  regression from the percentage change.
+- **6-HOUR ROTATION replaces the daily one for the generator's own freshness** — a swimmer training
+  twice in one day now gets a genuinely different, deeply-structured workout for the second
+  session, not the identical one from the morning. This is deliberately scoped to the generator's
+  archetype/structure variety only: `dayIndex()`/`dailySeed()`/`weekIndex()`/`todaysFocus()` (the
+  Weekly Training Schedule's Mon-Sun rotation, Gym's own weekly focus, the DISCIPLINES default
+  pick) are untouched, since those are genuinely calendar-based content with no business flipping
+  every 6 hours. A new `sixHourBucket(dateObj)` (`Math.floor(ms / (6*60*60*1000))`) feeds three
+  things: `workoutRng` itself (now seeded via a new `freshnessSeed(dateObj)` — the 6-hour bucket
+  combined with `generatorProfileString()`, i.e. discipline+goals+level+swimmerType — replacing the
+  old `dailySeed()`), the "never repeat the previous window's headline Main Set archetype" guard
+  (`priorBucketRng`, now the previous 6-hour bucket instead of yesterday), and
+  `dailyRotationPick()`'s own epoch-anchored walk (the Warm-Up blueprint / Pre-Set archetype
+  guaranteed-non-repeat mechanism from an earlier round), whose step width changed from a day to a
+  6-hour bucket (cap raised from 4000 to 8000 steps, ~5.5 years of real-world coverage). This
+  **supersedes** the earlier round's explicit "completion-triggered, not time-based" decision for
+  Warm-Up/Pre-Set — the user has now explicitly asked for the opposite, so that entry is
+  superseded here, not silently reverted. Verified via Playwright across 12 simulated consecutive
+  6-hour buckets: 6 distinct Warm-Up blueprints and 7 distinct Pre-Set archetypes appear, zero
+  consecutive repeats of either, while two Generate clicks within the SAME bucket still produce a
+  byte-identical result (the point of seeding from a bucket, not `Math.random()`). The on-screen
+  "Coach's Plan" note was updated from "holds for the rest of today and rotates automatically at
+  midnight" to "holds for the next 6 hours and rotates automatically after that," and every
+  internal comment claiming a "daily"/"midnight" rotation for `workoutRng` specifically (not the
+  Weekly Schedule, which is untouched) was corrected to describe the real 6-hour behavior.
+- **Pre-Set now physically primes whatever the Main Set is about to demand, instead of drawing
+  from one goal-blind pool.** The existing 12 Pre-Set archetypes were split by reference (no
+  content duplicated) into `PRESET_SPEED_ARCHETYPES` (8: every CNS/explosive-activation archetype
+  — Speed-Build, Underwater Dolphin, Turn & Breakout, Start & Reaction Power, Stroke-Rate,
+  Heart-Rate, Tempo Ladder, Broken Race-Pace Primer) and `PRESET_ENDURANCE_ARCHETYPES` (4: every
+  DPS/pacing/feel archetype — Aerobic Lead-In, Feel & Technique Primer, Pull-Pressure Activation,
+  Hypoxic Breath Control). `presetPoolForGoals(goals)` mirrors exactly how the Main Set's own
+  archetype pool is already chosen from `state.goals` (`ARCHETYPE_POOLS[g]` combined) — Speed-only
+  selects the CNS pool, Endurance-only selects the DPS pool, both-selected keeps the full combined
+  pool in play (the swimmer is training both systems that day), Technique-only or no signal falls
+  back to the gentler DPS/feel pool (where Feel & Technique Primer already lives). The Pre-Set pick
+  itself is unchanged mechanically — still drawn via `dailyRotationPick()`'s 6-hour walk — just
+  from whichever sub-pool actually matches today's Main Set character. Verified via Playwright: a
+  Speed-only session's Pre-Set always comes from the 8-item CNS pool, an Endurance-only session's
+  always comes from the 4-item DPS pool, and the two pools are confirmed disjoint.
+- **Two new elite-tier Main Set archetypes fill genuine gaps this pool didn't have** — both explicit
+  "elite coach" tools named in the ask that Pre-Set already had a version of, but Main Set didn't:
+  **VO2 Max — Heart-Rate Zone Ladder** (added to `SPEED_ARCHETYPES` — a real climb through named
+  training zones, Zone 3 controlled → Zone 4 threshold push → Zone 5 all-out with full recovery,
+  rather than just a faster clock time) and **Threshold — Hypoxic Breath Ladder** (added to
+  `ENDURANCE_ARCHETYPES` — widening the breathing pattern, 3→5→7 strokes per breath, WHILE holding
+  genuine threshold pace, a real threshold structure rather than an easy-swim breath-hold
+  exercise). Both follow the exact same `(shareM, pace100, scaler, nextStroke)` signature and
+  `roundCountFor()`/`splitShareEqual()`/`buildSet()` machinery every other archetype already uses,
+  so they scale through the identical `buildToShare()` distance-accuracy pipeline with zero special
+  casing, and both were added to `BEGINNER_EXCLUDED_ARCHETYPES` (all-out Zone 5 work and restricted
+  breathing at pace both ask for pacing control/aerobic base a beginner hasn't built yet).
+- **ELITE INTENSITY GUARANTEE**: at Elite level, the Main Set's single archetype block (this file's
+  existing, deliberate "exactly one Main Set" design from an earlier round, left unchanged rather
+  than reintroducing multiple headlined blocks) is now guaranteed to be one of the pool's genuinely
+  most demanding structures — broken swims, VO2/lactate ladders, race-pace holds, or either of the
+  two new hypoxic/heart-rate-zone archetypes — rather than leaving it purely to the 6-hour rotation
+  which archetype happens to land. Mirrors the exact "guarantee it's present" principle
+  `swimmerType` bias and the race-goal band already use elsewhere in this function. Verified via
+  Playwright across four distances (2000-6000m) at Elite level with both Speed and Endurance goals
+  selected: every single generated workout's Main Set names one of the eight guaranteed-intensity
+  archetypes, with the grand total still landing exactly on target (6.0 km in, 6.0 km out).
+- Verified via Playwright: the full pre-existing regression suite (all 9 tabs, a 4-stage generated
+  workout, a real PDF `download` event, the whole Rest-row/Live-Mode yellow→green suite) passes
+  unchanged with zero page errors. The `?v=` cache-bust token was bumped to `20260823a` in the same
+  commit as this round's `js/workout-generator.js` changes, per this file's own standing rule.
+
 ## History for context
 
 An earlier version of the site (removed in commits `589b8f7`, `b46bda6`, `f70e7e0`, later
