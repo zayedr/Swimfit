@@ -989,6 +989,47 @@
       return { label: r.label, sets: r.sets.map(function (s) { return scaleSetVolume(s, factor); }) };
     });
   }
+  // SANE REP CHUNKING: most archetype templates above compute a single
+  // buildSet() rep count as roughly "share ÷ rep distance" — reasonable at a
+  // normal share, but a real, reachable problem once a large volume
+  // concentrates into few rounds (e.g. a 900m round of 25m turns/starts work
+  // maths out to a single, genuinely unbroken "36 x 25m" line). No real coach
+  // writes a 36-rep block on the whiteboard without breaking it up, and
+  // swimming the exact same 25m at the exact same effort 36 times running has
+  // no more training value than 4 tighter 9-rep groups with a visible reset
+  // between them. This splits any round whose one set exceeds
+  // MAX_REPS_PER_SET into several sibling rounds of the identical distance/
+  // interval/rest/pace — same total volume, same content, just chunked into
+  // realistic, separately-labeled coaching groups ("Sprint (1/4)", "Sprint
+  // (2/4)", …) instead of one intimidating repeated line. Applied once,
+  // universally, inside buildToShare() below rather than touching every
+  // archetype's own template — every archetype/blueprint in this file already
+  // funnels through that one function.
+  var MAX_REPS_PER_SET = 10;
+  function chunkExcessiveReps(rounds) {
+    var out = [];
+    rounds.forEach(function (r) {
+      if (r.sets.length !== 1 || r.sets[0].reps <= MAX_REPS_PER_SET) { out.push(r); return; }
+      var s = r.sets[0];
+      var m = s.title.match(/^\d+ x (\d+)m (.*)$/);
+      if (!m) { out.push(r); return; }
+      var dist = m[1], restOfTitle = m[2];
+      var chunkCount = Math.ceil(s.reps / MAX_REPS_PER_SET);
+      var base = Math.floor(s.reps / chunkCount);
+      var extra = s.reps - base * chunkCount;
+      for (var i = 0; i < chunkCount; i++) {
+        var repsHere = base + (i < extra ? 1 : 0);
+        if (repsHere < 1) continue;
+        var chunkSet = {};
+        for (var k in s) { if (s.hasOwnProperty(k)) chunkSet[k] = s[k]; }
+        chunkSet.reps = repsHere;
+        chunkSet.title = repsHere + ' x ' + dist + 'm ' + restOfTitle;
+        chunkSet.totalSec = repsHere * s.interval;
+        out.push({ label: (r.label ? r.label + ' ' : '') + '(' + (i + 1) + '/' + chunkCount + ')', sets: [chunkSet] });
+      }
+    });
+    return out;
+  }
   // Builds an archetype's rounds against its allocated share, then — if the
   // archetype's own rep floors pushed the actual result past that share —
   // iteratively scales it back down toward the target. Used for Warm-Up,
@@ -1008,7 +1049,7 @@
       if (sumRoundsMeters(scaled) === actualM) break; // no further reduction possible (every set already at 1 rep)
       rounds = scaled;
     }
-    return rounds;
+    return chunkExcessiveReps(rounds);
   }
 
   // rounds is an array of { label, sets } — label is a short round title
@@ -2017,18 +2058,23 @@
       var sprinterFiltered = pool.filter(function (a) { return SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES.indexOf(a.name) === -1; });
       if (sprinterFiltered.length) pool = sprinterFiltered;
     }
-    // EXACTLY ONE MAIN SET: a real practice has one Main Set, not several
-    // separately-headlined "Main Set — X" sections stacked back to back. An
-    // earlier round scaled longer sessions by adding a second, distinct
-    // archetype block instead of scaling the ONE archetype's own reps/rounds
-    // to fill the volume — every archetype's build() already takes a target
-    // meterage and scales its own rep/round count to fill it (that's how a
-    // single archetype already absorbs anywhere from 1500m up to a full
-    // session today), so a second block was never structurally necessary,
-    // just extra variety that read as multiple main sets. mainBlockCount is
-    // now always 1; the Elite Power content (below) is folded into this same
-    // single block's rounds rather than rendered as its own separate entry.
-    var mainBlockCount = 1;
+    // DISTRIBUTE THE LOAD: a single archetype block absorbing 100% of a large
+    // Main Set share is exactly what produced the "one monolithic 36x25m
+    // block" problem — every archetype's own round-count is capped (2-3
+    // rounds, see LEVEL_SCALERS), so concentrating a big volume into just one
+    // block leaves each of those few rounds with an outsized share, which
+    // read as one intimidating repeated line even after the rep-chunking
+    // above. A real coach's whiteboard splits real volume across multiple
+    // distinct Main Set blocks instead — "MAIN SET 1" then "MAIN SET 2" (or
+    // effectively a POST-SET before Cool-Down) — each its own archetype, its
+    // own pacing philosophy, and (since pickN never repeats an archetype)
+    // its own genuine cognitive shift from the one before it. mainBlockCount
+    // scales with the swimmer's own chosen totalM: 1 below 3.0km (no reason
+    // to split a short session), 2 from 3.0km up, 3 from 5.5km up. Elite
+    // Power content (below) still folds into main[0] specifically — the
+    // highest-CNS-demand work leads whichever block renders first — never
+    // its own separate section, exactly as before this change.
+    var mainBlockCount = totalM >= 5500 ? 3 : totalM >= 3000 ? 2 : 1;
     var chosenArchetypes = pickN(pool, mainBlockCount);
     if (pool.length > 1) {
       var priorFirstMainArchetype = pickOneFrom(priorDayRng, pool);

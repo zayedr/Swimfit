@@ -5702,3 +5702,52 @@ via a real Playwright screenshot at 430px showing the full nav row (logo, Log Ou
 rendering completely on-screen with nothing cut off, box or text. Full regression suite (all 9 tabs,
 zero page errors, the ADAC-wiring workout-generation check, zero clipped buttons anywhere) passes
 unchanged.
+
+**A real Main Set volume-distribution bug was found and fixed: a genuinely reachable "one
+monolithic 36×25m block" problem, plus a universal rep-count cap.** A prior round had deliberately
+collapsed `mainBlockCount` to a hardcoded `1` ("EXACTLY ONE MAIN SET... every archetype's build()
+already takes a target meterage and scales its own rep/round count to fill it") — reasonable in
+principle, but every archetype's own round count is separately capped at 2-3 rounds
+(`LEVEL_SCALERS[level].minRounds/maxRounds`), so concentrating 100% of a large Main Set share into
+just one block left each of those few rounds with an outsized share. Several archetype templates
+(`Resist-Power — Turns & Starts`, `Lactate — Sprint Ladder`, and others) compute their rep count as
+roughly `Math.round(shareM / repDistance)` — at a 900m round share, a 25m-rep archetype maths out to
+a literal, unbroken `36 x 25m` line, exactly the complaint. Fixed two ways: (1) `mainBlockCount` is
+dynamic again — `totalM >= 5500 ? 3 : totalM >= 3000 ? 2 : 1` — so a session at 3.0km+ genuinely
+renders as **multiple** separately-headlined "Main Set — {archetype}" sections (verified: 3.0-5.4km
+→ 2 blocks, 5.5km+ → 3 blocks, below 3.0km → 1 block, unchanged from before), each pulling a
+different archetype (`pickN` never repeats one), which is what actually delivers "cognitive
+variance between blocks" — a threshold-pacing block followed by a negative-split-pull block followed
+by a distance-ladder block, not three flavors of the same thing. The downstream rendering
+(`main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, ...) })`), the
+structured-JSON schema, and the Elite Power fold-in (which only ever touched `main[0]`) were all
+**already correctly built to handle a multi-block array** — restoring `mainBlockCount` needed zero
+changes to any of that code, only the one line that had collapsed it plus the extensive comment that
+had justified the collapse (updated to explain the reversal, not left stale/lying about current
+behavior). (2) A new universal `chunkExcessiveReps()` — wired into `buildToShare()`, the one function
+every archetype/blueprint in this file already funnels through — splits any round whose single
+`buildSet()` call exceeds `MAX_REPS_PER_SET` (10) into several sibling rounds of the identical
+distance/interval/rest/pace, labeled `"{label} (1/N)"`, `"{label} (2/N)"`, etc. — same total volume,
+same content, just broken into realistic coaching groups instead of one intimidating repeated line.
+This required no changes to any individual archetype's own template. Verified via Playwright across
+7 distances (1500m-6000m) at Competitive level: block count matches the new thresholds exactly, and
+`maxReps` across every single instruction in the entire generated workout (Warm-Up through
+Cool-Down) never exceeds 10 — confirmed via the structured-schema JSON, not just a DOM scrape — with
+distance accuracy holding at or within a few meters of target in every case. A full regression sweep
+(all 9 tabs, zero page errors, zero clipped mobile buttons at 390px, all 31 ADAC + 7 swiML sessions
+still loading, and a real PDF `download` event firing with zero errors against the new multi-block/
+chunked-round markup) passes unchanged — `extractStructuredWorkout()` needed no changes since it
+already walks `.round-label`/`.set-row` generically regardless of how many rounds or blocks exist.
+
+**A requested "Save to Workout Studio" bridge was NOT implemented — no "Workout Studio" exists
+anywhere in this codebase.** A `grep` across `index.html` and every `js/*.js` file (including a
+targeted search for `studio`, `savedWorkouts`, `saved_workouts`, `myWorkouts`) found zero matches;
+this app's actual 9 tabs are Workouts/Gym/Gear/Academy/AI Coach/Tracker/Support/Settings/Pricing (+
+the hidden Admin tab) — there is no separate "Studio" surface, saved-workouts array, or matching
+Firestore collection to bridge into. Rather than inventing a plausible-sounding data structure and
+a brand-new Firestore collection/UI for a feature that doesn't exist and calling it "the exact
+structure expected" (which it couldn't possibly be, since nothing currently expects anything), this
+was flagged back to the user for clarification instead — most likely candidates are either a
+different project entirely, or a genuinely new "save this generated workout for later" library
+feature this app has never had, which would need its own scoped design (a new Firestore collection
++ security rules + a UI surface to browse saved workouts) rather than a same-round bolt-on.
