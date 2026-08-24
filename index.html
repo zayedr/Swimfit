@@ -2312,6 +2312,10 @@ body.view-app .slide-dots { display: none; }
 .btn-complete-workout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: var(--space-3); padding: 0.85em 1em; font-size: 0.92rem; }
 .btn-complete-workout .icon { width: 18px; height: 18px; }
 .btn-complete-workout.btn-workout-logged { background: var(--green-bright); border-color: var(--green-bright); color: var(--on-green); cursor: default; opacity: 0.95; }
+/* Save-to-Studio's own "saved" state — same green treatment as Complete
+   Workout above, on a plain .btn-outline-aqua rather than .btn-complete-
+   workout, so it gets a dedicated rule instead of borrowing that class. */
+#workoutSaveStudioBtn.btn-workout-logged { background: var(--green-bright); border-color: var(--green-bright); color: var(--on-green); cursor: default; opacity: 0.95; }
 
 @media (max-width: 900px) {
   .equipment-grid { grid-template-columns: 1fr 1fr; }
@@ -4053,6 +4057,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
 <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.2 8.8a5 5 0 0 1 0 6.4"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
 <symbol id="i-volume-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6"/></symbol>
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></symbol>
 <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
 <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c0.5-1 2-2.5 2-6.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
@@ -5295,6 +5300,9 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
             </button>
             <button type="button" class="btn btn-primary btn-sm" id="workoutLiveModeBtn" style="display:none; margin-top:20px; margin-inline-start:8px;">
               <svg class="icon"><use href="#i-play"/></svg> Start Live Workout
+            </button>
+            <button type="button" class="btn btn-outline-aqua btn-sm" id="workoutSaveStudioBtn" style="display:none; margin-top:20px; margin-inline-start:8px;">
+              <svg class="icon"><use href="#i-save"/></svg> Save to My Workouts
             </button>
           </div>
         </div>

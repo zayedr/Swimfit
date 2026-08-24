@@ -1181,6 +1181,47 @@
       return { label: r.label, sets: r.sets.map(function (s) { return scaleSetVolume(s, factor); }) };
     });
   }
+  // SANE REP CHUNKING: most archetype templates above compute a single
+  // buildSet() rep count as roughly "share ÷ rep distance" — reasonable at a
+  // normal share, but a real, reachable problem once a large volume
+  // concentrates into few rounds (e.g. a 900m round of 25m turns/starts work
+  // maths out to a single, genuinely unbroken "36 x 25m" line). No real coach
+  // writes a 36-rep block on the whiteboard without breaking it up, and
+  // swimming the exact same 25m at the exact same effort 36 times running has
+  // no more training value than 4 tighter 9-rep groups with a visible reset
+  // between them. This splits any round whose one set exceeds
+  // MAX_REPS_PER_SET into several sibling rounds of the identical distance/
+  // interval/rest/pace — same total volume, same content, just chunked into
+  // realistic, separately-labeled coaching groups ("Sprint (1/4)", "Sprint
+  // (2/4)", …) instead of one intimidating repeated line. Applied once,
+  // universally, inside buildToShare() below rather than touching every
+  // archetype's own template — every archetype/blueprint in this file already
+  // funnels through that one function.
+  var MAX_REPS_PER_SET = 10;
+  function chunkExcessiveReps(rounds) {
+    var out = [];
+    rounds.forEach(function (r) {
+      if (r.sets.length !== 1 || r.sets[0].reps <= MAX_REPS_PER_SET) { out.push(r); return; }
+      var s = r.sets[0];
+      var m = s.title.match(/^\d+ x (\d+)m (.*)$/);
+      if (!m) { out.push(r); return; }
+      var dist = m[1], restOfTitle = m[2];
+      var chunkCount = Math.ceil(s.reps / MAX_REPS_PER_SET);
+      var base = Math.floor(s.reps / chunkCount);
+      var extra = s.reps - base * chunkCount;
+      for (var i = 0; i < chunkCount; i++) {
+        var repsHere = base + (i < extra ? 1 : 0);
+        if (repsHere < 1) continue;
+        var chunkSet = {};
+        for (var k in s) { if (s.hasOwnProperty(k)) chunkSet[k] = s[k]; }
+        chunkSet.reps = repsHere;
+        chunkSet.title = repsHere + ' x ' + dist + 'm ' + restOfTitle;
+        chunkSet.totalSec = repsHere * s.interval;
+        out.push({ label: (r.label ? r.label + ' ' : '') + '(' + (i + 1) + '/' + chunkCount + ')', sets: [chunkSet] });
+      }
+    });
+    return out;
+  }
   // Builds an archetype's rounds against its allocated share, then — if the
   // archetype's own rep floors pushed the actual result past that share —
   // iteratively scales it back down toward the target. Used for Warm-Up,
@@ -1200,7 +1241,7 @@
       if (sumRoundsMeters(scaled) === actualM) break; // no further reduction possible (every set already at 1 rep)
       rounds = scaled;
     }
-    return rounds;
+    return chunkExcessiveReps(rounds);
   }
 
   // rounds is an array of { label, sets } — label is a short round title
@@ -2422,18 +2463,23 @@
       var sprinterFiltered = pool.filter(function (a) { return SPRINTER_ENDURANCE_EXCLUDED_ARCHETYPES.indexOf(a.name) === -1; });
       if (sprinterFiltered.length) pool = sprinterFiltered;
     }
-    // EXACTLY ONE MAIN SET: a real practice has one Main Set, not several
-    // separately-headlined "Main Set — X" sections stacked back to back. An
-    // earlier round scaled longer sessions by adding a second, distinct
-    // archetype block instead of scaling the ONE archetype's own reps/rounds
-    // to fill the volume — every archetype's build() already takes a target
-    // meterage and scales its own rep/round count to fill it (that's how a
-    // single archetype already absorbs anywhere from 1500m up to a full
-    // session today), so a second block was never structurally necessary,
-    // just extra variety that read as multiple main sets. mainBlockCount is
-    // now always 1; the Elite Power content (below) is folded into this same
-    // single block's rounds rather than rendered as its own separate entry.
-    var mainBlockCount = 1;
+    // DISTRIBUTE THE LOAD: a single archetype block absorbing 100% of a large
+    // Main Set share is exactly what produced the "one monolithic 36x25m
+    // block" problem — every archetype's own round-count is capped (2-3
+    // rounds, see LEVEL_SCALERS), so concentrating a big volume into just one
+    // block leaves each of those few rounds with an outsized share, which
+    // read as one intimidating repeated line even after the rep-chunking
+    // above. A real coach's whiteboard splits real volume across multiple
+    // distinct Main Set blocks instead — "MAIN SET 1" then "MAIN SET 2" (or
+    // effectively a POST-SET before Cool-Down) — each its own archetype, its
+    // own pacing philosophy, and (since pickN never repeats an archetype)
+    // its own genuine cognitive shift from the one before it. mainBlockCount
+    // scales with the swimmer's own chosen totalM: 1 below 3.0km (no reason
+    // to split a short session), 2 from 3.0km up, 3 from 5.5km up. Elite
+    // Power content (below) still folds into main[0] specifically — the
+    // highest-CNS-demand work leads whichever block renders first — never
+    // its own separate section, exactly as before this change.
+    var mainBlockCount = totalM >= 5500 ? 3 : totalM >= 3000 ? 2 : 1;
     var chosenArchetypes = pickN(pool, mainBlockCount);
     if (pool.length > 1) {
       var priorFirstMainArchetype = pickOneFrom(priorBucketRng, pool);
@@ -2739,6 +2785,24 @@
     // its click handler is wired entirely from custom-workout.js.
     var liveBtn = document.getElementById('workoutLiveModeBtn');
     if (liveBtn) liveBtn.style.display = '';
+    // SAVE TO MY WORKOUTS: unhide + reset to its default state on every
+    // fresh Generate (a previously "✓ Saved" state must never bleed into a
+    // newly-generated, not-yet-saved workout). The smart-name components
+    // (primary discipline, primary goal, distance in km) are stashed as data
+    // attributes here — where state/totalM are already in scope — so the
+    // click handler below (wired once, at load) doesn't need its own
+    // reference into this closure.
+    var saveStudioBtn = document.getElementById('workoutSaveStudioBtn');
+    if (saveStudioBtn) {
+      saveStudioBtn.style.display = '';
+      saveStudioBtn.disabled = false;
+      saveStudioBtn.classList.remove('btn-workout-logged');
+      saveStudioBtn.innerHTML = icon('i-save') + ' Save to My Workouts';
+      var goalLabelMap = { speed: 'Sprint', endurance: 'Endurance', technique: 'Technique' };
+      var primaryGoalLabel = goalLabelMap[state.goals[0]] || 'Training';
+      saveStudioBtn.dataset.smartName = 'AI ' + strokeLabelSingle(state.disciplines[0]) + ' ' + primaryGoalLabel +
+        ' - ' + (grandTotalM / 1000).toFixed(1) + 'km';
+    }
   }
 
   document.getElementById('generateBtn').addEventListener('click', generateWorkout);
@@ -2788,6 +2852,90 @@
         btn.innerHTML = originalHtml;
         alert('Could not log this workout — please check your connection and try again.');
       });
+  });
+
+  // SAVE TO MY WORKOUTS: bridges a generated AI workout into the Custom
+  // Workout Builder's own custom_workouts/{uid}/entries/{id} library —
+  // js/custom-workout.js's flattenGeneratedWorkout() already established
+  // exactly this pattern for Live Mode (read window.__extractStructuredWorkout
+  // off the already-rendered #workoutResult DOM, the same DOM the PDF export
+  // reads, so this can never drift from what the swimmer is looking at —
+  // never window.__lastGeneratedWorkoutStructured, the richer internal JSON,
+  // which wouldn't reflect the on-screen rep-chunking labels). This mirrors
+  // that same regex parse ("N x Dist" -> reps/distance, first comma-segment
+  // -> stroke) but targets the Builder's own {label, sets:[{kind,reps,
+  // distance,stroke,intervalSec,restSec,note}]} block shape instead of a
+  // flat Live-Mode step list — see firestore.rules' custom_workouts comment
+  // for the exact expected doc shape.
+  var STROKE_ABBR_MAP = { BK: 'Backstroke', FR: 'Freestyle', FLY: 'Butterfly', BR: 'Breaststroke', IM: 'Individual Medley', EZ: 'Freestyle' };
+  function normalizeStrokeForBuilder(raw) {
+    var first = (raw || '').split(/[\s,]+/)[0].toUpperCase();
+    if (STROKE_ABBR_MAP[first]) return STROKE_ABBR_MAP[first];
+    var full = ['Freestyle', 'Backstroke', 'Breaststroke', 'Butterfly', 'Individual Medley', 'Kick', 'Drill'];
+    for (var i = 0; i < full.length; i++) {
+      if ((raw || '').toLowerCase().indexOf(full[i].toLowerCase()) === 0) return full[i];
+    }
+    return 'Mixed';
+  }
+  function convertGeneratedWorkoutToBuilderBlocks() {
+    if (typeof window.__extractStructuredWorkout !== 'function') return null;
+    var resultEl = document.getElementById('workoutResult');
+    if (!resultEl) return null;
+    var data = window.__extractStructuredWorkout(resultEl);
+    if (!data || !data.blocks || !data.blocks.length) return null;
+    var blocks = data.blocks.map(function (block) {
+      var sets = (block.rows || []).map(function (row) {
+        var m = row.label.match(/^(\d+)\s*[×x]\s*(\d+)m\s*(.*)$/i);
+        var reps = m ? Math.max(1, Math.min(99, parseInt(m[1], 10))) : 1;
+        var distance = m ? Math.max(1, Math.min(10000, parseInt(m[2], 10))) : 0;
+        var descText = m ? m[3] : row.label;
+        var intervalSec = row.interval ? ((typeof parseTimeToSeconds === 'function' ? parseTimeToSeconds(row.interval) : 0) || 0) : 0;
+        return {
+          kind: 'set', reps: reps, distance: distance, stroke: normalizeStrokeForBuilder(descText),
+          intervalSec: intervalSec, restSec: 0,
+          note: ((row.round ? row.round + ' — ' : '') + descText).trim().slice(0, 60)
+        };
+      });
+      return { label: block.title || 'Set', sets: sets };
+    }).filter(function (b) { return b.sets.length; });
+    return blocks.length ? blocks : null;
+  }
+  var saveStudioBtnEl = document.getElementById('workoutSaveStudioBtn');
+  if (saveStudioBtnEl) saveStudioBtnEl.addEventListener('click', function () {
+    var btn = saveStudioBtnEl;
+    if (!window.__firebaseUser || typeof window.__customWorkoutCreate !== 'function' || typeof window.__customWorkoutsList !== 'function') {
+      alert('Sign in to save workouts to your profile.');
+      return;
+    }
+    var blocks = convertGeneratedWorkoutToBuilderBlocks();
+    if (!blocks) { alert('Generate a workout first.'); return; }
+    var uid = window.__firebaseUser.uid;
+    var name = btn.dataset.smartName || 'AI Generated Workout';
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = icon('i-save') + ' Saving…';
+    // Same Free-tier cap the Custom Workout Builder itself enforces
+    // (FREE_SAVED_WORKOUT_CAP in js/custom-workout.js) — read fresh via
+    // __customWorkoutsList rather than reaching into that file's own
+    // closure-local count, so this stays correct independent of whether the
+    // Builder has ever been opened this session.
+    window.__customWorkoutsList(uid).then(function (existing) {
+      var hasFullAccess = typeof window.__hasFullAccess === 'function' && window.__hasFullAccess();
+      if (!hasFullAccess && existing && existing.length >= 2) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        alert('Free plan is limited to 2 saved workouts — upgrade to All-Access Pro for unlimited.');
+        return;
+      }
+      return window.__customWorkoutCreate(uid, name, blocks).then(function () {
+        btn.innerHTML = icon('i-check') + ' Saved to Studio';
+        btn.classList.add('btn-workout-logged');
+      });
+    }).catch(function () {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      alert('Could not save this workout — please check your connection and try again.');
+    });
   });
 
   /* ============================= GYM FOCUS SELECTOR ============================= */

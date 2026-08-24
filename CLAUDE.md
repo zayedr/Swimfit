@@ -6811,3 +6811,102 @@ an actionable support desk.**
   Tracker, Support and the open Tracker Studio; and the full pre-existing regression suite (all 9
   tabs, workout generation, PDF export, the whole Rest-row/Live-Mode suite) passes unchanged with
   zero page errors.
+**A real Main Set volume-distribution bug was found and fixed: a genuinely reachable "one
+monolithic 36×25m block" problem, plus a universal rep-count cap.** A prior round had deliberately
+collapsed `mainBlockCount` to a hardcoded `1` ("EXACTLY ONE MAIN SET... every archetype's build()
+already takes a target meterage and scales its own rep/round count to fill it") — reasonable in
+principle, but every archetype's own round count is separately capped at 2-3 rounds
+(`LEVEL_SCALERS[level].minRounds/maxRounds`), so concentrating 100% of a large Main Set share into
+just one block left each of those few rounds with an outsized share. Several archetype templates
+(`Resist-Power — Turns & Starts`, `Lactate — Sprint Ladder`, and others) compute their rep count as
+roughly `Math.round(shareM / repDistance)` — at a 900m round share, a 25m-rep archetype maths out to
+a literal, unbroken `36 x 25m` line, exactly the complaint. Fixed two ways: (1) `mainBlockCount` is
+dynamic again — `totalM >= 5500 ? 3 : totalM >= 3000 ? 2 : 1` — so a session at 3.0km+ genuinely
+renders as **multiple** separately-headlined "Main Set — {archetype}" sections (verified: 3.0-5.4km
+→ 2 blocks, 5.5km+ → 3 blocks, below 3.0km → 1 block, unchanged from before), each pulling a
+different archetype (`pickN` never repeats one), which is what actually delivers "cognitive
+variance between blocks" — a threshold-pacing block followed by a negative-split-pull block followed
+by a distance-ladder block, not three flavors of the same thing. The downstream rendering
+(`main.map(function (block, i) { return renderBlock('Main Set — ' + block.name, ...) })`), the
+structured-JSON schema, and the Elite Power fold-in (which only ever touched `main[0]`) were all
+**already correctly built to handle a multi-block array** — restoring `mainBlockCount` needed zero
+changes to any of that code, only the one line that had collapsed it plus the extensive comment that
+had justified the collapse (updated to explain the reversal, not left stale/lying about current
+behavior). (2) A new universal `chunkExcessiveReps()` — wired into `buildToShare()`, the one function
+every archetype/blueprint in this file already funnels through — splits any round whose single
+`buildSet()` call exceeds `MAX_REPS_PER_SET` (10) into several sibling rounds of the identical
+distance/interval/rest/pace, labeled `"{label} (1/N)"`, `"{label} (2/N)"`, etc. — same total volume,
+same content, just broken into realistic coaching groups instead of one intimidating repeated line.
+This required no changes to any individual archetype's own template. Verified via Playwright across
+7 distances (1500m-6000m) at Competitive level: block count matches the new thresholds exactly, and
+`maxReps` across every single instruction in the entire generated workout (Warm-Up through
+Cool-Down) never exceeds 10 — confirmed via the structured-schema JSON, not just a DOM scrape — with
+distance accuracy holding at or within a few meters of target in every case. A full regression sweep
+(all 9 tabs, zero page errors, zero clipped mobile buttons at 390px, all 31 ADAC + 7 swiML sessions
+still loading, and a real PDF `download` event firing with zero errors against the new multi-block/
+chunked-round markup) passes unchanged — `extractStructuredWorkout()` needed no changes since it
+already walks `.round-label`/`.set-row` generically regardless of how many rounds or blocks exist.
+
+**Correction to the entry directly above: a real "Workout Studio" existed by the time this shipped
+— it just hadn't landed on this branch yet when that entry was written.** A `grep` for `studio`
+against this branch's own stale view of the codebase genuinely found zero matches at the time, so
+flagging it back rather than fabricating a schema was the right call *given what was checked* — but
+a concurrent session had, in the meantime, pushed a "Rebuild Workouts/Gym/Tracker/Support tabs into
+a modular Hub, matching the Workout Studio pattern" round straight to `main`, and a `git merge`
+right after surfaced it. Every tab is now a small "Hub" card that opens a full-screen `.workout-
+studio-overlay` (`#swimGeneratorStudioOverlay` for the AI generator, `#workoutStudioOverlay` for a
+separate from-scratch Custom Workout Builder + Live Split-Screen Workout Mode, both introduced in
+that same round) — "Workout Studio" is this overlay pattern's own name, not a euphemism for a
+saved-workouts library. That said, the Custom Workout Builder *does* have exactly the "saved
+workouts array" the original ask assumed: `custom_workouts/{uid}/entries/{workoutId}`, documents
+shaped `{name, blocks: [{label, sets: [{kind:'set'|'rest', reps, distance, stroke, intervalSec,
+restSec, note}]}], createdAt, updatedAt}` (`firestore.rules`: owner-only, `name` 1-80 chars,
+`blocks` ≤30 items — inner set/rest shape is intentionally unvalidated by rules), with ready-made
+bridges already exposed by `js/firebase-service.js`: `__customWorkoutsList(uid)`,
+`__customWorkoutCreate(uid, name, blocks)`, `__customWorkoutSave(uid, id, name, blocks)`,
+`__customWorkoutDelete(uid, id)`.
+
+**"Save to My Workouts" was implemented against this real structure, once it was actually found.**
+A new `#workoutSaveStudioBtn` (a new `i-save` floppy-disk icon added to the shared sprite, matching
+this file's house line-icon style rather than a literal emoji) sits as a third static sibling next
+to `#workoutPdfBtn`/`#workoutLiveModeBtn` — "alongside the other action buttons" taken literally,
+inside the same `#swimGeneratorStudioOverlay` panel both of those already live in. Rather than
+inventing a second, parallel extraction path off `window.__lastGeneratedWorkoutStructured` (the
+generator's own rich internal JSON), the new `convertGeneratedWorkoutToBuilderBlocks()` follows the
+*exact* precedent `js/custom-workout.js`'s own `flattenGeneratedWorkout()` already established for
+Live Mode: read `window.__extractStructuredWorkout()` off the already-rendered `#workoutResult` DOM
+— the same DOM the PDF export reads — regex-parsing each row's `"N x Dist" label` back into
+reps/distance/description (`normalizeStrokeForBuilder()` maps the description's leading stroke
+abbreviation — BK/FR/FLY/BR/IM — to a full `STROKE_OPTIONS` name, falling back to `'Mixed'` for
+anything it can't confidently parse, an honest miss rather than a wrong guess) and each row's own
+`.set-sendoff` text into `intervalSec` via the existing `parseTimeToSeconds()`. Reading the rendered
+DOM rather than the internal JSON also means this can never drift from what the swimmer is actually
+looking at, and automatically inherits this same round's rep-chunking fix for free — a chunked
+"Sprint (2/4)" row saves as its own correctly-capped `reps` entry with no special-casing needed,
+since the DOM already reflects the chunk. `restSec` is always `0` for a generated-workout-derived
+set, matching how Live Mode's own conversion of the identical source never invents a rest step
+either — the generator's on-screen rows only ever carry one combined send-off interval, not a
+separate rest figure. The smart name (`"AI {Stroke} {Sprint|Endurance|Technique} - {km}km"`, e.g.
+`"AI Backstroke Sprint - 6.0km"`) is computed once, at generate-time (where `state`/`grandTotalM`
+are already in scope), and stashed as a `data-smart-name` attribute on the button — reset to a
+fresh, not-yet-saved state on every new Generate click, exactly mirroring how `#completeWorkoutBtn`
+already resets its own "Logged" state each time, so a previous workout's saved status can never
+bleed onto a newly-generated one. On click: an inline "Saving…" state, then a fresh
+`__customWorkoutsList(uid)` call to re-check the Custom Workout Builder's own pre-existing Free-tier
+cap (`FREE_SAVED_WORKOUT_CAP = 2`, read live rather than reaching into that file's closure-local
+count so this stays correct whether or not the Builder was ever opened this session) before calling
+`__customWorkoutCreate`, then a green "✓ Saved to Studio" disabled state (`#workoutSaveStudioBtn.
+btn-workout-logged`, a small new CSS rule mirroring `.btn-complete-workout.btn-workout-logged`'s
+own green treatment rather than misusing that unrelated class name on a different button) — or a
+plain alert + re-enabled button on either a Free-tier-cap block or a write failure. Verified via
+Playwright with `__firebaseUser`/`__customWorkoutsList`/`__customWorkoutCreate`/`__hasFullAccess`
+mocked: a 6000m Competitive-level generation saves 6 correctly-shaped blocks / 23 sets with the
+right smart name, every set's `reps` capped at exactly 10 (confirming the chunking fix flows through
+end-to-end into saved data too), and a mocked 2-existing/no-full-access scenario correctly blocks
+the save with the expected alert and zero `__customWorkoutCreate` call; a real screenshot (not just
+computed-style/geometry checks — this overlay-based Hub structure genuinely does render at
+`display:none`/zero-size until `#openSwimGeneratorBtn` is clicked, which is what earlier screenshot
+attempts in this same round missed before this was diagnosed) confirms the button renders cleanly
+alongside the other two, wrapping to its own row rather than clipping. The full regression suite
+(all 9 tabs, zero page errors, zero clipped mobile buttons at 390px, PDF export still firing a real
+`download` event, all 31 ADAC + 7 swiML sessions still loading) passes unchanged.
