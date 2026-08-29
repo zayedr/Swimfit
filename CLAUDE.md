@@ -6910,3 +6910,62 @@ attempts in this same round missed before this was diagnosed) confirms the butto
 alongside the other two, wrapping to its own row rather than clipping. The full regression suite
 (all 9 tabs, zero page errors, zero clipped mobile buttons at 390px, PDF export still firing a real
 `download` event, all 31 ADAC + 7 swiML sessions still loading) passes unchanged.
+
+**A ground-up rewrite of the entire Dryland exercise database around elite swimmer-specific
+programming, replacing the generic commercial-gym content the matrix had accumulated.** All 6
+focuses (Cardio / Full Body / Upper / Lower / Flexibility & Agility / Plyometrics) were rewritten
+row by row — 81 distinct exercises across the whole matrix. `GYM_FOCUS`'s own *shape* is completely
+unchanged and load-bearing (warmup/core/main/cooldown arrays per focus, `full` nesting `main` one
+level deep by `gymOrientation()`, `plyometrics` two levels deep by orientation THEN `state.level`,
+`loadPct`/`weighted` driving the suggested-load line), so `renderGym()` needed **zero** changes —
+this is a data rewrite plus the two lookup tables that hang off it, not a rendering rewrite.
+
+- **Every generic gym movement is gone**, verified by an explicit banned-name assertion in this
+  round's own test rather than by eye: Jumping Jacks, Arm Circles, Battle Ropes, Mountain Climbers,
+  bare Burpees, Bodyweight Squats, and the unqualified `Squats`/`Deadlifts` rows all no longer
+  appear anywhere in the rendered matrix. In their place, every main-block movement now maps onto a
+  real phase of swimming: the **catch** (Banded Catch & Pull, Banded Catch & Pull (Explosive),
+  Straight-Arm Lat Pulldowns), the **pull-through** (Weighted Pull-Ups, Lat Pulldowns, Ring / TRX
+  Rows), **body rotation** (Rotational Med Ball Throws, Cable Woodchoppers, Landmine Rotations, Med
+  Ball Rotational Wall Throws), the **start/turn wall push-off** (Explosive Streamline Jumps,
+  Streamline Wall Push-Off Jumps, Box Jumps, Depth Jumps, Trap Bar Jumps), and the **kick** (Romanian
+  Deadlifts, Hamstring Curl Machine, Standing Calf Raise Machine). Every exercise family the ask
+  named by name is present and was asserted for individually.
+- **Warm-ups are now swimmer prehab, not gym warm-ups** — scoped to the three joints whose range
+  actually limits a streamline, a catch and a dolphin kick: **shoulder/scapular** (Band Pull-Aparts,
+  Scapular Push-Ups, Y-T-W-L Raises, Band External Rotations), **thoracic spine** (Thoracic Spine
+  Open-Ups), and **ankle** (Ankle Mobility Rocks (Wall), Banded Ankle Distraction, Ankle Pogo Hops).
+- **Upper Body was deliberately re-weighted pull-dominant.** Its main block is now five pulling
+  movements plus direct cuff/scapular work, with pressing cut to a single light, explicitly-secondary
+  `Incline Dumbbell Press` — swimmers are already pull-dominant, and over-pressing closes down the
+  very shoulder range a streamline depends on. That reasoning is written into the code as a comment
+  above the focus, not left implicit.
+- **Every `cue` was rewritten to name the swimming outcome, never the muscle** — the explicit ask.
+  e.g. Barbell Squats went from "Heavy leg strength — the base under every kick, start and turn" to
+  "Builds explosive lower-body power for faster flip turns and starts off the block — the single
+  biggest lever on your wall push-off speed"; Ankle Mobility Rocks reads "a locked ankle blunts your
+  dolphin kick and shortens your push-off. This buys back both." A test assertion enforces a
+  minimum cue length on all 81 exercises so no row can silently regress to a one-liner.
+- **Three previously-orphaned animation archetypes finally got their exact intended exercise.**
+  `GYM_ANIMS` already contained a `ytw` flipbook (drawn for Y-T-W-L raises), a `pushup` (scapular
+  push-ups), and a `climber` (orphaned when Mountain Climbers was removed) — all three were dead
+  code until this round's new exercises claimed them. 17 new `GYM_ANIM_MAP` rows were added in
+  total; a script-level check confirms **80 of 81** exercises resolve to a real archetype, the one
+  exception being `Agility Ladder — In-In-Out-Out`, the same pre-existing, already-documented
+  generic fallback from the round that introduced it.
+- **`MUSCLE_KEYWORDS` was extended for the new vocabulary**, with one real correctness fix worth
+  recording: `push-?up` was **removed** from the Chest rule. The only push-up variant left in the
+  database is the Scapular Push-Up — a scapular-control prehab drill, not a chest exercise — and
+  since the Chest rule sits before Shoulders, it was shadowing the correct tag. Verified by direct
+  spot-check that it now reads "Shoulders". The legs rule was also broadened from the literal
+  `box jump`/`streamline jump` to `\bjumps?\b|bound|trap bar|pogo` so every jump/bound variant tags
+  correctly instead of falling through to "Conditioning" alone.
+- Verified via Playwright by walking the **entire matrix** — all 6 focuses × 3 orientations × 3
+  levels (54 renders) — asserting for every one of the 81 distinct exercises that it renders with a
+  name, ≥1 muscle tag, a technique-demo animation, a prescription, and a substantive cue: **zero
+  problems, zero page errors**. Plus: every requested exercise family present, zero banned generic
+  filler remaining, a real screenshot of the rewritten Upper Body board confirming correct tags and
+  the right stick-figure per movement, the Gym PDF export still firing a real `download` event
+  against the rewritten data, and the full pre-existing regression suite (all 9 tabs, the swim PDF
+  export, zero clipped mobile buttons at 390px, and the previous round's multi-block/rep-cap
+  distribution logic re-verified at 1500-6000m) passing unchanged.

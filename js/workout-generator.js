@@ -2942,98 +2942,144 @@
   // Every focus is a full daily routine matrix across four phases —
   // Warm-Up, Core Activation, Main Power/Strength Lifts, and
   // Cool-Down/Mobility — not just a flat list of exercises.
+  /* ============================= DRYLAND EXERCISE DATABASE =============================
+     A ground-up rewrite around ELITE SWIMMER-SPECIFIC dryland programming,
+     replacing the generic commercial-gym content this matrix used to carry
+     (Jumping Jacks, Arm Circles, plain Bench Press, Battle Ropes as filler).
+     Three rules govern every row below:
+
+     1) SPECIFICITY. Every main-block movement earns its place by mapping onto
+        a real phase of swimming — the catch (Banded Catch & Pull, Straight-Arm
+        Pulldowns), the pull-through (Lat Pulldowns, Ring/TRX Rows, Weighted
+        Pull-Ups), body rotation (Rotational Med Ball Throws, Cable Woodchoppers,
+        Landmine Rotations), the start/turn wall push-off (Explosive Streamline
+        Jumps, Box Jumps, Depth Jumps, Trap Bar Jumps), or the kick (Romanian
+        Deadlifts, Standing Calf Raises, Hamstring Curls).
+
+     2) PRE-HAB FIRST. Warm-ups are swimmer prehab, not generic gym warm-ups:
+        thoracic-spine open-ups, scapular control (Scapular Push-Ups, Y-T-W-L
+        Raises, Band Pull-Aparts), rotator-cuff work, and ankle mobility — the
+        three joints (shoulder, t-spine, ankle) whose range actually limits a
+        streamline, a catch, and a dolphin kick.
+
+     3) EVERY CUE EXPLAINS THE TRANSFER. `cue` never describes the muscle
+        worked; it names the specific swimming outcome the movement buys —
+        "faster flip turns", "a higher elbow catch", "a streamline that doesn't
+        collapse at 15m" — so a swimmer always knows why a movement is in
+        their program.
+
+     Shape is unchanged and load-bearing: renderGym() reads warmup/core/main/
+     cooldown arrays per focus, with `full` nesting main one level deep by
+     gymOrientation() and `plyometrics` two levels deep by orientation THEN
+     state.level. `loadPct`/`weighted` drive the suggested-load line in
+     renderGymCard(). Any new exercise name also needs a GYM_ANIM_MAP row
+     below, or it falls back to the generic stick figure. */
   var GYM_FOCUS = {
     cardio: {
       warmup: [
-        { name: 'Band Shoulder Dislocates', prescription: '2 x 12', cue: 'Wide grip, slow overhead arc — opens the exact shoulder range a locked streamline demands before anything ballistic.' },
+        { name: 'Band Pull-Aparts', prescription: '2 x 15', cue: 'Squeeze the shoulder blades together, arms straight — switches on the mid-back that holds your posture together once the heart rate climbs and the stroke starts to fall apart.' },
+        { name: 'Scapular Push-Ups', prescription: '2 x 12', cue: 'Arms locked, move only the shoulder blades — teaches the scapular control that keeps your catch anchored instead of shrugging when you get tired.' },
         { name: 'Explosive Streamline Jumps', prescription: '2 x 8', cue: 'Hands locked overhead in a tight streamline the whole rep — the dryland rehearsal of the position you leave every wall in.' }
       ],
       core: [
-        { name: 'Plank Hold', prescription: '3 x 30s', cue: 'Braces the trunk so cardio work doesn’t leak power through a loose core.' },
-        { name: 'Med Ball Russian Twists', prescription: '3 x 20 / side', cue: 'Rotate from the ribs, not the arms — the anti-fishtail trunk control that keeps a stroke tracking straight under fatigue.' }
+        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The exact braced, hips-tucked shape you hold off every wall — a streamline that holds this line travels further on the same push.' },
+        { name: 'Pallof Press', prescription: '3 x 12 / side', cue: 'Resist the cable pulling you into rotation — anti-rotation strength is what stops your hips fishtailing when your arms are working hard.' },
+        { name: 'Med Ball Russian Twists', prescription: '3 x 20 / side', cue: 'Rotate from the ribs, not the arms — the trunk control that keeps you tracking straight down the lane under fatigue.' }
       ],
       main: [
-        { name: 'Jump Rope Intervals', prescription: '6 x 45s', cue: 'Fast feet, light bounce — builds the cardio base that carries into longer swim sets.' },
-        { name: 'Burpee to Streamline Jump', prescription: '4 x 10', cue: 'Finish every rep locked overhead in a streamline — trains you to hold race position when your heart rate is already redlined.' },
-        { name: 'Med Ball Rotational Wall Throws', prescription: '4 x 10 / side', cue: 'Throw hard from the hip, not the shoulder — rotational power under a raised heart rate, the same torque a fast turn asks for.' },
-        { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms sequence mirrors a strong pull phase.' },
-        { name: 'Battle Ropes', prescription: '5 x 30s', cue: 'Alternating waves build the shoulder endurance a hard sprint set demands.' }
+        { name: 'Rowing Machine Sprints', prescription: '6 x 250m', cue: 'Legs-body-arms in that order, exactly like a pull: catch with the legs, connect through the trunk, finish with the arms. The closest dryland match to a swim stroke\'s power sequence.' },
+        { name: 'VersaClimber / Ski Erg Intervals', prescription: '5 x 60s', cue: 'Overhead pulling under a redlined heart rate — builds the specific lat endurance that fails first in the back half of a 200.' },
+        { name: 'Burpee to Streamline Jump', prescription: '4 x 10', cue: 'Finish every rep locked overhead in a streamline — trains you to hold race position when your heart rate is already at its ceiling.' },
+        { name: 'Rotational Med Ball Throws', prescription: '4 x 10 / side', cue: 'Throw hard from the hip, not the shoulder — rotational power under a raised heart rate, the same torque a fast turn asks for on the last 50.' },
+        { name: 'Bike Sprints (Seated)', prescription: '8 x 20s', cue: 'Pure leg-drive conditioning with zero shoulder cost — lets you build an aerobic base on a day your shoulders already have heavy stroke volume.' }
       ],
       cooldown: [
-        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases the quads after repeated explosive leg work.' },
-        { name: 'Child’s Pose', prescription: '1 x 60s', cue: 'Long exhale, let the heart rate settle before you leave the mat.' },
-        { name: 'Deep Breathing Walk', prescription: '3–5 min', cue: 'Active recovery — walk it off with slow nasal breathing.' }
+        { name: 'Thoracic Rotation Stretch (Open Book)', prescription: '2 x 30s / side', cue: 'Hips stacked, chest rotates open — restores the rotational range your breathing side loses over a hard session.' },
+        { name: 'Lat Stretch', prescription: '2 x 30s / side', cue: 'Opens the lats after sustained overhead pulling so your streamline still reaches full length tomorrow.' },
+        { name: 'Deep Breathing Walk', prescription: '3–5 min', cue: 'Slow nasal breathing walks the heart rate down and starts clearing the session\'s fatigue before you leave the room.' }
       ]
     },
     full: {
       warmup: [
-        { name: 'Bodyweight Squats', prescription: '2 x 10', cue: 'Grooves the squat pattern before any load goes on the bar.' },
-        { name: 'Band Pull-Aparts (light)', prescription: '2 x 15', cue: 'Wakes up the upper back before pulling under load.' },
-        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Cuff prehab before the bar — a swimmer’s shoulder takes far more volume than any lifter’s, so it gets warmed first.' }
+        { name: 'Band Pull-Aparts', prescription: '2 x 15', cue: 'Wakes up the mid-back and rear delts that hold your shoulders in a safe position under every pull to come.' },
+        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Elbow pinned to your side, rotate only the forearm — the single most protective prehab there is for a shoulder taking swimming\'s stroke volume.' },
+        { name: 'Thoracic Spine Open-Ups', prescription: '2 x 8 / side', cue: 'Rotate the upper back, not the lower — a stiff t-spine forces your shoulder to find rotation it wasn\'t built for, which is where swimmer\'s shoulder starts.' },
+        { name: 'Ankle Mobility Rocks (Wall)', prescription: '2 x 10 / side', cue: 'Knee drives over the toes, heel glued down — a locked ankle blunts your dolphin kick and shortens your push-off. This buys back both.' }
       ],
       core: [
-        { name: 'Pallof Press', prescription: '3 x 12 / side', cue: 'Anti-rotation strength — keeps the trunk stable while lifting heavy.' },
-        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The same braced position you hold in a streamline off every wall.' },
-        { name: 'Landmine Rotations', prescription: '3 x 10 / side', cue: 'Drive the bar across with your hips and ribs, arms just along for the ride — heavy loaded rotation, the trunk torque behind a powerful pull and a fast turn.' }
+        { name: 'Pallof Press', prescription: '3 x 12 / side', cue: 'Anti-rotation strength — the ability to resist twist is what lets you rotate on purpose and hold the line under load.' },
+        { name: 'Hollow Body Hold', prescription: '3 x 30s', cue: 'The same braced position you hold in a streamline off every wall — the difference between gliding to 12m and gliding to 15m.' },
+        { name: 'Landmine Rotations', prescription: '3 x 10 / side', cue: 'Drive the bar across with hips and ribs, arms along for the ride — heavy loaded rotation, the trunk torque behind a powerful pull and a fast turn.' }
       ],
       // Sprint swimmers (Speed goal, or a short target distance): heavy,
       // low-rep explosive power work.
       main: {
         sprint: [
-          { name: 'Squats', prescription: '5 x 3', loadPct: 0.85, weighted: true, cue: 'Heavy, low-rep — builds the explosive leg drive behind every start and turn.' },
-          { name: 'Deadlifts', prescription: '4 x 4', loadPct: 0.8, weighted: true, cue: 'Heavy posterior-chain strength — raw power for the pull-through.' },
-          { name: 'Weighted Pull-Ups', prescription: '4 x 4', loadPct: 0.25, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
-          { name: 'Power Cleans', prescription: '5 x 3', loadPct: 0.55, weighted: true, cue: 'Full-body explosiveness that mirrors the snap of a race start.' },
-          { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps — mirrors the explosive push off the blocks.' }
+          { name: 'Trap Bar Jumps', prescription: '5 x 3', loadPct: 0.4, weighted: true, cue: 'Loaded vertical power with a safe spine position — the most direct dryland transfer to the leg drive off the blocks and off every turn wall.' },
+          { name: 'Weighted Pull-Ups', prescription: '4 x 4', loadPct: 0.25, weighted: true, cue: 'Added load turns the pull into a power movement — this is the exact strength that pulls your body past your hand at race speed.' },
+          { name: 'Power Cleans', prescription: '5 x 3', loadPct: 0.55, weighted: true, cue: 'Triple extension through ankle, knee and hip in one snap — the same sequence, in the same order, as an explosive start off the block.' },
+          { name: 'Banded Catch & Pull (Explosive)', prescription: '4 x 8 / side', cue: 'Set a high elbow, then accelerate the hand back to the hip — trains an early vertical forearm at sprint tempo, so the catch holds up when your stroke rate climbs.' },
+          { name: 'Box Jumps', prescription: '4 x 5', cue: 'Full reset between reps, land soft — mirrors the single explosive push off the blocks with no fatigue in the way.' },
+          { name: 'Rotational Med Ball Throws', prescription: '4 x 6 / side', cue: 'Maximum-intent rotation — the torque that snaps a flip turn around fast and drives your hips through the stroke.' }
         ],
         // Distance swimmers (Endurance goal, or a long target distance):
         // high-rep muscular endurance and sustained pulling power.
         distance: [
-          { name: 'Deadlifts', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'High-rep posterior-chain endurance — sustains pulling power deep into a race.' },
-          { name: 'Weighted Pull-Ups', prescription: '4 x 10', loadPct: 0.1, weighted: true, cue: 'Light added load, high volume — builds the muscular endurance for a long pull.' },
-          { name: 'Squats', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'Moderate load, higher reps — builds the leg endurance for a long swim.' },
-          { name: 'Rowing Machine Intervals', prescription: '5 x 500m', cue: 'Sustained pulling power and aerobic base that carries straight into distance sets.' },
-          { name: 'Turkish Get-Up', prescription: '3 x 5 / side', loadPct: 0.2, weighted: true, cue: 'Full-body control under load — builds the stability a streamline needs deep into a race.' }
+          { name: 'Ring / TRX Rows', prescription: '4 x 15', cue: 'Body straight, pull the chest to the rings — high-volume pulling that builds the mid-back endurance holding your catch position together on the last 100.' },
+          { name: 'Weighted Pull-Ups', prescription: '4 x 10', loadPct: 0.1, weighted: true, cue: 'Light load, high volume — builds the specific muscular endurance for a pull that still holds its shape 1500m in.' },
+          { name: 'Straight-Arm Lat Pulldowns', prescription: '4 x 15', loadPct: 0.3, weighted: true, cue: 'Arms locked long, drive the bar to the thighs — isolates the exact lat action of the front half of your pull, repeated until it becomes automatic.' },
+          { name: 'Romanian Deadlifts', prescription: '3 x 15', loadPct: 0.5, weighted: true, cue: 'High-rep posterior chain — the hamstrings and glutes that keep your kick alive when the legs start going quiet late in a distance swim.' },
+          { name: 'Rowing Machine Intervals', prescription: '5 x 500m', cue: 'Sustained legs-body-arms pulling under aerobic load — the same power sequence as your stroke, held for the same kind of duration.' },
+          { name: 'Turkish Get-Up', prescription: '3 x 5 / side', loadPct: 0.2, weighted: true, cue: 'Full-body control under load with the arm locked overhead — builds the shoulder stability a streamline needs when you\'re already deep in a race.' }
         ],
         // No strong sprint/distance signal yet (e.g. Technique goal): balanced
         // all-purpose strength across the same core lifts.
         balanced: [
-          { name: 'Squats', prescription: '4 x 8', loadPct: 0.65, weighted: true, cue: 'All-purpose leg strength — the base under every kick and start.' },
-          { name: 'Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly to a powerful pull-through.' },
-          { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Adds load to the pull for real strength, beyond just bodyweight reps.' },
-          { name: 'Kettlebell Swings', prescription: '4 x 15', loadPct: 0.4, weighted: true, cue: 'Hip-hinge power — the same snap used off the wall on a turn.' },
-          { name: 'Medicine Ball Slams', prescription: '4 x 8', loadPct: 0.15, weighted: true, cue: 'Drive from the hips — mirrors the power of a race start.' }
+          { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'The single highest-value dryland lift for a swimmer — it loads the exact lat-and-back action that moves you past your hand every stroke.' },
+          { name: 'Barbell Squats', prescription: '4 x 8', loadPct: 0.65, weighted: true, cue: 'Builds explosive lower-body power for faster flip turns and starts off the block — every wall you touch pays this back.' },
+          { name: 'Romanian Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers straight into a powerful, sustained kick and a strong body line.' },
+          { name: 'Ring / TRX Rows', prescription: '3 x 12', cue: 'Rings let the shoulder rotate freely as you pull — safer than a fixed bar for a swimmer\'s shoulder, and it trains the same high-elbow position as your catch.' },
+          { name: 'Banded Catch & Pull', prescription: '3 x 12 / side', cue: 'High elbow, forearm vertical, hand accelerating to the hip — the closest dryland copy of an early vertical forearm catch there is.' },
+          { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive hip-led rotation — connects your legs to your arms the way a real stroke does, through the trunk rather than around it.' }
         ]
       },
       cooldown: [
-        { name: 'Hip Flexor Stretch', prescription: '2 x 30s / side', cue: 'Releases hips loaded up by squats and deadlifts.' },
-        { name: 'Lat Stretch', prescription: '2 x 30s / side', cue: 'Opens the lats worked hard by every pulling movement.' },
-        { name: 'Foam Roll — Thoracic Spine', prescription: '2 min', cue: 'Restores upper-back mobility for a full, relaxed streamline.' }
+        { name: 'Lat Stretch', prescription: '2 x 30s / side', cue: 'Opens the lats worked hard by every pulling movement, so tomorrow\'s streamline still reaches full length.' },
+        { name: 'Hip Flexor Stretch', prescription: '2 x 30s / side', cue: 'Releases the hips that squats and deadlifts just loaded — tight hip flexors drop your legs and drag your body line down in the water.' },
+        { name: 'Foam Roll — Thoracic Spine', prescription: '2 min', cue: 'Restores the upper-back extension a full, relaxed streamline depends on.' }
       ]
     },
-    // Real commercial gym equipment — barbells, cable stacks and machines,
-    // not home-style bodyweight work. Loads scale off the swimmer's
-    // strength profile the same way every other weighted exercise does.
+    // Upper Body — built entirely around the pull. Every main lift is either a
+    // vertical pull (the catch), a horizontal pull (the pull-through), or
+    // direct scapular/cuff work that keeps a swimmer's shoulder healthy under
+    // 20+ hours a week of stroke volume. Pressing is deliberately minimal and
+    // secondary: swimmers are already pull-dominant, and over-pressing closes
+    // down the very shoulder range a streamline needs.
     upper: {
       warmup: [
-        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Elbow pinned to your side, rotate only the forearm — the single most protective prehab movement there is for a swimmer’s shoulder under high stroke volume.' },
-        { name: 'Cable Face Pulls (light warm-up sets)', prescription: '2 x 15', loadPct: 0.15, weighted: true, cue: 'Wakes up the rear delts and rotator cuff before heavier pressing and pulling.' }
+        { name: 'Band External Rotations (Rotator Cuff)', prescription: '2 x 15 / side', cue: 'Elbow pinned to your side, rotate only the forearm — the most protective prehab movement there is for a swimmer\'s shoulder under high stroke volume.' },
+        { name: 'Scapular Push-Ups', prescription: '2 x 12', cue: 'Arms locked, move only the shoulder blades — restores the scapular control that lets your catch anchor against the water instead of slipping.' },
+        { name: 'Y-T-W-L Raises', prescription: '2 x 8 each position', cue: 'Four positions, four different parts of the lower trap and rear delt — the specific scapular stabilizers that keep your shoulder centred through every stroke cycle.' },
+        { name: 'Thoracic Spine Open-Ups', prescription: '2 x 8 / side', cue: 'A stiff upper back forces your shoulder to find rotation it wasn\'t designed for — this gives the range back to the joint that should own it.' }
       ],
       core: [
-        { name: 'Cable Woodchoppers', prescription: '3 x 12 / side', loadPct: 0.2, weighted: true, cue: 'Rotational core power that mirrors the torso drive behind every strong pull.' },
-        { name: 'Side Plank', prescription: '3 x 20s / side', cue: 'Lateral core strength that keeps the hips from dropping mid-stroke.' }
+        { name: 'Cable Woodchoppers', prescription: '3 x 12 / side', loadPct: 0.2, weighted: true, cue: 'Rotational core power that mirrors the torso drive behind every strong pull — your arms only get to use the power your trunk can transmit.' },
+        { name: 'Pallof Press', prescription: '3 x 12 / side', loadPct: 0.15, weighted: true, cue: 'Anti-rotation strength — the trunk stiffness that stops your body twisting away from your own pull and wasting it.' },
+        { name: 'Side Plank', prescription: '3 x 30s / side', cue: 'Lateral core strength that keeps the hips from dropping mid-stroke — a dropped hip is drag you\'re paying for on every length.' }
       ],
       main: [
-        { name: 'Lat Pulldowns', prescription: '4 x 10', loadPct: 0.55, weighted: true, cue: 'Builds the wide-lat pulling strength behind a powerful catch and pull-through.' },
-        { name: 'Incline Bench Press', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Upper-chest and shoulder pressing strength for a powerful recovery and dive entry.' },
-        { name: 'Cable Face Pulls', prescription: '4 x 15', loadPct: 0.25, weighted: true, cue: 'Rear-delt and rotator-cuff strength that keeps the shoulder healthy under high stroke volume.' },
-        { name: 'Seated Cable Rows', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Builds the mid-back strength that keeps the catch high and the elbow up.' },
-        { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'Added load turns the pull into a power movement, not an endurance one.' },
-        { name: 'Cable Tricep Pushdowns', prescription: '3 x 12', loadPct: 0.3, weighted: true, cue: 'Finishes the pull-through strength that powers the back half of the stroke.' }
+        { name: 'Weighted Pull-Ups', prescription: '4 x 6', loadPct: 0.2, weighted: true, cue: 'The most swim-specific strength lift there is — loaded vertical pulling is exactly the action of moving your body past a planted hand.' },
+        { name: 'Lat Pulldowns', prescription: '4 x 10', loadPct: 0.55, weighted: true, cue: 'Builds the wide-lat pulling strength behind a powerful catch and pull-through, at a load you can control precisely week to week.' },
+        { name: 'Ring / TRX Rows', prescription: '4 x 12', cue: 'Rings let the shoulder rotate naturally through the pull — trains the high-elbow position of your catch with far less joint cost than a fixed bar.' },
+        { name: 'Banded Catch & Pull', prescription: '4 x 12 / side', cue: 'Set a high elbow with the forearm vertical, then accelerate the hand back past your hip — the single closest dryland rehearsal of an early vertical forearm.' },
+        { name: 'Straight-Arm Lat Pulldowns', prescription: '3 x 15', loadPct: 0.3, weighted: true, cue: 'Arms long, drive from the lats alone — isolates the front half of your pull, the phase most swimmers rush and lose distance on.' },
+        { name: 'Cable Face Pulls', prescription: '4 x 15', loadPct: 0.25, weighted: true, cue: 'Rear-delt and external-rotator strength — the direct counterweight to swimming\'s constant internal rotation, and the best insurance against shoulder injury.' },
+        { name: 'Incline Dumbbell Press', prescription: '3 x 10', loadPct: 0.35, weighted: true, cue: 'Kept deliberately light and secondary — just enough pressing to balance the pulling volume above without closing down your streamline range.' }
       ],
       cooldown: [
-        { name: 'Doorway Chest Stretch', prescription: '2 x 30s', cue: 'Opens a chest tightened by repeated pressing and pulling.' },
-        { name: 'Cross-Body Shoulder Stretch', prescription: '2 x 30s / side', cue: 'Keeps the shoulder capsule mobile for a long, relaxed recovery.' }
+        { name: 'Lat Stretch', prescription: '2 x 30s / side', cue: 'Long lats mean a longer reach at the front of your stroke — the cheapest distance-per-stroke you\'ll ever buy.' },
+        { name: 'Doorway Chest Stretch', prescription: '2 x 30s', cue: 'Opens a chest tightened by pressing and by swimming\'s own rounded-shoulder posture.' },
+        { name: 'Cross-Body Shoulder Stretch', prescription: '2 x 30s / side', cue: 'Keeps the posterior shoulder capsule mobile for a long, relaxed recovery over the water.' }
       ]
     },
     // A modality, not a muscle-group split — mobility, dynamic stretching and
@@ -3042,130 +3088,142 @@
     flexibility: {
       warmup: [
         { name: 'Leg Swings — Front & Lateral', prescription: '2 x 10 / side, each direction', cue: 'Dynamic range through the hip in every plane a flutter and dolphin kick actually use.' },
-        { name: 'World’s Greatest Stretch', prescription: '2 x 5 / side', cue: 'One move through the hip, thoracic spine and hamstring together — the fastest way to open the whole body before a mobility session.' }
+        { name: 'Ankle Mobility Rocks (Wall)', prescription: '2 x 10 / side', cue: 'Knee over toes, heel down — ankle range is the hidden limiter on both your dolphin kick amplitude and how hard you can push off a wall.' },
+        { name: 'World’s Greatest Stretch', prescription: '2 x 5 / side', cue: 'Hip, thoracic spine and hamstring in one movement — the fastest way to open every joint a stroke depends on.' }
       ],
       core: [
-        { name: 'Bird Dog', prescription: '3 x 8 / side', cue: 'Opposite arm and leg extend together without the hips rotating — the same anti-rotation control that keeps a stroke from fishtailing.' },
-        { name: '90/90 Hip Switches', prescription: '3 x 8 / side', cue: 'Rotates through the hip socket, not the lower back — builds the internal/external hip rotation every stroke and turn needs.' }
+        { name: 'Bird Dog', prescription: '3 x 8 / side', cue: 'Opposite arm and leg extend without the hips rotating — the same anti-rotation control that keeps a stroke from fishtailing.' },
+        { name: '90/90 Hip Switches', prescription: '3 x 8 / side', cue: 'Rotates through the hip socket, not the lower back — the internal/external hip range every breaststroke kick and flip turn needs.' },
+        { name: 'Hollow Body Hold', prescription: '3 x 25s', cue: 'The braced streamline shape, held still — mobility only helps if you can hold the position you just unlocked.' }
       ],
       main: [
         { name: 'Deep Squat Hold (Mobility)', prescription: '4 x 30s', cue: 'Sit as low as you can with heels flat — opens the ankles and hips for a deeper, more powerful streamline push-off.' },
-        { name: 'Agility Ladder — In-In-Out-Out', prescription: '6 x through', cue: 'Fast, light feet — builds the same quick neuromuscular firing that makes a start or turn snap instead of drag.' },
-        { name: 'Lateral Bounds (Skater Jumps)', prescription: '4 x 8 / side', cue: 'Stick each landing before bounding again — single-leg power and control that carries into a stronger, more stable kick.' },
-        { name: 'Walking Lunges with Rotation', prescription: '3 x 10 / side', cue: 'Rotate toward the front knee at the bottom of each lunge — combines hip mobility with the same trunk rotation used mid-stroke.' },
-        { name: 'Cone Shuffle Drill', prescription: '5 x 20s', cue: 'Stay low, quick lateral steps — sharpens the same reactive footwork and balance a race-day dive and turn demand under fatigue.' }
+        { name: 'Thoracic Spine Open-Ups', prescription: '3 x 10 / side', cue: 'The rotation your breathing depends on should come from the upper back — this trains it there instead of stealing it from your shoulder or lower back.' },
+        { name: 'Banded Ankle Distraction', prescription: '3 x 45s / side', cue: 'Band pulls the ankle joint open as you rock forward — restores the dorsiflexion a hard wall push-off and a whippy dolphin kick both demand.' },
+        { name: 'Lateral Bounds (Skater Jumps)', prescription: '4 x 8 / side', cue: 'Stick each landing before bounding again — single-leg power and control that carries into a stronger, more stable push-off.' },
+        { name: 'Walking Lunges with Rotation', prescription: '3 x 10 / side', cue: 'Rotate toward the front knee at the bottom — hip mobility and trunk rotation trained together, exactly how a stroke uses them.' },
+        { name: 'Agility Ladder — In-In-Out-Out', prescription: '6 x through', cue: 'Fast, light feet — the same quick neuromuscular firing that makes a start or turn snap instead of drag.' }
       ],
       cooldown: [
         { name: 'Standing Forward Fold', prescription: '1 x 45s', cue: 'Let the head and arms hang heavy — releases the whole posterior chain after a high-output mobility session.' },
-        { name: 'Seated Straddle Stretch', prescription: '2 x 30s', cue: 'Hinge from the hips, not the back — opens the inner thighs and hips for a wider, freer kick.' },
-        { name: 'Thoracic Rotation Stretch (Open Book)', prescription: '2 x 30s / side', cue: 'Keep the hips stacked and let only the chest rotate open — restores the rotational range every stroke breathes and reaches through.' }
+        { name: 'Seated Straddle Stretch', prescription: '2 x 30s', cue: 'Hinge from the hips, not the back — opens the inner thighs and hips for a wider, freer breaststroke kick.' },
+        { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Deep glute and hip-rotator release — tight hips pull your legs low and cost you body position on every length.' }
       ]
     },
     // Explosive/plyometric power for swimmers specifically — block starts,
     // flip-turn push-off, and reactive strength — not a general strength
-    // day. Deliberately kept low-volume per exercise (2 per phase, not the
-    // 5-6 of a strength focus): real plyometric programming prioritizes full
-    // recovery and movement quality over set/rep volume, so a longer list
-    // here would work against the modality's own training principle, not
-    // just be an implementation shortcut. `main` is nested two levels deep —
-    // gymOrientation() (sprint/distance/balanced, reusing the exact same
-    // Workout Generator goal/distance signal Full Body already reads) picks
-    // WHICH drills based on the swimmer's own stated goal, then state.level
-    // (beginner/competitive/elite, reusing the same Level tabs the Workout
-    // Generator already has) picks how advanced/high-CNS-demand today's
-    // version of those drills is — e.g. a beginner never sees a true depth
-    // jump, only a competitive/elite swimmer does. See renderGym()'s
-    // `focus === 'plyometrics'` branch for how both axes get read together.
+    // day. Deliberately kept low-volume per exercise: real plyometric
+    // programming prioritizes full recovery and movement quality over set/rep
+    // volume, so a longer list here would work against the modality's own
+    // training principle, not just be an implementation shortcut. `main` is
+    // nested two levels deep — gymOrientation() (sprint/distance/balanced,
+    // reusing the exact same Workout Generator goal/distance signal Full Body
+    // already reads) picks WHICH drills based on the swimmer's own stated
+    // goal, then state.level (beginner/competitive/elite, reusing the same
+    // Level tabs the Workout Generator already has) picks how advanced/high-
+    // CNS-demand today's version of those drills is — e.g. a beginner never
+    // sees a true depth jump, only a competitive/elite swimmer does. See
+    // renderGym()'s `focus === 'plyometrics'` branch for how both axes get
+    // read together.
     plyometrics: {
       warmup: [
-        { name: 'Ankle Pogo Hops', prescription: '2 x 20s', cue: 'Stiff-ankled little bounces — wakes up the reactive strength used in every wall push-off.' },
+        { name: 'Ankle Pogo Hops', prescription: '2 x 20s', cue: 'Stiff-ankled little bounces — primes the reactive ankle stiffness every wall push-off is built on.' },
+        { name: 'Ankle Mobility Rocks (Wall)', prescription: '2 x 10 / side', cue: 'A stiff ankle can\'t absorb or return force — open it first, or every jump below leaks power into the floor.' },
         { name: 'Explosive Streamline Jumps', prescription: '2 x 8', cue: 'Hands locked overhead in a tight streamline, jump for height — grooves the exact push-off position before any real plyometric load.' },
         { name: 'Dynamic Walking Lunge with Reach', prescription: '2 x 8 / side', cue: 'Opens the hips through full range before anything ballistic.' }
       ],
       core: [
-        { name: 'Plank-to-Pike', prescription: '3 x 10', cue: 'Explosive hip flexion from a braced plank — the same fast hip-drive used off the blocks.' },
-        { name: 'Rotational Med Ball Throw', prescription: '3 x 8 / side', cue: 'Full hip-and-shoulder rotation, thrown hard — mirrors the torque of a fast flip-turn rotation.' }
+        { name: 'Plank-to-Pike', prescription: '3 x 10', cue: 'Explosive hip flexion from a braced plank — the same fast hip-snap that drives a flip turn around.' },
+        { name: 'Rotational Med Ball Throw', prescription: '3 x 8 / side', cue: 'Full hip-and-shoulder rotation, thrown hard — mirrors the torque of a fast flip-turn rotation.' },
+        { name: 'Pallof Press', prescription: '3 x 10 / side', cue: 'Anti-rotation bracing — a trunk that can resist twist is a trunk that can transmit your legs\' power into your arms instead of losing it.' }
       ],
       main: {
         sprint: {
           beginner: [
             { name: 'Squat Jumps', prescription: '3 x 6', cue: 'Full reset between reps — grooves the vertical pop behind a block start before adding any bounce-tempo.' },
             { name: 'Broad Jumps', prescription: '3 x 5', cue: 'Stick every landing — the same horizontal drive as an explosive dive off the blocks.' },
-            { name: 'Pogo Jumps (Low Amplitude)', prescription: '3 x 15s', cue: 'Quick, stiff-ankled bounces, minimal knee bend — teaches fast ground contact before adding real jump height.' }
+            { name: 'Streamline Wall Push-Off Jumps', prescription: '3 x 8', cue: 'Hands locked overhead, jump and hold the line — the literal dryland version of the position you leave every wall in.' }
           ],
           competitive: [
-            { name: 'Box Step-Off Depth Jumps', prescription: '4 x 5', cue: 'Step off a low box, land, and rebound immediately — teaches the ground-contact speed a real start demands.' },
+            { name: 'Box Step-Off Depth Jumps', prescription: '4 x 5', cue: 'Step off a low box, land, rebound immediately — teaches the ground-contact speed a real start off the blocks demands.' },
             { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Chain jumps with a short reset — raw horizontal power for the start.' },
-            { name: 'Countermovement Jumps', prescription: '4 x 5', cue: 'Full arm swing and a quick dip before driving up — the classic power-jump, a stepping stone toward true depth jumps.' }
+            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive hip-led rotation at max intent — the torque behind both a fast turn and a powerful stroke.' }
           ],
           elite: [
-            { name: 'Depth Jumps (45cm Box)', prescription: '5 x 5', cue: 'Minimal ground contact time on landing — the highest-CNS drill for start and turn explosiveness; always full recovery between reps.' },
+            { name: 'Depth Jumps (45cm Box)', prescription: '5 x 5', cue: 'Minimal ground contact on landing — the highest-CNS drill for start and turn explosiveness; always full recovery between reps.' },
             { name: 'Single-Leg Bounds', prescription: '4 x 6 / side', cue: 'Single-leg landing and re-drive — builds the asymmetric push-off power used on a one-footed turn wall contact.' },
-            { name: 'Alternate-Leg Bounding', prescription: '4 x 20m', cue: 'Maximal single-leg drive, alternating — full sprint-mechanics bounding at true race intensity.' }
+            { name: 'Trap Bar Jumps', prescription: '5 x 3', loadPct: 0.4, weighted: true, cue: 'Loaded vertical power — the heaviest legal way to overload the exact push-off pattern of a start and a turn.' }
           ]
         },
         distance: {
           beginner: [
-            { name: 'Squat Jumps', prescription: '3 x 10', cue: 'Higher rep, moderate intensity — builds repeatable explosive endurance for the 15th turn, not just the 1st.' },
-            { name: 'Step-Up Drives', prescription: '3 x 10 / side', cue: 'Drive off the top leg hard — sustained power output that doesn’t fade late in a race.' },
-            { name: 'Jump Rope — Endurance Bounce', prescription: '3 x 30s', cue: 'Light, continuous bounce — builds repeatable ground-contact rhythm without the impact of a true jump.' }
+            { name: 'Squat Jumps', prescription: '3 x 10', cue: 'Higher rep, moderate intensity — repeatable explosive endurance for the 15th turn, not just the 1st.' },
+            { name: 'Step-Up Drives', prescription: '3 x 10 / side', cue: 'Drive hard off the top leg — sustained power output that doesn\'t fade late in a race.' },
+            { name: 'Streamline Wall Push-Off Jumps', prescription: '3 x 12', cue: 'Repeated streamline jumps — trains the push-off position to hold its shape even when you\'re tired and turn number 20 arrives.' }
           ],
           competitive: [
-            { name: 'Continuous Broad Jumps', prescription: '4 x 8', cue: 'Jump-to-jump with no reset — trains explosive power that holds up across many consecutive turns.' },
-            { name: 'Lateral Bounds', prescription: '4 x 8 / side', cue: 'Side-to-side stick-and-go — builds the repeatable push-off control a long race demands turn after turn.' },
-            { name: 'Continuous Lateral Bounds', prescription: '4 x 10 / side', cue: 'Side-to-side with no reset between reps — trains the repeatable push-off control a long race demands turn after turn.' }
+            { name: 'Continuous Broad Jumps', prescription: '4 x 8', cue: 'Jump-to-jump with no reset — explosive power that holds up across many consecutive turns.' },
+            { name: 'Lateral Bounds', prescription: '4 x 8 / side', cue: 'Side-to-side stick-and-go — the repeatable push-off control a long race demands turn after turn.' },
+            { name: 'Med Ball Rotational Wall Throws', prescription: '4 x 12 / side', cue: 'High-rep rotational throws — rotational endurance so your turns stay sharp on the back half of a distance swim.' }
           ],
           elite: [
             { name: 'Continuous Depth Jumps', prescription: '4 x 10', cue: 'Minimal pause between landings — the highest-volume reactive-strength drill, for turn power that never fades late in a race.' },
             { name: 'Single-Leg Box Jumps', prescription: '4 x 8 / side', cue: 'Repeated single-leg power output — the asymmetric-turn equivalent of distance-swim pacing.' },
-            { name: 'Bounding for Distance', prescription: '4 x 30m', cue: 'Continuous exaggerated running bounds — the highest-volume reactive-strength drill for turn power that never fades late in a race.' }
+            { name: 'Bounding for Distance', prescription: '4 x 30m', cue: 'Continuous exaggerated bounds — reactive strength maintained over distance, exactly the quality a fading 1500 needs.' }
           ]
         },
         balanced: {
           beginner: [
             { name: 'Squat Jumps', prescription: '3 x 6', cue: 'General explosive leg power — the foundation under every start and turn.' },
             { name: 'Lateral Bounds', prescription: '3 x 6 / side', cue: 'Side-to-side power and control for a stable, strong wall push-off.' },
-            { name: 'Jump Rope — Basic Bounce', prescription: '3 x 30s', cue: 'General rhythm and ground-contact work — the foundation every jump-based drill builds on.' }
+            { name: 'Explosive Streamline Jumps', prescription: '3 x 8', cue: 'Overhead streamline held through every rep — position first, power second, exactly the order a young swimmer should learn it in.' }
           ],
           competitive: [
             { name: 'Box Jumps', prescription: '4 x 6', cue: 'Full-extension vertical power — carries directly into a stronger dive and turn push-off.' },
             { name: 'Broad Jumps', prescription: '4 x 6', cue: 'Horizontal drive — general-purpose start and turn power.' },
-            { name: 'Tuck Jumps', prescription: '4 x 6', cue: 'Knees to chest at the top of each jump — general-purpose explosive leg power with an added core/hip-flexor demand.' }
+            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive rotational power — the same torque that snaps a flip turn around fast.' }
           ],
           elite: [
             { name: 'Depth Jumps', prescription: '4 x 6', cue: 'Reactive strength that transfers directly to both the start and every wall turn.' },
-            { name: 'Rotational Med Ball Throws', prescription: '4 x 8 / side', cue: 'Explosive rotational power — the same torque that snaps a flip-turn around fast.' },
-            { name: '180° Jump Turns', prescription: '4 x 6', cue: 'Full rotation mid-air, stick the landing — reactive strength plus the rotational control a fast flip-turn needs.' }
+            { name: 'Trap Bar Jumps', prescription: '4 x 4', loadPct: 0.4, weighted: true, cue: 'Loaded jump work — overloads the push-off pattern itself rather than just the muscles that serve it.' },
+            { name: '180° Jump Turns', prescription: '4 x 6', cue: 'Full rotation mid-air, stick the landing — reactive strength plus the rotational control a fast flip turn needs.' }
           ]
         }
       },
       cooldown: [
-        { name: 'Standing Calf Stretch', prescription: '2 x 30s / side', cue: 'Releases the calves and Achilles after repeated ground-reactive loading.' },
+        { name: 'Standing Calf Stretch', prescription: '2 x 30s / side', cue: 'Releases the calves and Achilles after repeated ground-reactive loading — the same tissue your dolphin kick relies on.' },
         { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Opens the hips loaded by jumping and bounding work.' },
         { name: 'Deep Breathing Walk', prescription: '3–5 min', cue: 'Active recovery — let the nervous system settle after high-CNS explosive work.' }
       ]
     },
+    // Lower Body — organized around the two things a swimmer's legs actually
+    // do: push off a wall explosively, and kick continuously. Heavy bilateral
+    // strength for the push-off, posterior-chain and calf/ankle work for the
+    // kick, and single-leg work so a one-footed turn contact is as strong as
+    // a two-footed one.
     lower: {
       warmup: [
-        { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range used in a flutter kick.' },
+        { name: 'Ankle Mobility Rocks (Wall)', prescription: '2 x 10 / side', cue: 'Knee over toes, heel glued down — restore ankle range first or you\'ll squat around the restriction and never reach a real push-off depth.' },
+        { name: 'Leg Swings', prescription: '2 x 10 / side', cue: 'Opens the hips through the same range a flutter kick actually travels.' },
         { name: 'Goblet Squats (light warm-up sets)', prescription: '2 x 10', loadPct: 0.2, weighted: true, cue: 'Grooves the squat pattern and warms the hips before loaded barbell work.' }
       ],
       core: [
-        { name: 'Cable Pull-Throughs', prescription: '3 x 12', loadPct: 0.3, weighted: true, cue: 'Hip-hinge activation that primes the glutes before heavy posterior-chain lifts.' },
-        { name: 'Glute Bridge Hold', prescription: '3 x 30s', cue: 'Activates the glutes before they’re asked to fire explosively.' }
+        { name: 'Cable Pull-Throughs', prescription: '3 x 12', loadPct: 0.3, weighted: true, cue: 'Hip-hinge activation that primes the glutes — the muscle that should be driving your kick, not your quads.' },
+        { name: 'Glute Bridge Hold', prescription: '3 x 30s', cue: 'Wakes the glutes before they\'re asked to fire explosively, and teaches the hip extension that keeps your legs high in the water.' },
+        { name: 'Bird Dog', prescription: '3 x 8 / side', cue: 'Keeps the hips square while a limb moves — the anti-rotation control that stops your kick from rolling your whole body.' }
       ],
       main: [
-        { name: 'Barbell Squats', prescription: '4 x 8', loadPct: 0.7, weighted: true, cue: 'Heavy leg strength — the base under every kick, start and turn.' },
-        { name: 'Romanian Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly into a powerful, sustained kick.' },
-        { name: 'Leg Press', prescription: '4 x 10', loadPct: 0.65, weighted: true, cue: 'High-volume quad and glute strength without loading the spine — built for repeatable heavy leg days.' },
-        { name: 'Hamstring Curl Machine', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Isolated hamstring strength that balances the quad-dominant lifts above.' },
-        { name: 'Bulgarian Split Squats', prescription: '3 x 10 / side', loadPct: 0.4, weighted: true, cue: 'Single-leg strength and balance — carries into an even kick.' },
-        { name: 'Standing Calf Raise Machine', prescription: '4 x 20', loadPct: 0.5, weighted: true, cue: 'Ankle stiffness and pop under real load — directly supports flutter and dolphin kick.' }
+        { name: 'Barbell Squats', prescription: '4 x 8', loadPct: 0.7, weighted: true, cue: 'Builds explosive lower-body power for faster flip turns and starts off the block — the single biggest lever on your wall push-off speed.' },
+        { name: 'Romanian Deadlifts', prescription: '4 x 8', loadPct: 0.6, weighted: true, cue: 'Posterior-chain strength that transfers directly into a powerful, sustained kick and keeps your legs riding high.' },
+        { name: 'Trap Bar Jumps', prescription: '4 x 4', loadPct: 0.4, weighted: true, cue: 'Loaded vertical jumping — bridges the gap between heavy squat strength and the actual explosive speed a push-off needs.' },
+        { name: 'Bulgarian Split Squats', prescription: '3 x 10 / side', loadPct: 0.4, weighted: true, cue: 'Single-leg strength and balance — turns are rarely a perfect two-footed contact, and this makes the off-side just as strong.' },
+        { name: 'Hamstring Curl Machine', prescription: '3 x 12', loadPct: 0.4, weighted: true, cue: 'Isolated hamstring strength balancing the quad-dominant lifts above — hamstring strength is what makes the upbeat of your kick propulsive rather than passive.' },
+        { name: 'Standing Calf Raise Machine', prescription: '4 x 20', loadPct: 0.5, weighted: true, cue: 'Ankle stiffness and pop under real load — directly drives flutter and dolphin kick amplitude off the plantar-flexed foot.' }
       ],
       cooldown: [
-        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases quads loaded by heavy squats and presses.' },
+        { name: 'Calf Stretch', prescription: '2 x 30s / side', cue: 'Keeps the ankle supple for a whippy, high-amplitude flutter kick.' },
         { name: 'Pigeon Pose', prescription: '2 x 30s / side', cue: 'Opens the hips for a full, unrestricted kick range.' },
-        { name: 'Calf Stretch', prescription: '2 x 30s / side', cue: 'Keeps the ankle supple for a whippy flutter kick.' }
+        { name: 'Standing Quad Stretch', prescription: '2 x 30s / side', cue: 'Releases quads loaded by heavy squats and jump work — tight quads tilt the pelvis and drop your legs in the water.' }
       ]
     }
   };
@@ -3536,7 +3594,33 @@
     'Burpee to Streamline Jump': 'burpee',
     'Med Ball Rotational Wall Throws': 'woodchop',
     'Med Ball Russian Twists': 'woodchop',
-    'Landmine Rotations': 'woodchop'
+    'Landmine Rotations': 'woodchop',
+    // ELITE DRYLAND OVERHAUL — the swimmer-specific movements that replaced
+    // the generic gym filler. Three previously-unused archetypes finally get
+    // their exact intended exercise: 'ytw' was drawn for Y-T-W-L raises,
+    // 'pushup' for scapular push-ups, and 'climber' (orphaned when Mountain
+    // Climbers was removed) is a genuine match for a VersaClimber. Everything
+    // else reuses the archetype whose stick-figure pose actually matches the
+    // movement — every banded shoulder/catch drill reads as 'bandpull', every
+    // vertical jump as 'boxjump', every loaded barbell jump as 'clean', and
+    // half-kneeling ankle work as 'kneellunge'.
+    'Y-T-W-L Raises': 'ytw',
+    'Scapular Push-Ups': 'pushup',
+    'VersaClimber / Ski Erg Intervals': 'climber',
+    'Banded Catch & Pull': 'bandpull',
+    'Banded Catch & Pull (Explosive)': 'bandpull',
+    'Ring / TRX Rows': 'rower',
+    'Straight-Arm Lat Pulldowns': 'latpulldown',
+    'Incline Dumbbell Press': 'benchpress',
+    'Thoracic Spine Open-Ups': 'foamroll',
+    'Ankle Mobility Rocks (Wall)': 'kneellunge',
+    'Banded Ankle Distraction': 'kneellunge',
+    'Trap Bar Jumps': 'clean',
+    'Squat Jumps': 'boxjump',
+    'Streamline Wall Push-Off Jumps': 'boxjump',
+    'Ankle Pogo Hops': 'boxjump',
+    'Lateral Bounds': 'lunge',
+    'Bike Sprints (Seated)': 'rower'
   };
 
   function renderGymAnim(exerciseName) {
@@ -3589,16 +3673,21 @@
   // {key,label} chips; key drives the chip's accent color in CSS. Falls back
   // to a plain "Full Body" tag when nothing specific matches.
   var MUSCLE_KEYWORDS = [
-    { re: /pulldown|pull-?up|rows?\b|rowing|face pull|lat pull|lats\b/i, key: 'back', label: 'Back / Lats' },
-    { re: /bench|chest|push-?up|\bdip\b/i, key: 'chest', label: 'Chest' },
-    { re: /overhead press|shoulder|arm circle|band pull|rotator|cuff|dislocate|external rotation/i, key: 'shoulders', label: 'Shoulders' },
+    { re: /pulldown|pull-?up|rows?\b|rowing|face pull|lat pull|lats\b|catch & pull|trx|ring \//i, key: 'back', label: 'Back / Lats' },
+    // `push-?up` deliberately does NOT appear here: the only push-up variant
+    // in the database is the Scapular Push-Up, which is a scapular-control
+    // prehab drill, not a chest exercise — it's matched by the shoulders rule
+    // below instead, which sits after this one and would otherwise be
+    // shadowed by a "Chest" tag it doesn't deserve.
+    { re: /bench|incline|chest|dumbbell press|\bdip\b/i, key: 'chest', label: 'Chest' },
+    { re: /overhead press|shoulder|arm circle|band pull|rotator|cuff|dislocate|external rotation|scapular|y-t-w/i, key: 'shoulders', label: 'Shoulders' },
     { re: /tricep|pushdown|bicep|skull ?crusher/i, key: 'arms', label: 'Arms' },
     { re: /deadlift|romanian|hinge|pull-?through|kettlebell swing|good morning|turkish|get-?up/i, key: 'posterior', label: 'Posterior Chain' },
     { re: /hamstring|ham curl|leg curl/i, key: 'posterior', label: 'Hamstrings' },
-    { re: /squat|lunge|leg press|split squat|step-?up|box jump|calf|leg extension|glute|streamline jump/i, key: 'legs', label: 'Legs / Glutes' },
+    { re: /squat|lunge|leg press|split squat|step-?up|\bjumps?\b|bound|calf|leg extension|glute|trap bar|pogo/i, key: 'legs', label: 'Legs / Glutes' },
     { re: /plank|dead ?bug|hollow|pallof|bird dog|90\/90|woodchop|russian twist|hanging leg|v-?up|sit-?up|crunch|landmine|rotational|med ball/i, key: 'core', label: 'Core' },
-    { re: /stretch|foam roll|mobility|child|cobra|pigeon|forward fold|straddle|open book|thoracic|hip flexor|cat-?cow|breathing|leg swing|world.s greatest|deep squat hold/i, key: 'mobility', label: 'Mobility' },
-    { re: /jump rope|burpee|mountain climber|battle rope|jumping jack|ladder|cone|shuffle|bound|skater|sprint|\bwalk/i, key: 'cardio', label: 'Conditioning' }
+    { re: /stretch|foam roll|mobility|child|cobra|pigeon|forward fold|straddle|open book|thoracic|hip flexor|cat-?cow|breathing|leg swing|world.s greatest|deep squat hold|distraction/i, key: 'mobility', label: 'Mobility' },
+    { re: /jump rope|burpee|battle rope|ladder|cone|shuffle|skater|sprint|\bwalk|versaclimber|ski erg|climber|\berg\b/i, key: 'cardio', label: 'Conditioning' }
   ];
   function inferMuscleTags(name) {
     var tags = [];
