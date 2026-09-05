@@ -6969,3 +6969,130 @@ this is a data rewrite plus the two lookup tables that hang off it, not a render
   against the rewritten data, and the full pre-existing regression suite (all 9 tabs, the swim PDF
   export, zero clipped mobile buttons at 390px, and the previous round's multi-block/rep-cap
   distribution logic re-verified at 1500-6000m) passing unchanged.
+
+**A massive Swim Workout Generator database expansion plus a real fix to the rotation algorithm,
+driven by a batch of five attached real elite ADAC session sheets (Mesocycle 1 "Aerobic
+Development" Week 6 Days 1-3, and Mesocycle 2 "Speed Development" Week 8 Days 2-3, Coach Sherif
+Zakaria).** The reported symptom — "it keeps looping the exact same warm-ups, pre-sets, and main
+sets every day; it feels like a static template" — turned out to be TWO genuinely separate
+problems, and both were measured before anything was changed rather than assumed.
+
+- **Problem 1, measured: the pools were simply too shallow.** Counted directly at runtime, not
+  estimated: 7 Warm-Up blueprints, 12 Pre-Set archetypes, ~9 Speed / ~10 Endurance / ~6 Technique
+  Main Set archetypes — and, worse, on a single-goal day the *effective* pool was far smaller
+  still, since `presetPoolForGoals()` splits the Pre-Sets into an 8-deep CNS sub-pool and a
+  **4-deep** DPS sub-pool. A swimmer on pure Distance or Threshold days was rotating through four
+  Pre-Sets. **The Cool-Down was not a pool at all** — it was three hardcoded lines
+  (`cdSet0`/`cdSet1`/`cdSet2`, a long-axis swim + a Backstroke shoulder loosener + an easy kick),
+  identical on every generated session this app has ever produced. That is a real, concrete part
+  of what "the same thing every day" meant and no amount of seeding could have fixed it.
+- **Problem 2, root-caused: the Main Set was the one stage participating in no non-repeat
+  guarantee at all.** `dailyRotationPick()`'s epoch-anchored walk (which guarantees
+  `idx(bucket) !== idx(bucket-1)` BY CONSTRUCTION) already drove the Warm-Up blueprint (salt 1) and
+  the Pre-Set archetype (salt 2). The Main Set instead used `pickN()` plus a *simulated
+  previous-bucket draw-and-compare* — the exact pattern this file had already replaced for the
+  other two stages precisely because it is only probabilistically correct (a bucket whose own pick
+  needed the tie-break re-roll cannot have that re-roll reconstructed by the next bucket's
+  independent simulation, so the guard silently misses). On top of that, three separate overrides —
+  the Elite intensity guarantee, the swimmerType bias, and the race-pace band — each *reassigned*
+  `chosenArchetypes[last]` from a plain `pickOne()`, and for a Sprinter or Distance swimmer the
+  bias override fires on **every single session**, so it dominated whatever the rotation had
+  chosen. At `mainBlockCount === 1` (any session under 3.0km) that override *was* the entire Main
+  Set.
+
+**A new `js/pro-swim-database.js`** holds the derived pattern library built from those five
+sheets, deliberately kept separate from `js/abu-dhabi-aquatics-database.js` (which stays a
+verbatim transcription archive — the same provenance discipline already established for the swiML
+integration). Every entry generalises one real STRUCTURE into a `build()` that scales to the
+swimmer's own chosen distance, carries a `source` field naming the exact session it came from, and
+uses the identical `(shareM, pace100, scaler, nextStroke, equipment)` signature every native
+archetype already uses, so it runs through `buildToShare()`'s distance-accuracy machinery with
+zero special-casing. Contents: **8 Warm-Up blueprints** (Five-Line Rotation — 5x200 swim/kick/
+pull/IM-drill/scull; Kick-Ladder Opener, whose strong finish grows last-25 → last-50 → last-75;
+Ankle-Pull Opener; Swim/Kick/Pull BE3; Fins Underwater Opener with every 4th 25 underwater;
+Descending Choice Ladder; Snorkel Body-Line Opener; Reverse IM Build), **11 Pre-Set archetypes**
+split across the two physiological sub-pools (speed: Open-Turn Skill, Fins UWK Burst, SWOLF Paddle
+Primer, Chute Sprint Primer, Deadstart Finish Primer, Three-Kick Eight-Stroke Activation;
+endurance: Vertical Kick & Scull Skill, Ankle-Pull Catch Primer, Breath-Control Lead-In, Low
+Stroke-Count Primer, Pull-Buoy Pressure Lead-In), **14 Main Set archetypes** — including the
+genuinely complex headline shapes the request pointed at: the **MS/FR Descending Ladder** (200s →
+150s → 100s → 50s descended to strong, each rung punctuated by a pair of FAST 25s and an easy
+recovery 50 on a *widening* breathing pattern, BE3→BE5→BE7→BE9), the **Broken 400 Effort Tiers**
+(named 70% / 80% / r:10 / 90%-build segments inside one continuous swim, with the split inverting
+on round 2), the **Hypoxic Pull Ladder** (400 BE3 / 300 BE5 / 200 BE7 / 100 BE9 with resisted
+chute sprints between rungs), the **IM Aero Transition Rotation**, the **125 Variants** speed-
+endurance set (four reps at one distance, four completely different internal fast/easy shapes, the
+fast portion migrating from the front of the rep to the back), the odd-FAST/even-EZ **Group
+Ladder**, **Descending-Interval Holds**, **Broken Race Simulation**, **SWOLF Descend & Hold**, the
+**Choice Kick Build Ladder** (the build interval itself changing each round — by 25, by 50, by 75,
+then all strong), the four-body-position **L-Pos/SL-Pos kick rotation**, a **Stroke-Count Descend
+Ladder**, **Equipment Transfer Ladder**, and **Ankle-Pull Aerobic Blocks** — plus **8 Cool-Down
+blueprints** and **30 new equipment-aware drill/kick phrases** (paddles/pull-buoy, fins/kickboard,
+snorkel, ankle band, chute, and the specific named drills: catch-up, fingertip drag, fist
+freestyle, IM transitions, 11-Pos/L-Pos, sculling ladder, low-SC). Measured pool sizes after all
+splices: **Warm-Up blueprints 7 → 15, drill phrases → 43, kick phrases → 30, Pre-Sets 12 → 23
+(speed 8 → 14, endurance 4 → 9), Speed → 13, Endurance → 15, Technique → 11, Cool-Down 0 → 8.**
+
+**The rotation fix makes the COMBINATION fresh by construction, not by a check that can fail.**
+The headline Main Set archetype (block 0 — what a swimmer actually reads as "today's set") now
+draws from the same `dailyRotationPick()` walk on its own salt, swapped into slot 0 rather than
+overwritten so promoting it can never drop another chosen archetype or introduce a duplicate. The
+Cool-Down blueprint gets its own salt, and — critically — the Elite intensity override and the
+swimmerType bias override were both converted from `pickOne()` to their own rotation walks too,
+since those fire on most or every session and would otherwise have re-drawn over the top of the
+headline rotation. Because each walk advances its pool index by a **non-zero** step every 6-hour
+bucket, every one of Warm-Up, Pre-Set, Main Set and Cool-Down differs from the previous bucket's
+individually — so the combination cannot repeat two buckets running without three simultaneous
+violations of a guarantee that has no failure branch. The now fully-dead `priorBucketRng`
+(previous-bucket simulation) was deleted rather than left as a silent no-op. One honest, disclosed
+exception: the **race-pace band guarantee** still pins a fixed archetype for a swimmer with an
+active Target Time and Speed selected — deliberate (that swimmer wants race-pace work every
+session) and the Warm-Up/Pre-Set/Cool-Down still rotate around it. The swimmerType bias also
+picked up a genuine correctness fix while being touched: it drew straight from the full
+SPEED/ENDURANCE array, bypassing the beginner/sprinter filters applied to `pool`, so it could hand
+a Beginner one of the very archetypes `BEGINNER_EXCLUDED_ARCHETYPES` exists to keep away from them
+— it now intersects with `pool` first, with the same empty-pool safety net every other filter uses.
+
+**A new `resizeSetDistance(set, newDist)` helper** adjusts an already-built set in place (title,
+interval and totalSec recomputed; label, gear, stroke, pace tag and zone untouched). The
+Cool-Down's grand-total reconciliation nudge needed it: `buildSet()` requires the original label
+text to rebuild a set, and the Cool-Down no longer owns that text now that it comes from a rotating
+blueprint. The nudge targets whichever cool-down set is largest (most room to absorb a change) and
+keeps the previous implementation's 50m floor for single-rep sets, so absorbing a big negative
+residual can never shrink a continuous easy swim to a lone 25.
+
+**A real measurement-artifact was caught and correctly diagnosed rather than "fixed" in product
+code.** The first end-to-end rotation test reported 3 consecutive Warm-Up repeats and 8 consecutive
+Cool-Down repeats — which should be impossible by construction. Rather than patching the generator,
+`dailyRotationPick()` was exercised directly across 16 buckets on all four pools: **zero consecutive
+repeats on every one**. The test was the problem — it compared rendered *text* (which collapses to
+empty for a closed `<details>` stage) through a broken `Date` shim. Rewritten to instrument
+`dailyRotationPick()` itself and record what the generator genuinely picked in a real
+`generateWorkout()` run, with a correct frozen-clock shim: **zero consecutive repeats on every
+stage AND on the combination, across 5 profiles × 24 consecutive 6-hour buckets** (Endurance/
+Competitive/Both, Speed/Competitive/Sprinter, Technique/Beginner/Both, Speed+Endurance/Elite/
+Distance, and all-three-goals/Competitive/Both), with 8-18 distinct values per stage per profile.
+
+**Distance accuracy was measured against the pre-change baseline rather than assumed.** Running the
+identical 96-run matrix (10 distances × 3 levels × 4 goal combinations) against a `git stash` of
+the pre-change tree: baseline **45/96 runs exceeded ±50m, worst 450m**; after this round, **23/96,
+worst 400m** — roughly half the deviations and a smaller worst case, i.e. this round measurably
+*improved* accuracy rather than regressing it (the rotating Cool-Down's proportional nudge absorbs
+residual better than the old fixed 50m-snapped rebuild of `cdParts[0]`). Accuracy is still not
+perfect at small totals — a real Warm-Up and Cool-Down structurally need a minimum volume that is
+proportionally large against a 1500m session — which is the same long-disclosed limitation this
+file already carries, not a new one.
+
+Verified via Playwright: all 9 tabs activate with zero page errors; a 6000m Elite Speed+Endurance
+session renders exactly on target (6000m requested, 6000m generated) with 3 genuinely distinct
+Main Set blocks; the new content actually renders (a real screenshot confirms "Broken 350 — Effort
+Tiers", "1 x 200m FR BE3 @ 70% — controlled, breathing every 3", the swiML Continue-Pair warm-up
+and the new Pre-Set/Main Set names on screen); the Cool-Down genuinely rotates through 8 distinct
+shapes across consecutive buckets; the `MAX_REPS_PER_SET = 10` chunking cap still holds across
+every rendered set; both the Workouts and Gym PDF exports still fire real `download` events; "Save
+to My Workouts" still bridges into the Custom Workout schema correctly (4 blocks / 13 sets, rep cap
+respected) and flips to its green saved state; the Live Mode and Complete Workout buttons still
+appear; and a 390px mobile viewport shows zero horizontal overflow on any tab. The `?v=`
+cache-bust token was bumped to `20260905a` across all 10 script tags (the new
+`js/pro-swim-database.js` included, loaded after the ADAC archive and before
+`js/workout-generator.js`), per this file's own standing rule.
