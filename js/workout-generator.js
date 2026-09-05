@@ -1111,6 +1111,23 @@
     var tag = paceTag || null;
     return { title: reps + ' x ' + dist + 'm ' + label, reps: reps, dist: dist, interval: interval, rest: rest, totalSec: reps * interval, gear: gearList, equipment: gearList, pace: Math.round(pace100), paceTag: tag, zone: zoneFromPaceTag(tag) };
   }
+  // Resizes an ALREADY-BUILT set's per-rep distance in place, keeping its
+  // label, gear, stroke, pace tag and zone exactly as its author wrote them.
+  // buildSet() needs the original label text to rebuild a set, and the
+  // Cool-Down's reconciliation nudge no longer owns that text now that the
+  // Cool-Down comes from a rotating blueprint — so it adjusts the set rather
+  // than reconstructing it. The interval scales with the distance so the
+  // send-off stays proportionate rather than being left at the old value.
+  function resizeSetDistance(set, newDist) {
+    if (!set || !(newDist > 0) || newDist === set.dist) return set;
+    var scale = newDist / set.dist;
+    // buildSet's own title format is exactly `reps + ' x ' + dist + 'm ' + label`.
+    set.title = set.title.replace(/^\d+ x \d+m /, set.reps + ' x ' + newDist + 'm ');
+    set.interval = Math.max(10, Math.round(set.interval * scale));
+    set.dist = newDist;
+    set.totalSec = set.reps * set.interval;
+    return set;
+  }
   // Converts an internal pace tag like "200 Pace" into a clean display label
   // ("200m Pace") with no specific clock time attached — descriptive tags
   // that are already clock-free (Recovery/Easy/Drill/Cruise/Threshold Pace)
@@ -1433,6 +1450,13 @@
   // keep their original 5-6 entries).
   if (window.SWIML_WARMUP_DRILL_PHRASES) { WARMUP_DRILL_POOL = WARMUP_DRILL_POOL.concat(window.SWIML_WARMUP_DRILL_PHRASES); }
   if (window.SWIML_WARMUP_KICK_PHRASES) { WARMUP_KICK_POOL = WARMUP_KICK_POOL.concat(window.SWIML_WARMUP_KICK_PHRASES); }
+  // js/pro-swim-database.js (loaded before this file) adds equipment-aware
+  // drill/kick vocabulary lifted from a further batch of real elite ADAC
+  // session sheets — paddles/pull-buoy, fins/kickboard, snorkel, ankle-band
+  // and chute variants, plus the specific named drills (catch-up, fingertip
+  // drag, fist freestyle, IM transitions, L-Pos/11-Pos) those sessions use.
+  if (window.PRO_WARMUP_DRILL_PHRASES) { WARMUP_DRILL_POOL = WARMUP_DRILL_POOL.concat(window.PRO_WARMUP_DRILL_PHRASES); }
+  if (window.PRO_WARMUP_KICK_PHRASES) { WARMUP_KICK_POOL = WARMUP_KICK_POOL.concat(window.PRO_WARMUP_KICK_PHRASES); }
 
   // WARM-UP STRUCTURAL BLUEPRINTS — genuinely different SHAPES, not the same
   // fixed opener/drill/kick/build skeleton every day with different label
@@ -1526,6 +1550,27 @@
   // blueprint (a real meet-day shape, not just vocabulary) — spliced in the
   // same way the swiML blueprints are. No-op if that file isn't loaded.
   if (window.ADAC_WARMUP_BLUEPRINTS) { WARMUP_BLUEPRINTS = WARMUP_BLUEPRINTS.concat(window.ADAC_WARMUP_BLUEPRINTS); }
+  // js/pro-swim-database.js adds 8 further Warm-Up STRUCTURES generalised
+  // from real elite session sheets — a five-line swim/kick/pull/IM/scull
+  // rotation, a kick ladder whose strong finish grows rep by rep, an
+  // ankle-pull opener, a swim/kick/pull BE3 block, a fins-underwater
+  // opener, a descending choice ladder, a snorkel body-line opener and a
+  // reverse-IM build. Taking the blueprint pool from 7 to 15 is what
+  // actually makes the Warm-Up rotation read as a rotation.
+  if (window.PRO_WARMUP_BLUEPRINTS) { WARMUP_BLUEPRINTS = WARMUP_BLUEPRINTS.concat(window.PRO_WARMUP_BLUEPRINTS); }
+
+  // COOL-DOWN STRUCTURAL BLUEPRINTS. Before this the Cool-Down was three
+  // hardcoded lines — the identical WD on every single generated session,
+  // forever, which is a real part of what "it keeps looping the same
+  // thing" meant. Unlike every other stage, a Cool-Down blueprint returns
+  // a FLAT array of sets (the Cool-Down's own existing shape) sized
+  // against an already-exact budget, because the Cool-Down is what
+  // reconciles the workout's grand total — it never goes through
+  // buildToShare(). The generator's own original three-line shape is kept
+  // as the first entry ('Long-Axis Loosen') rather than deleted, so the
+  // familiar Cool-Down is still one of the options the rotation can land
+  // on rather than being replaced outright.
+  var COOLDOWN_BLUEPRINTS = window.PRO_COOLDOWN_BLUEPRINTS || [];
 
   var SPEED_ARCHETYPES = [
     {
@@ -1677,6 +1722,14 @@
   if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.speed) {
     SPEED_ARCHETYPES = SPEED_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.speed);
   }
+  // js/pro-swim-database.js — 4 further speed structures generalised from
+  // real elite session sheets: the 125-variant speed-endurance set (four
+  // reps at one distance, four completely different internal fast/easy
+  // shapes), the odd-FAST/even-EZ group ladder, a descending-send-off
+  // hold set, and a broken race simulation with r:10 internal breaks.
+  if (window.PRO_MAIN_SET_ARCHETYPES && window.PRO_MAIN_SET_ARCHETYPES.speed) {
+    SPEED_ARCHETYPES = SPEED_ARCHETYPES.concat(window.PRO_MAIN_SET_ARCHETYPES.speed);
+  }
 
   var ENDURANCE_ARCHETYPES = [
     {
@@ -1823,6 +1876,15 @@
   if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.endurance) {
     ENDURANCE_ARCHETYPES = ENDURANCE_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.endurance);
   }
+  // js/pro-swim-database.js — 5 further endurance structures generalised
+  // from real elite session sheets: the MS/FR descending ladder with FAST
+  // and widening-breath rungs, a broken 400 with named 70/80/90% effort
+  // tiers, a hypoxic pull ladder (BE3->BE9) with resisted sprints between
+  // rungs, an IM-order transition rotation, and alternating ankle-pull /
+  // buoy-supported aerobic blocks.
+  if (window.PRO_MAIN_SET_ARCHETYPES && window.PRO_MAIN_SET_ARCHETYPES.endurance) {
+    ENDURANCE_ARCHETYPES = ENDURANCE_ARCHETYPES.concat(window.PRO_MAIN_SET_ARCHETYPES.endurance);
+  }
 
   // "Secret swimmer tricks" — subtle, coach-voice technique cues woven
   // directly into a Technique archetype's own set description (rather than a
@@ -1935,6 +1997,14 @@
   // provenance note).
   if (window.ADAC_MAIN_SET_ARCHETYPES && window.ADAC_MAIN_SET_ARCHETYPES.technique) {
     TECHNIQUE_ARCHETYPES = TECHNIQUE_ARCHETYPES.concat(window.ADAC_MAIN_SET_ARCHETYPES.technique);
+  }
+  // js/pro-swim-database.js — 5 further technique structures generalised
+  // from real elite session sheets: SWOLF descend-then-hold, a choice-kick
+  // ladder whose build interval changes each round, the four-body-position
+  // kick rotation (back / L-Pos / 11-Pos / streamline), a stroke-count
+  // descend ladder, and a loaded-then-unloaded equipment transfer ladder.
+  if (window.PRO_MAIN_SET_ARCHETYPES && window.PRO_MAIN_SET_ARCHETYPES.technique) {
+    TECHNIQUE_ARCHETYPES = TECHNIQUE_ARCHETYPES.concat(window.PRO_MAIN_SET_ARCHETYPES.technique);
   }
 
   var ARCHETYPE_POOLS = { speed: SPEED_ARCHETYPES, endurance: ENDURANCE_ARCHETYPES, technique: TECHNIQUE_ARCHETYPES };
@@ -2161,6 +2231,27 @@
     return ['Aerobic Lead-In', 'Feel & Technique Primer', 'Pull-Pressure Activation',
       'Hypoxic Breath Control'].indexOf(a.name) > -1;
   });
+  // js/pro-swim-database.js adds real SET 1 / SET 2 / SKILL blocks off the
+  // elite session sheets — the blocks that genuinely sit between the
+  // warm-up and the main set in a real program. They're spliced onto the
+  // correct physiological sub-pool DIRECTLY (turn skill, UWK bursts, SWOLF
+  // paddle primers, chute sprints, deadstart finishes and gear-transfer
+  // bursts prime the CNS; vertical kick, ankle-pull catch work, breath
+  // control, low-SC and pull-pressure work prime DPS/pacing) and then
+  // folded back into PRESET_ARCHETYPES, which presetPoolForGoals() uses as
+  // its combined both-goals-selected pool. The endurance side in
+  // particular was only 4 archetypes deep before this, so a pure Distance
+  // or Threshold day was rotating through a very small hand of options.
+  if (window.PRO_PRESET_ARCHETYPES) {
+    if (window.PRO_PRESET_ARCHETYPES.speed) {
+      PRESET_SPEED_ARCHETYPES = PRESET_SPEED_ARCHETYPES.concat(window.PRO_PRESET_ARCHETYPES.speed);
+      PRESET_ARCHETYPES = PRESET_ARCHETYPES.concat(window.PRO_PRESET_ARCHETYPES.speed);
+    }
+    if (window.PRO_PRESET_ARCHETYPES.endurance) {
+      PRESET_ENDURANCE_ARCHETYPES = PRESET_ENDURANCE_ARCHETYPES.concat(window.PRO_PRESET_ARCHETYPES.endurance);
+      PRESET_ARCHETYPES = PRESET_ARCHETYPES.concat(window.PRO_PRESET_ARCHETYPES.endurance);
+    }
+  }
   // Mirrors exactly how the Main Set's own archetype pool is chosen (see
   // `state.goals.reduce(...)` below) — Speed-only -> CNS priming,
   // Endurance-only -> DPS/pacing priming, both selected -> the swimmer is
@@ -2218,14 +2309,13 @@
     // draw from this — they use dailyRotationPick()'s guaranteed-non-repeat
     // walk instead (see above).
     postCompletionRng = makeSeededRandom(generatorVarianceSeed(new Date(), effectiveFocus().key));
-    // A separate, throwaway RNG seeded with the PREVIOUS 6-hour bucket, used
-    // only to simulate "what would this exact profile have produced last
-    // bucket" for the Pre-Set and first Main Set archetype — so a swimmer
-    // generating twice in the same day with unchanged settings never sees
-    // the identical headline archetype twice in a row. This never touches
-    // the real workoutRng, so the current bucket's own pick sequence stays
-    // exactly as deterministic as before.
-    var priorBucketRng = makeSeededRandom(freshnessSeed(new Date(Date.now() - SIX_HOUR_MS)));
+    // (The previous-bucket simulation RNG that used to live here is gone.
+    // It existed only to draw-and-compare the headline Main Set archetype
+    // against "what last bucket would have produced" — a check that is
+    // only probabilistically correct. The Main Set now walks on its own
+    // dailyRotationPick() salt instead, which is correct by construction,
+    // so nothing reads that simulated prior draw any more; it was removed
+    // rather than left as a silent no-op.)
     // FREEMIUM LEVEL GATE, defense-in-depth: Competitive/Elite are already
     // blocked at the UI layer (the levelTabs click handler and
     // updateLevelTabLocks() below), so this only ever fires for a stored
@@ -2480,16 +2570,49 @@
     // highest-CNS-demand work leads whichever block renders first — never
     // its own separate section, exactly as before this change.
     var mainBlockCount = totalM >= 5500 ? 3 : totalM >= 3000 ? 2 : 1;
+    // TRUE COMBINATION FRESHNESS — the Main Set now walks like the other
+    // two stages instead of being drawn and then checked.
+    //
+    // The previous approach picked the whole Main Set with pickN() (a
+    // bucket-seeded draw) and then compared block [0] against a SIMULATED
+    // previous-bucket draw, re-rolling on a collision. That is the same
+    // draw-and-compare pattern this file already replaced for the Warm-Up
+    // and Pre-Set precisely because it is only probabilistically correct —
+    // a bucket whose own pick needed the tie-break re-roll cannot have
+    // that re-roll reconstructed by the next bucket's independent
+    // simulation, so the guard silently misses. It also left the Main Set
+    // as the one stage participating in no by-construction guarantee at
+    // all, which is why the reported repetition survived every earlier
+    // fix aimed at the Warm-Up/Pre-Set.
+    //
+    // The headline Main Set archetype (block 0, the one a swimmer
+    // actually reads as "today's set") now comes from the same
+    // epoch-anchored dailyRotationPick() walk, on its own salt. Because
+    // that walk advances the pool index by a NON-ZERO step every 6-hour
+    // bucket, block 0 differs from the previous bucket's block 0 BY
+    // CONSTRUCTION — and since the Warm-Up blueprint (salt 1) and the
+    // Pre-Set archetype (salt 2) already carry the identical guarantee on
+    // their own independent walks, all three stages change together. The
+    // COMBINATION therefore cannot repeat two buckets running: it would
+    // require three simultaneous violations of a guarantee that has no
+    // failure branch. (The one degenerate case is a pool of length 1,
+    // where no rotation is possible at all — with the pools now 15 Warm-Up
+    // blueprints, 10-13 Pre-Sets and 15-20 Main Set archetypes deep, that
+    // cannot occur for any real goal selection.)
+    //
+    // Any remaining blocks still come from pickN() on the same
+    // bucket-seeded workoutRng, and pickN never repeats an archetype, so
+    // blocks 2/3 stay genuinely distinct from the headline and from each
+    // other.
     var chosenArchetypes = pickN(pool, mainBlockCount);
-    if (pool.length > 1) {
-      var priorFirstMainArchetype = pickOneFrom(priorBucketRng, pool);
-      if (chosenArchetypes[0] === priorFirstMainArchetype) {
-        var altMainPool = pool.filter(function (a) { return a !== priorFirstMainArchetype; });
-        var replacementMain = pickOne(altMainPool);
-        if (chosenArchetypes.indexOf(replacementMain) === -1) {
-          chosenArchetypes[0] = replacementMain;
-        }
-      }
+    var headlineMain = dailyRotationPick(pool, 3);
+    if (headlineMain) {
+      var existingIdx = chosenArchetypes.indexOf(headlineMain);
+      // Swap rather than overwrite, so promoting the headline into slot 0
+      // can never silently drop one of the other chosen archetypes or
+      // introduce a duplicate.
+      if (existingIdx > -1) { chosenArchetypes[existingIdx] = chosenArchetypes[0]; }
+      chosenArchetypes[0] = headlineMain;
     }
     // ELITE INTENSITY GUARANTEE: an Elite swimmer's Main Set is guaranteed to
     // draw from one of the pool's genuinely most demanding structures —
@@ -2508,7 +2631,11 @@
       var alreadyElite = chosenArchetypes.some(function (a) { return ELITE_INTENSITY_ARCHETYPE_NAMES.indexOf(a.name) > -1; });
       if (!alreadyElite) {
         var eliteCandidates = pool.filter(function (a) { return ELITE_INTENSITY_ARCHETYPE_NAMES.indexOf(a.name) > -1; });
-        if (eliteCandidates.length) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(eliteCandidates);
+        // Drawn from the same rotation WALK (own salt) rather than a plain
+        // bucket-seeded pickOne — otherwise this override, which fires on
+        // most Elite sessions, could re-draw the same candidate two
+        // buckets running and quietly undo the headline rotation above.
+        if (eliteCandidates.length) chosenArchetypes[chosenArchetypes.length - 1] = dailyRotationPick(eliteCandidates, 5);
       }
     }
     // SWIMMER TYPE BIAS: a Sprinter or Distance swimmer gets that emphasis
@@ -2523,7 +2650,21 @@
     if (state.swimmerType !== 'both' && chosenArchetypes.length) {
       var biasPool = state.swimmerType === 'sprinter' ? SPEED_ARCHETYPES : ENDURANCE_ARCHETYPES;
       var alreadyBiased = chosenArchetypes.some(function (a) { return biasPool.indexOf(a) > -1; });
-      if (!alreadyBiased) chosenArchetypes[chosenArchetypes.length - 1] = pickOne(biasPool);
+      if (!alreadyBiased) {
+        // Prefer candidates that survived the beginner/sprinter filters
+        // applied to `pool` above — the old code drew straight from the
+        // full SPEED/ENDURANCE array, so this override could hand a
+        // Beginner one of the very archetypes BEGINNER_EXCLUDED_ARCHETYPES
+        // exists to keep away from them. Falls back to the unfiltered
+        // bias pool only if the intersection is empty, matching the same
+        // safety-net pattern every other filter in this function uses.
+        var biasCandidates = biasPool.filter(function (a) { return pool.indexOf(a) > -1; });
+        if (!biasCandidates.length) biasCandidates = biasPool;
+        // Same rotation walk as the elite override above, own salt, for
+        // the same reason: this fires on every session for a Sprinter or
+        // Distance swimmer, so a re-draw here would dominate the result.
+        chosenArchetypes[chosenArchetypes.length - 1] = dailyRotationPick(biasCandidates, 6);
+      }
     }
     // RACE-PACE BAND GUARANTEE: a real Target Time (Race Goal) should
     // visibly change WHAT gets generated, not just quietly tighten the pace/
@@ -2663,27 +2804,52 @@
     var actualPresetM = sumRoundsMeters(preset.rounds);
     var actualMainM = main.reduce(function (sum, block) { return sum + sumRoundsMeters(block.rounds); }, 0);
     var cooldownBudgetM = Math.max(150, totalM - actualWarmupM - actualPresetM - actualMainM);
-    var cdParts = splitProportional(cooldownBudgetM, [0.5, 0.3, 0.2]);
-    var cdStroke1 = nextStroke();
-    var cdStroke1Full = nextStroke.current;
-    var cdSet0 = buildSet(1, cdParts[0], cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace');
-    cdSet0.stroke = cdStroke1Full;
-    var cdSet1 = buildSet(1, cdParts[1], 'BK EZ, loosen shoulders', [], pace100 + 24, 10, noScale, 'Recovery Pace');
-    cdSet1.stroke = 'Backstroke';
-    var cdSet2 = buildSet(1, cdParts[2], 'EZ Kick, settle HR', [], pace100 + 28, 10, noScale, 'Recovery Pace');
-    // Generic kick line — no single stroke identity, stroke stays null.
-    var cooldown = [cdSet0, cdSet1, cdSet2];
-    // Final reconciliation nudge: splitProportional's own 50m-snapping across
-    // 3 parts can leave a small residual even against an exact budget —
-    // absorb it into the largest, most flexible cool-down swim (a plain
-    // continuous easy swim takes any clean distance gracefully) so the
-    // GRAND total always lands within ±50m of the swimmer's chosen distance.
+    // ROTATING COOL-DOWN. This was three hardcoded lines — the identical WD
+    // on every generated session, forever — which is a real part of what
+    // "it keeps looping the same thing" meant. It now draws a genuinely
+    // different STRUCTURE from COOLDOWN_BLUEPRINTS on the same
+    // guaranteed-non-repeat walk every other stage uses (own salt), so a
+    // scull/catch-up/swim rotation, a low-stroke-count equipment flush, a
+    // long-stroke fins flush, a descending EZ ladder and a mixed-stroke
+    // unwind all appear in turn. The generator's own original three-line
+    // shape is kept as one of the blueprints rather than deleted.
+    var cooldownBlueprint = (COOLDOWN_BLUEPRINTS.length ? dailyRotationPick(COOLDOWN_BLUEPRINTS, 4) : null);
+    var cooldown;
+    if (cooldownBlueprint) {
+      cooldown = cooldownBlueprint.build(cooldownBudgetM, pace100, noScale, nextStroke, state.equipment) || [];
+    }
+    if (!cooldown || !cooldown.length) {
+      // Safety net if a blueprint ever returns nothing — a plain easy swim
+      // for the whole budget is always a valid cool-down.
+      var fallbackCd = buildSet(1, cooldownBudgetM, 'FR EZ — easy swim, settle the heart rate', [], pace100 + 22, 10, noScale, 'Recovery Pace');
+      fallbackCd.stroke = 'Freestyle';
+      cooldown = [fallbackCd];
+    }
+    // Final reconciliation nudge: a blueprint's own splitProportional
+    // 50m-snapping (and buildSet's rep rounding) can leave a small residual
+    // even against an exact budget — absorb it into whichever cool-down set
+    // is LARGEST, since that one has the most room to take a change without
+    // becoming nonsensical. Resizing in place (rather than rebuilding via
+    // buildSet with a label this code no longer owns) keeps every blueprint's
+    // own wording/gear/stroke intact, which is what lets the Cool-Down rotate
+    // freely while still GUARANTEEING the ±50m grand-total tolerance.
     var grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     var totalResidualM = totalM - grandTotalM;
     if (Math.abs(totalResidualM) > 50) {
-      var adjustedCd0 = Math.max(50, Math.round((cdParts[0] + totalResidualM) / 50) * 50);
-      cooldown[0] = buildSet(1, adjustedCd0, cdStroke1 + ' EZ, long-axis rotation', [], pace100 + 20, 10, noScale, 'Recovery Pace');
-      cooldown[0].stroke = cdStroke1Full;
+      var largestIdx = 0;
+      cooldown.forEach(function (s, i) {
+        if (s.reps * s.dist > cooldown[largestIdx].reps * cooldown[largestIdx].dist) largestIdx = i;
+      });
+      var target = cooldown[largestIdx];
+      var perRepDelta = Math.round(totalResidualM / target.reps);
+      // Same 50m floor the previous hardcoded Cool-Down used, so absorbing a
+      // large negative residual can never shrink a single continuous easy
+      // swim down to a lone 25. A multi-rep set can legitimately sit at 25m
+      // per rep (a real 4x25 EZ flush), so only single-rep sets take the
+      // higher floor.
+      var minDist = target.reps > 1 ? 25 : 50;
+      var adjustedDist = Math.max(minDist, Math.round((target.dist + perRepDelta) / 25) * 25);
+      resizeSetDistance(target, adjustedDist);
       grandTotalM = actualWarmupM + actualPresetM + actualMainM + sumSetsMeters(cooldown);
     }
 
