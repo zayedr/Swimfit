@@ -1249,6 +1249,147 @@
   // 2 reps × 0.75 still rounds to 2) — recomputing the ratio against the
   // still-too-high result and trying again a few times converges much closer
   // than hoping one pass is enough, without ever asking for a fractional rep.
+  // ROUND-TO-ROUND PROGRESSION — the real signature of the club sessions this
+  // generator is modeled on, and the fix for "the exercises just repeat."
+  //
+  // Measured directly before writing this: several archetypes emitted runs of
+  // BYTE-IDENTICAL rounds. The IM Aero rotation rendered `1x150 @187s /
+  // 2x50 @72s / 1x150 @184s` four times over (only the stroke word changed),
+  // and the sprint Group Ladder's Round 1 and Round 2 were the same three
+  // lines at the same three send-offs. Every real ADAC sheet does the
+  // opposite: something moves every round — the distance descends
+  // (3x200 -> 3x150 -> 3x100 -> 3x50, "desce to strong"), or the send-off
+  // tightens (@1:00 / :50 / :45), or the effort steps up.
+  //
+  // Rather than rewrite each archetype's own build() (a dozen separate,
+  // heavily-tuned functions), this is one universal post-pass on the same
+  // funnel chunkExcessiveReps() already uses, so every archetype and every
+  // blueprint inherits it at once.
+  //
+  // VOLUME-NEUTRAL BY CONSTRUCTION: within a run of n identical rounds the
+  // per-round distance offsets are symmetric about the original distance
+  // (n=2 -> +h,-h; n=3 -> +2h,0,-2h; n=4 -> +3h,+h,-h,-3h), so they always
+  // sum to exactly zero and rep counts never change. The run's total meters
+  // — and therefore the workout's grand total and the ±50m distance
+  // guarantee — are mathematically untouched. It runs LAST, after
+  // buildToShare()'s own scaling loop has finished, so it cannot interfere
+  // with that reconciliation either.
+  var ROUND_LADDER_SWING = 0.15;   // half-step size as a fraction of the round's own distance
+  var ROUND_SENDOFF_STEP = 0.035;  // extra send-off tightening per round, on top of the distance change
+  var ROUND_MIN_LADDER_DIST_M = 100; // below this there is no room to descend in 25m steps
+  var ROUND_MIN_RUNG_M = 50;         // the shortest rung a descent is allowed to produce
+
+  // The reps/distance/send-off fingerprint of a round — deliberately ignores
+  // label and stroke text, since the IM rotation's rounds differ ONLY by
+  // stroke word while being identical in every number a swimmer actually
+  // swims, which is exactly the repetition being targeted.
+  function roundShapeKey(r) {
+    return (r.sets || []).map(function (s) {
+      return s.reps + 'x' + s.dist + '@' + s.interval + '/' + (s.paceTag || '');
+    }).join('~');
+  }
+  function setDescription(s) {
+    var m = (s.title || '').match(/^\d+ x \d+m (.*)$/);
+    return m ? m[1] : (s.title || '');
+  }
+  function isCappedStrokeSet(s) {
+    var desc = setDescription(s);
+    return CAPPED_STROKES.some(function (name) { return desc.indexOf(name) === 0; });
+  }
+  // Finds the largest run starting at `start` that is a whole number of
+  // repetitions (>= 2) of some repeating pattern, returning the SMALLEST
+  // such period. Period 1 is the plain adjacent case — the same round twice
+  // in a row. Larger periods catch the other real shape this generator
+  // produces: the sprint Group Ladder emits [25s, 50s, 75s, 25s, 50s, 75s],
+  // where no two ADJACENT rounds match but the whole three-round cycle
+  // repeats verbatim, which reads just as repetitive to a swimmer.
+  function findRepeatingCycle(shapes, start) {
+    var avail = shapes.length - start;
+    for (var p = 1; p * 2 <= avail; p++) {
+      var cycles = 1;
+      while ((cycles + 1) * p <= avail) {
+        var same = true;
+        for (var q = 0; q < p; q++) {
+          if (shapes[start + cycles * p + q] !== shapes[start + q]) { same = false; break; }
+        }
+        if (!same) break;
+        cycles++;
+      }
+      if (cycles >= 2) return { period: p, cycles: cycles };
+    }
+    return null;
+  }
+
+  function applyRoundProgression(rounds) {
+    if (!rounds || rounds.length < 2) return rounds;
+    var shapes = rounds.map(roundShapeKey);
+    var i = 0;
+    while (i < rounds.length) {
+      var cyc = findRepeatingCycle(shapes, i);
+      if (!cyc) { i++; continue; }
+      var p = cyc.period, n = cyc.cycles;
+
+      // Work position by position — one "position" is a given set inside a
+      // given round of the pattern, which recurs once per cycle. Every
+      // position is judged on its own so a recovery flush or a 25m sprint
+      // sitting inside an otherwise-laddered cycle is left exactly as its
+      // archetype wrote it.
+      var anyLaddered = false;
+      for (var q = 0; q < p; q++) {
+        var setCount = rounds[i + q].sets.length;
+        for (var sIdx = 0; sIdx < setCount; sIdx++) {
+          var base = rounds[i + q].sets[sIdx];
+          // A recovery/flush swim is deliberately left flat — descending it
+          // and tightening its send-off would defeat the entire point of it.
+          if (base.paceTag === 'Recovery Pace') continue;
+
+          var h = 0;
+          if (base.dist >= ROUND_MIN_LADDER_DIST_M) {
+            h = Math.max(25, Math.round(base.dist * ROUND_LADDER_SWING / 25) * 25);
+            // Shrink the step until the shortest rung clears the floor; a step
+            // that cannot fit at all leaves this position flat (0) rather than
+            // producing a 25m fragment of what should be a long swim.
+            while (h >= 25 && base.dist - (n - 1) * h < ROUND_MIN_RUNG_M) h -= 25;
+            if (h < 25) h = 0;
+            // Backstroke/Breaststroke/Butterfly are capped at 200m per rep by
+            // buildSet(); a ladder that would push the top rung past that cap
+            // is skipped outright instead of silently tripping the cap's own
+            // rep-inflation, which would break this pass's volume neutrality.
+            if (h && isCappedStrokeSet(base) && base.dist + (n - 1) * h > STROKE_REP_CAP_M) h = 0;
+          }
+          if (h) anyLaddered = true;
+
+          for (var k = 0; k < n; k++) {
+            var s = rounds[i + k * p + q].sets[sIdx];
+            // Odd multiplier, symmetric about zero: (n-1), (n-3), ... -(n-1),
+            // so the offsets across the cycles always sum to exactly zero.
+            if (h) resizeSetDistance(s, s.dist + ((n - 1) - 2 * k) * h);
+            // Each cycle leaves on a slightly tighter send-off than the last,
+            // so the effort genuinely climbs rather than the reps merely
+            // getting shorter — the club sheets' own "@1:00 / :50 / :45".
+            if (k > 0) {
+              s.interval = Math.max(10, Math.round(s.interval * (1 - k * ROUND_SENDOFF_STEP)));
+              s.totalSec = s.reps * s.interval;
+            }
+          }
+        }
+      }
+      // Label honestly for what actually changed: a run of short sprint reps
+      // (every position under ROUND_MIN_LADDER_DIST_M) gets no distance
+      // ladder at all, only the tightening send-off, so calling it "descend"
+      // would describe something the swimmer cannot see on the page.
+      var progressionNote = anyLaddered ? ' — descend ' : ' — tighter send-off ';
+      for (var c = 0; c < n; c++) {
+        for (var r = 0; r < p; r++) {
+          var round = rounds[i + c * p + r];
+          if (round.label) round.label += progressionNote + (c + 1) + '/' + n;
+        }
+      }
+      i += p * n;
+    }
+    return rounds;
+  }
+
   function buildToShare(buildFn, targetM) {
     var rounds = buildFn();
     for (var i = 0; i < 4; i++) {
@@ -1258,7 +1399,7 @@
       if (sumRoundsMeters(scaled) === actualM) break; // no further reduction possible (every set already at 1 rep)
       rounds = scaled;
     }
-    return chunkExcessiveReps(rounds);
+    return applyRoundProgression(chunkExcessiveReps(rounds));
   }
 
   // rounds is an array of { label, sets } — label is a short round title

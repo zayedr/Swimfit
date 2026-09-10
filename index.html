@@ -72,7 +72,7 @@
   form-action 'self';
 ">
 -->
-<script type="module" src="js/firebase-service.js?v=20260905a"></script>
+<script type="module" src="js/firebase-service.js?v=20260910a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -188,6 +188,13 @@ input, textarea, select { font: inherit; color: inherit; }
 
   --space-1: 4px; --space-2: 8px; --space-3: 16px; --space-4: 24px;
   --space-5: 32px; --space-6: 48px; --space-7: 64px; --space-8: 96px;
+
+  /* Rendered height of the floating capsule nav (its --space-2 padding-block
+     plus its content row). A fixed constant, exactly like --announce-h above
+     — never JS-measured — and used only to reserve in-flow clearance beneath
+     the nav, which is position:fixed at every width and therefore occupies
+     no space of its own in the document flow. */
+  --nav-h: 58px;
 
   --shadow-1: 0 8px 24px rgba(0,0,0,0.35);
   --shadow-2: 0 20px 60px rgba(0,0,0,0.45);
@@ -1562,7 +1569,13 @@ html:has(body.view-home) { scroll-snap-type: y proximity; }
 .home-ticker-item {
   display: inline-flex; align-items: center; white-space: nowrap; padding-inline: var(--space-6);
   font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  font-size: 0.92rem; color: var(--aqua-bright); text-shadow: 0 0 14px rgba(255,255,255,0.65);
+  font-size: 0.92rem; color: var(--aqua-bright);
+  /* The glow used to be 0 0 14px rgba(255,255,255,0.65) — a wide white halo
+     around already-white text on a near-black bar, which softened every
+     letterform's edge and was a real part of why the copy read as unclear.
+     Dialed down to a tight, low-opacity lift that still separates the text
+     from the bar without blurring it. */
+  text-shadow: 0 0 6px rgba(255,255,255,0.28);
 }
 @keyframes homeTickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .home-ticker-track { animation: none; } }
@@ -3834,6 +3847,33 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   body.view-app .toast-stack { top: calc(var(--dash-ticker-h) + var(--announce-h, 0px) + 16px); }
 }
 
+/* ============================= DESKTOP: GLOBAL TICKER CLEARANCE =============================
+   A real, measured bug (not a visual guess): on desktop the capsule nav is
+   position:fixed, so it reserves NO room in #dashboard's normal flow, and
+   #dashboard's own --space-6 top padding was not enough to clear it. The
+   ticker — the first in-flow child of #dashboard — rendered with its top
+   edge 26px BEHIND the nav (nav bottom 118px, ticker top 92px at 1440x900),
+   with its marquee text colliding with the nav's lower edge, and its own
+   bottom edge sat flush at 0px against the panel heading below it.
+
+   The clearance below is the nav's real bottom edge relative to #dashboard's
+   top (--space-3, the nav's own offset, plus --nav-h) plus a --space-4 gap,
+   minus #dashboard's own --space-6 top padding, which already covers part of
+   it. Applied as a margin on the ticker rather than as extra #dashboard
+   padding so the panels below inherit the same corrected clearance without
+   any tab gaining unrelated whitespace of its own.
+
+   Scoped to the desktop breakpoint and declared AFTER the mobile block above
+   on purpose: below 981px the ticker is position:fixed at viewport y=0, where
+   a margin-top would push it off its own anchor rather than clear anything —
+   and with equal specificity, source order is what decides the winner. */
+@media (min-width: 981px) {
+  #dashGlobalTicker {
+    margin-top: calc(var(--space-3) + var(--nav-h) + var(--space-4) - var(--space-6));
+    margin-bottom: var(--space-5);
+  }
+}
+
 /* ============================= MARQUEE ROLE REVERSAL =============================
    Two prior rounds fought a "duplicate marquee" bug by hiding #homeTicker1/
    #homeTicker2 (the in-flow tickers sitting between Hero/Slide 2 and Slide 2/
@@ -4350,14 +4390,14 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
   <div class="home-ticker" id="dashGlobalTicker" aria-hidden="true">
     <div class="home-ticker-track">
       <div class="home-ticker-set">
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
       </div>
       <div class="home-ticker-set">
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
-        <span class="home-ticker-item">&#10022; Welcome to Swimfit &#10022; Push Your Limits &#10022; New Swim &amp; Gym Schedules &#10022;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
+        <span class="home-ticker-item">&middot;&nbsp; Welcome to Swimfit &nbsp;&middot;&nbsp; Fresh swim &amp; gym workouts every day &nbsp;&middot;&nbsp; Track every session &nbsp;</span>
       </div>
     </div>
   </div>
@@ -6704,12 +6744,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
      (JS-rendered, stale) wrong. GitHub Pages serves these assets cacheable
      and there's no build step to hash filenames, so this literal token is the
      cache key. Bump it (date + letter) on every deploy that touches js/. -->
-<script src="js/paddle-client.js?v=20260905a"></script>
-<script src="js/pdf-fonts.js?v=20260905a"></script>
-<script src="js/swiml-database.js?v=20260905a"></script>
-<script src="js/abu-dhabi-aquatics-database.js?v=20260905a"></script>
-<script src="js/pro-swim-database.js?v=20260905a"></script>
-<script src="js/workout-generator.js?v=20260905a"></script>
+<script src="js/paddle-client.js?v=20260910a"></script>
+<script src="js/pdf-fonts.js?v=20260910a"></script>
+<script src="js/swiml-database.js?v=20260910a"></script>
+<script src="js/abu-dhabi-aquatics-database.js?v=20260910a"></script>
+<script src="js/pro-swim-database.js?v=20260910a"></script>
+<script src="js/workout-generator.js?v=20260910a"></script>
 <script>
   /* ============================= SETTINGS: PROFILE + SPECIALTIES ============================= */
   (function wireSettingsPanel() {
@@ -8108,9 +8148,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   })();
 
 </script>
-<script src="js/tracker-service.js?v=20260905a"></script>
-<script src="js/admin-service.js?v=20260905a"></script>
-<script src="js/custom-workout.js?v=20260905a"></script>
+<script src="js/tracker-service.js?v=20260910a"></script>
+<script src="js/admin-service.js?v=20260910a"></script>
+<script src="js/custom-workout.js?v=20260910a"></script>
 <script>
   /* ============================= ADMIN MESSAGES WIDGET (user-facing inbox) =============================
      Every signed-in non-admin swimmer gets this floating widget so they can see

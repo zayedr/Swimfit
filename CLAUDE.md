@@ -7096,3 +7096,93 @@ appear; and a 390px mobile viewport shows zero horizontal overflow on any tab. T
 cache-bust token was bumped to `20260905a` across all 10 script tags (the new
 `js/pro-swim-database.js` included, loaded after the ADAC archive and before
 `js/workout-generator.js`), per this file's own standing rule.
+
+**A round fixing the global marquee's copy and its spacing (a real, measured desktop overlap), plus
+the generator's round-to-round repetition — "variety in distances and speeds," per the ADAC model.**
+
+- **The marquee copy was rewritten for clarity.** It read `✦ Welcome to Swimfit ✦ Push Your Limits
+  ✦ New Swim & Gym Schedules ✦` — three fragments strung together by sparkles with no breathing
+  room, which the user parsed as the single run-on phrase "a new swim gym social." It now reads
+  `· Welcome to Swimfit · Fresh swim & gym workouts every day · Track every session ·`, using
+  `&middot;` separators padded with `&nbsp;` so each phrase reads as its own complete statement.
+  All 6 spans (2 duplicated `.home-ticker-set` twins × 3 items each — the pair that makes the
+  `translateX(-50%)` loop seamless) were updated together; changing fewer would visibly break the
+  loop's own seam.
+- **A real desktop overlap, measured rather than eyeballed.** `#dashGlobalTicker` is the first
+  in-flow child of `#dashboard`, but the capsule nav is `position:fixed` at every width since the
+  Global Layout round, so it reserves no room in the flow — and `#dashboard`'s own `--space-6` top
+  padding was not enough to clear it. At 1440×900 the nav's bottom edge sat at 118px while the
+  ticker's top edge sat at **92px**: a 26px overlap, with the marquee text running directly into
+  the nav's lower edge (confirmed in a real screenshot, not just from the numbers). Its bottom edge
+  also sat flush at **0px** against the panel heading below. Fixed with a new `--nav-h: 58px` token
+  (a fixed constant exactly like the pre-existing `--announce-h`, never JS-measured) and a
+  desktop-scoped margin on the ticker: `calc(var(--space-3) + var(--nav-h) + var(--space-4) -
+  var(--space-6))` above, `var(--space-5)` below. Applied as a margin on the ticker rather than as
+  extra `#dashboard` padding so the panels below inherit the same corrected clearance without any
+  tab gaining unrelated whitespace. Scoped to `@media (min-width: 981px)` and declared AFTER the
+  existing mobile ticker block on purpose — below 981px the ticker is `position:fixed` at viewport
+  y=0, where a `margin-top` would push it off its own anchor rather than clear anything, and at
+  equal specificity source order decides the winner (this file's own repeatedly-documented lesson).
+  Re-measured after: ticker at 142→200px (a 24px gap under the nav), panel heading at 232px (a 32px
+  gap below), with mobile byte-identical (still fixed at y=0, margins correctly not applied).
+- **Legibility**: `.home-ticker-item`'s glow was `0 0 14px rgba(255,255,255,0.65)` — a wide white
+  halo around already-white text (the palette has since gone monochrome, `--aqua-bright: #FFFFFF`)
+  on a near-black bar, which softened every letterform's edge and was a genuine part of why the
+  copy read as unclear. Dialed to `0 0 6px rgba(255,255,255,0.28)`.
+
+- **The generator's real repetition was measured before anything was changed, and it was NOT the
+  archetype rotation** (that was fixed last round and still holds — zero consecutive repeats on
+  every stage and on the combination). It was *inside* a single generated workout: several
+  archetypes emitted runs of **byte-identical rounds**. The IM Aero rotation rendered
+  `1×150 @3:07 / 2×50 @1:12 / 1×150 @3:04` **four times over**, with only the stroke word changing;
+  the sprint Group Ladder's Round 1 and Round 2 were the same three lines at the same three
+  send-offs. Every real ADAC sheet does the opposite — something moves every round: the distance
+  descends (`3x200 → 3x150 → 3x100 → 3x50`, "desce to strong"), the send-off tightens
+  (`@1:00 / :50 / :45`), or the effort steps up.
+- **`applyRoundProgression()`** is one universal post-pass on the same funnel `chunkExcessiveReps()`
+  already uses, so every archetype and blueprint inherits it at once rather than a dozen separate,
+  heavily-tuned `build()` functions each being rewritten. It detects a repeating run and applies a
+  real progression: a **descending distance ladder** plus a **tightening send-off** per step.
+  - **Volume-neutral by construction.** Within a run of n identical rounds the per-round distance
+    offsets are symmetric about the original (`n=2 → +h,−h`; `n=3 → +2h,0,−2h`; `n=4 →
+    +3h,+h,−h,−3h`), so they always sum to exactly zero, and rep counts never change. It runs LAST,
+    after `buildToShare()`'s own scaling loop, so it cannot interfere with that reconciliation.
+    Verified empirically, not just argued: an instrumented wrapper measured meters before/after
+    every invocation across the full 96-run matrix and found **zero** non-neutral events (and zero
+    shared set-object references, the one way symmetric offsets could have double-applied).
+  - **Cycle detection, not just adjacency.** A first version only matched *adjacent* identical
+    rounds and therefore missed the Group Ladder entirely, whose rounds go `[25s, 50s, 75s, 25s,
+    50s, 75s]` — no two adjacent rounds match, but the whole three-round cycle repeats verbatim,
+    which reads just as repetitive. `findRepeatingCycle()` now finds the smallest period p whose
+    pattern repeats ≥2 times; p=1 reduces exactly to the adjacent case.
+  - **The shape key deliberately ignores label and stroke text** (`reps × dist @ interval / paceTag`
+    only) — the IM rotation's rounds differ ONLY by stroke word while being identical in every
+    number a swimmer actually swims, which is precisely the repetition being targeted.
+  - **Guards, each for a real reason**: a position under 100m is left flat (no room to descend in
+    25m steps); the step shrinks until the shortest rung clears a 50m floor, and a step that cannot
+    fit at all leaves that position alone rather than producing a 25m fragment of what should be a
+    long swim; a Backstroke/Breaststroke/Butterfly position whose top rung would exceed
+    `STROKE_REP_CAP_M` skips the ladder outright, since tripping `buildSet()`'s own rep-inflation
+    would break volume neutrality; and a `Recovery Pace` position is never laddered or tightened,
+    which would defeat the entire point of a flush.
+  - **Labels are honest about what actually changed**: a run of short sprint reps gets no distance
+    ladder at all, only the tightening send-off, so it is labeled `— tighter send-off N/M` rather
+    than `— descend N/M`, which would describe something not visible on the page.
+- Measured before → after, same seed and settings: the IM rotation went from four identical 150m
+  rounds to **225 → 175 → 125 → 75** with send-offs descending `4:41 → 3:30 → 2:25 → 1:24` and its
+  50s tightening `1:12 → 1:09 → 1:07 → 1:04` (confirmed in a real screenshot of the rendered block,
+  not only in the structured schema); the Group Ladder's Round 2 now leaves on tighter send-offs
+  (41→40s, 61→59s, 82→79s). Distinct `distance@send-off` pairs per workout rose from 16/27 → 25/27
+  (Endurance), 11/15 → 14/15 (Speed), 26/44 → 28/44 (Elite), with grand totals byte-identical.
+- **Distance accuracy was measured as a controlled experiment rather than against a stale number.**
+  Running the identical 96-run matrix with and without the new pass (via a `git stash` of only
+  `js/workout-generator.js`) gave **29/96 over ±50m, worst 450m in BOTH** — i.e. this round
+  introduced exactly zero drift. Note this differs from the `23/96, worst 400m` recorded in the
+  round above; that figure is stale and the current honest baseline is 29/96 — the with/without
+  comparison, not the cross-session one, is what actually isolates this round's effect.
+- Verified via Playwright: all 9 tabs with zero page errors; both the Workouts and Gym PDF exports
+  firing real `download` events; "Save to My Workouts" bridging correctly (5 blocks / 15 sets, rep
+  cap respected); Live Mode and Complete Workout buttons present; the archetype-rotation suite
+  still reporting zero consecutive repeats on every stage and on the combination; and zero
+  horizontal overflow at 390px. The `?v=` cache-bust token was bumped to `20260910a` across all 10
+  script tags, per this file's own standing rule.
