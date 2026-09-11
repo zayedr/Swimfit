@@ -7186,3 +7186,60 @@ the generator's round-to-round repetition — "variety in distances and speeds,"
   still reporting zero consecutive repeats on every stage and on the combination; and zero
   horizontal overflow at 390px. The `?v=` cache-bust token was bumped to `20260910a` across all 10
   script tags, per this file's own standing rule.
+
+**A Swim Coach mobile-responsive pass — the prompt chips and the top thread pills were rebuilt as
+real, uniform grids, with two genuine layout bugs found by measurement/screenshot rather than
+assumed. CSS-only; no markup, JS, Firestore or Cloud Function changes, so the `?v=` cache-bust
+token deliberately stays at `20260910a`.**
+
+- **Measured first, at 390px, before touching anything** — the complaint reproduced exactly. The
+  QUICK STARTS chips rendered at **127 / 167 / 149 / 146px**, each on its own line; STROKE ANALYSIS
+  at **163 / 125 / 138 / 156 / 131px**, with only two of the five ever sharing a row. Every chip was
+  **35px tall** — under any real touch-target floor. The four top pills were worse: **139 / 115 / 79
+  / 131px** wrapping across two ragged rows, at **two different heights** (36px vs 40px), because
+  `#coachNewThreadBtn` is a `.btn.btn-outline-aqua.btn-sm` while its three siblings are the bespoke
+  `.coach-thread-quick-btn` — a genuine component mismatch (radius `10px` vs `6px`, padding `10px
+  14px` vs `6.86px 9.98px`, uppercase vs sentence case), exactly what the report described.
+- **A real clipping bug the numbers alone didn't show, caught in a screenshot**: the mobile
+  `.coach-threads-sidebar` carried `max-height: 160px`, which sliced the thread cards off **mid-row**
+  — "General" and "Butterfly Technique" were visibly cut through their own preview line. It was
+  technically scrollable (the base rule has `overflow-y: auto`), but a card severed mid-content reads
+  as broken, not as an affordance. Replaced with `max-height: none` so the strip sizes to its
+  content, plus a horizontally-scrolling single-row thread list
+  (`flex-wrap: nowrap; overflow-x: auto`, items at `flex: 0 0 min(190px, 62%)`, scrollbar hidden) so
+  a long thread list can never push the header and the conversation itself off the bottom of the
+  screen. Net strip height 160px (clipped) → 209px (nothing clipped), and the header's own padding
+  was trimmed `--space-4 --space-5` → `--space-3` (96px → 80px) plus a smaller 36px avatar so the two
+  together don't crowd the chat.
+- **Both chip rows and the pill strip are now CSS grids**, scoped to `.coach-prompt-row` and
+  `.coach-threads-quickstart` — deliberately NOT the bare `.coach-prompt-chip` class, which the
+  Workouts and Gym inline AI panels also use inside `.workout-ai-chips`; verified empirically after
+  the change that those chips are still `display:flex` containers with 999px pills at 35px, byte-for-
+  byte unchanged. Each chip became `display:flex` centered with `white-space: normal`,
+  `min-height: 44px`, `height: 100%` and `border-radius: var(--radius)`, and the grid's own default
+  stretch makes both chips in a row match height even when one wraps to two lines (measured 46/46 at
+  360px, 44/44 elsewhere). `.coach-prompt-chip-stroke::before` (the leading glow dot) needed
+  `flex: 0 0 6px` — once the chip is a flexbox that dot becomes a flex item and would otherwise
+  collapse beside wrapping text.
+- **`repeat(auto-fit, minmax(min(120px, 100%), 1fr))`, not a hard 2 columns — a real bug caught by
+  sweeping the breakpoint rather than only testing phone widths.** A hardcoded 2-column grid gave the
+  right answer at 320-414px but produced **347px-wide pills at 768px**, since the Coach sidebar
+  stacks at 780px and a tablet is still inside that query. The auto-fit maths lands on exactly 2
+  columns at every phone width (a 120px minimum against a ~250-350px row) and 4-5 sensible columns at
+  600-768px.
+- **`#coachNewThreadBtn` is now byte-for-byte identical to its three siblings** in border-width,
+  radius, font-size, font-family, text-transform, padding and height (verified via `getComputedStyle`,
+  not by eye) — including dropping `.btn-outline-aqua`'s 2px border to a 1px hairline. Its accent
+  border *colour* was deliberately kept, so it still reads as the primary action of the group
+  without being a differently-shaped component.
+- Verified via Playwright at 320 / 360 / 390 / 414 / 600 / 768px: every chip and pill is identical in
+  width within its row, every row is height-matched, all are ≥44px, and a `scrollWidth`/`scrollHeight`
+  vs `clientWidth`/`clientHeight` sweep finds **zero clipped text** anywhere — necessary because these
+  buttons are `justify-content: center`, the exact centering-clip trap this file has already
+  documented twice (the Log Out button and the promo-popup CTA), where a fitting bounding box is not
+  proof the label survived. **Desktop is byte-identical to the pre-change measurement** at 781px and
+  1440px (pills 207×36 radius 6px plus New Thread 207×40 radius 10px; chips 127/167/149/146 and
+  163/125/138/156/131 at 35px) — re-measured explicitly rather than assumed from the media query. The
+  full pre-existing regression suite (all 9 tabs, a 4-stage generated workout, both PDF exports firing
+  real `download` events, Save to My Workouts, Live Mode and Complete Workout buttons, zero mobile
+  overflow) passes unchanged with zero page errors.
