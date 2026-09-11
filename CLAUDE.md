@@ -7243,3 +7243,96 @@ token deliberately stays at `20260910a`.**
   full pre-existing regression suite (all 9 tabs, a 4-stage generated workout, both PDF exports firing
   real `download` events, Save to My Workouts, Live Mode and Complete Workout buttons, zero mobile
   overflow) passes unchanged with zero page errors.
+
+**The Swim Coach page was rebuilt into a real full-screen chat dashboard on mobile, fixing a
+genuinely unusable composer. Markup (one wrapper div) + CSS only — no JS, Firestore or Cloud
+Function changes, so the `?v=` cache-bust token deliberately stays at `20260910a`.**
+
+- **Measured first at 390x844 while signed in, and the report's own diagnosis turned out to be
+  only half the story.** The complaint was that the composer was "overlapped by the floating
+  buttons and the bottom nav." Measurement found something more basic underneath that:
+  `#coachPageForm` rendered at **y=994 inside an 844px viewport** — the entire composer was ~150px
+  **below the fold on load**, so `elementFromPoint` over it returned `null` (outside the viewport
+  entirely), not a covering element. The page had to be scrolled before the composer existed on
+  screen at all.
+- **Once scrolled to, the overlap complaint was exactly right and worse than described.**
+  `elementFromPoint` over the **Send** button returned `#coachFab`, and over the **Attach** button
+  returned `#adminMsgFab` — both controls were genuinely untappable behind the two floating chat
+  bubbles. The text field itself happened to be reachable between them, which is why the surface
+  read as "sort of works but you can't send." A screenshot confirmed both FABs sitting directly on
+  the composer row.
+- **Root cause of the off-screen composer: vertical budget, not z-index.** The shell is
+  `height: min(72vh, 760px)` but started at **y=359**, because the page-level section head
+  (eyebrow + "Your Coach, On Call" + a two-line description) cost ~225px directly under a 134px
+  fixed nav. `#coachPageMessages` was consequently crushed to **64px** tall, and the quick-start /
+  stroke-analysis chips were being clipped by the shell's own `overflow: hidden` because prompts
+  and messages were competing for the same flex height.
+- **The fix**: on mobile the signed-in shell is sized to fill the gap between the nav and the
+  bottom nav — `calc(100svh - --dash-ticker-h - --announce-h - --nav-h - --bottom-nav-h -
+  env(safe-area-inset-bottom) - --space-5)` — built from the same tokens the nav itself is
+  positioned from, so it follows the announcement bar being dismissed (`--announce-h -> 0px`) and
+  the iOS home indicator with zero JS measurement. `min-height` is reset because the base rule's
+  480px floor would overflow a short phone. The duplicated section head is hidden on mobile (the
+  chat carries its own "Swim Coach / Ready to help" header and the bottom nav already marks the tab
+  active); signed-out visitors keep their in-flow sign-in card untouched.
+- **A real bug was hit and corrected mid-implementation, not papered over: `position: fixed` does
+  not work here.** The first attempt pinned the shell with `position: fixed` + `top`/`bottom`, and
+  it collapsed to **2px tall**, anchored at y=286 instead of the viewport. Cause: `.tab-panel`
+  carries `transform: translateY(16px) scale(0.994)`, and a transformed ancestor becomes the
+  containing block for any fixed descendant. Replaced with the in-flow height above, which doesn't
+  depend on that at all.
+- **Prompts and messages now share ONE scroll container** (a new `.coach-page-scroll` wrapper —
+  both element ids inside are unchanged, and `promptsEl` is only ever touched via `.style.display`
+  and a click listener, never parent/sibling traversal, so no JS change was needed). The wrapper
+  owns `overflow-y: auto` + `overscroll-behavior: contain` + a `--space-6` bottom pad; the messages
+  pane's own `flex`/`overflow` are neutralised on mobile so two scrollers can never nest, which is
+  what clipped the chips before.
+- **A regression this change introduced on DESKTOP was caught by measuring, not assumed away.** As
+  a plain block div the new wrapper let `#coachPageMessages` (`flex: 1`) collapse to content
+  height — **269px -> 64px at 1440x900** — which also killed its own scrolling. Fixed with an
+  unconditional `.coach-page-scroll { flex:1; min-height:0; display:flex; flex-direction:column;
+  overflow:hidden }` base rule, restoring the exact previous layout. Verified by diffing computed
+  styles/heights for the shell, sidebar, header, messages, prompts, form, hint and chips against a
+  `git stash` of the pre-change tree: **IDENTICAL**.
+- **Both floating bubbles are gone from this tab.** `#coachFab` opens the same conversation as the
+  page it floats over, so it is hidden on the Coach tab at **every** width via
+  `body:has(#dashboard[data-active-tab="coach"])` (`:has()` is already used elsewhere in this
+  file). `#adminMsgFab` is a genuinely different feature, so it is hidden only on mobile, where it
+  measurably covered the Attach button. **This turned out to fix desktop as well**: proved by
+  running the same hit-test against a stash of the original — on desktop the Send button, once
+  scrolled to, returned `topEl: #coachFab` and `tappable: false` before, and `tappable: true`
+  after, with the composer's geometry byte-identical (y=992 in both).
+- **The two widget rows are now the same shape.** The quick-create pills were a 2-row grid stacked
+  above the thread row, eating ~200px of a 612px shell — a third of the screen before any
+  conversation appeared. Both are now one horizontally-scrolling row of uniform-height chips.
+  **A real CSS trap was hit here**: setting `display: flex; flex-wrap: nowrap` was not enough,
+  because the base rule's `flex-direction: column` survived and simply stacked all four pills
+  vertically (measured 202px) — `flex-direction: row` has to be set explicitly. This refines rather
+  than reverts the previous round's grid: that fixed ragged wrapping and mismatched heights, and
+  both still hold. Net effect at 390x844: sidebar **291px -> 135px**, header 80 -> 64, and the
+  conversation area **116px -> 298px** (2.6x).
+- **A short-viewport reclaim for small phones.** At 320x568 there are only ~336px left after the
+  ticker, announcement bar, nav and bottom nav take their cut; the chat area measured 48px and the
+  composer hint clipped mid-sentence. A `(max-width:780px) and (max-height:720px)` block drops the
+  three purely supplementary lines — the composer hint, the thread preview line, and the "Ready to
+  help" status — each genuinely redundant, taking the chat area to **86px**. Disclosed limitation:
+  at 320px the composer's long placeholder still wraps and truncates inside the 45px textarea; the
+  field itself works and typing was verified, but the placeholder is cosmetically cut.
+- **Deliberately NOT done, with reasoning**: the requested `padding-bottom: 90px+` on the scroll
+  container. Once the composer is a non-scrolling flex sibling pinned below the scroll region
+  (rather than something the content scrolls underneath), 90px of padding would just be dead space
+  — `--space-6` (48px) is what actually keeps the last chip clear. Also left alone: the page still
+  scrolls past the shell into the footer, exactly as every other tab does.
+- Verified via Playwright at 320/360/390/414/768/1024/1440px: the shell clears the bottom nav at
+  every mobile width, and Input, Send and Attach all return `tappable: true` via `elementFromPoint`
+  — the same check that proved the bug. Zero clipped text across every button in the panel
+  (`scrollWidth`/`scrollHeight` vs client), zero horizontal overflow, both FABs hidden, section
+  head hidden on mobile and restored on desktop. End-to-end functional test against a routed mock
+  of `aiSwimCoach`: typing, clicking Send, the user bubble rendering, prompts auto-hiding and the
+  real reply landing all work, with the composer still in-viewport and tappable afterwards. Two
+  apparent failures during verification were traced to the harness, not the product, before being
+  "fixed" — a prompt chip appears not to fill the input because its handler calls
+  `form.requestSubmit()` immediately, and an early run left Send disabled because the mock omitted
+  `window.__firebaseGetIdToken`. Full pre-existing regression suite (all 9 tabs, a 4-stage
+  generated workout, both PDF exports firing real `download` events, Save to My Workouts, Live
+  Mode and Complete Workout) passes unchanged with zero page errors.
