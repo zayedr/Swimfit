@@ -3518,6 +3518,163 @@ body.live-workout-active { overflow: hidden; }
   .coach-page-messages .coach-bubble { max-width: 88%; }
 }
 
+/* ============== SWIM COACH — MOBILE FULL-SCREEN DASHBOARD ==============
+   Declared AFTER every unconditional .coach-* rule above (including
+   `.coach-page-messages { padding: var(--space-5) }` and the 640px block),
+   because equal-specificity conflicts in this file are decided by SOURCE
+   ORDER, not by which rule sits in a media query. The previous round's
+   mobile `.coach-page-messages` padding was written above that plain rule
+   and was therefore being silently cancelled by it.
+
+   THE THREE BUGS THIS FIXES, all measured at 390x844 while signed in:
+   1. #coachPageForm rendered at y=994 inside an 844px viewport — the
+      composer was ~150px BELOW the fold on load, not merely overlapped.
+   2. After scrolling down to it, elementFromPoint over the Send button
+      returned #coachFab, and over the Attach button returned #adminMsgFab:
+      both controls were genuinely untappable behind the floating bubbles.
+   3. #coachPageMessages was crushed to 64px tall and the quick-start /
+      stroke-analysis chips were clipped by the shell's own overflow:hidden,
+      because prompts + messages were competing for the same flex height. */
+
+/* The new prompts+messages wrapper must be layout-transparent on desktop, or
+   it changes a surface nobody asked to change: as a plain block div it let
+   #coachPageMessages (flex: 1) collapse to content height — measured as a
+   real regression, 269px -> 64px at 1440x900, which also killed its own
+   scrolling. Making the wrapper a flex column that fills the shell restores
+   the exact previous behaviour (prompts fixed on top, messages filling the
+   rest and scrolling). The mobile block below overrides overflow to `auto`
+   so the wrapper itself becomes the scroller there. */
+.coach-page-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The Coach FAB opens the same conversation as the page it is floating over,
+   so on this tab it is pure clutter at ANY width. The Support FAB is a
+   genuinely different feature, so it is only hidden where it measurably
+   covers the composer (below). */
+body:has(#dashboard[data-active-tab="coach"]) #coachFab { display: none !important; }
+
+@media (max-width: 780px) {
+  body:has(#dashboard[data-active-tab="coach"]) #adminMsgFab { display: none !important; }
+
+  /* The chat already carries its own "Swim Coach / Ready to help" identity
+     header, and the bottom nav already marks the tab active — so the
+     page-level section head is duplicated chrome that was costing ~225px of
+     vertical budget, which is the direct reason the composer fell below the
+     fold. Signed-out visitors keep their in-flow sign-in card unchanged. */
+  #panel-coach .section-head { display: none; }
+
+  /* One full-screen surface filling the gap between the nav and the bottom
+     nav, sized from the same tokens the nav itself is positioned from — so
+     it follows the announcement bar being dismissed (--announce-h -> 0px)
+     and the iOS home indicator with zero JS measurement.
+
+     Deliberately sized IN FLOW rather than with position:fixed: `.tab-panel`
+     carries `transform: translateY(16px) scale(0.994)`, and a transformed
+     ancestor becomes the containing block for any fixed descendant — a first
+     attempt at fixed positioning here collapsed the shell to 2px tall because
+     it anchored to the panel instead of the viewport. Measured, not assumed.
+
+     min-height is reset because the base rule's 480px floor would otherwise
+     overflow a short phone (an iPhone SE has ~350px of room here). */
+  #panel-coach .coach-page-shell[data-auth-signed-in] {
+    height: calc(100svh
+                 - var(--dash-ticker-h, 0px)
+                 - var(--announce-h)
+                 - var(--nav-h)
+                 - var(--bottom-nav-h)
+                 - env(safe-area-inset-bottom, 0px)
+                 - var(--space-5));
+    min-height: 0;
+    border-radius: var(--radius-lg);
+  }
+  #panel-coach .coach-page-shell[data-auth-signed-in] #coachPageChatWrap { flex: 1; min-height: 0; }
+  #panel-coach .coach-threads-main { flex: 1; min-height: 0; }
+
+  /* The thread strip is a widget, not the main event. Measured at 390x844 it
+     was eating ~200px of a 612px shell — a third of the screen before any
+     conversation was visible — because the quick-create pills sat in a 2-row
+     grid stacked above the thread row. Both are now the SAME shape: one
+     horizontally-scrolling row of uniform-height chips, which is both more
+     compact and the "cohesive widgets, consistent spacing" the layout wants.
+     This refines (not reverts) the previous round's grid: that fixed ragged
+     wrapping and mismatched heights, and both of those still hold here. */
+  #panel-coach .coach-threads-sidebar {
+    flex-shrink: 0;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  #panel-coach .coach-threads-quickstart {
+    display: flex;
+    /* The base rule is `flex-direction: column`; without overriding it here
+       `flex-wrap: nowrap` just stacked all four pills vertically (measured
+       202px tall). Must be set explicitly, not inherited. */
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--space-2);
+    margin-bottom: 0;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  #panel-coach .coach-threads-quickstart::-webkit-scrollbar { display: none; }
+  #panel-coach .coach-threads-quickstart > .coach-thread-quick-btn,
+  #panel-coach .coach-threads-quickstart > #coachNewThreadBtn {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  /* THE one scrolling region: prompts + messages together, so the chips
+     scroll with the conversation instead of fighting it for flex height. */
+  #panel-coach .coach-page-scroll {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    display: flex; flex-direction: column;
+    padding-bottom: var(--space-6);
+  }
+  /* Neutralise the messages pane's own flex/scroll — the wrapper owns both
+     now, and nesting two scrollers is what clipped the chips before. */
+  #panel-coach #coachPageMessages {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding: var(--space-3) var(--space-3) 0;
+  }
+  #panel-coach .coach-page-prompts { padding: var(--space-3) var(--space-3) 0; }
+
+  /* Header and hint are the two remaining fixed costs eating the
+     conversation's height — trimmed so the scroll region gets the space. */
+  #panel-coach .coach-page-header { padding: var(--space-2) var(--space-3); }
+  #panel-coach .coach-page-hint { font-size: 0.66rem; line-height: 1.3; }
+
+  /* The composer never scrolls away and never shrinks. */
+  #panel-coach .coach-page-attachments { flex-shrink: 0; }
+  #panel-coach .coach-page-form {
+    flex-shrink: 0;
+    padding: var(--space-3);
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* A short phone (iPhone SE, 320x568) has only ~336px left after the ticker,
+   announcement bar, nav and bottom nav take their cut — measured, the chat
+   area was squeezed to 48px and the composer's hint clipped mid-sentence.
+   Drop the three purely supplementary lines to buy it back (~65px). Each is
+   genuinely redundant: the camera icon explains the attach button, the
+   thread title alone identifies a thread, and "Ready to help" is decorative. */
+@media (max-width: 780px) and (max-height: 720px) {
+  #panel-coach .coach-page-hint,
+  #panel-coach .coach-thread-item-preview,
+  #panel-coach .coach-page-header-status { display: none; }
+  #panel-coach .coach-page-header { padding: var(--space-2) var(--space-3); }
+}
+
 /* ============================= DISTANCE TRACKER =============================
    The site-wide cardless pass left these completely bare — no border, no
    fill — which read as "broken," not "clean," once real numbers and inputs
@@ -4632,6 +4789,12 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
                 <span class="coach-page-header-status"><span class="coach-status-dot"></span> Ready to help</span>
               </div>
             </div>
+            <!-- Prompts + messages share ONE scroll container so the quick-start
+                 and stroke-analysis chips can never be clipped by the chat area
+                 stealing their height — on mobile this is the page's only
+                 scrolling region, and it carries the bottom padding that keeps
+                 the last chip clear of the pinned composer. -->
+            <div class="coach-page-scroll" id="coachPageScroll">
             <div class="coach-page-prompts" id="coachPagePrompts">
               <div class="coach-prompt-group">
                 <span class="coach-prompt-group-label"><svg class="icon"><use href="#i-bolt"/></svg> Quick starts</span>
@@ -4654,6 +4817,7 @@ html.announce-dismissed .announce-bar { pointer-events: none; }
               </div>
             </div>
             <div class="coach-messages coach-page-messages" id="coachPageMessages"></div>
+            </div><!-- /.coach-page-scroll -->
             <div class="coach-page-attachments" id="coachPageAttachments" hidden></div>
             <form class="coach-page-form" id="coachPageForm">
               <div class="coach-page-form-row">
